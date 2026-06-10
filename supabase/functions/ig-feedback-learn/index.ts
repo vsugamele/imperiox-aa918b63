@@ -84,6 +84,18 @@ Deno.serve(async (req) => {
           });
           console.log(`[ig-feedback] Added good reply to knowledge base for project ${project_id}`);
         }
+
+        // Log to ai_actions so the "Evolução de Prompts" panel shows history
+        await supa.from("imphq_ai_actions").insert({
+          projeto_id: project_id,
+          kind: "refine_skill",
+          risk_level: "low",
+          status: "completed",
+          title: "✅ Resposta aprovada adicionada à base",
+          reason: `O operador aprovou uma resposta da IA. A dupla pergunta/resposta foi adicionada à knowledge base via embedding para melhorar futuras respostas.`,
+          source: "ig-feedback-learn",
+          payload: { message_id, question: question?.slice(0, 200), answer: answer?.slice(0, 200) },
+        });
       }
     }
 
@@ -101,6 +113,18 @@ Deno.serve(async (req) => {
         });
         console.log(`[ig-feedback] Added correction to knowledge base for project ${project_id}`);
       }
+
+      // Log correction to ai_actions
+      await supa.from("imphq_ai_actions").insert({
+        projeto_id: project_id,
+        kind: "refine_prompt",
+        risk_level: "low",
+        status: "completed",
+        title: "✏️ Correção do operador incorporada",
+        reason: `O operador corrigiu uma resposta da IA. A correção foi adicionada à knowledge base: "${correction?.slice(0, 150)}"`,
+        source: "ig-feedback-learn",
+        payload: { message_id, correction: correction?.slice(0, 300) },
+      });
     }
 
     return new Response(JSON.stringify({ ok: true }), {

@@ -1,5 +1,5 @@
 // Instagram API proxy — token e configs por projeto, em imphq_integration_credentials
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -298,6 +298,56 @@ Deno.serve(async (req) => {
         });
       }
       return json({ success: true, message_id: messageId });
+    }
+
+    // ============ SET_ICEBREAKERS ============
+    if (action === "set_icebreakers") {
+      const { project_id, icebreakers } = body;
+      if (!project_id || !Array.isArray(icebreakers)) {
+        return json({ error: "project_id e array de icebreakers são obrigatórios" }, 400);
+      }
+      const creds = await getCreds(supa, project_id);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+
+      // format for Meta API
+      const metaIcebreakers = icebreakers
+        .filter((q: string) => q && q.trim())
+        .map((q: string, idx: number) => ({
+          question: q.trim().slice(0, 80), // Meta limit is 80 chars
+          payload: `ICEBREAKER_${idx + 1}`
+        }));
+
+      if (metaIcebreakers.length === 0) {
+        const r = await fetch(`${GRAPH}/me/messenger_profile?access_token=${creds.page_access_token}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform: "instagram",
+            fields: ["ice_breakers"]
+          })
+        });
+        const data = await r.json();
+        if (data.error) return json({ error: data.error.message }, 400);
+        // Persist to DB
+        creds.icebreakers = [];
+        await saveCreds(supa, project_id, creds);
+        return json({ success: true, deleted: true });
+      } else {
+        const r = await fetch(`${GRAPH}/me/messenger_profile?access_token=${creds.page_access_token}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform: "instagram",
+            ice_breakers: metaIcebreakers
+          })
+        });
+        const data = await r.json();
+        if (data.error) return json({ error: data.error.message }, 400);
+        // Persist to DB
+        creds.icebreakers = metaIcebreakers.map((i: any) => i.question);
+        await saveCreds(supa, project_id, creds);
+        return json({ success: true, ice_breakers: metaIcebreakers });
+      }
     }
 
     // ============ REPLY_COMMENT ============

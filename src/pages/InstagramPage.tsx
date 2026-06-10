@@ -14,7 +14,7 @@ import {
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
   Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink,
-  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown
+  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -137,6 +137,177 @@ export default function InstagramPage() {
   const [testQuery, setTestQuery] = useState("");
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+
+  // Icebreakers / FAQ initial questions state
+  const [icebreakers, setIcebreakers] = useState<string[]>(["", "", "", ""]);
+  const [savingIcebreakers, setSavingIcebreakers] = useState(false);
+
+  // SDR Lead enrichment state
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [enriching, setEnriching] = useState(false);
+
+  // Funnel view mode & metrics
+  const [funnelViewMode, setFunnelViewMode] = useState<"kanban" | "metrics">("kanban");
+  const [funnelMetrics, setFunnelMetrics] = useState({
+    comments: 0,
+    sentDms: 0,
+    repliedDms: 0,
+    waBridges: 0,
+    loading: false
+  });
+
+  const [triggerSourceType, setTriggerSourceType] = useState<"all" | "dm" | "story" | "story_mention" | "specific">("all");
+
+  const loadLeadData = useCallback(async (conv: IgConversation) => {
+    const leadId = conv.lead_id || `ig_${conv.participant_id}`;
+    const { data } = await supabase
+      .from("imphq_leads")
+      .select("*")
+      .eq("id", leadId)
+      .maybeSingle();
+    setSelectedLead(data || null);
+  }, []);
+
+  useEffect(() => {
+    if (selectedConv) {
+      loadLeadData(selectedConv);
+    } else {
+      setSelectedLead(null);
+    }
+  }, [selectedConv, loadLeadData]);
+
+  const loadIcebreakers = useCallback(async (projectId: string) => {
+    const { data } = await supabase
+      .from("imphq_integration_credentials")
+      .select("credentials")
+      .eq("project_id", projectId)
+      .eq("provider", "instagram")
+      .maybeSingle();
+    
+    if (data?.credentials?.icebreakers && Array.isArray(data.credentials.icebreakers)) {
+      const qs = [...data.credentials.icebreakers];
+      while (qs.length < 4) qs.push("");
+      setIcebreakers(qs.slice(0, 4));
+    } else {
+      setIcebreakers(["", "", "", ""]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      loadIcebreakers(selectedProjectId);
+    }
+  }, [selectedProjectId, loadIcebreakers]);
+
+  const handleSaveIcebreakers = async () => {
+    if (!selectedProjectId) return;
+    setSavingIcebreakers(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("instagram-api", {
+        body: {
+          action: "set_icebreakers",
+          project_id: selectedProjectId,
+          icebreakers: icebreakers
+        }
+      });
+      if (error) throw error;
+      toast.success("Icebreakers (FAQ) salvos e sincronizados com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar icebreakers: " + err.message);
+    } finally {
+      setSavingIcebreakers(false);
+    }
+  };
+
+  const handleEnrichProfile = async () => {
+    if (!selectedConv || !selectedAccount) return;
+    setEnriching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ig-profile-enrich", {
+        body: {
+          conversation_id: selectedConv.id,
+          project_id: selectedAccount.project_id,
+          username: selectedConv.participant_username || selectedConv.participant_id
+        }
+      });
+
+      if (error) throw error;
+      toast.success("Perfil do Lead enriquecido com sucesso!");
+      loadLeadData(selectedConv);
+      loadConversations(selectedAccount.id); // reload triggers badge
+    } catch (err: any) {
+      toast.error("Erro ao enriquecer perfil: " + err.message);
+    } finally {
+      setEnriching(false);
+    }
+  };
+
+  const loadFunnelMetrics = useCallback(async (accountId: string, projectId: string) => {
+    setFunnelMetrics(prev => ({ ...prev, loading: true }));
+    try {
+      // 1. Comments
+      const { count: commentsCount } = await supabase
+        .from("imphq_ig_comments")
+        .select("*", { count: "exact", head: true })
+        .eq("account_id", accountId);
+
+      // 2. Convs
+      const { data: convs } = await supabase
+        .from("imphq_ig_conversations")
+        .select("id")
+        .eq("account_id", accountId);
+
+      const convIds = (convs || []).map((c: any) => c.id);
+
+      let sentDmsCount = 0;
+      let repliedDmsCount = 0;
+
+      if (convIds.length > 0) {
+        // 3. Sent DMs
+        const { count: sentCount } = await supabase
+          .from("imphq_ig_messages")
+          .select("*", { count: "exact", head: true })
+          .in("conversation_id", convIds)
+          .eq("direction", "out");
+        sentDmsCount = sentCount || 0;
+
+        // 4. Replied DMs
+        const { data: inboundMsgs } = await supabase
+          .from("imphq_ig_messages")
+          .select("conversation_id")
+          .in("conversation_id", convIds)
+          .eq("direction", "in");
+        
+        const uniqueConvsWithInbound = new Set((inboundMsgs || []).map((m: any) => m.conversation_id));
+        repliedDmsCount = uniqueConvsWithInbound.size;
+      }
+
+      // 5. WA Bridges
+      const { count: bridgesCount } = await supabase
+        .from("imphq_leads")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId)
+        .contains("tags", ["📸 Instagram"]);
+
+      setFunnelMetrics({
+        comments: commentsCount || 0,
+        sentDms: sentDmsCount || 0,
+        repliedDms: repliedDmsCount || 0,
+        waBridges: bridgesCount || 0,
+        loading: false
+      });
+    } catch (err) {
+      console.error("Error loading funnel metrics:", err);
+      setFunnelMetrics(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeMainTab === "funil" && funnelViewMode === "metrics" && selectedAccount) {
+      loadFunnelMetrics(selectedAccount.id, selectedAccount.project_id);
+    }
+  }, [activeMainTab, funnelViewMode, selectedAccount, loadFunnelMetrics]);
+
 
   // DM search & templates
   const [convSearch, setConvSearch] = useState("");
@@ -497,13 +668,14 @@ export default function InstagramPage() {
       return;
     }
     try {
+      const isCommentSource = triggerSourceType === "all" || triggerSourceType === "specific";
       const { error } = await supabase
         .from("imphq_ig_comment_triggers")
         .insert({
           project_id: selectedProjectId,
           trigger_keyword: newTrigger.trigger_keyword.trim(),
           post_id: newTrigger.post_id.trim() || "all",
-          reply_comment_template: newTrigger.reply_comment_template.trim() || null,
+          reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
           send_dm_template: newTrigger.send_dm_template.trim(),
           is_active: newTrigger.is_active,
           match_count: 0,
@@ -514,6 +686,7 @@ export default function InstagramPage() {
       if (error) throw error;
       toast.success("Gatilho criado com sucesso!");
       setShowAddTrigger(false);
+      setTriggerSourceType("all");
       setNewTrigger({
         trigger_keyword: "",
         post_id: "all",
@@ -1550,6 +1723,24 @@ export default function InstagramPage() {
                                         )}
                                       </div>
                                     </div>
+                                    {/* Badge reengajamento automático */}
+                                    {!isInbound && (m.metadata as any)?.source === "ig-reengagement" && (
+                                      <div className="flex items-center gap-1 mt-1 mb-0.5">
+                                        <Activity className="h-2.5 w-2.5 text-amber-300/80" />
+                                        <span className="text-[9px] text-amber-300/80 font-medium">
+                                          Reengajamento automático · {(m.metadata as any).days_silent}d silêncio
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* Badge closer automático */}
+                                    {!isInbound && (m.metadata as any)?.source === "wa-closer-trigger" && (
+                                      <div className="flex items-center gap-1 mt-1 mb-0.5">
+                                        <Zap className="h-2.5 w-2.5 text-orange-300/80" />
+                                        <span className="text-[9px] text-orange-300/80 font-medium">
+                                          Closer automático · score {(m.metadata as any).lead_score}/200
+                                        </span>
+                                      </div>
+                                    )}
                                     {/* Feedback buttons — only on AI outbound messages */}
                                     {isAI && (
                                       <div className={`absolute -bottom-5 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
@@ -1676,8 +1867,55 @@ export default function InstagramPage() {
                           </div>
                         </div>
 
-                        <div className="border-t border-border/40 pt-3 mt-4">
+                        {/* SDR AI Enrichment Panel */}
+                        {selectedLead?.data?.enriched_profile ? (
+                          <div className="border-t border-border/40 pt-3 mt-3 space-y-2.5 text-xs text-left">
+                            <h4 className="text-[10px] uppercase tracking-wider text-amber-500 font-bold flex items-center gap-1">
+                              <span>⚡</span> SDR Inteligência de Perfil
+                            </h4>
+                            
+                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-2.5 space-y-2">
+                              <div className="flex justify-between text-[10px] text-muted-foreground border-b border-border/10 pb-1">
+                                <span>Seguidores: <strong className="text-foreground">{selectedLead.data.enriched_profile.followers || "—"}</strong></span>
+                                <span>Seguindo: <strong className="text-foreground">{selectedLead.data.enriched_profile.following || "—"}</strong></span>
+                              </div>
+                              <p className="text-[11px] leading-relaxed text-slate-300 italic">
+                                "{selectedLead.data.enriched_profile.bio || "Sem bio disponível."}"
+                              </p>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground">Persona / Maturidade:</span>
+                              <p className="font-semibold text-slate-100">{selectedLead.data.enriched_profile.persona_summary || "—"}</p>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground">Dores Principais:</span>
+                              <p className="text-slate-300 bg-secondary/15 p-2 rounded border border-border/20 leading-relaxed max-h-[80px] overflow-y-auto">
+                                {selectedLead.data.enriched_profile.dores || "—"}
+                              </p>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground">Desejos & Metas:</span>
+                              <p className="text-slate-300 bg-secondary/15 p-2 rounded border border-border/20 leading-relaxed max-h-[80px] overflow-y-auto">
+                                {selectedLead.data.enriched_profile.desejos || "—"}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="border-t border-border/40 pt-3 mt-4 space-y-2">
                           <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Ações de Integração</h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs text-amber-500 border-amber-500/30 hover:bg-amber-500/10 gap-1.5 font-semibold"
+                            onClick={handleEnrichProfile}
+                            disabled={enriching}
+                          >
+                            {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span>⚡ Enriquecer Perfil SDR</span>}
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1895,76 +2133,221 @@ export default function InstagramPage() {
             )}
 
             {/* ABA CÉREBRO: CENTRAL DE IA & RAG */}
-            {/* FUNIL KANBAN */}
+            {/* FUNIL KANBAN / METRICS */}
             {activeMainTab === "funil" && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-bold">Funil de Leads 🎯</h2>
-                    <p className="text-xs text-muted-foreground">Distribuição automática baseada na triage da IA</p>
+                    <p className="text-xs text-muted-foreground">Monitore o fluxo de conversão de leads do Instagram</p>
                   </div>
+                  {selectedAccount && (
+                    <div className="flex bg-secondary/40 p-0.5 rounded-lg border border-border/40 shrink-0">
+                      <Button
+                        variant={funnelViewMode === "kanban" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="text-xs h-7 px-3"
+                        onClick={() => setFunnelViewMode("kanban")}
+                      >
+                        Visual Kanban
+                      </Button>
+                      <Button
+                        variant={funnelViewMode === "metrics" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="text-xs h-7 px-3"
+                        onClick={() => setFunnelViewMode("metrics")}
+                      >
+                        Métricas do Funil
+                      </Button>
+                    </div>
+                  )}
                   {!selectedAccount && <p className="text-amber-500 text-xs">Selecione uma conta Instagram para ver o funil.</p>}
                 </div>
-                {loadingFunnel ? (
-                  <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-                ) : (
-                  <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(funnelStages.length, 4)} xl:grid-cols-${funnelStages.length}`}>
-                    {funnelStages.map(stage => (
-                      <Card key={stage.id} className={`border ${stage.color}`}>
-                        <CardHeader className="pb-2 pt-3 px-3">
-                          <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                            <span>{stage.emoji} {stage.label}</span>
-                            <Badge variant="outline" className="text-[10px]">{(funnelGroups[stage.id] || []).length}</Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-2 pb-3 space-y-1.5 max-h-[50vh] overflow-y-auto">
-                          {(funnelGroups[stage.id] || []).length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-3">Nenhum lead</p>
-                          ) : (funnelGroups[stage.id] || []).map(c => (
-                            <div
-                              key={c.id}
-                              className="p-2 rounded-lg bg-card border border-border/40 transition-colors"
-                            >
-                              <div className="flex items-start justify-between gap-1">
-                                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setSelectedConv(c); setActiveMainTab("dms"); }}>
-                                  <p className="text-xs font-semibold truncate">
-                                    {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || "Lead"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
-                                  {c.last_message_at && (
-                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                      {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+
+                {funnelViewMode === "kanban" ? (
+                  loadingFunnel ? (
+                    <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                  ) : (
+                    <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(funnelStages.length, 4)} xl:grid-cols-${funnelStages.length}`}>
+                      {funnelStages.map(stage => (
+                        <Card key={stage.id} className={`border ${stage.color}`}>
+                          <CardHeader className="pb-2 pt-3 px-3">
+                            <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                              <span>{stage.emoji} {stage.label}</span>
+                              <Badge variant="outline" className="text-[10px]">{(funnelGroups[stage.id] || []).length}</Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="px-2 pb-3 space-y-1.5 max-h-[50vh] overflow-y-auto">
+                            {(funnelGroups[stage.id] || []).length === 0 ? (
+                              <p className="text-[10px] text-muted-foreground text-center py-3">Nenhum lead</p>
+                            ) : (funnelGroups[stage.id] || []).map(c => (
+                              <div
+                                key={c.id}
+                                className="p-2 rounded-lg bg-card border border-border/40 transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-1">
+                                  <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setSelectedConv(c); setActiveMainTab("dms"); }}>
+                                    <p className="text-xs font-semibold truncate">
+                                      {c.participant_username && c.participant_username !== "null" ? `@${c.participant_username}` : c.participant_name || "Lead"}
                                     </p>
+                                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
+                                    {c.last_message_at && (
+                                      <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                        {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {(stage.id === "quente" || stage.id === "cliente") && (
+                                    <button
+                                      title="Enviar lead para WhatsApp (OpenFlow)"
+                                      className="shrink-0 text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded px-1.5 py-1 hover:bg-emerald-500/30 transition-colors font-medium"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!selectedAccount?.project_id) { toast.error("Projeto não encontrado"); return; }
+                                        try {
+                                          const res = await supabase.functions.invoke("ig-to-wa-bridge", {
+                                            body: { ig_conversation_id: c.id, project_id: selectedAccount.project_id },
+                                          });
+                                          if (res.error) throw res.error;
+                                          toast.success(`Lead enviado para WhatsApp! ${res.data?.phone_available ? "Flow disparado." : "Sem telefone — lead criado."}`);
+                                        } catch (err: any) {
+                                          toast.error("Erro ao enviar para WA: " + (err.message || err));
+                                        }
+                                      }}
+                                    >
+                                      → WA
+                                    </button>
                                   )}
                                 </div>
-                                {(stage.id === "quente" || stage.id === "cliente") && (
-                                  <button
-                                    title="Enviar lead para WhatsApp (OpenFlow)"
-                                    className="shrink-0 text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded px-1.5 py-1 hover:bg-emerald-500/30 transition-colors font-medium"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      if (!selectedAccount?.project_id) { toast.error("Projeto não encontrado"); return; }
-                                      try {
-                                        const res = await supabase.functions.invoke("ig-to-wa-bridge", {
-                                          body: { ig_conversation_id: c.id, project_id: selectedAccount.project_id },
-                                        });
-                                        if (res.error) throw res.error;
-                                        toast.success(`Lead enviado para WhatsApp! ${res.data?.phone_available ? "Flow disparado." : "Sem telefone — lead criado."}`);
-                                      } catch (err: any) {
-                                        toast.error("Erro ao enviar para WA: " + (err.message || err));
-                                      }
-                                    }}
-                                  >
-                                    → WA
-                                  </button>
-                                )}
                               </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  funnelMetrics.loading ? (
+                    <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                  ) : (
+                    <Card className="bg-card border-border/60 shadow-lg p-6">
+                      <div className="flex justify-between items-center mb-6 border-b border-border/40 pb-4">
+                        <div>
+                          <h3 className="text-base font-bold flex items-center gap-2">
+                            <span>📊</span> Métricas de Conversão do Funil
+                          </h3>
+                          <p className="text-xs text-muted-foreground">Análise quantitativa de atração até a conversão em WhatsApp.</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => selectedAccount && loadFunnelMetrics(selectedAccount.id, selectedAccount.project_id)}
+                          className="text-xs h-8 border-border/60"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1.5" /> Atualizar Métricas
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl relative shadow-md">
+                          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">1. Comentários Totais</span>
+                          <p className="text-3xl font-bold font-mono mt-1 text-slate-100">{funnelMetrics.comments}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">Interações em posts</p>
+                        </div>
+                        <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl relative shadow-md">
+                          <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">2. DMs Enviadas (Auto)</span>
+                          <p className="text-3xl font-bold font-mono mt-1 text-slate-100">{funnelMetrics.sentDms}</p>
+                          <p className="text-[10px] text-emerald-400 mt-1 font-mono">
+                            {funnelMetrics.comments > 0 ? Math.round((funnelMetrics.sentDms / funnelMetrics.comments) * 100) : 0}% taxa envio
+                          </p>
+                        </div>
+                        <div className="bg-red-500/5 border border-red-500/20 p-4 rounded-xl relative shadow-md">
+                          <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">3. Leads Respondidos</span>
+                          <p className="text-3xl font-bold font-mono mt-1 text-slate-100">{funnelMetrics.repliedDms}</p>
+                          <p className="text-[10px] text-amber-500 mt-1 font-mono">
+                            {funnelMetrics.sentDms > 0 ? Math.round((funnelMetrics.repliedDms / funnelMetrics.sentDms) * 100) : 0}% engajamento
+                          </p>
+                        </div>
+                        <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl relative shadow-md">
+                          <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">4. WhatsApp Bridges</span>
+                          <p className="text-3xl font-bold font-mono mt-1 text-slate-100">{funnelMetrics.waBridges}</p>
+                          <p className="text-[10px] text-emerald-400 mt-1 font-mono">
+                            {funnelMetrics.repliedDms > 0 ? Math.round((funnelMetrics.waBridges / funnelMetrics.repliedDms) * 100) : 0}% conversão
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stacked Funnel Visualization */}
+                      <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                        {/* 1. Comments */}
+                        <div className="w-full max-w-xl bg-gradient-to-r from-blue-600/20 to-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex justify-between items-center shadow-lg relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 bg-blue-500 h-full" />
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Heart className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-100">Atração: Comentaram em Post</p>
+                              <p className="text-[10px] text-muted-foreground">Leads que iniciaram a jornada comentando a keyword</p>
                             </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                          </div>
+                          <Badge variant="outline" className="font-mono text-xs font-bold text-blue-400 px-3 py-1 bg-blue-500/5">{funnelMetrics.comments} leads</Badge>
+                        </div>
+
+                        <ArrowRight className="h-5 w-5 text-muted-foreground/40 rotate-90" />
+
+                        {/* 2. DMs Sent */}
+                        <div className="w-full max-w-lg bg-gradient-to-r from-amber-600/20 to-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex justify-between items-center shadow-lg relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 bg-amber-500 h-full" />
+                          <div className="flex items-center gap-3">
+                            <div className="bg-amber-500/20 p-2 rounded-lg text-amber-400"><MessageSquare className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-100">Abordagem: Direct Message + Resposta Automática</p>
+                              <p className="text-[10px] text-muted-foreground">Disparos automáticos com ofertas ou links de captação</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="font-mono text-xs font-bold text-amber-400 px-3 py-1 bg-amber-500/5">{funnelMetrics.sentDms} dms</Badge>
+                            <p className="text-[9px] text-emerald-400 font-mono mt-1">Conv: {funnelMetrics.comments > 0 ? Math.round((funnelMetrics.sentDms / funnelMetrics.comments) * 100) : 0}%</p>
+                          </div>
+                        </div>
+
+                        <ArrowRight className="h-5 w-5 text-muted-foreground/40 rotate-90" />
+
+                        {/* 3. Replied DMs */}
+                        <div className="w-full max-w-md bg-gradient-to-r from-red-600/20 to-red-500/10 border border-red-500/30 rounded-xl p-4 flex justify-between items-center shadow-lg relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 bg-red-500 h-full" />
+                          <div className="flex items-center gap-3">
+                            <div className="bg-red-500/20 p-2 rounded-lg text-red-400"><Bot className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-100">Engajamento: Lead Respondeu</p>
+                              <p className="text-[10px] text-muted-foreground">Conversas ativas com a IA ou operador</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="font-mono text-xs font-bold text-red-400 px-3 py-1 bg-red-500/5">{funnelMetrics.repliedDms} leads</Badge>
+                            <p className="text-[9px] text-amber-500 font-mono mt-1">Conv: {funnelMetrics.sentDms > 0 ? Math.round((funnelMetrics.repliedDms / funnelMetrics.sentDms) * 100) : 0}%</p>
+                          </div>
+                        </div>
+
+                        <ArrowRight className="h-5 w-5 text-muted-foreground/40 rotate-90" />
+
+                        {/* 4. WA Bridges */}
+                        <div className="w-full max-w-sm bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex justify-between items-center shadow-lg relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 bg-emerald-500 h-full" />
+                          <div className="flex items-center gap-3">
+                            <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400"><Zap className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-100">Conversão: WhatsApp Bridge</p>
+                              <p className="text-[10px] text-muted-foreground">Hot Leads integrados para vendas no WhatsApp</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="font-mono text-xs font-bold text-emerald-400 px-3 py-1 bg-emerald-500/5">{funnelMetrics.waBridges} bridges</Badge>
+                            <p className="text-[9px] text-emerald-400 font-mono mt-1">Conv: {funnelMetrics.repliedDms > 0 ? Math.round((funnelMetrics.waBridges / funnelMetrics.repliedDms) * 100) : 0}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  )
                 )}
               </div>
             )}
@@ -2247,6 +2630,47 @@ export default function InstagramPage() {
                         ) : (
                           <p className="text-center py-6 text-xs text-muted-foreground">Selecione uma conta ativa.</p>
                         )}
+                      </CardContent>
+                    </Card>
+
+                    {/* FAQ Inicial / Icebreakers */}
+                    <Card className="md:col-span-3 bg-card border-border/60 shadow-lg">
+                      <CardHeader className="border-b border-border/40 pb-3 flex flex-row items-center justify-between flex-wrap gap-3">
+                        <div>
+                          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">Perguntas Iniciais do Direct (Icebreakers / FAQ)</CardTitle>
+                          <CardDescription className="text-xs">
+                            Defina até 4 botões de perguntas frequentes que aparecem para novos usuários quando eles abrem a conversa no direct.
+                          </CardDescription>
+                        </div>
+                        <Button
+                          onClick={handleSaveIcebreakers}
+                          disabled={savingIcebreakers}
+                          className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold h-8"
+                        >
+                          {savingIcebreakers ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                          Sincronizar FAQ no Instagram
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {icebreakers.map((question, index) => (
+                            <div key={index} className="space-y-1.5">
+                              <Label className="text-xs font-semibold text-slate-300">Pergunta #{index + 1}</Label>
+                              <Input
+                                value={question}
+                                onChange={(e) => {
+                                  const updated = [...icebreakers];
+                                  updated[index] = e.target.value;
+                                  setIcebreakers(updated);
+                                }}
+                                placeholder={`Ex: Como funciona o produto?`}
+                                className="bg-secondary/40 border-border/60 text-xs focus-visible:ring-amber-500"
+                                maxLength={80}
+                              />
+                              <span className="text-[9px] text-slate-500 block text-right">{question.length}/80 caracteres</span>
+                            </div>
+                          ))}
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
@@ -2843,10 +3267,19 @@ export default function InstagramPage() {
                             <div className="flex items-start justify-between gap-4 flex-wrap">
                               <div className="flex items-center gap-2.5">
                                 <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono text-xs uppercase px-2 py-0.5">
-                                  Comentou: "{trigger.trigger_keyword}"
+                                  {trigger.post_id === "dm" ? "DM Keyword" :
+                                   trigger.post_id === "story" ? "Resposta a Story" :
+                                   trigger.post_id === "story_mention" ? "Menção a Story" :
+                                   "Comentou"}: "{trigger.trigger_keyword}"
                                 </Badge>
                                 <span className="text-xs text-muted-foreground font-medium">
-                                  • Post: {trigger.post_id === "all" ? "Qualquer Post" : `ID: ${trigger.post_id}`}
+                                  • Origem: {
+                                    trigger.post_id === "all" ? "Qualquer Comentário" :
+                                    trigger.post_id === "dm" ? "Direct Message (DM)" :
+                                    trigger.post_id === "story" ? "Resposta a Story" :
+                                    trigger.post_id === "story_mention" ? "Menção em Story" :
+                                    `Post Específico (ID: ${trigger.post_id})`
+                                  }
                                 </span>
                               </div>
 
@@ -2999,27 +3432,56 @@ export default function InstagramPage() {
                   <span className="text-[9px] text-slate-500 block">Ativação por correspondência parcial (case-insensitive).</span>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">ID do Post do Instagram</Label>
-                  <Input
-                    value={newTrigger.post_id}
-                    onChange={(e) => setNewTrigger({ ...newTrigger, post_id: e.target.value })}
-                    placeholder="ex: all ou ID numérico"
-                    className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
-                  />
-                  <span className="text-[9px] text-slate-500 block">Deixe 'all' para disparar em qualquer post.</span>
+                  <Label className="text-xs text-slate-300">Origem / Canal do Gatilho</Label>
+                  <select
+                    value={triggerSourceType}
+                    onChange={(e) => {
+                      const val = e.target.value as any;
+                      setTriggerSourceType(val);
+                      if (val !== "specific") {
+                        setNewTrigger(prev => ({ ...prev, post_id: val }));
+                      } else {
+                        setNewTrigger(prev => ({ ...prev, post_id: "" }));
+                      }
+                    }}
+                    className="w-full h-8 px-2 rounded-md bg-slate-950 border border-slate-800 text-xs text-slate-100 focus-visible:ring-amber-500 focus-visible:outline-none"
+                  >
+                    <option value="all">Qualquer Comentário</option>
+                    <option value="dm">Direct Message (DM)</option>
+                    <option value="story">Resposta a Story</option>
+                    <option value="story_mention">Menção em Story</option>
+                    <option value="specific">Post Específico</option>
+                  </select>
+                  <span className="text-[9px] text-slate-500 block">Selecione onde a IA deve escutar o gatilho.</span>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
-                <Input
-                  value={newTrigger.reply_comment_template}
-                  onChange={(e) => setNewTrigger({ ...newTrigger, reply_comment_template: e.target.value })}
-                  placeholder="ex: Te enviei os detalhes no privado! Confere lá 😉"
-                  className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
-                />
-                <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead.</span>
-              </div>
+              {triggerSourceType === "specific" && (
+                <div className="space-y-1.5 animate-fade-in">
+                  <Label className="text-xs text-slate-300">ID Numérico do Post do Instagram</Label>
+                  <Input
+                    required
+                    value={newTrigger.post_id}
+                    onChange={(e) => setNewTrigger({ ...newTrigger, post_id: e.target.value })}
+                    placeholder="ex: 17841234567890"
+                    className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
+                  />
+                  <span className="text-[9px] text-slate-500 block">O ID único do post no qual deseja rastrear os comentários.</span>
+                </div>
+              )}
+
+              {(triggerSourceType === "all" || triggerSourceType === "specific") && (
+                <div className="space-y-1.5 animate-fade-in">
+                  <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
+                  <Input
+                    value={newTrigger.reply_comment_template}
+                    onChange={(e) => setNewTrigger({ ...newTrigger, reply_comment_template: e.target.value })}
+                    placeholder="ex: Te enviei os detalhes no privado! Confere lá 😉"
+                    className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
+                  />
+                  <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead.</span>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-300">Mensagem Enviada no Direct (DM) (Obrigatório)</Label>

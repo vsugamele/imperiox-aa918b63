@@ -803,6 +803,10 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       }
 
       const paymentLink = aiConfig.payment_link || fallbackLink || null;
+      const pixKey = (aiConfig as any).pix_key || null;
+      const pixBlock = pixKey
+        ? `\nCHAVE PIX OFICIAL (única chave válida — use EXATAMENTE esta se o lead pedir Pix): ${pixKey}`
+        : `\nPIX: NÃO há chave Pix cadastrada. Se o lead pedir para pagar via Pix, NUNCA invente chave, CNPJ ou dados bancários. Diga: "Vou te passar os dados do Pix agora, me dá um segundo." e adicione a tag [TRANSICAO_HUMANA] no final da resposta.`;
       const closerBlock = closerActivated
         ? `
 
@@ -817,6 +821,7 @@ Regras:
 3. Identifique qual produto o lead deseja comprar (com base na conversa). Se houver um link de checkout especifico para esse produto listado na "OFERTA ATIVA" ou no FAQ, envie esse link exato de forma persuasiva no próprio corpo da mensagem atual.
 4. Se nao for possivel identificar um link especifico de produto nas ofertas ativas, use este link geral: ${paymentLink || "nenhum"}.
 5. Se nao houver NENHUM link de pagamento disponivel no prompt ou nas ofertas ativas (nem especifico, nem o geral), NAO invente nenhum link ficticio. Diga exatamente: "Vou te passar o link agora, me da um segundo." e OBRIGATORIAMENTE adicione a tag secreta [TRANSICAO_HUMANA] no final da sua resposta para que o suporte humano possa enviar o link correto.
+5b. A MESMA regra vale para Pix, CNPJ, dados bancarios ou qualquer dado de pagamento: se nao estiver listado EXPLICITAMENTE neste prompt, NUNCA invente. Use [TRANSICAO_HUMANA].
 6. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao fechamento.
 7. Maximo 3 frases curtas. Nao explique. FECHE.`
         : "";
@@ -898,7 +903,7 @@ REGRAS CRITICAS:
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];

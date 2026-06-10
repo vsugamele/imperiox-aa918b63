@@ -128,6 +128,55 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
         .eq("id", conversation_id),
     ]);
 
+    // Persist key memory snippets as vector entries for semantic retrieval in wa-ai-reply
+    if (project_id && LOVABLE_API_KEY) {
+      const memorySnippets: { content: string; memory_type: string }[] = [];
+      if (extracted.summary) {
+        memorySnippets.push({ content: extracted.summary, memory_type: "summary" });
+      }
+      if (Array.isArray(extracted.objecoes_novas)) {
+        extracted.objecoes_novas.forEach((o: string) => {
+          if (o) memorySnippets.push({ content: `Lead tem objeção: ${o}`, memory_type: "objecao" });
+        });
+      }
+      if (Array.isArray(extracted.gatilhos_positivos)) {
+        extracted.gatilhos_positivos.forEach((g: string) => {
+          if (g) memorySnippets.push({ content: `Lead responde positivamente a: ${g}`, memory_type: "gatilho" });
+        });
+      }
+
+      const { data: conv } = await supabase
+        .from("imphq_wa_conversations")
+        .select("phone")
+        .eq("id", conversation_id)
+        .maybeSingle();
+      const phone = (conv as any)?.phone || "";
+
+      for (const snippet of memorySnippets.slice(0, 5)) {
+        try {
+          const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: "google/gemini-embedding-001", input: snippet.content, dimensions: 768 }),
+          });
+          if (embRes.ok) {
+            const embJson = await embRes.json();
+            const embedding = embJson?.data?.[0]?.embedding;
+            if (embedding) {
+              await supabase.from("imphq_wa_lead_memories").insert({
+                project_id,
+                lead_id,
+                phone,
+                content: snippet.content,
+                memory_type: snippet.memory_type,
+                embedding,
+              });
+            }
+          }
+        } catch (_) { /* non-critical */ }
+      }
+    }
+
     console.log(`[wa-memory-extract] lead=${lead_id} conv=${conversation_id} keys=${Object.keys(newMemory).join(",")}`);
 
     return new Response(

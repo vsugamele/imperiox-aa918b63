@@ -233,7 +233,7 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       if (projectFilter && projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
       if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
 
-      let leadsQ = supabase.from("imphq_leads").select("id, status, created_at, data, project_id").gte("created_at", fromDate);
+      let leadsQ = supabase.from("imphq_leads").select("id, status, criado_em, data, project_id").gte("criado_em", fromDate);
       if (projectFilter && projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
 
       let adsQ = supabase.from("imphq_ads_spend").select("valor, leads, data_ref, project_id").gte("data_ref", fromDate.slice(0, 10));
@@ -259,7 +259,7 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       });
 
       (leadsRes.data || []).forEach((l: any) => {
-        const key = l.created_at?.slice(0, 10);
+        const key = l.criado_em?.slice(0, 10);
         if (key && dayMap[key]) dayMap[key].leads++;
       });
 

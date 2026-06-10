@@ -30,6 +30,7 @@ import CampaignManager from "@/components/whatsapp/CampaignManager";
 import GroupDistributor from "@/components/whatsapp/GroupDistributor";
 import { TriagemPanel } from "@/components/whatsapp/TriagemPanel";
 import { ObjectionsLibrary } from "@/components/whatsapp/ObjectionsLibrary";
+import { FunnelConversionDashboard } from "@/components/whatsapp/FunnelConversionDashboard";
 import CommandManager from "@/components/whatsapp/CommandManager";
 import WhatsAppAIConfig from "@/components/whatsapp/WhatsAppAIConfig";
 
@@ -66,7 +67,7 @@ export default function WhatsApp() {
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [editingProvider, setEditingProvider] = useState<any>(null);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes" | "conversao">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
   const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
@@ -312,6 +313,9 @@ export default function WhatsApp() {
         </button>
         <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
+        </button>
+        <button onClick={() => setActiveTab("conversao")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "conversao" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          📊 Conversão
         </button>
       </div>
 
@@ -568,6 +572,18 @@ export default function WhatsApp() {
               <HubConversations projects={projects} providers={providers} />
             </div>
           </ScrollArea>
+        )}
+
+        {activeTab === "conversao" && (
+          <div className="h-full overflow-hidden">
+            {(filterProject !== "all" ? filterProject : projects[0]?.id) ? (
+              <FunnelConversionDashboard projectId={filterProject !== "all" ? filterProject : projects[0].id} />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-muted-foreground">Nenhum projeto encontrado.</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

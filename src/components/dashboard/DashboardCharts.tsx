@@ -104,7 +104,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
       if (projectFilter && projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
 
       const [leadsRawRes, totalLeadsRes, pixLeadsRes, buyersRes, costsRes, revsRes, vendasRes, adsRes, finResumo] = await Promise.all([
-        supabase.from("imphq_leads").select("created_at").gte("created_at", fromISO),
+        supabase.from("imphq_leads").select("criado_em").gte("criado_em", fromISO),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("status", "cliente"),
@@ -126,7 +126,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
         leadsByDay[key] = 0;
       }
       (leadsRawRes.data || []).forEach((l: any) => {
-        const day = l.created_at?.split("T")[0];
+        const day = l.criado_em?.split("T")[0];
         if (day && leadsByDay[day] !== undefined) leadsByDay[day]++;
       });
       setLeadsTrend(Object.entries(leadsByDay).map(([date, count]) => ({ date: date.slice(5), count })));

@@ -2,10 +2,14 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MENTES_DATA } from "@/data/mentesData";
+import { LeadIntelPanel } from "./LeadIntelPanel";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -22,6 +26,7 @@ interface Message {
   metadata?: any;
   provider_message_id?: string | null;
   _optimistic?: boolean;
+  transcript?: string | null;
 }
 
 interface WaTemplate {
@@ -143,11 +148,18 @@ function MediaContent({ message }: { message: Message }) {
 
   if (message_type === "audio") {
     return (
-      <div className="mb-1 flex items-center gap-2">
-        <audio controls className="max-w-full h-8 flex-1" preload="none">
-          <source src={media_url} />
-        </audio>
-        <DownloadBtn url={media_url} filename={filename} />
+      <div className="mb-1 flex flex-col gap-1.5 min-w-[200px]">
+        <div className="flex items-center gap-2">
+          <audio controls className="max-w-full h-8 flex-1" preload="none">
+            <source src={media_url} />
+          </audio>
+          <DownloadBtn url={media_url} filename={filename} />
+        </div>
+        {message.transcript && (
+          <div className="text-[11px] bg-secondary/40 border border-border/30 rounded-lg p-2 text-muted-foreground italic max-w-full whitespace-pre-wrap leading-relaxed">
+            🎙️ <strong className="not-italic font-semibold text-foreground/80">Transcrição:</strong> {message.transcript}
+          </div>
+        )}
       </div>
     );
   }
@@ -209,6 +221,24 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [togglingIa, setTogglingIa] = useState(false);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
     const [objections, setObjections] = useState<any[]>([]);
+    const [aiConfigState, setAiConfigState] = useState<any | null>(null);
+    const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
+    const [sendingVoice, setSendingVoice] = useState(false);
+    const [showIntelPanel, setShowIntelPanel] = useState(true);
+    
+    // Interactive actions states
+    const [interactiveText, setInteractiveText] = useState("");
+    const [btn1, setBtn1] = useState("");
+    const [btn2, setBtn2] = useState("");
+    const [btn3, setBtn3] = useState("");
+    const [listBtnText, setListBtnText] = useState("");
+    const [listRows, setListRows] = useState([
+      { title: "", description: "" },
+      { title: "", description: "" },
+      { title: "", description: "" },
+      { title: "", description: "" },
+      { title: "", description: "" },
+    ]);
 
     // Recording voice states
     const [recordingState, setRecordingState] = useState<"idle" | "recording" | "preview">("idle");
@@ -341,6 +371,192 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       return "cold";
     })();
 
+    // Dynamic Objection Detection Banner
+    const detectedObjection = (() => {
+      const lastIncoming = [...messages].reverse().find(m => m.direction === "incoming");
+      if (!lastIncoming || !lastIncoming.content) return null;
+      const content = lastIncoming.content.toLowerCase();
+      const match = objections.find(obj => {
+        const keyword = (obj.objecao || "").toLowerCase().trim();
+        if (!keyword || keyword.length < 3) return false;
+        return content.includes(keyword);
+      });
+      if (match && match.id !== dismissedObjectionId) {
+        return { objection: match, messageId: lastIncoming.id };
+      }
+      return null;
+    })();
+
+    const sendAsVoice = async () => {
+      if (!text.trim()) return;
+      if (!providerId) { toast.error("Nenhum provider configurado"); return; }
+      
+      const textToSynthesize = text;
+      setText("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      
+      setSendingVoice(true);
+      setSending(true);
+
+      const optimisticMsg: Message = {
+        id: `opt-${Date.now()}`,
+        direction: "outgoing",
+        content: `🔊 [Áudio Sintetizado]: ${textToSynthesize}`,
+        phone,
+        created_at: new Date().toISOString(),
+        status: "sending",
+        message_type: "audio",
+        _optimistic: true,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_voice_synthesis", {
+          body: {
+            provider_id: providerId,
+            phone,
+            text: textToSynthesize,
+            project_id: projectId,
+            voice_provider: aiConfigState?.voice_provider || "elevenlabs",
+            voice_id: aiConfigState?.voice_name || "fernanda_hq",
+            voice_stability: aiConfigState?.voice_stability || 75,
+            voice_clarity: aiConfigState?.voice_clarity || 85,
+          },
+        });
+        if (error) throw error;
+        if (data && data.success === false) {
+          toast.error(data.error || "Erro ao sintetizar áudio");
+          setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+          setText(textToSynthesize);
+        } else {
+          toast.success("Áudio sintetizado e enviado!");
+          setTimeout(() => pollNew(), 500);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao sintetizar áudio: " + err.message);
+        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        setText(textToSynthesize);
+      } finally {
+        setSendingVoice(false);
+        setSending(false);
+      }
+    };
+
+    const sendInteractiveButtons = async () => {
+      if (!providerId) { toast.error("Nenhum provider configurado"); return; }
+      const btns = [btn1, btn2, btn3].filter(b => b.trim() !== "").map((b, i) => ({ id: `btn_${i}`, text: b.trim() }));
+      if (btns.length === 0) { toast.error("Insira pelo menos um botão."); return; }
+      
+      const bodyText = interactiveText || "Escolha uma das opções abaixo:";
+      
+      setSending(true);
+      const optimisticMsg: Message = {
+        id: `opt-${Date.now()}`,
+        direction: "outgoing",
+        content: `🔘 [Botões]: ${bodyText}\n${btns.map(b => `[${b.text}]`).join("  ")}`,
+        phone,
+        created_at: new Date().toISOString(),
+        status: "sending",
+        message_type: "text",
+        _optimistic: true,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
+          body: {
+            provider_id: providerId,
+            phone,
+            content: bodyText,
+            conversation_id: conversationId,
+            project_id: projectId,
+            sent_by: "human",
+            buttons: btns,
+          },
+        });
+        if (error) throw error;
+        if (data && data.success === false) {
+          toast.error(data.error || "Erro ao enviar botões");
+          setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        } else {
+          toast.success("Mensagem com botões enviada!");
+          setInteractiveText("");
+          setBtn1("");
+          setBtn2("");
+          setBtn3("");
+          setTimeout(() => pollNew(), 500);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao enviar botões: " + err.message);
+        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+      } finally {
+        setSending(false);
+      }
+    };
+
+    const sendInteractiveList = async () => {
+      if (!providerId) { toast.error("Nenhum provider configurado"); return; }
+      const rows = listRows.filter(r => r.title.trim() !== "").map((r, i) => ({ id: `row_${i}`, title: r.title.trim(), description: r.description.trim() }));
+      if (rows.length === 0) { toast.error("Insira pelo menos um item na lista."); return; }
+      
+      const bodyText = interactiveText || "Selecione uma das opções no menu:";
+      const btnTitle = listBtnText || "Ver Opções";
+      
+      setSending(true);
+      const optimisticMsg: Message = {
+        id: `opt-${Date.now()}`,
+        direction: "outgoing",
+        content: `📋 [Lista]: ${bodyText}\n🔘 Botão: ${btnTitle}\n${rows.map(r => `• ${r.title} ${r.description ? `(${r.description})` : ""}`).join("\n")}`,
+        phone,
+        created_at: new Date().toISOString(),
+        status: "sending",
+        message_type: "text",
+        _optimistic: true,
+      };
+      setMessages(prev => [...prev, optimisticMsg]);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
+          body: {
+            provider_id: providerId,
+            phone,
+            content: bodyText,
+            conversation_id: conversationId,
+            project_id: projectId,
+            sent_by: "human",
+            list_data: {
+              title: btnTitle,
+              buttonText: btnTitle,
+              sectionTitle: "Opções",
+              rows,
+            },
+          },
+        });
+        if (error) throw error;
+        if (data && data.success === false) {
+          toast.error(data.error || "Erro ao enviar lista");
+          setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        } else {
+          toast.success("Mensagem de lista enviada!");
+          setInteractiveText("");
+          setListBtnText("");
+          setListRows([
+            { title: "", description: "" },
+            { title: "", description: "" },
+            { title: "", description: "" },
+            { title: "", description: "" },
+            { title: "", description: "" },
+          ]);
+          setTimeout(() => pollNew(), 500);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao enviar lista: " + err.message);
+        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+      } finally {
+        setSending(false);
+      }
+    };
+
     // 3-option quick suggest state
     const [showQuickSuggest, setShowQuickSuggest] = useState(false);
     const [quickOptions, setQuickOptions] = useState<{type: string; label: string; emoji: string; text: string}[]>([]);
@@ -449,6 +665,24 @@ Gere exatamente neste formato JSON (sem markdown):
           consultor: "Você é um consultor especialista. Fale com autoridade e dê recomendações valiosas.",
         };
 
+        let personalityText = personalityPrompts[personality] || personalityPrompts.assistente;
+        if (personality && personality.startsWith("skill_")) {
+          const skillId = personality.replace("skill_", "");
+          const predefined = MENTES_DATA.find(m => m.id === skillId);
+          if (predefined) {
+            personalityText = predefined.prompt;
+          } else {
+            const { data: skill } = await supabase
+              .from("imphq_skills")
+              .select("system_prompt")
+              .eq("id", skillId)
+              .maybeSingle();
+            if (skill?.system_prompt) {
+              personalityText = skill.system_prompt;
+            }
+          }
+        }
+
         const toneInstructions: Record<string, string> = {
           profissional: "Tom profissional e direto.",
           casual: "Tom casual e descontraído, use emojis moderadamente.",
@@ -457,7 +691,7 @@ Gere exatamente neste formato JSON (sem markdown):
           urgente: "Tom de urgência e escassez.",
         };
 
-        const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona}\n\n` : ""}${personalityPrompts[personality] || personalityPrompts.assistente}
+        const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona}\n\n` : ""}${personalityText}
 ${toneInstructions[tone] || toneInstructions.profissional}
 Você está respondendo via WhatsApp para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
@@ -642,6 +876,22 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .then(({ data }) => setObjections(data || []));
     }, [projectId]);
 
+    // Load active AI config
+    useEffect(() => {
+      if (!projectId) return;
+      supabase
+        .from("imphq_wa_ai_config")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setAiConfigState(data[0]);
+          }
+        });
+    }, [projectId]);
+
     // Keep newestTimestampRef in sync
     useEffect(() => {
       if (messages.length > 0) {
@@ -707,6 +957,23 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState("");
     const [editSaving, setEditSaving] = useState(false);
+    const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
+    const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
+    const [correctionText, setCorrectionText] = useState("");
+
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string) => {
+      try {
+        await supabase.functions.invoke("wa-feedback-learn", {
+          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId },
+        });
+        setFeedbackSent(prev => ({ ...prev, [msgId]: feedback }));
+        setFeedbackCorrecting(null);
+        setCorrectionText("");
+        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : "✏️ Correção incorporada à base");
+      } catch (err: any) {
+        toast.error("Erro ao salvar feedback: " + err.message);
+      }
+    };
 
     const startEdit = (m: Message) => {
       setEditingId(m.id);
@@ -965,403 +1232,618 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     let lastDateLabel = "";
 
     return (
-      <div ref={ref} className="flex flex-col h-full">
-        <ContactTagsPanel projectId={projectId} phone={phone} />
-        {/* Chat area with WhatsApp-like pattern background */}
-        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}>
-          <div className="p-4 space-y-1 max-w-3xl mx-auto">
-            {hasMore && (
-              <div className="flex justify-center mb-2">
-                <Button size="sm" variant="ghost" className="text-xs gap-1 bg-background/80 backdrop-blur-sm rounded-full shadow-sm" onClick={loadMore} disabled={loadingMore}>
-                  {loadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronUp className="h-3 w-3" />}
-                  Carregar anteriores
-                </Button>
-              </div>
-            )}
-            {messages.map((m) => {
-              const dateLabel = getDateLabel(m.created_at);
-              const showDate = dateLabel !== lastDateLabel;
-              lastDateLabel = dateLabel;
-              const isOutgoing = m.direction === "outgoing";
-              const ageMin = (Date.now() - new Date(m.created_at).getTime()) / 60000;
-              const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
-                && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
-              const isEditing = editingId === m.id;
-              const editedAt = (m.metadata as any)?.edited_at;
-
-              return (
-                <React.Fragment key={m.id}>
-                  {showDate && (
-                    <div className="flex justify-center py-2">
-                      <span className="text-[10px] bg-background/90 backdrop-blur-sm text-muted-foreground px-3 py-1 rounded-full shadow-sm font-medium">
-                        {dateLabel}
-                      </span>
-                    </div>
-                  )}
-                  <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} group`}>
-                    <div className={`relative max-w-[75%] rounded-xl px-3 py-1.5 text-sm shadow-sm
-                      ${isOutgoing
-                        ? "bg-emerald-600/90 text-white rounded-br-sm"
-                        : "bg-card text-card-foreground rounded-bl-sm border border-border/50"
-                      }
-                      ${m._optimistic ? "opacity-60" : ""}
-                    `}>
-                      <MediaContent message={m} />
-                      {isEditing ? (
-                        <div className="space-y-1.5 min-w-[220px]">
-                          <Textarea
-                            value={editText}
-                            onChange={e => setEditText(e.target.value)}
-                            className="min-h-[60px] text-sm bg-background text-foreground"
-                            autoFocus
-                          />
-                          <div className="flex gap-1 justify-end">
-                            <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setEditingId(null); setEditText(""); }}>
-                              <X className="h-3 w-3 mr-0.5" /> Cancelar
-                            </Button>
-                            <Button size="sm" className="h-6 px-2 text-[11px]" onClick={saveEdit} disabled={editSaving || !editText.trim()}>
-                              {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        !(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
-                          <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
-                        )
-                      )}
-                      <div className={`flex items-center gap-1 justify-end mt-0.5 -mb-0.5
-                        ${isOutgoing ? "text-white/60" : "text-muted-foreground"}
-                      `}>
-                        {editedAt && !isEditing && (
-                          <span className="text-[9px] italic opacity-80">editada</span>
-                        )}
-                        <span className="text-[10px]">
-                          {m._optimistic
-                            ? "Enviando..."
-                            : new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-                          }
-                        </span>
-                        {isOutgoing && <StatusIcon status={m._optimistic ? "sending" : m.status} />}
-                      </div>
-                      {canEdit && !isEditing && (
-                        <button
-                          onClick={() => startEdit(m)}
-                          className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full p-1 shadow hover:bg-muted"
-                          title="Editar mensagem"
-                        >
-                          <Pencil className="h-3 w-3 text-foreground" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </React.Fragment>
-              );
-            })}
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                  <Send className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground mb-1">Nenhuma mensagem ainda</p>
-                <p className="text-xs text-muted-foreground">Envie a primeira mensagem abaixo 👇</p>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-        </div>
-
-        {/* Input area */}
-        <div className="border-t border-border bg-card p-3 shrink-0">
-          {/* Slash command suggestions */}
-          {showCommands && commandSuggestions.length > 0 && (
-            <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
-              <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
-              {commandSuggestions.map(cmd => (
-                <button
-                  key={cmd.id}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
-                  onClick={() => selectCommand(cmd)}
-                >
-                  {(cmd as any)._isTemplate ? (
-                    <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded shrink-0">template</span>
-                  ) : (
-                    <span className="font-mono text-primary shrink-0">/{cmd.trigger_word}</span>
-                  )}
-                  {(cmd as any)._isTemplate && (
-                    <span className="font-medium text-foreground/80 shrink-0">{cmd.trigger_word}</span>
-                  )}
-                  {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
-                    <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded shrink-0">seq {cmd.sequence.length}</span>
-                  )}
-                  <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "…" : ""}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {draft && (
-            <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
-              <div className="flex items-start gap-2">
-                <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
-                <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
-              </div>
-              <div className="flex gap-2 mt-2 justify-end">
-                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => resolveDraft("discarded")}>Descartar</Button>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setText(draft.suggested_text); textareaRef.current?.focus(); resolveDraft("edited", draft.suggested_text); }}>Editar</Button>
-                <Button size="sm" className="h-7 px-2 text-xs" onClick={async () => { const t = draft.suggested_text; await resolveDraft("used", t); setText(t); setTimeout(() => send(), 50); }}>Usar e enviar</Button>
-              </div>
-            </div>
-          )}
-
-          {/* Quick 3-option suggestions panel */}
-          {showQuickSuggest && (
-            <div className="max-w-3xl mx-auto mb-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
-                <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
-              </div>
-              {loadingQuick ? (
-                <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando 3 opções...
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {quickOptions.map(opt => (
-                    <button
-                      key={opt.type}
-                      onClick={() => { setText(opt.text); textareaRef.current?.focus(); setShowQuickSuggest(false); }}
-                      className="text-left px-2.5 py-2 rounded-lg border border-border/60 bg-card hover:bg-secondary/50 transition-colors text-xs"
-                    >
-                      <p className="font-semibold text-[10px] text-muted-foreground mb-0.5">{opt.emoji} {opt.label}</p>
-                      <p className="leading-snug line-clamp-3">{opt.text}</p>
-                    </button>
-                  ))}
+      <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
+          <ContactTagsPanel projectId={projectId} phone={phone} />
+          {/* Chat area with WhatsApp-like pattern background */}
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}>
+            <div className="p-4 space-y-1 max-w-3xl mx-auto">
+              {hasMore && (
+                <div className="flex justify-center mb-2">
+                  <Button size="sm" variant="ghost" className="text-xs gap-1 bg-background/80 backdrop-blur-sm rounded-full shadow-sm" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronUp className="h-3 w-3" />}
+                    Carregar anteriores
+                  </Button>
                 </div>
               )}
-            </div>
-          )}
+              {messages.map((m) => {
+                const dateLabel = getDateLabel(m.created_at);
+                const showDate = dateLabel !== lastDateLabel;
+                lastDateLabel = dateLabel;
+                const isOutgoing = m.direction === "outgoing";
+                const ageMin = (Date.now() - new Date(m.created_at).getTime()) / 60000;
+                const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
+                  && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
+                const isEditing = editingId === m.id;
+                const editedAt = (m.metadata as any)?.edited_at;
 
-          {/* Calibrated Objections Pill Bar */}
-          {objections.length > 0 && (
-            <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
-              <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                🛡️ Objeções:
-              </span>
-              {objections.map((obj) => (
-                <button
-                  key={obj.id}
-                  type="button"
-                  onClick={() => {
-                    setText(obj.resposta_padrao);
-                    textareaRef.current?.focus();
-                    toast.success("Resposta de objeção colada!");
-                  }}
-                  className="shrink-0 text-[11px] bg-secondary/40 border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-primary active:scale-95"
-                  title={obj.resposta_padrao}
-                >
-                  {obj.objecao}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {recordingState === "recording" ? (
-            <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
-              <div className="flex items-center gap-3">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
-                <span className="text-xs font-semibold text-red-400">Gravando áudio...</span>
-                <span className="text-xs font-mono text-muted-foreground ml-2 font-bold">
-                  {Math.floor(recordTime / 60).toString().padStart(2, "0")}:{(recordTime % 60).toString().padStart(2, "0")}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Cancelar gravação">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button size="icon" onClick={stopRecording} className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white rounded-full shadow" title="Parar gravação">
-                  <Square className="h-3.5 w-3.5 fill-current" />
-                </Button>
-              </div>
-            </div>
-          ) : recordingState === "preview" ? (
-            <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
-              <div className="flex items-center gap-3 flex-1">
-                <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
-                  {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-                </Button>
-                <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden relative border border-border/30">
-                  <div className="absolute top-0 left-0 h-full bg-primary animate-pulse" style={{ width: "100%" }} />
+                return (
+                  <React.Fragment key={m.id}>
+                    {showDate && (
+                      <div className="flex justify-center py-2">
+                        <span className="text-[10px] bg-background/90 backdrop-blur-sm text-muted-foreground px-3 py-1 rounded-full shadow-sm font-medium">
+                          {dateLabel}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} group`}>
+                      <div className={`relative max-w-[75%] rounded-xl px-3 py-1.5 text-sm shadow-sm
+                        ${isOutgoing
+                          ? "bg-emerald-600/90 text-white rounded-br-sm"
+                          : "bg-card text-card-foreground rounded-bl-sm border border-border/50"
+                        }
+                        ${m._optimistic ? "opacity-60" : ""}
+                      `}>
+                        <MediaContent message={m} />
+                        {isEditing ? (
+                          <div className="space-y-1.5 min-w-[220px]">
+                            <Textarea
+                              value={editText}
+                              onChange={e => setEditText(e.target.value)}
+                              className="min-h-[60px] text-sm bg-background text-foreground"
+                              autoFocus
+                            />
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setEditingId(null); setEditText(""); }}>
+                                <X className="h-3 w-3 mr-0.5" /> Cancelar
+                              </Button>
+                              <Button size="sm" className="h-6 px-2 text-[11px]" onClick={saveEdit} disabled={editSaving || !editText.trim()}>
+                                {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          !(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                          )
+                        )}
+                        {/* Badge de reengajamento automático */}
+                        {isOutgoing && (m.metadata as any)?.source === "wa-reengagement" && (
+                          <div className="flex items-center gap-1 mt-1 mb-0.5">
+                            <Activity className="h-2.5 w-2.5 text-amber-300/80" />
+                            <span className="text-[9px] text-amber-300/80 font-medium">
+                              Reengajamento automático · {(m.metadata as any).days_silent}d silêncio
+                            </span>
+                          </div>
+                        )}
+                        {/* Badge de closer automático (hot lead) */}
+                        {isOutgoing && (m.metadata as any)?.source === "wa-closer-trigger" && (
+                          <div className="flex items-center gap-1 mt-1 mb-0.5">
+                            <Zap className="h-2.5 w-2.5 text-orange-300/80" />
+                            <span className="text-[9px] text-orange-300/80 font-medium">
+                              Closer automático · score {(m.metadata as any).lead_score}/200
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-1 justify-end mt-0.5 -mb-0.5
+                          ${isOutgoing ? "text-white/60" : "text-muted-foreground"}
+                        `}>
+                          {editedAt && !isEditing && (
+                            <span className="text-[9px] italic opacity-80">editada</span>
+                          )}
+                          <span className="text-[10px]">
+                            {m._optimistic
+                              ? "Enviando..."
+                              : new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                            }
+                          </span>
+                          {isOutgoing && <StatusIcon status={m._optimistic ? "sending" : m.status} />}
+                        </div>
+                        {canEdit && !isEditing && (
+                          <button
+                            onClick={() => startEdit(m)}
+                            className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full p-1 shadow hover:bg-muted"
+                            title="Editar mensagem"
+                          >
+                            <Pencil className="h-3 w-3 text-foreground" />
+                          </button>
+                        )}
+                        {/* Feedback buttons — visible on hover for outgoing non-optimistic messages */}
+                        {isOutgoing && !m._optimistic && !isEditing && (
+                          <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            {feedbackSent[m.id] ? (
+                              <span className="text-[9px] text-muted-foreground bg-background/80 rounded px-1.5 py-0.5 border border-border/40">
+                                {feedbackSent[m.id] === "good" ? "👍 Aprovado" : "✏️ Corrigido"}
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => sendFeedback(m.id, "good")}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-emerald-500/10 hover:border-emerald-500/40 transition-colors"
+                                  title="Boa resposta — adicionar à base de conhecimento"
+                                >
+                                  <ThumbsUp className="h-2.5 w-2.5 text-emerald-400" />
+                                </button>
+                                <button
+                                  onClick={() => setFeedbackCorrecting(feedbackCorrecting === m.id ? null : m.id)}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-amber-500/10 hover:border-amber-500/40 transition-colors"
+                                  title="Corrigir resposta"
+                                >
+                                  <ThumbsDown className="h-2.5 w-2.5 text-amber-400" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {/* Correction input */}
+                        {feedbackCorrecting === m.id && (
+                          <div className="mt-2 space-y-1.5 min-w-[240px]">
+                            <Textarea
+                              value={correctionText}
+                              onChange={e => setCorrectionText(e.target.value)}
+                              placeholder="Como deveria ter sido respondido?"
+                              className="min-h-[56px] text-xs bg-background text-foreground"
+                              autoFocus
+                            />
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); }}>
+                                <X className="h-3 w-3 mr-0.5" /> Cancelar
+                              </Button>
+                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText)} disabled={!correctionText.trim()}>
+                                Salvar Correção
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                    <Send className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-1">Nenhuma mensagem ainda</p>
+                  <p className="text-xs text-muted-foreground">Envie a primeira mensagem abaixo 👇</p>
                 </div>
-                <span className="text-[11px] font-medium text-muted-foreground mr-2 select-none">Pré-escutar áudio</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Deletar áudio">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button size="icon" onClick={sendRecordedAudio} className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow" title="Enviar áudio">
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+              )}
+              <div ref={bottomRef} />
             </div>
-          ) : (
-            <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
-              {/* Temperature badge */}
-              <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
-                temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
-                temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
-                "bg-blue-500/10 text-blue-400/70"
-              }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
-                {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
-              </div>
-              {/* Toggle IA */}
-              <Button
-                size="icon"
-                variant={iaAtiva ? "ghost" : "destructive"}
-                className={`shrink-0 h-9 w-9 rounded-full transition-colors ${iaAtiva ? "text-emerald-500 hover:text-emerald-600" : "opacity-80"}`}
-                title={iaAtiva ? "IA ativa — clique para pausar atendimento manual" : "IA pausada — clique para reativar"}
-                onClick={toggleIa}
-                disabled={togglingIa}
-              >
-                {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
-              </Button>
+          </div>
 
-              {/* Emoji picker */}
-              <Popover open={showEmoji} onOpenChange={setShowEmoji}>
-                <PopoverTrigger asChild>
-                  <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
-                    <Smile className="h-5 w-5 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-52 p-2" align="start" side="top">
-                  <div className="grid grid-cols-8 gap-0.5">
-                    {EMOJI_LIST.map(e => (
-                      <button key={e} className="text-lg hover:bg-muted rounded p-0.5 transition-colors"
-                        onClick={() => { setText(prev => prev + e); setShowEmoji(false); textareaRef.current?.focus(); }}>
-                        {e}
+          {/* Input area */}
+          <div className="border-t border-border bg-card p-3 shrink-0">
+            {/* Slash command suggestions */}
+            {showCommands && commandSuggestions.length > 0 && (
+              <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
+                <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
+                {commandSuggestions.map(cmd => (
+                  <button
+                    key={cmd.id}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
+                    onClick={() => selectCommand(cmd)}
+                  >
+                    {(cmd as any)._isTemplate ? (
+                      <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded shrink-0">template</span>
+                    ) : (
+                      <span className="font-mono text-primary shrink-0">/{cmd.trigger_word}</span>
+                    )}
+                    {(cmd as any)._isTemplate && (
+                      <span className="font-medium text-foreground/80 shrink-0">{cmd.trigger_word}</span>
+                    )}
+                    {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
+                      <span className="text-[9px] bg-primary/15 text-primary px-1.5 rounded shrink-0">seq {cmd.sequence.length}</span>
+                    )}
+                    <span className="text-muted-foreground truncate flex-1">{(cmd.response_text || (cmd.sequence?.[0]?.content) || "").substring(0, 60)}{cmd.response_text && cmd.response_text.length > 60 ? "…" : ""}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {draft && (
+              <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+                <div className="flex items-start gap-2">
+                  <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
+                  <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
+                </div>
+                <div className="flex gap-2 mt-2 justify-end">
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => resolveDraft("discarded")}>Descartar</Button>
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setText(draft.suggested_text); textareaRef.current?.focus(); resolveDraft("edited", draft.suggested_text); }}>Editar</Button>
+                  <Button size="sm" className="h-7 px-2 text-xs" onClick={async () => { const t = draft.suggested_text; await resolveDraft("used", t); setText(t); setTimeout(() => send(), 50); }}>Usar e enviar</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick 3-option suggestions panel */}
+            {showQuickSuggest && (
+              <div className="max-w-3xl mx-auto mb-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
+                  <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
+                </div>
+                {loadingQuick ? (
+                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando 3 opções...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {quickOptions.map(opt => (
+                      <button
+                        key={opt.type}
+                        onClick={() => { setText(opt.text); textareaRef.current?.focus(); setShowQuickSuggest(false); }}
+                        className="text-left px-2.5 py-2 rounded-lg border border-border/60 bg-card hover:bg-secondary/50 transition-colors text-xs"
+                      >
+                        <p className="font-semibold text-[10px] text-muted-foreground mb-0.5">{opt.emoji} {opt.label}</p>
+                        <p className="leading-snug line-clamp-3">{opt.text}</p>
                       </button>
                     ))}
                   </div>
-                </PopoverContent>
-              </Popover>
+                )}
+              </div>
+            )}
 
-              {/* Attach media */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="shrink-0 h-9 w-9 rounded-full"
-                title="Enviar mídia"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
-              </Button>
+            {/* Dynamic Objection Detection Banner */}
+            {detectedObjection && (
+              <div className="max-w-3xl mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-500 text-sm font-bold shrink-0">🛡️ Copilot de Objeções</span>
+                    <div className="space-y-1">
+                      <p className="font-semibold text-foreground">
+                        Objeção detectada: <span className="text-amber-400 font-bold">"{detectedObjection.objection.objecao}"</span>
+                      </p>
+                      <p className="text-foreground/80 leading-relaxed max-h-16 overflow-y-auto">
+                        {detectedObjection.objection.resposta_padrao}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedObjectionId(detectedObjection.objection.id)}
+                    className="text-muted-foreground hover:text-foreground shrink-0 p-0.5 hover:bg-muted rounded-full transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-2.5 justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-[11px] border-amber-500/20 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
+                    onClick={() => {
+                      setText(detectedObjection.objection.resposta_padrao);
+                      textareaRef.current?.focus();
+                      toast.success("Resposta colada no editor!");
+                    }}
+                  >
+                    Inserir no Editor
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm"
+                    onClick={async () => {
+                      const txt = detectedObjection.objection.resposta_padrao;
+                      setText(txt);
+                      setTimeout(() => send(), 50);
+                    }}
+                  >
+                    Enviar Agora
+                  </Button>
+                </div>
+              </div>
+            )}
 
-              {/* Templates */}
-              {templates.length > 0 && (
-                <Popover>
+            {/* Calibrated Objections Pill Bar */}
+            {objections.length > 0 && (
+              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
+                <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  🛡️ Objeções:
+                </span>
+                {objections.map((obj) => (
+                  <button
+                    key={obj.id}
+                    type="button"
+                    onClick={() => {
+                      setText(obj.resposta_padrao);
+                      textareaRef.current?.focus();
+                      toast.success("Resposta de objeção colada!");
+                    }}
+                    className="shrink-0 text-[11px] bg-secondary/40 border border-border/60 hover:bg-primary/10 hover:border-primary/30 transition-all rounded-full px-2.5 py-0.5 text-muted-foreground hover:text-primary active:scale-95"
+                    title={obj.resposta_padrao}
+                  >
+                    {obj.objecao}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {recordingState === "recording" ? (
+              <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
+                <div className="flex items-center gap-3">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <span className="text-xs font-semibold text-red-400">Gravando áudio...</span>
+                  <span className="text-xs font-mono text-muted-foreground ml-2 font-bold">
+                    {Math.floor(recordTime / 60).toString().padStart(2, "0")}:{(recordTime % 60).toString().padStart(2, "0")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Cancelar gravação">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" onClick={stopRecording} className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white rounded-full shadow" title="Parar gravação">
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                  </Button>
+                </div>
+              </div>
+            ) : recordingState === "preview" ? (
+              <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
+                <div className="flex items-center gap-3 flex-1">
+                  <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
+                    {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                  </Button>
+                  <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden relative border border-border/30">
+                    <div className="absolute top-0 left-0 h-full bg-primary animate-pulse" style={{ width: "100%" }} />
+                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground mr-2 select-none">Pré-escutar áudio</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="ghost" onClick={cancelRecording} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" title="Deletar áudio">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" onClick={sendRecordedAudio} className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow" title="Enviar áudio">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
+                {/* Temperature badge */}
+                <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
+                  temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
+                  temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
+                  "bg-blue-500/10 text-blue-400/70"
+                }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
+                  {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
+                </div>
+                {/* Toggle IA */}
+                <Button
+                  size="icon"
+                  variant={iaAtiva ? "ghost" : "destructive"}
+                  className={`shrink-0 h-9 w-9 rounded-full transition-colors ${iaAtiva ? "text-emerald-500 hover:text-emerald-600" : "opacity-80"}`}
+                  title={iaAtiva ? "IA ativa — clique para pausar atendimento manual" : "IA pausada — clique para reativar"}
+                  onClick={toggleIa}
+                  disabled={togglingIa}
+                >
+                  {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
+                </Button>
+
+                {/* Toggle Intel Panel */}
+                <Button
+                  size="icon"
+                  variant={showIntelPanel ? "secondary" : "ghost"}
+                  className={`shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                  title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
+                  onClick={() => setShowIntelPanel(prev => !prev)}
+                >
+                  <Activity className="h-4 w-4" />
+                </Button>
+
+                {/* Emoji picker */}
+                <Popover open={showEmoji} onOpenChange={setShowEmoji}>
                   <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Templates">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
+                      <Smile className="h-5 w-5 text-muted-foreground" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" align="start" side="top">
-                    <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
-                    {templates.map(t => (
-                      <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
-                        onClick={() => { setText(t.content); textareaRef.current?.focus(); }}>
-                        {t.name}
-                      </button>
-                    ))}
+                  <PopoverContent className="w-52 p-2" align="start" side="top">
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {EMOJI_LIST.map(e => (
+                        <button key={e} className="text-lg hover:bg-muted rounded p-0.5 transition-colors"
+                          onClick={() => { setText(prev => prev + e); setShowEmoji(false); textareaRef.current?.focus(); }}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
                   </PopoverContent>
                 </Popover>
-              )}
 
-              {/* AI Copilot Suggestion */}
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
-                title="Pedir sugestão da IA (Copilot)"
-                onClick={generateCopilotSuggestion}
-                disabled={loadingCopilot || messages.length === 0}
-              >
-                {loadingCopilot ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                ) : (
-                  <Brain className="h-4 w-4 text-primary" />
+                {/* Attach media */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="shrink-0 h-9 w-9 rounded-full"
+                  title="Enviar mídia"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+
+                {/* Templates */}
+                {templates.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Templates">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-1" align="start" side="top">
+                      <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
+                      {templates.map(t => (
+                        <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
+                          onClick={() => { setText(t.content); textareaRef.current?.focus(); }}>
+                          {t.name}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
                 )}
-              </Button>
 
-              {/* 3 opções rápidas (empática, técnica, fechamento) */}
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
-                  showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
-                }`}
-                title="3 sugestões de resposta (empática, técnica, fechamento)"
-                onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
-                disabled={loadingQuick || messages.length === 0}
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
+                {/* Interactive Actions (Buttons / Lists) */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Mensagens Interativas">
+                      <Layers className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-3 bg-card border border-border/50 text-xs shadow-xl rounded-xl" align="start" side="top">
+                    <p className="font-bold text-foreground mb-2 flex items-center gap-1">⚡ Mensagens Interativas</p>
+                    <Tabs defaultValue="buttons" className="w-full">
+                      <TabsList className="grid grid-cols-2 bg-secondary/35 border border-border/20 p-0.5 rounded-lg mb-3">
+                        <TabsTrigger value="buttons" className="py-1 text-[10px]">Botões</TabsTrigger>
+                        <TabsTrigger value="list" className="py-1 text-[10px]">Menu/Lista</TabsTrigger>
+                      </TabsList>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Texto da Mensagem</label>
+                          <Textarea
+                            placeholder="Digite o texto explicativo..."
+                            value={interactiveText}
+                            onChange={e => setInteractiveText(e.target.value)}
+                            className="min-h-[50px] text-[11px] bg-secondary/40 border border-border/30 resize-none leading-relaxed"
+                          />
+                        </div>
+                        
+                        <TabsContent value="buttons" className="mt-0 space-y-2.5">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-muted-foreground font-semibold block">Texto dos Botões (até 3)</label>
+                            <Input placeholder="Botão 1 (ex: Falar com Humano)" value={btn1} onChange={e => setBtn1(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
+                            <Input placeholder="Botão 2 (ex: Ver Depoimentos)" value={btn2} onChange={e => setBtn2(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
+                            <Input placeholder="Botão 3 (ex: Cancelar)" value={btn3} onChange={e => setBtn3(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
+                          </div>
+                          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveButtons}>
+                            Enviar Botões
+                          </Button>
+                        </TabsContent>
+                        
+                        <TabsContent value="list" className="mt-0 space-y-2.5">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-muted-foreground font-semibold block">Título do Menu de Opções</label>
+                            <Input placeholder="ex: Ver opções" value={listBtnText} onChange={e => setListBtnText(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
+                            
+                            <label className="text-[10px] text-muted-foreground font-semibold block mt-2">Linhas do Menu (até 5)</label>
+                            {listRows.map((row, idx) => (
+                              <div key={idx} className="flex gap-1">
+                                <Input
+                                  placeholder={`Opção ${idx + 1}`}
+                                  value={row.title}
+                                  onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, title: e.target.value } : r))}
+                                  className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
+                                />
+                                <Input
+                                  placeholder="Descrição"
+                                  value={row.description}
+                                  onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                                  className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveList}>
+                            Enviar Lista
+                          </Button>
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </PopoverContent>
+                </Popover>
 
-              {/* Message input */}
-              <Textarea
-                ref={textareaRef}
-                value={text}
-                onChange={handleTextChange}
-                placeholder="Digite sua mensagem... (/ para comandos)"
-                onFocus={() => { isComposingRef.current = true; }}
-                onBlur={() => { isComposingRef.current = false; }}
-                onPaste={handlePaste}
-
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-                }}
-                disabled={sending}
-                className="min-h-[36px] max-h-[120px] resize-none py-2 rounded-2xl bg-background border-border/50 text-sm"
-                rows={1}
-              />
-
-              {/* Send or Record button */}
-              {!text.trim() ? (
+                {/* AI Copilot Suggestion */}
                 <Button
-                  size="icon"
-                  onClick={startRecording}
                   type="button"
-                  className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow"
-                  title="Gravar áudio"
-                >
-                  <Mic className="h-4.5 w-4.5" />
-                </Button>
-              ) : (
-                <Button
                   size="icon"
-                  onClick={send}
-                  disabled={sending || !text.trim()}
-                  className="shrink-0 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow text-white"
+                  variant="ghost"
+                  className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
+                  title="Pedir sugestão da IA (Copilot)"
+                  onClick={generateCopilotSuggestion}
+                  disabled={loadingCopilot || messages.length === 0}
                 >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {loadingCopilot ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Brain className="h-4 w-4 text-primary" />
+                  )}
                 </Button>
-              )}
-            </div>
-          )}
+
+                {/* 3 opções rápidas (empática, técnica, fechamento) */}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
+                    showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
+                  }`}
+                  title="3 sugestões de resposta (empática, técnica, fechamento)"
+                  onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
+                  disabled={loadingQuick || messages.length === 0}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+
+                {/* Message input */}
+                <Textarea
+                  ref={textareaRef}
+                  value={text}
+                  onChange={handleTextChange}
+                  placeholder="Digite sua mensagem... (/ para comandos)"
+                  onFocus={() => { isComposingRef.current = true; }}
+                  onBlur={() => { isComposingRef.current = false; }}
+                  onPaste={handlePaste}
+
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                  }}
+                  disabled={sending}
+                  className="min-h-[36px] max-h-[120px] resize-none py-2 rounded-2xl bg-background border-border/50 text-sm"
+                  rows={1}
+                />
+
+                {/* Send or Record button */}
+                {!text.trim() ? (
+                  <Button
+                    size="icon"
+                    onClick={startRecording}
+                    type="button"
+                    className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow"
+                    title="Gravar áudio"
+                  >
+                    <Mic className="h-4.5 w-4.5" />
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={sendAsVoice}
+                      disabled={sending || sendingVoice || !text.trim()}
+                      className="shrink-0 h-9 w-9 rounded-full text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
+                      title="Sintetizar áudio e enviar"
+                    >
+                      {sendingVoice ? <Loader2 className="h-4 w-4 animate-spin text-amber-500" /> : <Volume2 className="h-4.5 w-4.5" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      onClick={send}
+                      disabled={sending || !text.trim()}
+                      className="shrink-0 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow text-white"
+                    >
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+        {showIntelPanel && (
+          <LeadIntelPanel phone={phone} projectId={projectId} />
+        )}
       </div>
     );
   }

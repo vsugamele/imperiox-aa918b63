@@ -86,15 +86,15 @@ export default function Campanhas() {
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
       const { data: leads } = await supabase
         .from("imphq_leads")
-        .select("id,created_at,data")
-        .gte("created_at", since30)
+        .select("id,criado_em,data")
+        .gte("criado_em", since30)
         .limit(5000);
       const counts: Record<string, { d7: number; d30: number; total: number }> = {};
       const now = Date.now();
       (leads || []).forEach((l: any) => {
         const cid = l.data?.campaign_id;
         if (!cid) return;
-        const ageDays = (now - new Date(l.created_at).getTime()) / 86400000;
+        const ageDays = (now - new Date(l.criado_em).getTime()) / 86400000;
         counts[cid] = counts[cid] || { d7: 0, d30: 0, total: 0 };
         counts[cid].d30++;
         counts[cid].total++;

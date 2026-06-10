@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Play, Clock, MessageCircle, Mail, Zap, Tag, GitBranch,
-  Mic, Send, Loader2, User, ChevronRight, AlertCircle, CheckCircle2
+  Mic, Send, Loader2, User, ChevronRight, AlertCircle, CheckCircle2,
+  Bell, Unlock, Brain
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +51,11 @@ function stepIcon(tipo: string) {
     adicionar_tag: <Tag className="h-3.5 w-3.5 text-indigo-400" />,
     remover_tag: <Tag className="h-3.5 w-3.5 text-rose-400" />,
     condicao: <GitBranch className="h-3.5 w-3.5 text-violet-400" />,
+    wait_event: <Clock className="h-3.5 w-3.5 text-cyan-400" />,
+    ab_split: <GitBranch className="h-3.5 w-3.5 text-fuchsia-400" />,
+    notify_operator: <Bell className="h-3.5 w-3.5 text-blue-400" />,
+    abrir_conversa: <Unlock className="h-3.5 w-3.5 text-teal-400" />,
+    gpt_prompt: <Brain className="h-3.5 w-3.5 text-green-400" />,
   };
   return map[tipo] || <Zap className="h-3.5 w-3.5 text-muted-foreground" />;
 }
@@ -77,7 +83,12 @@ function renderStepPreview(step: any, lead: any) {
   if (step.tipo === "adicionar_tag") return `Adicionar tag: "${step.tag || step.valor || ""}"`;
   if (step.tipo === "remover_tag") return `Remover tag: "${step.tag || step.valor || ""}"`;
   if (step.tipo === "condicao") return `Condição: ${step.condicao || step.condicao_tipo || ""}`;
+  if (step.tipo === "wait_event" || step.tipo === "wait_until_event") return `Aguardar evento: "${step.event_name || 'não configurado'}" (timeout: ${step.timeout_min || 60}m)`;
+  if (step.tipo === "ab_split") return `Divisão A/B: ${step.rota_a_porcentagem ?? 50}% Rota A (pular ${step.jump_steps ?? 1} se Rota B)`;
   if (step.tipo === "ia_message") return `IA conversacional — gera mensagem personalizada para ${lead.nome || "Lead"}`;
+  if (step.tipo === "notify_operator") return `Notificar Atendente (${step.operator_name || "Todos"}): "${replacePlaceholders(step.template || "")}"`;
+  if (step.tipo === "abrir_conversa") return `Abrir conversa no Inbox e pausar autoresponder de IA`;
+  if (step.tipo === "gpt_prompt") return `Prompt GPT (${step.gpt_model || "gpt-4o"}): "${replacePlaceholders(step.template || "")}" -> Salvar em ${step.gpt_save_variable || "resumo"}`;
 
   const text = step.mensagem || step.corpo || step.assunto || step.text || step.content || "";
   return replacePlaceholders(text) || `[${step.tipo} — conteúdo não configurado]`;
@@ -95,6 +106,11 @@ function stepLabel(tipo: string) {
     adicionar_tag: "Adicionar Tag",
     remover_tag: "Remover Tag",
     condicao: "Condição",
+    wait_event: "Espera de Evento",
+    ab_split: "Divisão A/B",
+    notify_operator: "Notificar Atendente",
+    abrir_conversa: "Abrir Conversa",
+    gpt_prompt: "Executar Prompt GPT",
   };
   return labels[tipo] || tipo;
 }
@@ -360,11 +376,15 @@ export function FlowSimulator({ automacoes, projects }: Props) {
                         ? "border-amber-500/20 bg-amber-500/5"
                         : step.tipo === "condicao"
                           ? "border-violet-500/20 bg-violet-500/5"
-                          : step.tipo === "adicionar_tag" || step.tipo === "remover_tag"
-                            ? "border-indigo-500/20 bg-indigo-500/5"
-                            : step.tipo === "ia_message"
-                              ? "border-purple-500/20 bg-purple-500/5"
-                              : "border-border/60 bg-muted/10"
+                          : step.tipo === "wait_event"
+                            ? "border-cyan-500/20 bg-cyan-500/5"
+                            : step.tipo === "ab_split"
+                              ? "border-fuchsia-500/20 bg-fuchsia-500/5"
+                              : step.tipo === "adicionar_tag" || step.tipo === "remover_tag"
+                                ? "border-indigo-500/20 bg-indigo-500/5"
+                                : step.tipo === "ia_message"
+                                  ? "border-purple-500/20 bg-purple-500/5"
+                                  : "border-border/60 bg-muted/10"
                     }`}>
                       <div className="flex items-center gap-1.5 mb-1">
                         {stepIcon(step.tipo)}

@@ -33,6 +33,8 @@ interface StepStat {
     b: { reached: number; completed: number; droppedOff: number; progressionRate: number; dropOffRate: number };
   };
   avgDuration: string;
+  stalledCount: number;
+  routeTriggers: Record<string, number>;
 }
 
 export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
@@ -47,12 +49,38 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
   const [tagInput, setTagInput] = useState("");
   const [processingAction, setProcessingAction] = useState<string | null>(null);
 
+  const [revenueByFlow, setRevenueByFlow] = useState<{nome: string; receita: number; count: number; automacao_id: string}[]>([]);
+
   // Auto-select first automation if available
   useEffect(() => {
     if (automacoes.length > 0 && !selectedAutoId) {
       setSelectedAutoId(automacoes[0].id);
     }
   }, [automacoes]);
+
+  // Load revenue attribution by flow (last 30 days)
+  useEffect(() => {
+    const loadRevenue = async () => {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data: vendas } = await supabase
+        .from('imphq_vendas')
+        .select('valor, data')
+        .eq('status', 'aprovado')
+        .gte('created_at', thirtyDaysAgo);
+
+      const byFlow = new Map<string, {nome: string; receita: number; count: number; automacao_id: string}>();
+      (vendas || []).forEach((v: any) => {
+        const attrId = v.data?.flow_attribution_id;
+        const attrNome = v.data?.flow_attribution_nome || 'Direto (sem fluxo)';
+        if (attrId) {
+          const current = byFlow.get(attrId) || { nome: attrNome, receita: 0, count: 0, automacao_id: attrId };
+          byFlow.set(attrId, { ...current, receita: current.receita + (v.valor || 0), count: current.count + 1 });
+        }
+      });
+      setRevenueByFlow(Array.from(byFlow.values()).sort((a, b) => b.receita - a.receita));
+    };
+    loadRevenue();
+  }, []);
 
   // Load executions for the selected automation
   useEffect(() => {
@@ -94,6 +122,8 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
     else if (acao.tipo === "aguardar") label = "Aguardar / Delay";
     else if (acao.tipo === "adicionar_tag") label = "Adicionar Tag";
     else if (acao.tipo === "remover_tag") label = "Remover Tag";
+    else if (acao.tipo === "condicao_lead") label = "Condição por Dado";
+    else if (acao.tipo === "webhook_call") label = "Webhook / API";
 
     return {
       index: idx,
@@ -112,14 +142,33 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
         a: { reached: 0, completed: 0, droppedOff: 0, progressionRate: 0, dropOffRate: 0 },
         b: { reached: 0, completed: 0, droppedOff: 0, progressionRate: 0, dropOffRate: 0 }
       },
-      avgDuration: "N/A"
+      avgDuration: "N/A",
+      stalledCount: 0,
+      routeTriggers: {}
     };
   });
 
   // Calculate counts based on executions
+  const nowMs = Date.now();
+  const TWO_HOURS_MS = 2 * 3600 * 1000;
+
   executions.forEach((exec) => {
     const stepResults = exec.step_results || [];
     if (!Array.isArray(stepResults)) return;
+
+    // Check for stalled leads (>2h at same step)
+    if (exec.status === "running" || exec.status === "waiting") {
+      const lastRes = stepResults[stepResults.length - 1];
+      if (lastRes && lastRes.started_at) {
+        const startedTime = new Date(lastRes.started_at).getTime();
+        if (nowMs - startedTime > TWO_HOURS_MS) {
+          const stepIdx = typeof lastRes.step === "number" ? lastRes.step : parseInt(lastRes.step);
+          if (!isNaN(stepIdx) && stepIdx >= 0 && stepIdx < stats.length) {
+            stats[stepIdx].stalledCount++;
+          }
+        }
+      }
+    }
 
     stepResults.forEach((stepRes: any) => {
       const stepIdx = typeof stepRes.step === "number" ? stepRes.step : parseInt(stepRes.step);
@@ -134,6 +183,14 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
 
       if (isCompleted) {
         stat.completed++;
+        // Track IA routes activation rate
+        if (stepRes.notes && stepRes.notes.includes("Rota acionada:")) {
+          const match = stepRes.notes.match(/Rota acionada:\s*([^\s(]+)/);
+          if (match) {
+            const routeName = match[1];
+            stat.routeTriggers[routeName] = (stat.routeTriggers[routeName] || 0) + 1;
+          }
+        }
       } else if (isWaiting) {
         stat.waiting++;
       } else if (isFailed) {
@@ -492,6 +549,37 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
             </Card>
           </div>
 
+          {/* Revenue Attribution by Flow Card */}
+          {revenueByFlow.length > 0 && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">💰</span>
+                  <h3 className="font-semibold text-sm">Receita Atribuída por Fluxo (30 dias)</h3>
+                </div>
+                <div className="space-y-2">
+                  {revenueByFlow.map((item) => (
+                    <div key={item.automacao_id} className="flex items-center justify-between p-2 rounded bg-secondary/40">
+                      <div>
+                        <p className="text-xs font-medium">{item.nome}</p>
+                        <p className="text-[10px] text-muted-foreground">{item.count} venda(s)</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-emerald-400">R$ {item.receita.toFixed(2).replace('.', ',')}</p>
+                        <div className="w-24 bg-muted rounded-full h-1 mt-1">
+                          <div
+                            className="bg-emerald-500 h-1 rounded-full"
+                            style={{ width: `${Math.min(100, (item.receita / revenueByFlow[0].receita) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Recharts Chart and Visual Funnel */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Funnel Graph */}
@@ -560,6 +648,11 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
                           {isAi && (
                             <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[8px] font-semibold h-4 px-1 py-0 uppercase shrink-0">
                               IA Mente
+                            </Badge>
+                          )}
+                          {stat.stalledCount > 0 && (
+                            <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/30 text-[8px] font-bold flex items-center gap-0.5 h-4 px-1 shrink-0 animate-pulse">
+                              ⚠️ {stat.stalledCount} travados
                             </Badge>
                           )}
                           <span className="text-[9px] text-muted-foreground/80 flex items-center gap-0.5 font-mono shrink-0 ml-1 bg-secondary/20 px-1.5 py-0.5 rounded">
@@ -656,12 +749,89 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
                           <span>· Falharam: <strong className="text-destructive">{stat.failed}</strong></span>
                         )}
                       </div>
+
+                      {/* IA Routes Trigger Rates */}
+                      {isAi && stat.routeTriggers && Object.keys(stat.routeTriggers).length > 0 && (
+                        <div className="mt-2 p-2 rounded-lg bg-purple-950/20 border border-purple-500/10 space-y-1">
+                          <span className="text-[8.5px] uppercase tracking-wider text-purple-300 font-bold block">Acionamento de Rotas IA:</span>
+                          <div className="flex flex-wrap gap-1.5 text-[9px]">
+                            {Object.entries(stat.routeTriggers).map(([routeName, count]: any) => (
+                              <span key={routeName} className="bg-purple-900/40 text-purple-200 px-1.5 py-0.5 rounded border border-purple-700/20">
+                                {routeName}: <strong>{count}</strong> acionamentos
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </CardContent>
             </Card>
           </div>
+
+          {/* Waterfall Funnel Visualizer */}
+          <Card className="border-border/40 bg-card/40 backdrop-blur-md shadow-lg overflow-hidden mt-6">
+            <CardHeader className="border-b border-border/20 bg-secondary/5 px-4 py-3">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-emerald-400" /> Funil Waterfall de Performance
+              </CardTitle>
+              <CardDescription className="text-[10px]">
+                Taxa de retenção acumulada e evasão passo-a-passo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-stretch justify-between gap-4 relative">
+                {stats.map((stat, i) => {
+                  const firstStepReached = stats[0]?.reached || 1;
+                  const overallConv = stat.reached > 0 ? (stat.reached / firstStepReached) * 100 : 0;
+                  const stepConv = i > 0 && stats[i-1].reached > 0 ? (stat.reached / stats[i-1].reached) * 100 : 100;
+                  
+                  return (
+                    <div key={stat.index} className="flex-1 flex flex-col items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-border/20 relative min-w-[120px]">
+                      <div className="text-center space-y-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Passo #{stat.index + 1}</span>
+                        <span className="text-xs font-bold text-foreground truncate max-w-[110px] block" title={stat.label}>{stat.label}</span>
+                      </div>
+                      
+                      <div className="my-4 flex flex-col items-center justify-center relative w-full">
+                        {/* Visual Tapering Pillar */}
+                        <div 
+                          className="h-16 bg-gradient-to-t from-primary/30 to-primary/10 border border-primary/20 rounded-md transition-all duration-300 flex items-center justify-center shadow-inner"
+                          style={{ width: `${Math.max(30, overallConv)}%` }}
+                        >
+                          <span className="text-xs font-bold text-primary font-mono">{stat.reached}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-center space-y-1 w-full pt-2 border-t border-border/10">
+                        <div className="text-[10px] font-semibold text-emerald-400">
+                          {overallConv.toFixed(1)}% <span className="text-[8px] text-muted-foreground">do total</span>
+                        </div>
+                        {i > 0 && (
+                          <div className="text-[9px] text-slate-400">
+                            {stepConv.toFixed(1)}% <span className="text-[8px] text-muted-foreground">do ant.</span>
+                          </div>
+                        )}
+                        {stat.stalledCount > 0 && (
+                          <span className="text-[8px] bg-red-950 text-red-400 px-1 py-0.5 rounded block font-bold border border-red-500/10 mt-1 animate-pulse">
+                            ⚠️ {stat.stalledCount} travados
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Arrow separator for MD+ screens */}
+                      {i < stats.length - 1 && (
+                        <div className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 z-10 p-1 bg-slate-900 rounded-full border border-border/30 shadow-md">
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -19,6 +19,7 @@ import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
 import { CampanhasManager, type Campanha } from "@/components/openflow/CampanhasManager";
 import { OpenFlowAnalytics } from "@/components/openflow/OpenFlowAnalytics";
+import FlowROIDashboard from "@/components/openflow/FlowROIDashboard";
 import { ColdLeadReactivation } from "@/components/openflow/ColdLeadReactivation";
 import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -57,6 +58,8 @@ const ACAO_TIPOS = [
   { value: "audio", label: "Áudio WhatsApp (IA)", icon: Mic },
   { value: "telegram", label: "Telegram", icon: Send },
   { value: "aguardar", label: "Aguardar", icon: Clock },
+  { value: "wait_event", label: "Aguardar Evento", icon: Clock },
+  { value: "ab_split", label: "Divisão A/B", icon: Zap },
 ];
 
 interface Automacao {
@@ -67,6 +70,10 @@ interface Automacao {
   campanha_id?: string | null;
   tag_filtro?: string | null;
   link_checkout?: string | null;
+  stalled_hours?: number | null;
+  stalled_operator?: string | null;
+  follow_up_hours?: number | null;
+  follow_up_template?: string | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -242,8 +249,43 @@ export default function OpenFlow() {
   };
 
 
+  const validateFlow = (auto: Automacao): string[] => {
+    const warnings: string[] = [];
+    if (!auto.acoes || auto.acoes.length === 0) {
+      warnings.push("O fluxo não tem nenhuma ação configurada.");
+      return warnings;
+    }
+    auto.acoes.forEach((a, i) => {
+      const n = i + 1;
+      const needsContent = ["whatsapp", "email", "telegram", "audio", "ia_message", "notify_operator", "gpt_prompt"];
+      if (needsContent.includes(a.tipo)) {
+        const hasContent = (a.mensagem || a.template || a.corpo || a.assunto || a.conteudo || "").trim();
+        if (!hasContent) warnings.push(`Etapa ${n} (${a.tipo}): sem conteúdo configurado.`);
+      }
+      if (a.tipo === "email" && !(a.assunto || a.template || "").trim()) {
+        warnings.push(`Etapa ${n} (email): sem assunto ou corpo.`);
+      }
+      if (a.tipo === "ab_split" && !a.rota_a_porcentagem) {
+        warnings.push(`Etapa ${n} (Divisão A/B): porcentagem não configurada.`);
+      }
+      if (a.tipo === "webhook_call" && !(a.webhook_url || "").trim()) {
+        warnings.push(`Etapa ${n} (Webhook): URL não configurada.`);
+      }
+    });
+    const hasOnlyDelays = auto.acoes.every(a => a.tipo === "aguardar" || a.tipo === "delay");
+    if (hasOnlyDelays) warnings.push("O fluxo só tem etapas de espera — nenhuma mensagem será enviada.");
+    const msgTypes = ["whatsapp", "email", "telegram", "audio", "ia_message"];
+    const hasMsgAction = auto.acoes.some(a => msgTypes.includes(a.tipo));
+    if (!hasMsgAction) warnings.push("Nenhuma ação de envio de mensagem no fluxo.");
+    return warnings;
+  };
+
   const saveAutomacao = async () => {
     if (!editing) return;
+    const warnings = validateFlow(editing);
+    if (warnings.length > 0) {
+      warnings.forEach(w => toast.warning(w, { duration: 5000 }));
+    }
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: editing.nome, trigger_tipo: editing.trigger_tipo,
       acoes: editing.acoes as any, ativo: editing.ativo, project_id: editing.project_id,
@@ -254,6 +296,10 @@ export default function OpenFlow() {
       campanha_id: editing.campanha_id || null,
       tag_filtro: editing.tag_filtro || null,
       link_checkout: (editing as any).link_checkout || null,
+      stalled_hours: editing.stalled_hours ?? null,
+      stalled_operator: editing.stalled_operator || null,
+      follow_up_hours: editing.follow_up_hours ?? null,
+      follow_up_template: editing.follow_up_template || null,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null);
@@ -384,8 +430,9 @@ export default function OpenFlow() {
           <FlowSimulator automacoes={automacoes} projects={projects} />
         </TabsContent>
 
-        <TabsContent value="analytics" className="mt-4">
+        <TabsContent value="analytics" className="mt-4 space-y-5">
           <OpenFlowAnalytics automacoes={automacoes} />
+          <FlowROIDashboard projectId={filterProject !== "__all__" && filterProject !== "__none__" ? filterProject : (projects[0]?.id || "")} />
         </TabsContent>
 
         {/* ── Automações Tab ────────────────────────────────────── */}
@@ -910,6 +957,72 @@ export default function OpenFlow() {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground -mt-2">Janela de silêncio: não dispara nesse intervalo (ex.: 22 → 8). Dedupe: bloqueia disparos repetidos pro mesmo lead pelas N horas.</p>
+
+              {/* Gatilhos Comportamentais */}
+              <div className="border border-border/60 bg-secondary/20 rounded-lg p-3 space-y-3">
+                <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  Gatilhos Comportamentais (Event-Driven)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Bloco Notificar Atendente se travado */}
+                  <div className="space-y-2 border border-border/40 p-2.5 rounded bg-background/50">
+                    <Label className="text-xs font-medium text-foreground">🚨 Alerta de Travamento (Lead parado)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Tempo limite (horas)</Label>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          placeholder="Ex: 2" 
+                          value={editing.stalled_hours ?? ""} 
+                          onChange={e => setEditing({ ...editing, stalled_hours: e.target.value === "" ? null : Number(e.target.value) })} 
+                          className="h-8 text-xs font-normal"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Atendente a notificar</Label>
+                        <Input 
+                          type="text" 
+                          placeholder="Ex: CARINA ou todos" 
+                          value={editing.stalled_operator || ""} 
+                          onChange={e => setEditing({ ...editing, stalled_operator: e.target.value })} 
+                          className="h-8 text-xs font-normal"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Se o lead ficar na mesma etapa por mais de X horas sem responder, envia alerta interno no Imperio HQ.</p>
+                  </div>
+
+                  {/* Bloco Follow-up automático */}
+                  <div className="space-y-2 border border-border/40 p-2.5 rounded bg-background/50">
+                    <Label className="text-xs font-medium text-foreground">🔁 Follow-Up Automático (Inatividade)</Label>
+                    <div className="space-y-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Tempo de espera (horas)</Label>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          placeholder="Ex: 4" 
+                          value={editing.follow_up_hours ?? ""} 
+                          onChange={e => setEditing({ ...editing, follow_up_hours: e.target.value === "" ? null : Number(e.target.value) })} 
+                          className="h-8 text-xs font-normal w-full"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Mensagem de Follow-up (WhatsApp)</Label>
+                        <textarea
+                          placeholder="Olá {{nome}}, tudo bem? Vi que ficou com dúvida na última etapa..."
+                          value={editing.follow_up_template || ""}
+                          onChange={e => setEditing({ ...editing, follow_up_template: e.target.value })}
+                          className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Se o lead não responder por X horas no WhatsApp, dispara essa mensagem automaticamente para reengajá-lo.</p>
+                  </div>
+                </div>
+              </div>
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}
@@ -920,6 +1033,7 @@ export default function OpenFlow() {
                 providers={editing.project_id ? providers.filter((p: any) => p.project_id === editing.project_id) : providers}
                 projectId={editing.project_id}
                 onTemplateSaved={loadTemplates}
+                automacaoId={editing.id}
               />
             </div>
           )}

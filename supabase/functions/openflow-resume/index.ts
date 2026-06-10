@@ -13,14 +13,13 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Find waiting executions whose next_run_at has passed
-    const { data: pending, error: fetchErr } = await supabase
+    // Find waiting executions (up to 100 to avoid memory overflow)
+    const { data: waitingExecs, error: fetchErr } = await supabase
       .from("imphq_flow_executions")
-      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results")
+      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results, next_run_at, created_at")
       .eq("status", "waiting")
-      .lte("next_run_at", new Date().toISOString())
       .order("next_run_at", { ascending: true })
-      .limit(20);
+      .limit(100);
 
     if (fetchErr) {
       console.error("[openflow-resume] Fetch error:", fetchErr);
@@ -29,7 +28,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!pending || pending.length === 0) {
+    const nowStr = new Date().toISOString();
+    const pending: any[] = [];
+
+    if (waitingExecs && waitingExecs.length > 0) {
+      for (const exec of waitingExecs) {
+        let shouldResume = false;
+        
+        if (exec.next_run_at && exec.next_run_at <= nowStr) {
+          shouldResume = true;
+        } else {
+          // Check if waiting on a wait_event / wait_until_event step and the event occurred
+          try {
+            const { data: auto } = await supabase
+              .from("imphq_automacoes")
+              .select("acoes, etapas")
+              .eq("id", exec.automacao_id)
+              .maybeSingle();
+              
+            const rawSteps = auto?.acoes || auto?.etapas || [];
+            const currentStepIdx = exec.current_step || 0;
+            const step = rawSteps[currentStepIdx];
+            
+            if (step && (step.tipo === "wait_event" || step.tipo === "wait_until_event")) {
+              const eventName = step.event_name;
+              if (exec.lead_id && eventName) {
+                const { data: evts } = await supabase
+                  .from("imphq_events")
+                  .select("id")
+                  .eq("lead_id", exec.lead_id)
+                  .eq("event_name", eventName)
+                  .gt("created_at", exec.created_at) // since execution started
+                  .limit(1);
+                if (evts && evts.length > 0) {
+                  shouldResume = true;
+                  console.log(`[openflow-resume] Event "${eventName}" detected for lead ${exec.lead_id}. Resuming execution ${exec.id} early.`);
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`[openflow-resume] Error checking wait_event for execution ${exec.id}:`, err);
+          }
+        }
+        
+        if (shouldResume) {
+          pending.push(exec);
+        }
+      }
+    }
+
+    if (pending.length === 0) {
       return new Response(JSON.stringify({ ok: true, resumed: 0, message: "Nenhuma execução pendente" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

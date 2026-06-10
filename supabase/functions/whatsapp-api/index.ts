@@ -174,6 +174,58 @@ Deno.serve(async (req) => {
     // ── Helper: sleep ──
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+    // ── Helper: send buttons via Evolution API ──
+    async function sendEvolutionButtons(provider: any, phone: string, text: string, buttons: any[]) {
+      const inst = encodeURIComponent(provider.instance_name);
+      const apiUrl = `${provider.api_url}/message/sendButtons/${inst}`;
+      console.log("[sendEvolutionButtons] URL:", apiUrl, "phone:", phone, "buttons:", buttons.length);
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify({
+          number: phone,
+          title: text,
+          description: "Imperio HQ",
+          footer: "Imperio HQ",
+          buttons: buttons.map((b: any, index: number) => ({
+            buttonId: b.id || `btn_${index}`,
+            buttonText: { displayText: b.text },
+            type: 1 // Response Button
+          }))
+        }),
+      });
+      return await res.json().catch(() => ({}));
+    }
+
+    // ── Helper: send list menu via Evolution API ──
+    async function sendEvolutionList(provider: any, phone: string, text: string, listData: any) {
+      const inst = encodeURIComponent(provider.instance_name);
+      const apiUrl = `${provider.api_url}/message/sendList/${inst}`;
+      console.log("[sendEvolutionList] URL:", apiUrl, "phone:", phone, "title:", listData.title);
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify({
+          number: phone,
+          title: listData.title || "Menu de Opções",
+          description: text,
+          buttonText: listData.buttonText || "Clique para ver",
+          footer: "Imperio HQ",
+          sections: [
+            {
+              title: listData.sectionTitle || "Opções",
+              rows: listData.rows.map((r: any, index: number) => ({
+                rowId: r.id || `row_${index}`,
+                title: r.title,
+                description: r.description || ""
+              }))
+            }
+          ]
+        }),
+      });
+      return await res.json().catch(() => ({}));
+    }
+
     // ── Helper: send via Evolution API (text) with retry + auto-reconnect ──
     async function sendEvolution(provider: any, phone: string, text: string) {
       const inst = encodeURIComponent(provider.instance_name);
@@ -523,10 +575,42 @@ Deno.serve(async (req) => {
       return { phone: digits, cc };
     }
 
+    // ── ACTION: list_elevenlabs_voices ──
+    if (action === "list_elevenlabs_voices") {
+      const elevenKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+      if (!elevenKey) {
+        return new Response(JSON.stringify({ success: false, error: "ElevenLabs API Key não configurada no servidor." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const res = await fetch("https://api.elevenlabs.io/v1/voices", {
+          headers: { "xi-api-key": elevenKey },
+        });
+        if (!res.ok) {
+          throw new Error(`Erro ElevenLabs: ${res.status} ${await res.text()}`);
+        }
+        const data = await res.json();
+        const voices = (data.voices || []).map((v: any) => ({
+          id: v.voice_id,
+          name: v.name,
+          category: v.category,
+          preview_url: v.preview_url,
+        }));
+        return new Response(JSON.stringify({ success: true, voices }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy } = body;
+      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy, buttons, list_data } = body;
       const sent_by = rawSentBy || "human";
 
       // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
@@ -585,10 +669,16 @@ Deno.serve(async (req) => {
       let originalProviderName: string | null = null;
 
       async function attemptSend(p: any) {
-        if (media_url && p.provider === "evolution") {
-          return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
-        } else if (p.provider === "evolution") {
-          return await sendEvolution(p, phone, content);
+        if (p.provider === "evolution") {
+          if (buttons && Array.isArray(buttons) && buttons.length > 0) {
+            return await sendEvolutionButtons(p, phone, content || "", buttons);
+          } else if (list_data && typeof list_data === "object" && Array.isArray(list_data.rows)) {
+            return await sendEvolutionList(p, phone, content || "", list_data);
+          } else if (media_url) {
+            return await sendEvolutionMedia(p, phone, media_url, media_type || "image", content || undefined);
+          } else {
+            return await sendEvolution(p, phone, content);
+          }
         } else if (p.provider === "meta_cloud") {
           return await sendMetaCloud(p, phone, content);
         } else {
@@ -1329,12 +1419,13 @@ Deno.serve(async (req) => {
                   const mimetype = mediaData?.mimetype || "application/octet-stream";
                   
                   if (base64) {
+                    const cleanMimetype = mimetype.split(";")[0].trim().toLowerCase();
                     const extMap: Record<string, string> = {
                       "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
                       "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
                       "video/mp4": "mp4", "application/pdf": "pdf",
                     };
-                    const ext = extMap[mimetype] || mimetype.split("/")[1] || "bin";
+                    const ext = extMap[cleanMimetype] || cleanMimetype.split("/")[1] || "bin";
                     const filePath = `${projectId}/${conv.id}/${providerMsgId || Date.now()}.${ext}`;
                     
                     const binaryStr = atob(base64);

@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(python3:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(npx tsc *)",
+      "Read(//tmp/**)",
+      "Bash(awk '{print $1}')",
+      "Bash(wait)",
+      "Bash(npm test *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -L -A \"Mozilla/5.0\" \"https://codigo-dos-cortes.vercel.app/\" -o /tmp/lp.html)",
+      "Bash(git push *)"
     ]
   }
 }

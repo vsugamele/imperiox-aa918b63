@@ -1,0 +1,12 @@
+# Núcleo (obrigatório)
+edge-tts>=6.1.9
+fastapi>=0.111.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
+
+# Clonagem de voz — XTTS v2 (opcional, ~4 GB download no primeiro uso)
+# Instale apenas se quiser usar /tts/clone
+# pip install TTS torch torchaudio
+TTS>=0.22.0
+torch>=2.0.0
+torchaudio>=2.0.0

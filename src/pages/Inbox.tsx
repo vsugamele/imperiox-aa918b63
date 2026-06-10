@@ -27,7 +27,7 @@ interface Lead {
   email: string | null;
   telefone: string | null;
   score: number | null;
-  created_at: string;
+  criado_em: string;
   data: any;
 }
 
@@ -39,9 +39,9 @@ function HotLeadsTab() {
     const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
     supabase
       .from("imphq_leads")
-      .select("id,nome,email,telefone,score,created_at,data")
+      .select("id,nome,email,telefone,score,criado_em,data")
       .gt("score", 80)
-      .gte("created_at", twoHoursAgo)
+      .gte("criado_em", twoHoursAgo)
       .order("score", { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -101,7 +101,7 @@ function HotLeadsTab() {
                   {lead.telefone && <span>📱 {lead.telefone}</span>}
                   {lead.email && <span>✉️ {lead.email}</span>}
                   <span>
-                    {new Date(lead.created_at).toLocaleTimeString("pt-BR", {
+                    {new Date(lead.criado_em).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}

@@ -192,7 +192,8 @@ Deno.serve(async (req) => {
           });
 
           // AI Direct Message Autoresponder!
-          if (isInbound && content) {
+          const isStoryMentionMsg = messaging.message?.attachments?.[0]?.type === "story_mention";
+          if (isInbound && (content || isStoryMentionMsg)) {
             // Pause active sequence enrollments when lead replies (they engaged!)
             try {
               const { error: pauseErr } = await supa.from("imphq_ig_sequence_enrollments")
@@ -212,6 +213,66 @@ Deno.serve(async (req) => {
             try {
               (async () => {
                 try {
+                  // --- CHECK TRIGGERS (DM, Story Reply, Story Mention) ---
+                  const isStoryReply = !!(messaging.message?.reply_to || messaging.message?.reply_to?.story);
+                  const isStoryMention = isStoryMentionMsg || messaging.message?.attachments?.[0]?.type === "story";
+                  
+                  let matchedTriggerType: "dm" | "story" | "story_mention" = "dm";
+                  if (isStoryMention) {
+                    matchedTriggerType = "story_mention";
+                  } else if (isStoryReply) {
+                    matchedTriggerType = "story";
+                  }
+
+                  const { data: activeTriggers } = await supa
+                    .from("imphq_ig_comment_triggers")
+                    .select("*")
+                    .eq("project_id", account.project_id)
+                    .eq("is_active", true)
+                    .eq("post_id", matchedTriggerType);
+
+                  let matchedTrigger: any = null;
+                  if (activeTriggers && activeTriggers.length > 0) {
+                    const contentLc = (content || "").toLowerCase().trim();
+                    matchedTrigger = activeTriggers.find((t: any) => {
+                      const kw = (t.trigger_keyword || "").toLowerCase().trim();
+                      if (kw === "all" || kw === "*" || !kw) return true;
+                      return contentLc.includes(kw);
+                    });
+                  }
+
+                  if (matchedTrigger) {
+                    console.log(`[ig-webhook] Matched DM/Story trigger: "${matchedTrigger.trigger_keyword}" on event "${matchedTriggerType}"`);
+                    
+                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
+                      supa.from("imphq_ig_comment_triggers")
+                        .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
+                        .eq("id", matchedTrigger.id);
+                    });
+
+                    if (matchedTrigger.send_dm_template) {
+                      const dmText = matchedTrigger.send_dm_template.replace("{{nome}}", senderUsername || "você");
+                      const dmRes = await supa.functions.invoke("instagram-api", {
+                        body: {
+                          action: "send_text",
+                          project_id: account.project_id,
+                          recipient_id: participantId,
+                          text: dmText
+                        }
+                      });
+                      
+                      const dmSuccess = dmRes.data?.success || false;
+                      if (dmSuccess) {
+                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
+                          supa.from("imphq_ig_comment_triggers")
+                            .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
+                            .eq("id", matchedTrigger.id);
+                        });
+                      }
+                    }
+                    return; // Bypass standard AI reply!
+                  }
+
                   let aiConfig = null;
                   const { data: configs, error: configErr } = await supa
                     .from("imphq_wa_ai_config")

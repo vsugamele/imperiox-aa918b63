@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  Search, Brain, FileText, RefreshCw, Layers, Compass, 
-  BookOpen, AlertCircle, BarChart3, Database, Sparkles, CheckCircle2, ChevronRight
+import {
+  Search, Brain, FileText, RefreshCw, Layers, Compass,
+  BookOpen, AlertCircle, BarChart3, Database, Sparkles, CheckCircle2, ChevronRight,
+  TrendingUp, TrendingDown, HelpCircle, ThumbsUp, ThumbsDown, Activity, X
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,24 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
   const [chunkCounts, setChunkCounts] = useState<Record<string, number>>({});
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [trainingIds, setTrainingIds] = useState<string[]>([]);
+
+  // Health dashboard states
+  const [healthData, setHealthData] = useState<{
+    totalQueries: number;
+    hits: number;
+    misses: number;
+    avgSimilarity: number;
+    unansweredQuestions: Array<{ id: string; pergunta: string; created_at: string }>;
+    feedbackGood: number;
+    feedbackBad: number;
+    totalKnowledge: number;
+  } | null>(null);
+  const [isLoadingHealth, setIsLoadingHealth] = useState(false);
+
+  // Responder perguntas sem resposta
+  const [answeringId, setAnsweringId] = useState<string | null>(null);
+  const [answerDraft, setAnswerDraft] = useState("");
+  const [savingAnswer, setSavingAnswer] = useState(false);
 
   // View Chunks Modal
   const [selectedDoc, setSelectedDoc] = useState<DocItem | null>(null);
@@ -237,6 +256,75 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
     }
   };
 
+  // Fetch health metrics
+  const fetchHealthData = async () => {
+    if (!projectId) return;
+    setIsLoadingHealth(true);
+    try {
+      const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+
+      const [ragEventsRes, unansweredRes, feedbackRes, knowledgeCountRes] = await Promise.all([
+        supabase
+          .from("imphq_events")
+          .select("data")
+          .eq("event_name", "rag_query")
+          .eq("project_id", projectId)
+          .gte("created_at", since30d),
+        supabase
+          .from("imphq_wa_knowledge")
+          .select("id, pergunta, created_at")
+          .eq("project_id", projectId)
+          .eq("source", "lead_unanswered")
+          .eq("aprovada", false)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("imphq_ai_actions")
+          .select("kind")
+          .eq("projeto_id", projectId)
+          .in("kind", ["refine_skill", "refine_prompt"])
+          .gte("created_at", since30d),
+        supabase
+          .from("imphq_wa_knowledge")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", projectId)
+          .eq("aprovada", true),
+      ]);
+
+      const ragEvents = (ragEventsRes.data || []) as Array<{ data: Record<string, unknown> }>;
+      const hits = ragEvents.filter((e) => (e.data as any)?.hit === true).length;
+      const misses = ragEvents.filter((e) => (e.data as any)?.hit === false).length;
+      const simScores = ragEvents
+        .filter((e) => (e.data as any)?.hit === true && typeof (e.data as any)?.max_similarity === "number")
+        .map((e) => Number((e.data as any).max_similarity));
+      const avgSimilarity = simScores.length > 0 ? simScores.reduce((a, b) => a + b, 0) / simScores.length : 0;
+
+      const feedbackActions = (feedbackRes.data || []) as Array<{ kind: string }>;
+      const feedbackGood = feedbackActions.filter((a) => a.kind === "refine_skill").length;
+      const feedbackBad = feedbackActions.filter((a) => a.kind === "refine_prompt").length;
+
+      setHealthData({
+        totalQueries: ragEvents.length,
+        hits,
+        misses,
+        avgSimilarity,
+        unansweredQuestions: (unansweredRes.data || []) as Array<{ id: string; pergunta: string; created_at: string }>,
+        feedbackGood,
+        feedbackBad,
+        totalKnowledge: knowledgeCountRes.count ?? 0,
+      });
+    } catch (err: any) {
+      console.error("[RagInspector] Health fetch error:", err);
+      toast.error("Erro ao carregar métricas de saúde da IA");
+    } finally {
+      setIsLoadingHealth(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "health") fetchHealthData();
+  }, [activeTab, projectId]);
+
   // Trigger retraining for a specific document
   const handleRetrainDoc = async (doc: DocItem) => {
     setTrainingIds(prev => [...prev, doc.id]);
@@ -276,6 +364,70 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
     if (score >= 0.75) return "bg-emerald-500";
     if (score >= 0.60) return "bg-amber-500";
     return "bg-red-500";
+  };
+
+  const handleSaveAnswer = async (questionId: string, pergunta: string) => {
+    if (!answerDraft.trim()) return;
+    setSavingAnswer(true);
+    try {
+      // Gera embedding para a resposta via Lovable AI
+      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY || "";
+      let embedding: number[] | null = null;
+
+      if (LOVABLE_API_KEY) {
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "google/gemini-embedding-001", input: pergunta, dimensions: 768 }),
+        });
+        if (embRes.ok) {
+          const embData = await embRes.json();
+          embedding = embData?.data?.[0]?.embedding || null;
+        }
+      }
+
+      // Atualiza o registro existente com a resposta e aprova
+      const { error } = await supabase
+        .from("imphq_wa_knowledge")
+        .update({
+          resposta: answerDraft.trim(),
+          aprovada: true,
+          answered: true,
+          source: "admin_answer",
+          ...(embedding ? { embedding } : {}),
+        })
+        .eq("id", questionId);
+
+      if (error) throw error;
+
+      toast.success("Resposta salva! A IA vai usar isso nas próximas conversas.");
+      setAnsweringId(null);
+      setAnswerDraft("");
+
+      // Atualiza lista local
+      if (healthData) {
+        setHealthData(prev => prev ? {
+          ...prev,
+          unansweredQuestions: prev.unansweredQuestions.filter(q => q.id !== questionId),
+          totalKnowledge: prev.totalKnowledge + 1,
+        } : prev);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + e.message);
+    } finally {
+      setSavingAnswer(false);
+    }
+  };
+
+  const handleDismissQuestion = async (questionId: string) => {
+    await supabase.from("imphq_wa_knowledge").update({ answered: true, aprovada: false, source: "dismissed" }).eq("id", questionId);
+    if (healthData) {
+      setHealthData(prev => prev ? {
+        ...prev,
+        unansweredQuestions: prev.unansweredQuestions.filter(q => q.id !== questionId),
+      } : prev);
+    }
+    toast.info("Pergunta descartada.");
   };
 
   return (
@@ -323,7 +475,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       <CardContent className="pt-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px] bg-secondary/60">
+          <TabsList className="grid w-full grid-cols-3 max-w-[520px] bg-secondary/60">
             <TabsTrigger value="inspector" className="text-xs">
               <Compass className="h-3.5 w-3.5 mr-1.5" />
               Testar RAG
@@ -331,6 +483,10 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
             <TabsTrigger value="knowledge" className="text-xs">
               <BookOpen className="h-3.5 w-3.5 mr-1.5" />
               Base de Dados ({docs.length})
+            </TabsTrigger>
+            <TabsTrigger value="health" className="text-xs">
+              <Activity className="h-3.5 w-3.5 mr-1.5" />
+              Saúde da IA
             </TabsTrigger>
           </TabsList>
 
@@ -565,6 +721,248 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* TAB 3: AI HEALTH DASHBOARD */}
+          <TabsContent value="health" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Métricas dos últimos 30 dias para o projeto selecionado.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 border-border/60 hover:bg-secondary text-xs"
+                onClick={fetchHealthData}
+                disabled={isLoadingHealth}
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isLoadingHealth ? "animate-spin" : ""}`} />
+                Atualizar
+              </Button>
+            </div>
+
+            {isLoadingHealth ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-24 bg-muted/30 animate-pulse rounded-xl" />
+                ))}
+              </div>
+            ) : !healthData ? (
+              <div className="py-12 text-center text-muted-foreground text-xs">
+                Selecione um projeto para ver as métricas de saúde.
+              </div>
+            ) : (
+              <>
+                {/* KPI cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-card/40 border border-border/50 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
+                      <BarChart3 className="h-3 w-3 text-primary" /> Total de Queries
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{healthData.totalQueries}</p>
+                    <p className="text-[10px] text-muted-foreground">perguntas recebidas</p>
+                  </div>
+
+                  <div className="bg-card/40 border border-emerald-500/20 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 uppercase tracking-wider">
+                      <TrendingUp className="h-3 w-3" /> RAG Hits
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-400">
+                      {healthData.totalQueries > 0
+                        ? `${((healthData.hits / healthData.totalQueries) * 100).toFixed(0)}%`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{healthData.hits} com contexto encontrado</p>
+                  </div>
+
+                  <div className="bg-card/40 border border-red-500/20 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-red-400 uppercase tracking-wider">
+                      <TrendingDown className="h-3 w-3" /> RAG Misses
+                    </div>
+                    <p className="text-2xl font-bold text-red-400">
+                      {healthData.totalQueries > 0
+                        ? `${((healthData.misses / healthData.totalQueries) * 100).toFixed(0)}%`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{healthData.misses} sem contexto na base</p>
+                  </div>
+
+                  <div className="bg-card/40 border border-border/50 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
+                      <Database className="h-3 w-3 text-primary" /> Base de Conhecimento
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{healthData.totalKnowledge}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      entradas aprovadas{" · "}sim. média:{" "}
+                      {healthData.avgSimilarity > 0
+                        ? `${(healthData.avgSimilarity * 100).toFixed(0)}%`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Hit rate visual bar */}
+                {healthData.totalQueries > 0 && (
+                  <div className="bg-card/40 border border-border/50 rounded-xl p-4 space-y-2">
+                    <p className="text-xs font-semibold text-foreground">Taxa de Cobertura RAG</p>
+                    <div className="w-full h-3 bg-secondary/60 rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-700"
+                        style={{ width: `${(healthData.hits / healthData.totalQueries) * 100}%` }}
+                      />
+                      <div
+                        className="h-full bg-red-500/70"
+                        style={{ width: `${(healthData.misses / healthData.totalQueries) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex gap-4 text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                        Hit ({healthData.hits})
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-red-500/70" />
+                        Miss ({healthData.misses})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Feedback ratio */}
+                {(healthData.feedbackGood + healthData.feedbackBad) > 0 && (
+                  <div className="bg-card/40 border border-border/50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-semibold text-foreground">Feedback do Operador (30d)</p>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        <span className="font-bold">{healthData.feedbackGood}</span>
+                        <span className="text-muted-foreground text-[10px]">aprovações</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-amber-400 text-xs">
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                        <span className="font-bold">{healthData.feedbackBad}</span>
+                        <span className="text-muted-foreground text-[10px]">correções</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-secondary/60 rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-700"
+                        style={{
+                          width: `${(healthData.feedbackGood / (healthData.feedbackGood + healthData.feedbackBad)) * 100}%`,
+                        }}
+                      />
+                      <div className="h-full bg-amber-500/70 flex-1" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Unanswered questions — com campo de resposta inline */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="h-3.5 w-3.5 text-amber-400" />
+                      <p className="text-xs font-semibold text-foreground">
+                        Lacunas de Conhecimento ({healthData.unansweredQuestions.length})
+                      </p>
+                    </div>
+                    {healthData.unansweredQuestions.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Clique em <strong>Responder</strong> para ensinar a IA
+                      </p>
+                    )}
+                  </div>
+
+                  {healthData.unansweredQuestions.length === 0 ? (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <p className="text-xs text-emerald-400">Ótimo! Nenhuma lacuna de conhecimento nos últimos 30 dias.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {healthData.unansweredQuestions.map((q) => (
+                        <div key={q.id} className="border border-border/40 rounded-xl bg-secondary/10 overflow-hidden">
+                          {/* Cabeçalho da pergunta */}
+                          <div className="px-4 py-3 flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <HelpCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                                <span className="text-[10px] text-amber-400/80 font-medium">Lead perguntou:</span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {new Date(q.created_at).toLocaleDateString("pt-BR")}
+                                </span>
+                              </div>
+                              <p className="text-xs text-foreground font-medium leading-relaxed">"{q.pergunta}"</p>
+                            </div>
+                          </div>
+
+                          {/* Campo de resposta expandível */}
+                          {answeringId === q.id ? (
+                            <div className="px-4 pb-3 space-y-2 border-t border-border/30 bg-background/40">
+                              <p className="text-[10px] text-muted-foreground pt-2">
+                                ✏️ Escreva a resposta correta. A IA vai memorizar e usar nas próximas conversas.
+                              </p>
+                              <textarea
+                                autoFocus
+                                value={answerDraft}
+                                onChange={e => setAnswerDraft(e.target.value)}
+                                placeholder="Ex: Sim, aceitamos parcelamento em até 12x no cartão. O link de pagamento é..."
+                                className="w-full text-xs bg-secondary/40 border border-border/40 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] text-foreground placeholder:text-muted-foreground/50"
+                              />
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs gap-1.5"
+                                  onClick={() => handleSaveAnswer(q.id, q.pergunta)}
+                                  disabled={savingAnswer || !answerDraft.trim()}
+                                >
+                                  {savingAnswer
+                                    ? <><RefreshCw className="h-3 w-3 animate-spin" /> Salvando...</>
+                                    : <><CheckCircle2 className="h-3 w-3" /> Salvar e ensinar IA</>
+                                  }
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground"
+                                  onClick={() => { setAnsweringId(null); setAnswerDraft(""); }}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground ml-auto"
+                                  onClick={() => handleDismissQuestion(q.id)}
+                                >
+                                  Descartar
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="px-4 pb-3 flex items-center gap-2 border-t border-border/20 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-[10px] gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                                onClick={() => { setAnsweringId(q.id); setAnswerDraft(""); }}
+                              >
+                                <Sparkles className="h-2.5 w-2.5" /> Responder e ensinar IA
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[10px] text-muted-foreground/60"
+                                onClick={() => handleDismissQuestion(q.id)}
+                              >
+                                Ignorar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -128,7 +128,7 @@ export default function Tracker() {
       supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_leads").select("utm_source, score, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
+      supabase.from("imphq_leads").select("utm_source, score, criado_em").gte("criado_em", dateRange.from + "T00:00:00").lte("criado_em", dateRange.to + "T23:59:59"),
       supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
     ]);
     const clicksData = cRes.data || [];

@@ -633,13 +633,15 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     setSaving(true);
     const keywords = keywordsText.split(",").map(k => k.trim()).filter(Boolean);
     const ignored = ignoredPhonesText.split(",").map(n => n.trim()).filter(Boolean);
-    const payload: any = { 
-      ...config, 
-      escalation_keywords: keywords, 
+    const payload: any = {
+      ...config,
+      escalation_keywords: keywords,
       ignored_phones: ignored,
       provider_id: providerId || null,
-      updated_at: new Date().toISOString() 
+      updated_at: new Date().toISOString()
     };
+    // owner_phone pertence a imphq_projects, não a imphq_wa_ai_config
+    delete payload.owner_phone;
 
     const { error } = config.id
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
@@ -943,6 +945,19 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     </p>
                     <p className="text-[10px] text-muted-foreground leading-normal">
                       ⚠️ **Handoff Humano**: Se a IA não encontrar nenhum link correspondente (nem de produto específico, nem esse Link Geral), ela dirá *"Vou te passar o link agora, me dá um segundo."* e transferirá a conversa para um atendente real (IA pausará e notificará a equipe).
+                    </p>
+
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 pt-2">
+                      💠 Chave Pix Oficial (opcional)
+                    </Label>
+                    <Input
+                      placeholder="CNPJ, e-mail, telefone ou chave aleatória"
+                      value={(config as any).pix_key || ""}
+                      onChange={e => setConfig(p => ({ ...p, pix_key: e.target.value } as any))}
+                      className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      Se preenchida, a IA usa EXATAMENTE esta chave quando o lead pedir Pix. Se vazia, a IA <strong>nunca inventa</strong> dados de Pix — ela transfere para um humano enviar os dados corretos.
                     </p>
                   </div>
                 )}

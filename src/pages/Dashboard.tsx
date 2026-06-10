@@ -32,6 +32,7 @@ import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
 import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
 import RagInspector from "@/components/dashboard/RagInspector";
+import { WeeklyReportWidget } from "@/components/dashboard/WeeklyReportWidget";
 
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
@@ -403,6 +404,12 @@ export default function Dashboard() {
         <div className="mt-6">
           <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
         </div>
+      </section>
+
+      {/* RELATÓRIO SEMANAL */}
+      <section>
+        <SectionHead kicker="Resumo" title="Relatório da semana" />
+        <WeeklyReportWidget projectFilter={dashProject} />
       </section>
 
       {/* ATIVIDADE + CRESCIMENTO */}

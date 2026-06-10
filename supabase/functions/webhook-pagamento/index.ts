@@ -728,6 +728,43 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
         console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
 
+        // ── Flow Attribution: record which OpenFlow automation led to this purchase
+        try {
+          if (leadId) {
+            const { data: lastExec } = await supabase
+              .from('imphq_flow_executions')
+              .select('id, automacao_id, current_step')
+              .eq('lead_id', leadId)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (lastExec?.automacao_id) {
+              const { data: autoInfo } = await supabase
+                .from('imphq_automacoes')
+                .select('nome')
+                .eq('id', lastExec.automacao_id)
+                .maybeSingle();
+              const { data: existingVendaData } = await supabase
+                .from('imphq_vendas')
+                .select('data')
+                .eq('id', promotable.id)
+                .maybeSingle();
+              const attributionData = {
+                flow_attribution_id: lastExec.automacao_id,
+                flow_attribution_step: lastExec.current_step,
+                flow_attribution_nome: autoInfo?.nome || null,
+              };
+              await supabase
+                .from('imphq_vendas')
+                .update({ data: { ...(existingVendaData?.data || {}), ...attributionData } })
+                .eq('id', promotable.id);
+              console.log('[webhook-pagamento] Flow attribution recorded (promote):', attributionData);
+            }
+          }
+        } catch (attrErr: any) {
+          console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', attrErr.message);
+        }
+
         // Register A/B test conversion
         try {
           const { data: recentLog } = await supabase
@@ -823,6 +860,38 @@ Deno.serve(async (req) => {
         } else {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
 
+          // ── Flow Attribution: record which OpenFlow automation led to this purchase
+          try {
+            if (leadId) {
+              const { data: lastExec } = await supabase
+                .from('imphq_flow_executions')
+                .select('id, automacao_id, current_step')
+                .eq('lead_id', leadId)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (lastExec?.automacao_id) {
+                const { data: autoInfo } = await supabase
+                  .from('imphq_automacoes')
+                  .select('nome')
+                  .eq('id', lastExec.automacao_id)
+                  .maybeSingle();
+                const attributionData = {
+                  flow_attribution_id: lastExec.automacao_id,
+                  flow_attribution_step: lastExec.current_step,
+                  flow_attribution_nome: autoInfo?.nome || null,
+                };
+                await supabase
+                  .from('imphq_vendas')
+                  .update({ data: { ...(vendaInsert.data || {}), ...attributionData } })
+                  .eq('id', vendaInsert.id);
+                console.log('[webhook-pagamento] Flow attribution recorded (insert):', attributionData);
+              }
+            }
+          } catch (attrErr: any) {
+            console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', attrErr.message);
+          }
+
           // Register A/B test conversion
           try {
             const { data: recentLog } = await supabase
@@ -893,10 +962,12 @@ Deno.serve(async (req) => {
         .update({ status: "cliente", total_gasto: newTotal, updated_at: new Date().toISOString() })
         .eq("id", leadId);
 
-      // Lead scoring for purchase
+      // Lead scoring for purchase — update score field + log
       try {
-        const scoreRows: any[] = [{ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50 }];
-        await supabase.from("imphq_lead_scores_log").insert(scoreRows);
+        const pts = tipo_venda === "principal" ? 50 : tipo_venda === "upsell" ? 30 : tipo_venda === "orderbump" ? 20 : 50;
+        await supabase.from("imphq_lead_scores_log").insert({ lead_id: leadId, acao: `compra_${tipo_venda}`, pontos: pts });
+        // compra_aprovada always sets score to 100 (confirmed customer)
+        await supabase.from("imphq_leads").update({ score: 100, updated_at: new Date().toISOString() }).eq("id", leadId);
       } catch (e) { console.warn("[webhook-pagamento] Score error:", e); }
 
       // Push notification: venda aprovada
@@ -1133,6 +1204,11 @@ Deno.serve(async (req) => {
           const pts = scoreMap[evento];
           if (pts) {
             await supabase.from("imphq_lead_scores_log").insert({ lead_id: leadId, acao: evento, pontos: pts });
+            // Also update score field on imphq_leads incrementally
+            const { data: curLead } = await supabase.from("imphq_leads").select("score").eq("id", leadId).maybeSingle();
+            const curScore = Number(curLead?.score ?? 40);
+            const newScore = Math.max(0, Math.min(99, curScore + pts));
+            await supabase.from("imphq_leads").update({ score: newScore, updated_at: new Date().toISOString() }).eq("id", leadId);
           }
         }
       } catch (e) {
