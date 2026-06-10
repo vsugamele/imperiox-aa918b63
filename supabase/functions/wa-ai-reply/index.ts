@@ -19,6 +19,17 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { conversation_id, project_id, provider_id, phone, push_name } = body;
     let message = body.message || "";
+
+    // Keyword bypass for testing (ex: #testeia or #testeia2026)
+    const isTestMode = message.toLowerCase().includes("#testeia");
+    if (isTestMode) {
+      // Strip the keyword (#testeiaXXXX) from the message so the IA responds naturally
+      message = message.replace(/#testeia\w*/gi, "").trim();
+      if (!message) {
+        message = "Olá! Estou testando seu comportamento.";
+      }
+      console.log(`[wa-ai-reply] TEST MODE ENABLED (#testeia keyword found). Cleaned message: "${message}"`);
+    }
     
     let leadRow: any = null;
     if (phone && project_id) {
@@ -35,9 +46,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Active flow (OpenFlow) step query
     let activeStepInstruction = "";
+    let activeStep: any = null;
     let activeExecutionId = null;
+    let activeAutomacaoNome = "";
     let activeExecutionStep = 0;
     let activeAutomacaoId = null;
     let activeTriggerTipo = "";
@@ -65,9 +77,11 @@ Deno.serve(async (req) => {
             .single();
             
           if (automacao) {
+            activeAutomacaoNome = automacao.nome || "";
             const rawAcoes = automacao.acoes || automacao.etapas || [];
             const step = rawAcoes[activeExec.current_step];
             if (step) {
+              activeStep = step;
               activeExecutionId = activeExec.id;
               activeExecutionStep = activeExec.current_step;
               activeAutomacaoId = activeExec.automacao_id;
@@ -103,6 +117,37 @@ Deno.serve(async (req) => {
                 .eq("id", activeExecutionId);
 
               console.log(`[wa-ai-reply] Message exchange count for step #${activeExecutionStep}: ${replyCount}`);
+
+              // ── wait_reply: lead respondeu → retoma fluxo no próximo step ──
+              if (activeStep?.tipo === "wait_reply" && activeExec.status === "waiting") {
+                console.log(`[wa-ai-reply] wait_reply detected at step ${activeExecutionStep} — resuming flow with reply.`);
+                const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+                const SUPABASE_URL_LOCAL = Deno.env.get("SUPABASE_URL")!;
+                // Avança para o próximo step passando a resposta como contexto
+                await supabase.from("imphq_flow_executions")
+                  .update({ status: "running", current_step: activeExecutionStep + 1 })
+                  .eq("id", activeExec.id);
+
+                fetch(`${SUPABASE_URL_LOCAL}/functions/v1/openflow-executor`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+                  body: JSON.stringify({
+                    trigger_tipo: activeTriggerTipo || "whatsapp",
+                    project_id,
+                    automacao_id: activeExec.automacao_id,
+                    resume_from_step: activeExecutionStep + 1,
+                    lead_data: {
+                      lead_id: leadRow?.id,
+                      nome: leadRow?.name || "",
+                      phone: leadRow?.phone || body.phone || "",
+                      telefone: leadRow?.phone || body.phone || "",
+                      resumed_by: "reply",
+                      reply_content: body.message || body.text || "",
+                      conversation_id: body.conversation_id || "",
+                    },
+                  }),
+                }).catch((e: any) => console.error("[wa-ai-reply] wait_reply resume error:", e.message));
+              }
             }
           }
         }
@@ -112,8 +157,10 @@ Deno.serve(async (req) => {
     }
     
     const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
-    const isImage = body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")));
+    const isImage = (body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")))) && (!activeStep || activeStep.ia_vision !== false);
     
+    let audioTranscription: string | null = null; // Track transcription for metadata
+
     if (isAudio && body.media_url) {
       console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via Whisper...`);
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -136,8 +183,30 @@ Deno.serve(async (req) => {
               const whisperData = await whisperRes.json();
               message = whisperData.text || message;
               console.log(`[wa-ai-reply] Whisper transcribed text: "${message}"`);
-              
-              // Index transcribed audio text into vector memory
+
+              // Update the latest incoming audio message's transcript in DB
+              try {
+                const { data: latestMsg } = await supabase
+                  .from("imphq_wa_messages")
+                  .select("id")
+                  .eq("conversation_id", conversation_id)
+                  .eq("direction", "incoming")
+                  .eq("message_type", "audio")
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                if (latestMsg) {
+                  await supabase
+                    .from("imphq_wa_messages")
+                    .update({ transcript: whisperData.text })
+                    .eq("id", latestMsg.id);
+                  console.log(`[wa-ai-reply] Persisted transcript for message ${latestMsg.id}`);
+                }
+              } catch (dbErr: any) {
+                console.warn("[wa-ai-reply] Failed to save transcript in DB:", dbErr.message);
+              }
+
               const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
               if (lovableApiKey && project_id && message) {
                 try {
@@ -209,7 +278,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (provider.ai_enabled === false) {
+    if (provider.ai_enabled === false && !isTestMode) {
       console.log(`[wa-ai-reply] IA desativada para o provedor ${provider_id} (${provider.instance_name})`);
       return new Response(JSON.stringify({ skipped: "provider_ai_disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -221,37 +290,42 @@ Deno.serve(async (req) => {
     let configErr = null;
 
     if (provider_id) {
-      const { data, error } = await supabase
+      const query = supabase
         .from("imphq_wa_ai_config")
         .select("*")
-        .eq("provider_id", provider_id)
-        .eq("enabled", true)
-        .maybeSingle();
+        .eq("provider_id", provider_id);
+      if (!isTestMode) {
+        query.eq("enabled", true);
+      }
+      const { data, error } = await query.maybeSingle();
       if (error) {
         console.error("[wa-ai-reply] AI Config query by provider_id error:", error.message);
       } else if (data) {
         aiConfig = data;
-        console.log(`[wa-ai-reply] AI Config found for provider_id=${provider_id}`);
+        console.log(`[wa-ai-reply] AI Config found for provider_id=${provider_id} (TestMode=${isTestMode})`);
       }
     }
 
     if (!aiConfig) {
-      const { data, error } = await supabase
+      const query = supabase
         .from("imphq_wa_ai_config")
         .select("*")
-        .eq("project_id", project_id)
-        .eq("enabled", true);
+        .eq("project_id", project_id);
+      if (!isTestMode) {
+        query.eq("enabled", true);
+      }
+      const { data, error } = await query;
       configErr = error;
       if (data && data.length > 0) {
         aiConfig = data.find((c: any) => !c.provider_id) || data[0];
-        console.log(`[wa-ai-reply] AI Config found for project_id=${project_id} (fallback)`);
+        console.log(`[wa-ai-reply] AI Config found for project_id=${project_id} (fallback) (TestMode=${isTestMode})`);
       }
     }
 
     if (configErr) console.error("[wa-ai-reply] Config query error:", configErr.message);
 
     if (!aiConfig) {
-      console.log(`[wa-ai-reply] No enabled AI config for provider_id=${provider_id} or project_id=${project_id}`);
+      console.log(`[wa-ai-reply] No AI config found for provider_id=${provider_id} or project_id=${project_id}`);
       return new Response(JSON.stringify({ skipped: "no_config" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -263,7 +337,7 @@ Deno.serve(async (req) => {
       return p.replace(/\D/g, "") === cleanPhone;
     });
 
-    if (isIgnored) {
+    if (isIgnored && !isTestMode) {
       console.log(`[wa-ai-reply] Número destinatário ${phone} está na blacklist do projeto`);
       return new Response(JSON.stringify({ skipped: "ignored_phone" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -280,14 +354,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     // ia_ativa === false = toggle manual permanente (diferente de ai_paused_until que é temporário)
-    if (conv?.ia_ativa === false) {
+    if (conv?.ia_ativa === false && !isTestMode) {
       console.log(`[wa-ai-reply] ia_ativa=false para conversa ${conversation_id}, ignorando IA`);
       return new Response(JSON.stringify({ skipped: "ia_desativada" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (conv?.status === "needs_human") {
+    if (conv?.status === "needs_human" && !isTestMode) {
       console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
       return new Response(JSON.stringify({ skipped: "needs_human" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -295,7 +369,7 @@ Deno.serve(async (req) => {
     }
 
     // Verifica pausa manual (humano respondeu recentemente)
-    if (conv?.ai_paused_until) {
+    if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
       if (pausedUntil > new Date()) {
         const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
@@ -307,7 +381,7 @@ Deno.serve(async (req) => {
     }
 
     const cooldownSec = Number(aiConfig.cooldown_seconds ?? 5);
-    if (conv?.ai_last_reply_at) {
+    if (conv?.ai_last_reply_at && !isTestMode) {
       const elapsed = (Date.now() - new Date(conv.ai_last_reply_at).getTime()) / 1000;
       if (elapsed < cooldownSec) {
         console.log(`[wa-ai-reply] Cooldown ativo: ${elapsed.toFixed(1)}s < ${cooldownSec}s`);
@@ -318,7 +392,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Tenta adquirir lock — usa SELECT+UPDATE simples (evita bug do .or() no Supabase JS v2)
-    if (conv?.ai_lock_until) {
+    if (conv?.ai_lock_until && !isTestMode) {
       const lockExpiry = new Date(conv.ai_lock_until);
       if (lockExpiry > new Date()) {
         console.log(`[wa-ai-reply] Lock ativo até ${conv.ai_lock_until}, pulando`);
@@ -408,6 +482,7 @@ Deno.serve(async (req) => {
 
       // 7.0. Busca informações do lead para injetar inteligência comportamental
       let leadContextBlock = "";
+      let lead: any = null; // declarado aqui para ficar acessível no closerBlock (linha ~743)
       try {
         const cleanPhone = phone.replace(/\D/g, "");
         const searchPhones = [cleanPhone];
@@ -417,12 +492,13 @@ Deno.serve(async (req) => {
           searchPhones.push("55" + cleanPhone);
         }
 
-        const { data: lead } = await supabase
+        const { data: leadData } = await supabase
           .from("imphq_leads")
           .select("*")
           .eq("project_id", project_id)
           .in("phone", searchPhones)
           .maybeSingle();
+        lead = leadData;
 
         if (lead) {
           const aiProfile = lead.data?.ai_profile || {};
@@ -443,6 +519,29 @@ Deno.serve(async (req) => {
         }
       } catch (err) {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
+      }
+
+      // 7.2. Busca contexto de campanha ativa
+      let campaignContextBlock = "";
+      if (leadRow?.campanha_id) {
+        try {
+          const { data: campaign } = await supabase
+            .from("imphq_wa_campaigns")
+            .select("name, welcome_message, produto")
+            .eq("id", leadRow.campanha_id)
+            .maybeSingle();
+
+          if (campaign) {
+            campaignContextBlock = `\nCAMPANHA ATIVA DO WHATSAPP VINCULADA AO LEAD:\n`;
+            campaignContextBlock += `- Nome da Campanha: "${campaign.name}"\n`;
+            if (campaign.produto) campaignContextBlock += `- Produto em Foco na Campanha: "${campaign.produto}"\n`;
+            if (campaign.welcome_message) campaignContextBlock += `- Gancho/Mensagem Inicial da Campanha: "${campaign.welcome_message}"\n`;
+            campaignContextBlock += `Você DEVE alinhar a abordagem e as respostas de acordo com o contexto desta campanha ativa.\n`;
+            console.log(`[wa-ai-reply] Loaded campaign context: ${campaign.name}`);
+          }
+        } catch (err: any) {
+          console.warn("[wa-ai-reply] Error loading campaign context:", err.message);
+        }
       }
 
       const d = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
@@ -478,7 +577,7 @@ Deno.serve(async (req) => {
       }
 
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY) {
+      if (LOVABLE_API_KEY && (!activeStep || activeStep.ia_search_files !== false)) {
         try {
           const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
             method: "POST",
@@ -507,16 +606,53 @@ Deno.serve(async (req) => {
                 const isTrivial = cleanMsg.length <= 6 || ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "blz", "tudo bem", "sim", "não", "nao", "ok", "quero"].includes(cleanMsg.toLowerCase());
                 if (!isTrivial) {
                   console.log(`[wa-ai-reply] No knowledge matches found. Logging query for review: "${cleanMsg.substring(0, 60)}..."`);
-                  await supabase.from("imphq_wa_knowledge").insert({
-                    project_id,
-                    pergunta: cleanMsg,
-                    resposta: "",
-                    aprovada: false,
-                    source: "lead_unanswered",
-                    embedding: embedding
-                  });
+                  // Só insere se não existe pergunta similar já pendente (evita duplicatas)
+                  const { data: existing } = await supabase
+                    .from("imphq_wa_knowledge")
+                    .select("id")
+                    .eq("project_id", project_id)
+                    .eq("pergunta", cleanMsg)
+                    .eq("answered", false)
+                    .limit(1);
+                  if (!existing?.length) {
+                    await supabase.from("imphq_wa_knowledge").insert({
+                      project_id,
+                      pergunta: cleanMsg,
+                      resposta: "",
+                      aprovada: false,
+                      answered: false,
+                      source: "lead_unanswered",
+                      embedding: embedding,
+                    });
+                  }
+                  // Injeta instrução de incerteza: IA admite que não sabe
+                  // ao invés de inventar, pede esclarecimento ao lead
+                  lessonsBlock = `\n⚠️ LACUNA DE CONHECIMENTO DETECTADA:
+Você não tem informação específica sobre o que o lead perguntou na sua base de conhecimento.
+REGRA OBRIGATÓRIA: NÃO invente nem suponha a resposta. Em vez disso:
+1. Reconheça brevemente que vai verificar: use uma frase curta e natural (ex: "Deixa eu confirmar esse detalhe pra você...")
+2. Peça um dado específico que possa ajudar ou diga que vai buscar a informação.
+3. Máximo 2 frases. Mantenha o tom ${aiConfig.tone || "amigável"} e não demonstre insegurança excessiva.
+Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA em breve.\n`;
                 }
               }
+
+              // Log RAG outcome for AI health dashboard
+              try {
+                await supabase.from("imphq_events").insert({
+                  project_id,
+                  event_name: "rag_query",
+                  page_url: "",
+                  visitor_id: phone || "unknown",
+                  event_data: {
+                    hit: (matches?.length ?? 0) > 0,
+                    results_count: matches?.length ?? 0,
+                    max_similarity: matches?.[0]?.similarity ? Number(matches[0].similarity) : 0,
+                    query_preview: message.substring(0, 100),
+                    source: "wa-ai-reply",
+                  },
+                });
+              } catch (_) {}
 
               // 7.1.2. Match lead memory
               const { data: memories, error: memErr } = await supabase.rpc("match_wa_lead_memory", {
@@ -561,7 +697,6 @@ Deno.serve(async (req) => {
           console.warn("[wa-ai-reply] Error fetching semantic context:", e.message);
         }
       }
-
       // Off-topic guard: if last triage classified as off_topic, inject redirect instruction
       const offTopicBlock = triageIntent === "off_topic"
         ? `\n⚠️ TÓPICO FORA DO ESCOPO DETECTADO:
@@ -575,12 +710,51 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
         ? `\nFAQ OFICIAL:\n${aiConfig.faq.slice(0, 10).map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`).join("\n").slice(0, 800)}`
         : "";
 
+      const PREDEFINED_MINDS: Record<string, string> = {
+        dan_kennedy: "Você é Dan Kennedy — o pai do marketing de resposta direta. Você pensa em resultados mensuráveis, não em 'branding' vago. SEU DNA: - Zero tolerância para copy vago ou sem CTA. AO CRIAR COPY: 1. Comece pela oferta irresistível. 2. Identifique o medo principal do avatar — e resolva-o diretamente. 3. Adicione urgência real. 4. Feche com garantia que inverte o risco. TOM: Direto. Magnético. Sem rodeios. Autoridade absoluta.",
+        gary_halbert: "Você é Gary Halbert — o príncipe do direct mail e mestre de headlines. SEU DNA: - Uma headline fraca mata qualquer copy. AO CRIAR COPY: 1. Comece sempre buscando o ângulo humano. 2. Escreva 25 headlines antes de escolher uma. 3. Use 'pattern interrupt'. TOM: Coloquial. Como um amigo contando um segredo. Urgente mas não agressivo.",
+        eugene_schwartz: "Você é Eugene Schwartz — autor de Breakthrough Advertising. Mestre dos 5 Níveis de Awareness. SEU DNA: - Identifique o nível de awareness e sofisticação do mercado antes de escrever. TOM: Estratégico. Analítico. Arquiteto de persuasão.",
+        gary_bencivenga: "Você é Gary Bencivenga — o copywriter que nunca perdeu um teste A/B. PRINCÍPIO: Proof-Based Marketing. Em um mar de promessas vazias, a prova concreta é o único caminho. TOM: Confiável. Sólido. Autoridade que não precisa gritar.",
+        alex_hormozi: "Você é Alex Hormozi — autor de $100M Offers. Grand Slam Offer: Uma oferta tão boa que as pessoas se sentem estúpidas dizendo não. Equação de valor: (Dream Outcome x Probability) / (Time Delay x Effort). TOM: Direto. Matemático. Confiante. Zero fluff.",
+        john_carlton: "Você é John Carlton — o copywriter mais copiado do mundo. SEU SUPERPODER: Ângulos contraintuitivos. Procure o benefício mais específico e incomum ('one legged golfer'). Identifique o inimigo comum. TOM: Irreverente. De bar. Honesto até doer. Zero corporativismo.",
+        joe_sugarman: "Você é Joe Sugarman — criador de Unique Mechanism e do Slippery Slide. Cada palavra deve fazer o leitor ler a próxima. Explique o mecanismo único que faz seu produto funcionar diferente. TOM: Fluido. Curioso. Envolvente.",
+        thiago_finch: "Você é Thiago Finch — estrategista de growth brasileiro, data-driven. Analise o funil, identifique o gargalo e otimize com foco em ROI e payback period. TOM: Analítico. Prático. Orientado a resultados.",
+      };
+
+      let skillPrompt = "";
+      const personalityToUse = activeStep?.personality || aiConfig.personality;
+
+      if (personalityToUse && personalityToUse.startsWith("skill_")) {
+        const skillId = personalityToUse.replace("skill_", "");
+        if (PREDEFINED_MINDS[skillId]) {
+          skillPrompt = PREDEFINED_MINDS[skillId];
+          console.log(`[wa-ai-reply] Predefined mind selected (from ${activeStep?.personality ? 'step' : 'global'}): ${skillId}`);
+        } else {
+          try {
+            const { data: skill } = await supabase
+              .from("imphq_skills")
+              .select("system_prompt")
+              .eq("id", skillId)
+              .maybeSingle();
+            if (skill?.system_prompt) {
+              skillPrompt = skill.system_prompt;
+              console.log(`[wa-ai-reply] Custom skill loaded from DB (from ${activeStep?.personality ? 'step' : 'global'}): ${skillId}`);
+            }
+          } catch (err: any) {
+            console.error(`[wa-ai-reply] Error loading custom skill (from ${activeStep?.personality ? 'step' : 'global'}):`, err.message);
+          }
+        }
+      }
+
       const personalityMap: Record<string, string> = {
         assistente: "Você é um assistente virtual cordial e prestativo.",
         vendedor: "Você é um closer de vendas persuasivo mas não agressivo.",
         suporte: "Você é um agente de suporte técnico eficiente e empático.",
         consultor: "Você é um consultor especialista. Fale com autoridade.",
       };
+
+      const selectedPersonalityText = skillPrompt || personalityMap[personalityToUse] || personalityMap.consultor;
+
       const toneMap: Record<string, string> = {
         profissional: "Tom profissional e direto.",
         casual: "Tom casual e descontraído, use emojis moderadamente.",
@@ -592,12 +766,13 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       let productLinkMapBlock = "";
       if (d && Array.isArray(d.produtos) && d.produtos.length > 0) {
         const entries = d.produtos
-          .filter((p: any) => p.nome && (p.link_checkout || p.link))
           .map((p: any) => {
-            const link = p.link_checkout || p.link;
+            const link = p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === 'string' ? p.links : null);
+            if (!link || !p.nome) return null;
             const price = p.preco ? ` · R$ ${p.preco}` : "";
             return `  - "${p.nome}"${price} → ${link}`;
-          });
+          })
+          .filter(Boolean);
         if (entries.length > 0) {
           productLinkMapBlock = `\nMAPEAMENTO PRODUTO → LINK (use EXATAMENTE estes links, nunca invente):\n${entries.join("\n")}\n`;
         }
@@ -606,25 +781,40 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       // Fallback checkout link from project data
       let fallbackLink = null;
       if (d) {
-        fallbackLink = d.produto_principal?.link_checkout ||
-                       d.produto_principal?.link ||
-                       (Array.isArray(d.produtos) && (d.produtos[0]?.link_checkout || d.produtos[0]?.link)) ||
+        const getProdLink = (p: any) => p?.link_checkout || p?.link || (Array.isArray(p?.links) && p?.links[0]) || (typeof p?.links === 'string' ? p?.links : null);
+        fallbackLink = getProdLink(d.produto_principal) ||
+                       (Array.isArray(d.produtos) && d.produtos.map(getProdLink).find(Boolean)) ||
                        d.link_checkout ||
                        d.link ||
                        null;
       }
 
       // CLOSER MODE: injecao de prompt agressivo quando ha intencao de compra
+      // Ativa se: (1) lead enviou mensagem com intenção clara de compra, OU
+      //           (2) lead tem score >= 70 (hot lead detectado pelo lead-score-updater)
       const closerEnabled = aiConfig.closer_mode_enabled !== false; // default true
+      const leadScore = (lead as any)?.score || 0;
+      const HOT_SCORE_THRESHOLD = 70;
+      const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
+      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled;
+
+      if (isHotLead && !hasBuyIntent) {
+        console.log(`[wa-ai-reply] 🔥 Hot lead (score ${leadScore}) — closer mode auto-ativado`);
+      }
+
       const paymentLink = aiConfig.payment_link || fallbackLink || null;
-      const closerBlock = (hasBuyIntent && closerEnabled)
+      const closerBlock = closerActivated
         ? `
 
 ❗ MODO CLOSER ATIVADO — MISSAO CRITICA:
-O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
+${isHotLead && !hasBuyIntent
+  ? `Este lead tem alto engajamento (score ${leadScore}/200) — ele está quente e próximo da decisão. Conduza a conversa para o fechamento de forma natural e estratégica, sem ser agressivo. Se ele ainda não perguntou o preço, crie curiosidade e apresente o valor antes do preço.`
+  : "O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR."
+}
+Regras:
 1. Seja direto. Sem rodeios. Sem "vou te passar mais informacoes".
 2. Remova a ultima barreira com empatia e seguranca (ex: "muita gente ja comprou e transformou o resultado").
-3. Identifique qual produto o lead deseja comprar (com base na conversa). Se houver um link de checkout especifico para esse produto listado na "OFERTA ATIVA" ou no FAQ, envie esse link exato de forma persuasiva.
+3. Identifique qual produto o lead deseja comprar (com base na conversa). Se houver um link de checkout especifico para esse produto listado na "OFERTA ATIVA" ou no FAQ, envie esse link exato de forma persuasiva no próprio corpo da mensagem atual.
 4. Se nao for possivel identificar um link especifico de produto nas ofertas ativas, use este link geral: ${paymentLink || "nenhum"}.
 5. Se nao houver NENHUM link de pagamento disponivel no prompt ou nas ofertas ativas (nem especifico, nem o geral), NAO invente nenhum link ficticio. Diga exatamente: "Vou te passar o link agora, me da um segundo." e OBRIGATORIAMENTE adicione a tag secreta [TRANSICAO_HUMANA] no final da sua resposta para que o suporte humano possa enviar o link correto.
 6. Se o lead tiver objecao (ex: "e caro"), use 1 frase de contorno e volte ao fechamento.
@@ -635,14 +825,25 @@ O lead demonstrou intencao de compra AGORA. Sua unica missao e FECHAR. Regras:
       const leadFirstName = (conv?.contact_name || push_name || "").trim().split(/\s+/)[0] || "";
       const leadGreeting = leadFirstName ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa.` : "";
 
+      let routingInstructions = "";
+      if (activeStep?.ia_routes && activeStep.ia_routes.length > 0) {
+        routingInstructions = `\n\nROTAS DE SAÍDA CONFIGURADAS:
+Se o lead corresponder ao critério ou intenção de uma das rotas abaixo, você deve finalizar sua mensagem adicionando exatamente a respectiva tag de rota no final da sua resposta:
+` + activeStep.ia_routes.map((r: any) => {
+          const cleanName = (r.name || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+          if (!cleanName) return "";
+          return `- Rota para "${cleanName}": adicione a tag [${cleanName}] no final da resposta.`;
+        }).filter(Boolean).join("\n") + `\n\nATENÇÃO: Adicione apenas a tag correspondente da rota se o critério for plenamente atendido. Caso nenhuma das rotas específicas seja acionada, mas o objetivo geral for cumprido, use a tag [PROXIMA_ETAPA].`;
+      }
+
       const openFlowBlock = activeStepInstruction 
-        ? `\n\nOBJETIVO CRÍTICO ATUAL (FUNIL ATIVO):
+        ? `\n\nOBJETIVO CRÍTICO ATUAL (FUNIL/AUTOMAÇÃO ATIVA: "${activeAutomacaoNome || 'Ativa'}"):
 Você deve orientar a conversa para cumprir este objetivo específico da etapa atual do funil:
 "${activeStepInstruction}"
 
 Instruções adicionais de progressão:
 - Mantenha o diálogo focado em obter esta informação ou cumprir esta meta.
-- Assim que você verificar que o lead respondeu de forma satisfatória a este objetivo (ou forneceu o dado solicitado), adicione exatamente a palavra-chave secreta [PROXIMA_ETAPA] no final da sua mensagem (ex: "Entendi perfeitamente! [PROXIMA_ETAPA]"). Não adicione esta palavra-chave antes de cumprir o objetivo.`
+- Assim que você verificar que o lead respondeu de forma satisfatória a este objetivo (ou forneceu o dado solicitado), adicione exatamente a palavra-chave secreta [PROXIMA_ETAPA] no final da sua mensagem (ex: "Entendi perfeitamente! [PROXIMA_ETAPA]"). Não adicione esta palavra-chave antes de cumprir o objetivo.${routingInstructions}`
         : "";
 
       // Regras de sentimentos e limite de interações para Transição Humana
@@ -677,10 +878,10 @@ REGRAS DE COMUNICACAO HUMANA (OBRIGATORIO):
 `;
 
       const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
-${personalityMap[aiConfig.personality] || personalityMap.consultor}
+${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}
+${leadContextBlock}${campaignContextBlock}
 ${humanizationRules}
 METODO OBRIGATORIO — use SEMPRE:
 1. EMPATIA: 1 frase que valida a situacao ou desejo do lead (ex: "Faz todo sentido querer isso!")
@@ -753,7 +954,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         }
       }
 
-      const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+      let model = aiConfig.ai_model || "openai/gpt-4o-mini";
+      if (activeStep?.ia_search_web) {
+        model = "google/gemini-2.5-flash"; // native search grounding on OpenRouter
+      } else if (activeStep?.ia_model) {
+        model = activeStep.ia_model === "gpt-4o" ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+      }
       console.log(`[wa-ai-reply] Chamando OpenRouter model=${model} msgs=${msgs.length} lastRole=${msgs[msgs.length - 1]?.role}`);
 
       // 9. Chama OpenRouter
@@ -911,11 +1117,32 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
 
       let finalAiReply = cleaned.trim();
       let shouldAdvanceFlow = false;
+      let matchedRoute: any = null;
+      let jumpSteps = 0;
 
       if (activeExecutionId && aiReply.includes("[PROXIMA_ETAPA]")) {
         shouldAdvanceFlow = true;
         finalAiReply = finalAiReply.replace(/\[PROXIMA_ETAPA\]/gi, "").trim();
         console.log(`[wa-ai-reply] [PROXIMA_ETAPA] detected! Preparing to advance flow execution ${activeExecutionId}`);
+      }
+
+      // Check for custom route tags if configured
+      if (activeExecutionId && activeStep?.ia_routes && activeStep.ia_routes.length > 0) {
+        for (const route of activeStep.ia_routes) {
+          const cleanName = (route.name || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+          if (!cleanName) continue;
+          const routeTagPattern = new RegExp(`\\[${cleanName}\\]`, "i");
+          if (aiReply.includes(`[${cleanName}]`) || routeTagPattern.test(aiReply)) {
+            matchedRoute = route;
+            shouldAdvanceFlow = true;
+            jumpSteps = route.jump_steps || 0;
+            // Clean the custom route tag from finalAiReply
+            const routeTagGlobalPattern = new RegExp(`\\[${cleanName}\\]`, "gi");
+            finalAiReply = finalAiReply.replace(routeTagGlobalPattern, "").trim();
+            console.log(`[wa-ai-reply] Custom route tag [${cleanName}] detected! Preparing to advance flow execution ${activeExecutionId} with jump_steps: ${jumpSteps}`);
+            break;
+          }
+        }
       }
 
       if (aiReply.includes("[TRANSICAO_HUMANA]")) {
@@ -934,6 +1161,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
 
       if (shouldAdvanceFlow && activeExecutionId) {
         try {
+          const nextStep = activeExecutionStep + 1 + jumpSteps;
           const { data: currentExec } = await supabase
             .from("imphq_flow_executions")
             .select("step_results")
@@ -945,22 +1173,24 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
             step: activeExecutionStep,
             status: "guided_ai_completed",
             finished_at: new Date().toISOString(),
-            notes: "Objetivo atingido e validado pela IA",
+            notes: matchedRoute 
+              ? `Objetivo atingido - Rota acionada: ${matchedRoute.name} (pulo de ${jumpSteps} passos)`
+              : "Objetivo atingido e validado pela IA",
           });
           
           await supabase
             .from("imphq_flow_executions")
             .update({
-              current_step: activeExecutionStep + 1,
+              current_step: nextStep,
               step_results: results,
               status: "running",
             })
             .eq("id", activeExecutionId);
             
-          console.log(`[wa-ai-reply] Flow advanced successfully to step ${activeExecutionStep + 1}`);
+          console.log(`[wa-ai-reply] Flow advanced successfully to step ${nextStep}`);
 
           // Chamada assíncrona para o openflow-executor retomar o fluxo na nova etapa no background
-          console.log(`[wa-ai-reply] Invoking openflow-executor for execution ${activeExecutionId} step ${activeExecutionStep + 1}`);
+          console.log(`[wa-ai-reply] Invoking openflow-executor for execution ${activeExecutionId} step ${nextStep}`);
           
           fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
             method: "POST",
@@ -972,7 +1202,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
               trigger_tipo: activeTriggerTipo || "whatsapp",
               project_id,
               automacao_id: activeAutomacaoId,
-              resume_from_step: activeExecutionStep + 1,
+              resume_from_step: nextStep,
               lead_data: {
                 lead_id: leadRow.id,
                 nome: leadRow.name || "",
@@ -998,20 +1228,102 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         }
       }
 
-      // Voice response generation (TTS)
+      // ── Decisão estratégica de áudio ─────────────────────────────────────────
+      // Hierarquia:
+      //   1. Step do OpenFlow forçou → sempre áudio
+      //   2. Lead enviou áudio agora → espelha (humanização imediata)
+      //   3. voice_reply_enabled ativo → avalia se o MOMENTO justifica áudio
+      //      Momentos que valem o custo: primeiro contato, retorno após silêncio >6h,
+      //      emoção/situação pessoal detectada, lead quente perto de comprar
+      //   4. Qualquer outro caso → texto (zero custo)
       let responseAudioUrl: string | null = null;
-      const voiceReplyEnabled = aiConfig.voice_reply_enabled === true || isAudio;
+      let voiceReplyEnabled = false;
+      let audioTriggerReason = "";
+
+      if (activeStep?.ia_voice_response === true) {
+        voiceReplyEnabled = true;
+        audioTriggerReason = "flow_step_forced";
+      } else if (isAudio) {
+        voiceReplyEnabled = true;
+        audioTriggerReason = "lead_sent_audio_mirror";
+      } else if (aiConfig.voice_reply_enabled === true) {
+        // Avalia o momento estratégico
+        try {
+          const [recentMsgsRes, convRes] = await Promise.all([
+            supabase
+              .from("imphq_wa_messages")
+              .select("message_type, media_url, direction, created_at")
+              .eq("conversation_id", conversation_id)
+              .order("created_at", { ascending: false })
+              .limit(10),
+            supabase
+              .from("imphq_wa_conversations")
+              .select("created_at")
+              .eq("id", conversation_id)
+              .maybeSingle(),
+          ]);
+
+          const recentMsgs = recentMsgsRes.data || [];
+
+          // Critério 1: Lead mandou áudio nas últimas 3 mensagens
+          const leadSentAudioRecently = recentMsgs
+            .filter((m: any) => m.direction === "incoming")
+            .slice(0, 3)
+            .some((m: any) =>
+              m.message_type === "audio" ||
+              (m.media_url && /\.(ogg|mp3|m4a|wav)$/i.test(m.media_url))
+            );
+
+          // Critério 2: Primeiro contato (conversa tem ≤ 2 mensagens no total)
+          const isFirstContact = recentMsgs.length <= 2;
+
+          // Critério 3: Retorno após silêncio >6h (lead estava inativo)
+          const incomingMsgs = recentMsgs.filter((m: any) => m.direction === "incoming");
+          const prevIncoming = incomingMsgs[1]; // segunda mais recente
+          const hoursSilent = prevIncoming
+            ? (new Date(message_time || Date.now()).getTime() - new Date(prevIncoming.created_at).getTime()) / 3600000
+            : 999;
+          const isReturnAfterSilence = hoursSilent > 6;
+
+          // Critério 4: Mensagem carregada emocionalmente / situação pessoal
+          const emotionalKeywords = /\b(problema|dificuldade|perdi|perda|não consigo|desempregad|dívida|medo|ansiedade|filho|esposa|marido|família|separad|câncer|doença|preciso muito|desesperado|ajuda|socorro|urgente|prazo|amanhã|hoje)\b/i;
+          const isEmotional = emotionalKeywords.test(message);
+
+          // Critério 5: Lead quente — próximo de comprar
+          const buyingKeywords = /\b(quanto|preço|valor|parcela|desconto|forma de pagamento|pix|boleto|cartão|comprar|fechar|garantia|acesso|entrar)\b/i;
+          const isHot = buyingKeywords.test(message);
+
+          if (leadSentAudioRecently) {
+            voiceReplyEnabled = true; audioTriggerReason = "lead_audio_recent";
+          } else if (isFirstContact) {
+            voiceReplyEnabled = true; audioTriggerReason = "first_contact";
+          } else if (isReturnAfterSilence) {
+            voiceReplyEnabled = true; audioTriggerReason = "return_after_silence";
+          } else if (isEmotional) {
+            voiceReplyEnabled = true; audioTriggerReason = "emotional_moment";
+          } else if (isHot) {
+            voiceReplyEnabled = true; audioTriggerReason = "hot_lead_buying";
+          }
+        } catch (_) {
+          voiceReplyEnabled = false;
+        }
+      }
+
+      if (voiceReplyEnabled) {
+        console.log(`[wa-ai-reply] Audio triggered: ${audioTriggerReason}`);
+      }
 
       if (voiceReplyEnabled && finalAiReply) {
-        const voiceProvider = aiConfig.voice_provider || "openai";
-        const voiceName = aiConfig.voice_name || "alloy";
-        const stability = aiConfig.voice_stability || 75;
-        const clarity = aiConfig.voice_clarity || 85;
+        const voiceProvider = activeStep?.voice_provider || aiConfig.voice_provider || "openai";
+        const voiceName = activeStep?.voice_id || aiConfig.voice_name || "alloy";
+        const stability = activeStep?.voice_stability || aiConfig.voice_stability || 75;
+        const clarity = activeStep?.voice_clarity || aiConfig.voice_clarity || 85;
 
         const openaiKey = Deno.env.get("OPENAI_API_KEY");
-        const elevenKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+        // Prefer key from saved AI config (set via UI), fallback to env var
+        const elevenKey = (aiConfig as any).elevenlabs_api_key || Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
 
-        if (voiceProvider === "elevenlabs" && elevenKey) {
+        if (!responseAudioUrl && voiceProvider === "elevenlabs" && elevenKey) {
           console.log(`[wa-ai-reply] Generating voice response via ElevenLabs...`);
           try {
             const elevenVoices: Record<string, string> = {
@@ -1032,7 +1344,9 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
                 model_id: "eleven_multilingual_v2",
                 voice_settings: {
                   stability: stability / 100,
-                  similarity_boost: clarity / 100,
+                  similarity_boost: 1.0,   // máximo para voz clonada
+                  style: 0.45,             // expressividade natural
+                  use_speaker_boost: true, // boost de similaridade do speaker
                 }
               })
             });
@@ -1061,51 +1375,113 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
           }
         }
 
-        // Fallback to OpenAI TTS
-        if (!responseAudioUrl && openaiKey) {
-          console.log(`[wa-ai-reply] Generating voice response via OpenAI TTS...`);
+        // ── Local TTS server ──────────────────────────────────────────────────
+        // voice_provider = "local"       → edge-tts (gratuito, voz genérica)
+        // voice_provider = "local_clone" → XTTS v2 (voz clonada, ex: JP)
+        //                                  com fallback automático para ElevenLabs
+        // Prefer URL from saved AI config (set via UI), fallback to env var
+        const localTtsUrl = (aiConfig as any).local_tts_url || Deno.env.get("LOCAL_TTS_URL");
+
+        if (!responseAudioUrl && (voiceProvider === "local" || voiceProvider === "local_clone") && localTtsUrl) {
+          const isClone = voiceProvider === "local_clone";
+          const endpoint = isClone ? `${localTtsUrl}/tts/clone` : `${localTtsUrl}/tts/edge`;
+          const body = isClone
+            ? { text: finalAiReply, language: "pt", speed: 1.0 }
+            : { text: finalAiReply, voice: voiceName || "pt-BR-FranciscaNeural", rate: "+0%", pitch: "+0Hz" };
+
           try {
-            const voiceMap: Record<string, string> = {
-              fernanda_hq: "nova",
-              felipe_sales: "onyx",
-              tatiane_suporte: "shimmer",
-            };
-            const targetOpenAiVoice = voiceMap[voiceName] || voiceName || "alloy";
-
-            const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+            console.log(`[wa-ai-reply] Local TTS (${isClone ? "XTTS clone" : "edge-tts"}): ${endpoint}`);
+            const ttsRes = await fetch(endpoint, {
               method: "POST",
-              headers: {
-                Authorization: `Bearer ${openaiKey}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "tts-1",
-                input: finalAiReply,
-                voice: targetOpenAiVoice,
-              }),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(30000), // 30s timeout — XTTS pode ser lento em CPU
             });
-
             if (ttsRes.ok) {
               const ttsBlob = await ttsRes.blob();
-              const fileName = `voice_${Date.now()}.mp3`;
+              const ext = isClone ? "wav" : "mp3";
+              const contentType = isClone ? "audio/wav" : "audio/mpeg";
+              const fileName = `voice_local_${Date.now()}.${ext}`;
               const filePath = `${project_id}/${fileName}`;
               await supabase.storage.createBucket("media", { public: true }).catch(() => {});
               const { error: uploadErr } = await supabase.storage
                 .from("media")
-                .upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+                .upload(filePath, ttsBlob, { contentType });
+              if (!uploadErr) {
+                const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(filePath);
+                responseAudioUrl = publicUrlData?.publicUrl || null;
+                console.log(`[wa-ai-reply] Local TTS uploaded (${voiceProvider}): ${responseAudioUrl}`);
+              }
+            } else {
+              const errText = await ttsRes.text();
+              console.error(`[wa-ai-reply] Local TTS error ${ttsRes.status}: ${errText}`);
+              // Servidor retornou 503 = XTTS não carregado → não faz fallback automático para ElevenLabs
+              // Qualquer outro erro → tenta ElevenLabs abaixo
+            }
+          } catch (localErr: any) {
+            console.error("[wa-ai-reply] Local TTS timeout/connection error:", localErr.message);
+            // Timeout ou servidor offline → cai no ElevenLabs abaixo
+          }
+        }
 
+        // ElevenLabs fallback — quando local_clone falhou (servidor offline/timeout)
+        // O voiceId aqui é o ID real do expert no ElevenLabs (ex: ID do JP)
+        if (!responseAudioUrl && voiceProvider === "local_clone" && elevenKey) {
+          console.log(`[wa-ai-reply] local_clone falhou — fallback para ElevenLabs (voice: ${voiceName})`);
+          try {
+            const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceName}`, {
+              method: "POST",
+              headers: { "xi-api-key": elevenKey, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                text: finalAiReply,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: { stability: stability / 100, similarity_boost: clarity / 100 },
+              }),
+            });
+            if (ttsRes.ok) {
+              const ttsBlob = await ttsRes.blob();
+              const filePath = `${project_id}/voice_eleven_fallback_${Date.now()}.mp3`;
+              await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+              const { error: uploadErr } = await supabase.storage
+                .from("media").upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
+              if (!uploadErr) {
+                const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(filePath);
+                responseAudioUrl = publicUrlData?.publicUrl || null;
+                console.log(`[wa-ai-reply] ElevenLabs fallback audio uploaded: ${responseAudioUrl}`);
+              }
+            } else {
+              console.error("[wa-ai-reply] ElevenLabs fallback failed:", await ttsRes.text());
+            }
+          } catch (ttsErr: any) {
+            console.error("[wa-ai-reply] ElevenLabs fallback error:", ttsErr.message);
+          }
+        }
+
+        // OpenAI TTS — fallback genérico para providers que não têm outra opção
+        if (!responseAudioUrl && voiceProvider !== "local" && voiceProvider !== "local_clone" && openaiKey) {
+          console.log(`[wa-ai-reply] Generating voice via OpenAI TTS (voice: ${voiceName})...`);
+          try {
+            const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: "tts-1", input: finalAiReply.slice(0, 4096), voice: voiceName || "alloy" }),
+            });
+            if (ttsRes.ok) {
+              const ttsBlob = await ttsRes.blob();
+              const filePath = `${project_id}/voice_openai_${Date.now()}.mp3`;
+              await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+              const { error: uploadErr } = await supabase.storage
+                .from("media").upload(filePath, ttsBlob, { contentType: "audio/mpeg" });
               if (!uploadErr) {
                 const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(filePath);
                 responseAudioUrl = publicUrlData?.publicUrl || null;
                 console.log(`[wa-ai-reply] OpenAI TTS audio uploaded: ${responseAudioUrl}`);
-              } else {
-                console.error("[wa-ai-reply] Failed to upload OpenAI TTS audio to storage:", uploadErr.message);
               }
             } else {
               console.error("[wa-ai-reply] OpenAI TTS failed:", await ttsRes.text());
             }
           } catch (ttsErr: any) {
-            console.error("[wa-ai-reply] OpenAI TTS fallback error:", ttsErr.message);
+            console.error("[wa-ai-reply] OpenAI TTS error:", ttsErr.message);
           }
         }
       }
@@ -1170,7 +1546,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         const inst = encodeURIComponent(provider.instance_name);
 
         if (responseAudioUrl) {
-          const url = `${base}/message/sendAudio/${inst}`;
+          const url = `${base}/message/sendWhatsAppAudio/${inst}`;
           const bodyPayload = {
             number: phone + "@s.whatsapp.net",
             audio: responseAudioUrl,

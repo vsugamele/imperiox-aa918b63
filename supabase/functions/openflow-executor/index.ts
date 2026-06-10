@@ -48,6 +48,45 @@ function normalizeStep(step: any): any {
   };
 }
 
+function replaceVariables(text: string, lead_data: any, leadDb: any): string {
+  let result = text || "";
+  
+  if (leadDb?.lead_memory && typeof leadDb.lead_memory === "object") {
+    const regex = /\{\{([^}]+)\}\}/g;
+    result = result.replace(regex, (match, path) => {
+      const parts = path.trim().split(".");
+      let current = leadDb.lead_memory;
+      for (const part of parts) {
+        if (current && typeof current === "object" && part in current) {
+          current = current[part];
+        } else {
+          return match; // return original match if not found in memory
+        }
+      }
+      return typeof current === "object" ? JSON.stringify(current) : String(current ?? "");
+    });
+  }
+  
+  const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
+  const linkUrl = lead_data?.link || "";
+  const nome = lead_data?.nome || leadDb?.name || "Lead";
+  
+  result = result
+    .replace(/\{\{nome\}\}/g, nome)
+    .replace(/\{\{name\}\}/g, nome)
+    .replace(/\{\{primeiro_nome\}\}/g, nome.split(" ")[0])
+    .replace(/\{\{primeiro-nome\}\}/g, nome.split(" ")[0])
+    .replace(/\{\{email\}\}/g, lead_data?.email || leadDb?.email || "")
+    .replace(/\{\{produto\}\}/g, lead_data?.produto || leadDb?.produto || "")
+    .replace(/\{\{telefone\}\}/g, phone)
+    .replace(/\{\{link\}\}/g, linkUrl)
+    .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
+    .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || leadDb?.plataforma || "")
+    .replace(/\{\{fluxo\}\}/g, lead_data?.fluxo || "");
+    
+  return result;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -204,9 +243,9 @@ Deno.serve(async (req) => {
       const rawSteps = auto.acoes || auto.etapas || [];
       const steps = rawSteps.map(normalizeStep);
 
-      const startStep = resume_from_step ? Number(resume_from_step) : 0;
+      const startStep = resume_from_step !== undefined ? Number(resume_from_step) : 0;
       let prevStepResults: any[] = [];
-      if (startStep > 0 && lead_data?.lead_id) {
+      if (resume_from_step !== undefined && lead_data?.lead_id) {
         const { data: lastExec } = await supabase
           .from("imphq_flow_executions")
           .select("step_results")
@@ -348,6 +387,42 @@ Deno.serve(async (req) => {
         });
         continue;
       }
+      if (lead_data) {
+        lead_data.fluxo = auto.nome || "";
+      }
+
+      // Load lead details once for the execution of this automation
+      let leadDb: any = null;
+      if (lead_data?.lead_id) {
+        const { data: l } = await supabase
+          .from("imphq_leads")
+          .select("*")
+          .eq("id", lead_data.lead_id)
+          .maybeSingle();
+        leadDb = l;
+      } else {
+        const phone = lead_data?.phone || lead_data?.telefone;
+        if (phone) {
+          const cleanPhone = phone.replace(/\D/g, "");
+          const searchPhones = [phone, cleanPhone];
+          if (cleanPhone.startsWith("55")) {
+            searchPhones.push(cleanPhone.substring(2));
+          } else {
+            searchPhones.push("55" + cleanPhone);
+          }
+          const { data: l } = await supabase
+            .from("imphq_leads")
+            .select("*")
+            .eq("project_id", project_id)
+            .in("phone", searchPhones)
+            .maybeSingle();
+          leadDb = l;
+        }
+      }
+
+      if (leadDb && leadDb.tags) {
+        leadTags = leadDb.tags;
+      }
 
       for (let i = startStep; i < steps.length; i++) {
         const step = steps[i];
@@ -433,6 +508,27 @@ Deno.serve(async (req) => {
           stepResult.reason = abortReason;
           stepResult.finished_at = new Date().toISOString();
           stepResults.push(stepResult);
+
+          // Record flow attribution when the lead converts while inside this flow
+          if (abortReason === "Lead realizou a compra") {
+            await supabase.from("imphq_events").insert({
+              project_id,
+              event_name: "flow_attribution",
+              page_url: "",
+              visitor_id: lead_data?.phone || lead_data?.telefone || "unknown",
+              event_data: {
+                automacao_id: auto.id,
+                automacao_nome: auto.nome,
+                execution_id: executionId,
+                lead_id: lead_data?.lead_id || null,
+                phone: lead_data?.phone || lead_data?.telefone || null,
+                trigger_tipo,
+                messages_sent_before_conversion: messagesSent,
+                step_at_conversion: i,
+              },
+            }).catch((err: any) => console.error("[openflow-executor] flow_attribution insert error:", err.message));
+          }
+
           break; // Stop flow
         }
 
@@ -461,6 +557,112 @@ Deno.serve(async (req) => {
             // Short delays: wait inline
             await delay(Math.min(delayMin * 60000, 5 * 60000));
             stepResult.status = "completed";
+          }
+
+          else if (step.tipo === "wait_event" || step.tipo === "wait_until_event") {
+            const eventName = step.event_name;
+            const timeoutMin = Number(step.timeout_min || 60);
+            
+            let eventOccurred = false;
+            if (lead_data?.lead_id && eventName) {
+              const { data: evts } = await supabase
+                .from("imphq_events")
+                .select("id")
+                .eq("lead_id", lead_data.lead_id)
+                .eq("event_name", eventName)
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (evts && evts.length > 0) {
+                eventOccurred = true;
+              }
+            }
+            
+            if (eventOccurred) {
+              stepResult.status = "completed";
+              stepResult.reason = `Evento "${eventName}" detectado. Prosseguindo.`;
+            } else {
+              // Check if we are resuming from this step (which means timeout occurred)
+              const isTimeout = resume_from_step !== undefined && Number(resume_from_step) === i;
+              if (isTimeout) {
+                stepResult.status = "completed";
+                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem o evento "${eventName}". Prosseguindo.`;
+              } else {
+                const nextRun = new Date(Date.now() + timeoutMin * 60000);
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i,
+                    next_run_at: nextRun.toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento "${eventName}" ou timeout em ${nextRun.toISOString()}` }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+            }
+          }
+
+          // ── wait_reply: pausa o fluxo até o lead enviar qualquer mensagem ──
+          else if (step.tipo === "wait_reply") {
+            const timeoutMin = Number(step.timeout_min || 1440); // default: 24h
+            const convId = lead_data?.conversation_id || lead_data?.conversationId;
+
+            // Se estamos sendo retomados por uma resposta do lead, marcar como completo
+            const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
+              && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
+
+            if (isResumedByReply) {
+              stepResult.status = "completed";
+              stepResult.reason = `Lead respondeu: "${String(lead_data?.reply_content || "").slice(0, 100)}"`;
+              stepResult.reply_content = lead_data?.reply_content || "";
+            } else {
+              // Primeira vez neste nó: coloca em espera aguardando resposta
+              const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  next_run_at: timeoutAt.toISOString(), // timeout fallback via openflow-resume
+                  step_results: [...stepResults, {
+                    ...stepResult,
+                    status: "waiting_reply",
+                    waiting_for: "reply",
+                    conversation_id: convId || null,
+                    timeout_at: timeoutAt.toISOString(),
+                    notes: `Aguardando resposta do lead. Timeout em ${timeoutAt.toISOString()}.`,
+                  }],
+                })
+                .eq("id", executionId);
+              console.log(`[openflow-executor] wait_reply: execução ${executionId} pausada aguardando resposta (conv=${convId}, timeout=${timeoutMin}min)`);
+              status = "waiting";
+              break;
+            }
+          }
+
+          else if (step.tipo === "ab_split") {
+            const pctA = Number(step.rota_a_porcentagem ?? 50);
+            const jumpSteps = Number(step.jump_steps ?? 1);
+            
+            let chosenPath = "A";
+            const phone = lead_data?.phone || lead_data?.telefone || "";
+            const cleanPhone = phone.replace(/\D/g, "");
+            
+            if (cleanPhone) {
+              const lastTwoDigits = parseInt(cleanPhone.slice(-2)) || 0;
+              chosenPath = lastTwoDigits < pctA ? "A" : "B";
+            } else {
+              chosenPath = (Math.random() * 100) < pctA ? "A" : "B";
+            }
+            
+            stepResult.status = "completed";
+            stepResult.chosen_path = chosenPath;
+            
+            if (chosenPath === "B") {
+              stepResult.reason = `Direcionado para Rota B. Pulando ${jumpSteps} etapas.`;
+              i += jumpSteps;
+            } else {
+              stepResult.reason = `Direcionado para Rota A. Prosseguindo normalmente.`;
+            }
           }
 
           else if (step.tipo === "whatsapp") {
@@ -553,14 +755,7 @@ Deno.serve(async (req) => {
                 }
               }
 
-              const msgText = selectedMsgTemplate
-                .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
-                .replace(/\{\{email\}\}/g, lead_data?.email || "")
-                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-                .replace(/\{\{telefone\}\}/g, phone || "")
-                .replace(/\{\{link\}\}/g, linkUrl)
-                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+              const msgText = replaceVariables(selectedMsgTemplate, lead_data, leadDb);
 
               // Provider hierarchy: step > auto > lead > project-active > global
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
@@ -638,14 +833,7 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem telefone do lead";
             } else {
               const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
-              const msgText = (step.mensagem || step.template || "")
-                .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
-                .replace(/\{\{email\}\}/g, lead_data?.email || "")
-                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-                .replace(/\{\{telefone\}\}/g, phone || "")
-                .replace(/\{\{link\}\}/g, linkUrl)
-                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
 
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
               if (!providerId && project_id) {
@@ -735,16 +923,7 @@ Deno.serve(async (req) => {
                 }
               }
 
-              // Replace variables in subject and body
-              const replaceVars = (text: string) =>
-                text
-                  .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
-                  .replace(/\{\{email\}\}/g, lead_data?.email || "")
-                  .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-                  .replace(/\{\{telefone\}\}/g, lead_data?.phone || lead_data?.telefone || "")
-                  .replace(/\{\{link\}\}/g, linkUrl)
-                  .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-                  .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+              const replaceVars = (text: string) => replaceVariables(text, lead_data, leadDb);
 
               if (templateId) {
                 // Mode 1: Use saved project template by ID
@@ -1092,24 +1271,7 @@ Deno.serve(async (req) => {
                 searchPhones.push("55" + cleanPhone);
               }
 
-              // Load lead details for personalization
-              let leadDb = null;
-              if (lead_data?.lead_id) {
-                const { data: l } = await supabase
-                  .from("imphq_leads")
-                  .select("*")
-                  .eq("id", lead_data.lead_id)
-                  .maybeSingle();
-                leadDb = l;
-              } else {
-                const { data: l } = await supabase
-                  .from("imphq_leads")
-                  .select("*")
-                  .eq("project_id", project_id)
-                  .in("phone", searchPhones)
-                  .maybeSingle();
-                leadDb = l;
-              }
+              // leadDb is already preloaded in the outer scope
 
               const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
               // ── A/B Testing Copy override for IA Message
@@ -1184,7 +1346,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                     "X-Title": "Imperio HQ",
                   },
                   body: JSON.stringify({
-                    model: aiConfig?.ai_model || "openai/gpt-4o-mini",
+                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "openai/gpt-4o-mini")),
                     messages: [
                       { role: "system", content: systemPrompt },
                       { role: "user", content: "Gere a mensagem curta inicial de reativação." }
@@ -1202,14 +1364,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                 }
               }
 
-              finalMsg = finalMsg
-                .replace(/\{\{nome\}\}/g, lead_data?.nome || leadDb?.name || "")
-                .replace(/\{\{email\}\}/g, lead_data?.email || "")
-                .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-                .replace(/\{\{telefone\}\}/g, phone || "")
-                .replace(/\{\{link\}\}/g, linkUrl)
-                .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-                .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || "");
+              finalMsg = replaceVariables(finalMsg, lead_data, leadDb);
 
               // Choose provider
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
@@ -1243,18 +1398,33 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                 stepsFailed++;
                 failureMessages.push(`Step ${i} (ia_message): Nenhum provider ativo`);
               } else {
-                const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                const isVoice = step.ia_voice_response === true || aiConfig?.voice_reply_enabled === true;
+                const actionUrl = isVoice 
+                  ? `${supabaseUrl}/functions/v1/whatsapp-api?action=send_voice_synthesis`
+                  : `${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`;
+                
+                const payload: any = {
+                  provider_id: providerId,
+                  phone: normalizeBRPhone(phone),
+                  project_id,
+                };
+                if (isVoice) {
+                  payload.text = finalMsg;
+                  payload.voice_provider = step.voice_provider || aiConfig?.voice_provider || "elevenlabs";
+                  payload.voice_id = step.voice_id || aiConfig?.voice_name || "fernanda_hq";
+                  payload.voice_stability = step.voice_stability || aiConfig?.voice_stability || 75;
+                  payload.voice_clarity = step.voice_clarity || aiConfig?.voice_clarity || 85;
+                } else {
+                  payload.content = finalMsg;
+                }
+
+                const waRes = await fetch(actionUrl, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${supabaseKey}`,
                   },
-                  body: JSON.stringify({
-                    provider_id: providerId,
-                    phone: normalizeBRPhone(phone),
-                    content: finalMsg,
-                    project_id,
-                  }),
+                  body: JSON.stringify(payload),
                 });
                 const waData = await waRes.json();
                 stepResult.status = waData.success ? "sent" : "error";
@@ -1347,23 +1517,319 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
 
           else if (step.tipo === "update_memory") {
             const key = step.memory_key;
-            const rawValue = (step.memory_value || "")
-              .replace(/\{\{nome\}\}/g, lead_data?.nome || "")
-              .replace(/\{\{produto\}\}/g, lead_data?.produto || "")
-              .replace(/\{\{valor\}\}/g, lead_data?.valor || "")
-              .replace(/\{\{email\}\}/g, lead_data?.email || "");
+            const rawValue = replaceVariables(step.memory_value || "", lead_data, leadDb);
             if (!key || !lead_data?.lead_id) {
               stepResult.status = "skipped";
               stepResult.reason = !key ? "memory_key não definida" : "lead_id ausente";
             } else {
               const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
               const current = (ld as any)?.lead_memory || {};
+              const updatedMemory = { ...current, [key]: rawValue };
               const { error: memErr } = await supabase.from("imphq_leads")
-                .update({ lead_memory: { ...current, [key]: rawValue }, updated_at: new Date().toISOString() })
+                .update({ lead_memory: updatedMemory, updated_at: new Date().toISOString() })
                 .eq("id", lead_data.lead_id);
+              
+              if (!memErr && leadDb) {
+                leadDb.lead_memory = updatedMemory;
+              }
+              
               stepResult.status = memErr ? "error" : "completed";
               stepResult.memory_key = key;
               if (memErr) { stepsFailed++; failureMessages.push(`Step ${i} (update_memory): ${memErr.message}`); }
+            }
+          }
+
+          else if (step.tipo === "business_hours_split") {
+            const startStr = step.work_hours_start || "08:00";
+            const endStr = step.work_hours_end || "18:00";
+            
+            const d = new Date();
+            const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+            const brTime = new Date(utc + (3600000 * -3)); // BR (GMT-3)
+            const hour = brTime.getHours();
+            const min = brTime.getMinutes();
+            const day = brTime.getDay();
+            
+            const [startH, startM] = startStr.split(":").map(Number);
+            const [endH, endM] = endStr.split(":").map(Number);
+            
+            const currentVal = hour * 60 + min;
+            const startVal = startH * 60 + startM;
+            const endVal = endH * 60 + endM;
+            
+            const isWorkDay = day >= 1 && day <= 5;
+            const isWorkHour = currentVal >= startVal && currentVal <= endVal;
+            
+            const conditionMet = isWorkDay && isWorkHour;
+            stepResult.status = "evaluated";
+            stepResult.is_business_hours = conditionMet;
+            stepResult.current_br_time = `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")} (Day ${day})`;
+            
+            if (!conditionMet) {
+              const skipCount = parseInt(step.else_skip) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+              console.log(`[openflow-executor] business_hours_split: Out of business hours. Skipping ${skipCount} step(s).`);
+            } else {
+              console.log(`[openflow-executor] business_hours_split: Within business hours. Continuing.`);
+            }
+          }
+
+          else if (step.tipo === "semantic_router") {
+            const ruleA = step.router_definition_a || "cliente quer comprar ou tirando dúvidas";
+            const ruleB = step.router_definition_b || "cliente quer falar com atendente ou irritado";
+            const elseSkip = parseInt(step.else_skip) || 1;
+
+            let lastUserMessage = "";
+            if (lead_data?.lead_id) {
+              const { data: lastMsg } = await supabase
+                .from("imphq_wa_messages")
+                .select("content")
+                .eq("project_id", project_id)
+                .eq("direction", "incoming")
+                .order("created_at", { descending: true })
+                .limit(1)
+                .maybeSingle();
+              if (lastMsg) {
+                lastUserMessage = lastMsg.content || "";
+              }
+            }
+
+            if (!lastUserMessage) {
+              stepResult.status = "evaluated";
+              stepResult.route_chosen = "A";
+              console.log("[openflow-executor] semantic_router: No incoming message found. Defaulting to Route A.");
+            } else {
+              let routeChosen = "A";
+              try {
+                const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
+                if (openRouterKey) {
+                  const prompt = `Você é um roteador semântico de mensagens de vendas.
+Sua tarefa é analisar a mensagem do lead abaixo e classificá-la entre duas opções (A ou B).
+
+OPÇÃO A:
+Definição: ${ruleA}
+
+OPÇÃO B:
+Definição: ${ruleB}
+
+Mensagem do lead: "${lastUserMessage}"
+
+Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicações).`;
+
+                  const llmRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${openRouterKey}`,
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                      model: "google/gemini-2.5-flash",
+                      messages: [
+                        { role: "system", content: "Você é um classificador preciso de intenções." },
+                        { role: "user", content: prompt }
+                      ],
+                      temperature: 0,
+                      max_tokens: 2
+                    })
+                  });
+
+                  if (llmRes.ok) {
+                    const resJson = await llmRes.json();
+                    const choice = resJson.choices?.[0]?.message?.content?.trim().toUpperCase();
+                    if (choice === "A" || choice === "B") {
+                      routeChosen = choice;
+                    }
+                  }
+                }
+              } catch (llmErr) {
+                console.error("[openflow-executor] semantic_router classification error:", llmErr.message);
+              }
+
+              stepResult.status = "evaluated";
+              stepResult.route_chosen = routeChosen;
+              stepResult.last_message = lastUserMessage;
+              
+              if (routeChosen === "B") {
+                i += elseSkip;
+                stepResult.skipped_steps = elseSkip;
+                console.log(`[openflow-executor] semantic_router: Route B chosen. Skipping ${elseSkip} step(s).`);
+              } else {
+                console.log(`[openflow-executor] semantic_router: Route A chosen. Continuing.`);
+              }
+            }
+          }
+
+          else if (step.tipo === "ia_scheduling") {
+            if (lead_data?.lead_id) {
+              const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+              const current = (ld as any)?.lead_memory || {};
+              const updatedMemory = { ...current, conversation_phase: "scheduling", calendar_url: step.calendar_url || "" };
+              await supabase.from("imphq_leads").update({ lead_memory: updatedMemory }).eq("id", lead_data.lead_id);
+              if (leadDb) {
+                leadDb.lead_memory = updatedMemory;
+              }
+            }
+            stepResult.status = "waiting_for_lead_response";
+            stepResult.reason = "IA de Agendamento ativa. Aguardando interação do lead.";
+            status = "waiting";
+          }
+
+          else if (step.tipo === "condicao_lead") {
+            const field = step.condition_field;
+            const operator = step.condition_operator || "equals";
+            const valToCompare = replaceVariables(step.condition_value || "", lead_data, leadDb);
+            const jumpSteps = Number(step.condition_jump_steps ?? 1);
+            const elseJumpSteps = Number(step.condition_else_jump_steps ?? 0);
+
+            // Fetch actual value
+            let leadValue: any = null;
+            if (field === "nome") {
+              leadValue = lead_data?.nome || leadDb?.name || "";
+            } else if (field === "email") {
+              leadValue = lead_data?.email || leadDb?.email || "";
+            } else if (field === "phone") {
+              leadValue = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
+            } else if (field === "score") {
+              leadValue = lead_data?.score !== undefined ? lead_data.score : (leadDb?.score ?? 0);
+            } else if (field === "tags") {
+              leadValue = leadTags || leadDb?.tags || [];
+            } else if (field === "lead_memory") {
+              const memKey = step.memory_key;
+              if (memKey && leadDb?.lead_memory) {
+                leadValue = leadDb.lead_memory[memKey];
+              }
+            } else {
+              leadValue = lead_data?.[field] !== undefined ? lead_data[field] : leadDb?.[field];
+            }
+
+            let conditionMet = false;
+
+            if (operator === "equals") {
+              conditionMet = String(leadValue || "").toLowerCase() === String(valToCompare || "").toLowerCase();
+            } else if (operator === "not_equals") {
+              conditionMet = String(leadValue || "").toLowerCase() !== String(valToCompare || "").toLowerCase();
+            } else if (operator === "contains") {
+              conditionMet = String(leadValue || "").toLowerCase().includes(String(valToCompare || "").toLowerCase());
+            } else if (operator === "greater_than") {
+              conditionMet = Number(leadValue || 0) > Number(valToCompare || 0);
+            } else if (operator === "less_than") {
+              conditionMet = Number(leadValue || 0) < Number(valToCompare || 0);
+            } else if (operator === "includes_tag") {
+              const tagsList = Array.isArray(leadValue) ? leadValue : String(leadValue || "").split(",").map(t => t.trim());
+              conditionMet = tagsList.some((t: string) => t.toLowerCase() === String(valToCompare || "").toLowerCase());
+            } else if (operator === "not_includes_tag") {
+              const tagsList = Array.isArray(leadValue) ? leadValue : String(leadValue || "").split(",").map(t => t.trim());
+              conditionMet = !tagsList.some((t: string) => t.toLowerCase() === String(valToCompare || "").toLowerCase());
+            }
+
+            stepResult.status = "evaluated";
+            stepResult.condition_met = conditionMet;
+            stepResult.field = field;
+            stepResult.operator = operator;
+            stepResult.lead_value = leadValue;
+            stepResult.value_to_compare = valToCompare;
+
+            if (conditionMet) {
+              stepResult.notes = `Condição atendida. Pulando ${jumpSteps} passos.`;
+              i += jumpSteps;
+            } else {
+              stepResult.notes = `Condição não atendida. Pulando ${elseJumpSteps} passos.`;
+              i += elseJumpSteps;
+            }
+          }
+
+          else if (step.tipo === "webhook_call") {
+            const url = replaceVariables(step.webhook_url || "", lead_data, leadDb);
+            const method = step.webhook_method || "POST";
+            const saveKey = step.webhook_save_variable;
+
+            if (!url) {
+              stepResult.status = "skipped";
+              stepResult.reason = "URL do webhook não configurada";
+            } else {
+              let headersObj: Record<string, string> = {
+                "Content-Type": "application/json",
+              };
+
+              if (step.webhook_headers) {
+                try {
+                  const replacedHeaders = replaceVariables(step.webhook_headers, lead_data, leadDb);
+                  const parsedHeaders = JSON.parse(replacedHeaders);
+                  headersObj = { ...headersObj, ...parsedHeaders };
+                } catch (err: any) {
+                  console.error("[openflow-executor] Error parsing webhook headers:", err);
+                  stepResult.headers_error = err.message;
+                }
+              }
+
+              let fetchBody: any = undefined;
+              if (method !== "GET" && step.webhook_body) {
+                const replacedBody = replaceVariables(step.webhook_body, lead_data, leadDb);
+                fetchBody = replacedBody;
+              }
+
+              console.log(`[openflow-executor] Calling webhook: ${method} ${url}`);
+              try {
+                const response = await fetch(url, {
+                  method,
+                  headers: headersObj,
+                  body: fetchBody,
+                });
+
+                const statusCode = response.status;
+                let responseBody = "";
+                try {
+                  responseBody = await response.text();
+                } catch (err) {
+                  console.error("[openflow-executor] Error reading webhook response body:", err);
+                }
+
+                stepResult.status = response.ok ? "completed" : "error";
+                stepResult.status_code = statusCode;
+                stepResult.response_body = responseBody.substring(0, 1000);
+
+                if (response.ok) {
+                  if (saveKey && lead_data?.lead_id) {
+                    let parsedJson: any = null;
+                    try {
+                      parsedJson = JSON.parse(responseBody);
+                    } catch (err) {
+                      parsedJson = responseBody;
+                    }
+
+                    const { data: ld } = await supabase
+                      .from("imphq_leads")
+                      .select("lead_memory")
+                      .eq("id", lead_data.lead_id)
+                      .maybeSingle();
+                    const currentMemory = ld?.lead_memory || {};
+                    const updatedMemory = { ...currentMemory, [saveKey]: parsedJson };
+
+                    await supabase
+                      .from("imphq_leads")
+                      .update({
+                        lead_memory: updatedMemory,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq("id", lead_data.lead_id);
+
+                    if (leadDb) {
+                      leadDb.lead_memory = updatedMemory;
+                    }
+                    stepResult.saved_variable = saveKey;
+                  }
+                } else {
+                  stepsFailed++;
+                  failureMessages.push(`Webhook ${url} retornou status ${statusCode}`);
+                }
+              } catch (fetchErr: any) {
+                console.error("[openflow-executor] Webhook fetch error:", fetchErr);
+                stepResult.status = "error";
+                stepResult.reason = fetchErr.message;
+                stepsFailed++;
+                failureMessages.push(`Erro de conexão ao webhook ${url}: ${fetchErr.message}`);
+              }
             }
           }
 
@@ -1383,6 +1849,475 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               const { error: qErr } = await supabase.from("imphq_leads").update(updates).eq("id", lead_data.lead_id);
               stepResult.status = qErr ? "error" : "completed";
               if (qErr) { stepsFailed++; failureMessages.push(`Step ${i} (qualify_lead): ${qErr.message}`); }
+            }
+          }
+
+          else if (step.tipo === "notify_operator") {
+            const opName = step.operator_name || "todos";
+            const notificationMsg = replaceVariables(step.template || step.mensagem || "", lead_data, leadDb);
+            const leadName = lead_data?.nome || leadDb?.name || "Lead";
+
+            let targetUserIds: string[] = [];
+
+            if (opName.toLowerCase() !== "todos") {
+              const { data: member } = await supabase
+                .from("imphq_team_members")
+                .select("user_id")
+                .ilike("name", `%${opName}%`)
+                .eq("is_active", true)
+                .maybeSingle();
+              if (member?.user_id) {
+                targetUserIds.push(member.user_id);
+              }
+            }
+
+            // Fallback: notify project owner + all active team members
+            if (targetUserIds.length === 0) {
+              const { data: proj } = await supabase
+                .from("imphq_projects")
+                .select("owner_id")
+                .eq("id", project_id)
+                .maybeSingle();
+              if (proj?.owner_id) {
+                targetUserIds.push(proj.owner_id);
+              }
+              const { data: members } = await supabase
+                .from("imphq_team_members")
+                .select("user_id")
+                .eq("is_active", true);
+              if (members) {
+                members.forEach((m: any) => {
+                  if (m.user_id && !targetUserIds.includes(m.user_id)) {
+                    targetUserIds.push(m.user_id);
+                  }
+                });
+              }
+            }
+
+            stepResult.notified_users = targetUserIds;
+            stepResult.status = "completed";
+
+            for (const uid of targetUserIds) {
+              const { error: notifErr } = await supabase.from("imphq_notifications").insert({
+                user_id: uid,
+                title: `🔔 Alerta: ${leadName}`,
+                message: notificationMsg || `O lead ${leadName} solicitou atendimento humano ou atenção do atendente.`,
+                type: "lead",
+                entity_type: "lead",
+                entity_id: lead_data?.lead_id || null,
+              });
+
+              if (notifErr) {
+                console.error(`[openflow-executor] Error inserting notification for user ${uid}:`, notifErr.message);
+                stepResult.status = "error";
+                stepResult.reason = notifErr.message;
+              } else {
+                // Call push notification function
+                try {
+                  const pushUrl = `${supabaseUrl}/functions/v1/send-push`;
+                  await fetch(pushUrl, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${supabaseKey}`,
+                    },
+                    body: JSON.stringify({
+                      user_id: uid,
+                      title: `🔔 Alerta: ${leadName}`,
+                      message: notificationMsg || `O lead ${leadName} solicitou atenção do atendente.`,
+                    }),
+                  });
+                } catch (pushErr: any) {
+                  console.error(`[openflow-executor] Push send error for user ${uid}:`, pushErr.message);
+                }
+              }
+            }
+
+            if (stepResult.status === "error") {
+              stepsFailed++;
+              failureMessages.push(`Step ${i} (notify_operator) falhou ao salvar notificação`);
+            }
+          }
+
+          else if (step.tipo === "abrir_conversa") {
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+
+              const aiPausedUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+              const { error: updateConvErr } = await supabase
+                .from("imphq_wa_conversations")
+                .update({
+                  status: "open",
+                  unread_count: 1, // Visual alert in inbox
+                  ai_paused_until: aiPausedUntil,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("project_id", project_id)
+                .in("phone", searchPhones);
+
+              stepResult.status = updateConvErr ? "error" : "completed";
+              stepResult.ai_paused_until = aiPausedUntil;
+
+              if (updateConvErr) {
+                console.error(`[openflow-executor] Error opening conversation:`, updateConvErr.message);
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (abrir_conversa): ${updateConvErr.message}`);
+              } else {
+                console.log(`[openflow-executor] Conversation opened for phone ${phone}. AI paused until ${aiPausedUntil}`);
+              }
+            }
+          }
+
+          else if (step.tipo === "gpt_prompt") {
+            const phone = lead_data?.phone || lead_data?.telefone;
+            const customPrompt = replaceVariables(step.template || step.mensagem || "", lead_data, leadDb);
+
+            if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+
+              let chatHistoryContext = "";
+              const keepContext = step.gpt_keep_context ?? true;
+
+              if (keepContext) {
+                const { data: history } = await supabase
+                  .from("imphq_wa_messages")
+                  .select("direction, content, created_at")
+                  .in("phone", searchPhones)
+                  .order("created_at", { ascending: false })
+                  .limit(15);
+
+                if (history && history.length > 0) {
+                  const sortedHistory = [...history].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                  chatHistoryContext = sortedHistory.map(m => {
+                    const speaker = m.direction === "incoming" ? "Lead" : "Atendente/IA";
+                    return `${speaker}: ${m.content}`;
+                  }).join("\n");
+                } else {
+                  chatHistoryContext = "(Nenhuma mensagem anterior no histórico)";
+                }
+              } else {
+                chatHistoryContext = "(Sem contexto do histórico por configuração do nó)";
+              }
+
+              const systemPrompt = `Você é uma inteligência artificial assistente integrada a um sistema de automação.
+Sua tarefa é executar um prompt analítico usando como contexto o histórico de conversas de WhatsApp com o lead abaixo.
+
+Histórico de Conversas de WhatsApp:
+=========================================
+${chatHistoryContext}
+=========================================
+
+Instruções Adicionais:
+- Responda apenas com o resultado do prompt solicitado.
+- Não inclua explicações extras, tags HTML ou introduções como "Aqui está o resumo".
+- Seja direto e preciso.`;
+
+              const userContent = `Execute o seguinte prompt sobre o histórico acima:
+"${customPrompt}"`;
+
+              const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+              if (!OPENROUTER_API_KEY) {
+                throw new Error("OPENROUTER_API_KEY não configurado");
+              }
+
+              const modelMap: Record<string, string> = {
+                "gpt-4o": "openai/gpt-4o",
+                "gpt-4o-mini": "openai/gpt-4o-mini"
+              };
+              const selectedModel = modelMap[step.gpt_model] || "openai/gpt-4o-mini";
+
+              const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": "https://imperiox.lovable.app",
+                  "X-Title": "Imperio HQ",
+                },
+                body: JSON.stringify({
+                  model: selectedModel,
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent }
+                  ],
+                  max_tokens: step.gpt_max_tokens !== undefined ? Number(step.gpt_max_tokens) : 256,
+                  temperature: step.gpt_temperature !== undefined ? Number(step.gpt_temperature) : 0.2,
+                }),
+              });
+
+              if (orRes.ok) {
+                const orData = await orRes.json();
+                const gptOutput = (orData?.choices?.[0]?.message?.content || "").trim();
+                
+                stepResult.gpt_output = gptOutput;
+                stepResult.status = "completed";
+
+                // Save to lead memory variable
+                const saveKey = step.gpt_save_variable || "resumo_cliente";
+                if (lead_data?.lead_id) {
+                  const { data: ld } = await supabase
+                    .from("imphq_leads")
+                    .select("lead_memory")
+                    .eq("id", lead_data.lead_id)
+                    .maybeSingle();
+                  const currentMemory = ld?.lead_memory || {};
+                  
+                  await supabase
+                    .from("imphq_leads")
+                    .update({
+                      lead_memory: { ...currentMemory, [saveKey]: gptOutput },
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq("id", lead_data.lead_id);
+                    
+                  // Update local leadDb state for subsequent variables replacements in this run
+                  if (leadDb) {
+                    leadDb.lead_memory = { ...currentMemory, [saveKey]: gptOutput };
+                  }
+                }
+
+                // If "Enviar resultado como texto?" is true, send it on WhatsApp
+                const sendAsText = step.gpt_send_message ?? false;
+                if (sendAsText && gptOutput) {
+                  let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+                  if (!providerId && project_id) {
+                    const { data: projProviders } = await supabase
+                      .from("imphq_wa_providers")
+                      .select("id")
+                      .eq("is_active", true)
+                      .eq("project_id", project_id)
+                      .order("created_at", { ascending: true })
+                      .limit(1);
+                    if (projProviders?.length) providerId = projProviders[0].id;
+                  }
+                  if (!providerId) {
+                    const { data: activeProviders } = await supabase
+                      .from("imphq_wa_providers")
+                      .select("id")
+                      .eq("is_active", true)
+                      .order("created_at", { ascending: true })
+                      .limit(1);
+                    if (activeProviders?.length) providerId = activeProviders[0].id;
+                  }
+
+                  if (providerId) {
+                    const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${supabaseKey}`,
+                      },
+                      body: JSON.stringify({
+                        provider_id: providerId,
+                        phone: normalizeBRPhone(phone),
+                        content: gptOutput,
+                        project_id,
+                      }),
+                    });
+                    const waData = await waRes.json();
+                    if (waData.success) {
+                      messagesSent++;
+                      console.log(`[openflow-executor] Sent GPT output directly as WhatsApp message to ${phone}`);
+                    } else {
+                      console.warn(`[openflow-executor] Failed to send GPT output to WhatsApp:`, waData.error);
+                    }
+                  } else {
+                    console.warn(`[openflow-executor] No active WA provider to send GPT output text to ${phone}`);
+                  }
+                }
+              } else {
+                const errText = await orRes.text();
+                console.error(`[openflow-executor] OpenRouter prompt execution failed:`, errText);
+                stepResult.status = "error";
+                stepResult.reason = `OpenRouter error: ${orRes.status} ${errText}`;
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (gpt_prompt): ${errText}`);
+              }
+            }
+          }
+
+          else if (step.tipo === "stop_on_event") {
+            const stopType = step.stop_event_type || "compra_aprovada";
+            const stopValue = step.stop_event_value;
+            let conditionMet = false;
+            let abortReason = "";
+
+            const phone = lead_data?.phone || lead_data?.telefone;
+            const leadId = lead_data?.lead_id;
+
+            if (stopType === "compra_aprovada" && leadId) {
+              const { data: purchases } = await supabase
+                .from("imphq_vendas")
+                .select("id")
+                .eq("lead_id", leadId)
+                .eq("status", "aprovado")
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (purchases && purchases.length > 0) {
+                conditionMet = true;
+                abortReason = "Lead realizou a compra";
+              }
+            } else if (stopType === "lead_respondeu" && phone) {
+              const cleanPhone = phone.replace(/\D/g, "");
+              const searchPhones = [phone, cleanPhone];
+              if (cleanPhone.startsWith("55")) {
+                searchPhones.push(cleanPhone.substring(2));
+              } else {
+                searchPhones.push("55" + cleanPhone);
+              }
+              const { data: incomingMsgs } = await supabase
+                .from("imphq_wa_messages")
+                .select("id")
+                .in("phone", searchPhones)
+                .eq("direction", "incoming")
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (incomingMsgs && incomingMsgs.length > 0) {
+                conditionMet = true;
+                abortReason = "Lead respondeu à automação";
+              }
+            } else if (stopType === "tag_adicionada" && leadId && stopValue) {
+              const cleanTag = stopValue.trim().toLowerCase();
+              const tagsList = leadTags || leadDb?.tags || [];
+              const hasTag = tagsList.some((t: string) => t.toLowerCase() === cleanTag);
+              if (hasTag) {
+                conditionMet = true;
+                abortReason = `Tag "${stopValue}" adicionada ao lead`;
+              }
+            } else if (stopType === "carrinho_abandonado" && leadId) {
+              const { data: abandoned } = await supabase
+                .from("imphq_vendas")
+                .select("id")
+                .eq("lead_id", leadId)
+                .eq("status", "carrinho_abandonado")
+                .gt("created_at", originalStart)
+                .limit(1);
+              if (abandoned && abandoned.length > 0) {
+                conditionMet = true;
+                abortReason = "Lead abandonou o carrinho";
+              }
+            }
+
+            stepResult.status = "completed";
+            stepResult.condition_met = conditionMet;
+            
+            if (conditionMet) {
+              stepResult.notes = `Condição de parada atendida: ${abortReason}. Interrompendo fluxo.`;
+              stepResult.finished_at = new Date().toISOString();
+              stepResults.push(stepResult);
+              status = "completed";
+              
+              await supabase.from("imphq_flow_executions")
+                .update({ 
+                  status: "completed",
+                  current_step: i,
+                  step_results: [...stepResults]
+                })
+                .eq("id", executionId);
+              break; 
+            } else {
+              stepResult.notes = `Condição de parada "${stopType}" não atendida. Continuando fluxo.`;
+            }
+          }
+
+          else if (step.tipo === "loop_steps") {
+            const loopCount = Number(step.loop_count ?? 3);
+            const jumpBack = Number(step.loop_jump_back_steps ?? 1);
+            const intervalHours = Number(step.loop_interval_hours ?? 24);
+            const targetStep = Math.max(0, i - jumpBack);
+
+            const loopCountSoFar = stepResults.filter((r: any) => r.step === i && r.status === "completed").length;
+
+            if (loopCountSoFar >= loopCount) {
+              stepResult.status = "completed";
+              stepResult.notes = `Limite de loops (${loopCount}) atingido. Continuando fluxo.`;
+            } else {
+              // Check early stop condition if set
+              const field = step.loop_until_condition_field;
+              let earlyStopMet = false;
+              
+              if (field && field !== "none") {
+                const operator = step.loop_until_condition_operator || "equals";
+                const valToCompare = replaceVariables(step.loop_until_condition_value || "", lead_data, leadDb);
+
+                let leadValue: any = null;
+                if (field === "nome") {
+                  leadValue = lead_data?.nome || leadDb?.name || "";
+                } else if (field === "email") {
+                  leadValue = lead_data?.email || leadDb?.email || "";
+                } else if (field === "phone") {
+                  leadValue = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
+                } else if (field === "score") {
+                  leadValue = lead_data?.score !== undefined ? lead_data.score : (leadDb?.score ?? 0);
+                } else if (field === "tags") {
+                  leadValue = leadTags || leadDb?.tags || [];
+                } else if (field === "lead_memory") {
+                  const memKey = step.memory_key;
+                  if (memKey && leadDb?.lead_memory) {
+                    leadValue = leadDb.lead_memory[memKey];
+                  }
+                } else {
+                  leadValue = lead_data?.[field] !== undefined ? lead_data[field] : leadDb?.[field];
+                }
+
+                if (operator === "equals") {
+                  earlyStopMet = String(leadValue || "").toLowerCase() === String(valToCompare || "").toLowerCase();
+                } else if (operator === "not_equals") {
+                  earlyStopMet = String(leadValue || "").toLowerCase() !== String(valToCompare || "").toLowerCase();
+                } else if (operator === "contains") {
+                  earlyStopMet = String(leadValue || "").toLowerCase().includes(String(valToCompare || "").toLowerCase());
+                } else if (operator === "includes_tag") {
+                  const tagsList = Array.isArray(leadValue) ? leadValue : String(leadValue || "").split(",").map(t => t.trim());
+                  earlyStopMet = tagsList.some((t: string) => t.toLowerCase() === String(valToCompare || "").toLowerCase());
+                }
+              }
+
+              if (earlyStopMet) {
+                stepResult.status = "completed";
+                stepResult.notes = `Condição de parada antecipada atendida. Loops interrompidos.`;
+              } else {
+                const delayMin = intervalHours * 60;
+                stepResult.status = "completed";
+
+                if (delayMin > 5) {
+                  const nextRun = new Date(Date.now() + delayMin * 60000);
+                  await supabase.from("imphq_flow_executions")
+                    .update({
+                      status: "waiting",
+                      current_step: targetStep,
+                      next_run_at: nextRun.toISOString(),
+                      step_results: [...stepResults, { ...stepResult, notes: `Loop #${loopCountSoFar + 1} executado. Retomará na etapa #${targetStep + 1} em ${nextRun.toLocaleTimeString()}.` }],
+                    })
+                    .eq("id", executionId);
+                  status = "waiting";
+                  break; // Pauses outer execution loop
+                } else {
+                  // Wait inline (useful for tests/quick loops)
+                  await delay(delayMin * 60000);
+                  stepResult.notes = `Loop #${loopCountSoFar + 1} executado. Retornando para etapa #${targetStep + 1} (inline).`;
+                  // Manual adjust of loop index (accounting for outer loop i++ at end of iteration)
+                  i = targetStep - 1;
+                }
+              }
             }
           }
 

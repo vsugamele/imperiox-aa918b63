@@ -85,5 +85,46 @@ verify_jwt = false
 [functions.chat-with-ai]
 verify_jwt = false
 
+[functions.wa-behavioral-triggers]
+verify_jwt = false
+
+[functions.ig-sequence-tick]
+verify_jwt = false
+
+[functions.ig-profile-enrich]
+verify_jwt = false
+
+[functions.ig-feedback-learn]
+verify_jwt = false
 
 
+
+[functions.wa-knowledge-autofill]
+verify_jwt = false
+
+[functions.lead-score-updater]
+verify_jwt = false
+
+[functions.ab-test-promoter]
+verify_jwt = false
+
+[functions.wa-feedback-learn]
+verify_jwt = false
+
+
+[functions.wa-reengagement]
+verify_jwt = false
+
+
+[functions.wa-closer-trigger]
+verify_jwt = false
+
+[functions.wa-weekly-report]
+verify_jwt = false
+
+
+[functions.ig-reengagement]
+verify_jwt = false
+
+[functions.ig-closer-trigger]
+verify_jwt = false
