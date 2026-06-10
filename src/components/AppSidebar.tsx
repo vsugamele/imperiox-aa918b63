@@ -18,7 +18,7 @@ import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
 // ── Nav items ────────────────────────────────────────────────────────────────
 const hojeitems = [
-  { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard },
+  { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
@@ -66,7 +66,7 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ElementType;
-  badge?: "imperius" | "inbox" | "leads";
+  badge?: "imperius" | "inbox" | "leads" | "rag";
 };
 
 // ── Badge pill ────────────────────────────────────────────────────────────────
@@ -186,6 +186,7 @@ export function AppSidebar() {
     imperius: badgeData?.imperius ?? 0,
     inbox: badgeData?.inbox ?? 0,
     leads: badgeData?.leads ?? 0,
+    rag: badgeData?.rag ?? 0,
   };
 
   // All items pool for favourites lookup

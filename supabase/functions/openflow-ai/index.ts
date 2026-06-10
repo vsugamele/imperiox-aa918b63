@@ -332,16 +332,16 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
     throw e;
   }
 
-  // Fallback: if Lovable gateway returns 402 (no credits), retry via OpenRouter
-  if (!isOpenRouter && response.status === 402) {
+  // Fallback: se Lovable gateway retornar qualquer erro (402, 401, 500, etc.), tenta OpenRouter
+  if (!isOpenRouter && !response.ok) {
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     if (orKey) {
-      console.log("Lovable gateway 402, falling back to OpenRouter for model:", model);
+      console.log(`Lovable gateway error ${response.status}, falling back to OpenRouter for model:`, model);
       try {
         response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", makeHeaders(orKey, true));
       } catch (e: any) {
         if (e?.name === "AbortError") {
-          return { error: `Modelo "${model}" via OpenRouter excedeu 90s. Tente um modelo mais rápido.` };
+          return { error: `Modelo "${model}" via OpenRouter excedeu 60s. Tente um modelo mais rápido.` };
         }
         throw e;
       }
@@ -351,7 +351,26 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   if (!response.ok) return handleAIError(response);
   const result = await response.json();
   const tc = result.choices?.[0]?.message?.tool_calls?.[0];
-  return tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+  if (!tc?.function?.arguments) {
+    // Fallback: o modelo respondeu em texto (sem tool_calls) — tenta extrair JSON do conteúdo
+    const textContent = result.choices?.[0]?.message?.content || "";
+    console.warn(`[callAI] No tool_calls for tool "${toolName}" (model: ${model}). Attempting JSON text fallback. Content: ${textContent.slice(0, 300)}`);
+    if (textContent) {
+      // Tenta extrair bloco JSON da resposta em texto (```json ... ``` ou { ... } direto)
+      const jsonMatch = textContent.match(/```(?:json)?\s*([\s\S]*?)```/) || textContent.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          console.log("[callAI] JSON fallback successful");
+          return parsed;
+        } catch (e) {
+          console.error("[callAI] JSON fallback parse error:", e);
+        }
+      }
+    }
+    return null;
+  }
+  return JSON.parse(tc.function.arguments);
 }
 
 async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "", extraUrls: string[] = [], briefingExtra = "") {
@@ -412,22 +431,42 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
     ? `\n## BRIEFING DIRETO DO USUÁRIO (prioridade máxima — use isso como base):\n${briefingExtra.trim()}\n`
     : "";
 
+  // Resolve selected product name for a more specific user prompt
+  let selectedProductName = "";
+  try {
+    const d2 = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const prods2 = Array.isArray(d2.produtos) ? d2.produtos : [];
+    if (typeof productIndex === "number" && prods2[productIndex]) {
+      selectedProductName = prods2[productIndex].nome || prods2[productIndex].name || "";
+    }
+  } catch (_) { /* ignore */ }
+
   const arsenal = await callAI(
-    `${mentePrefix}Você é um copywriter brasileiro de alto nível. Analise o contexto e gere copy de alta conversão.
+    `${mentePrefix}Você é um copywriter brasileiro de alto nível, especialista em copy de alta conversão para o mercado brasileiro.
+IMPORTANTE: Você DEVE usar a função generate_copy_arsenal para retornar sua resposta. Não responda em texto livre.
 ${fullCtx}
 ${skillsContext}${briefingBlock}
 REGRAS:
-- Use linguagem persuasiva, emocional e direta. Seja específico para este projeto.
+- Use linguagem persuasiva, emocional e direta. Seja específico para este projeto${selectedProductName ? ` e para o produto "${selectedProductName}"` : ""}.
+- Gere pelo menos 3 variações para cada bloco de copy (promessa, inimigo_comum, efeito_colateral, oportunidade, metodo_simplificado, hora_do_show).
 - Se houver conteúdo scraped do site, use-o para criar copy mais precisa e alinhada à página real do produto.
 - Se houver BRIEFING DIRETO DO USUÁRIO, ele tem prioridade máxima sobre tudo.
 - Gere também o mecanismo_unico (o que diferencia este produto de todos os outros no mercado) e o contexto (resumo estratégico do produto).
-- Aplique as Skills disponíveis/ativadas para elevar a qualidade do copy: use frameworks de persuasão, gatilhos emocionais e estruturas de copy profissional.`,
-    "Gere o Arsenal de Copy completo, incluindo mecanismo único e contexto estratégico do produto.",
+- Aplique as Skills disponíveis/ativadas para elevar a qualidade do copy: use frameworks de persuasão, gatilhos emocionais e estruturas de copy profissional.
+- Mesmo com contexto limitado, gere copy baseado no nicho e tipo de produto inferido.`,
+    `Gere o Arsenal de Copy completo${selectedProductName ? ` para o produto "${selectedProductName}"` : ""}, incluindo mecanismo único e contexto estratégico. Use OBRIGATORIAMENTE a função generate_copy_arsenal.`,
     apiKey, model,
     [{ type: "function", function: { name: "generate_copy_arsenal", description: "Generate copy arsenal with mecanismo and contexto", parameters: { type: "object", properties: { mecanismo_unico: { type: "string", description: "O diferencial único do produto que torna a concorrência irrelevante" }, contexto: { type: "string", description: "Resumo estratégico do produto: objetivo, posicionamento e público" }, promessa: { type: "array", items: { type: "string" } }, inimigo_comum: { type: "array", items: { type: "string" } }, efeito_colateral: { type: "array", items: { type: "string" } }, oportunidade: { type: "array", items: { type: "string" } }, metodo_simplificado: { type: "array", items: { type: "string" } }, hora_do_show: { type: "array", items: { type: "string" } } }, required: ["mecanismo_unico", "contexto", "promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo_simplificado", "hora_do_show"], additionalProperties: false } } }],
     "generate_copy_arsenal", baseUrl
   );
   if (arsenal instanceof Response) return arsenal;
+  if (!arsenal || Object.keys(arsenal).length === 0) {
+    console.error("[handleCopyArsenal] AI returned empty/null arsenal — no tool_calls. Check model tool support.");
+    return new Response(
+      JSON.stringify({ error: "A IA não gerou o arsenal de copy. O modelo não suportou tool_calls. Tente novamente ou use um modelo diferente." }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 

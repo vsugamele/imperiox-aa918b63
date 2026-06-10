@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic, Upload, FileIcon, Eye, Download, FileText, HelpCircle, Target } from "lucide-react";
 import { RefineAIDialog } from "./RefineAIDialog";
 import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
+import { MENTES_DATA } from "@/data/mentesData";
 
 const FILE_MARKER = /^\[\[file:(.+?)\|(.+?)\]\]$/;
 function parseDocContent(content: string | null | undefined): { kind: "file" | "text"; url?: string; mime?: string } {
@@ -106,7 +107,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     payment_link: "",
   });
   const [saving, setSaving] = useState(false);
+  const [customSkills, setCustomSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingRef, setUploadingRef] = useState(false);
+  const [refUploaded, setRefUploaded] = useState(false);
+  const refAudioInputRef = useRef<HTMLInputElement>(null);
   const [keywordsText, setKeywordsText] = useState("");
   const [refineOpen, setRefineOpen] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -138,6 +143,35 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     successCalls: 0,
     failedCalls: 0
   });
+
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
+  const [elevenLabsLoading, setElevenLabsLoading] = useState(false);
+
+  const fetchElevenLabsVoices = async () => {
+    setElevenLabsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+        body: { action: "list_elevenlabs_voices" }
+      });
+      if (error) throw error;
+      if (data?.success && Array.isArray(data.voices)) {
+        setElevenLabsVoices(data.voices);
+      } else if (data?.error) {
+        console.warn("ElevenLabs loading warning:", data.error);
+        toast.warning(data.error);
+      }
+    } catch (err: any) {
+      console.error("Error fetching ElevenLabs voices:", err.message);
+    } finally {
+      setElevenLabsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (config.voice_reply_enabled && config.voice_provider === "elevenlabs") {
+      fetchElevenLabsVoices();
+    }
+  }, [config.voice_reply_enabled, config.voice_provider]);
 
   const loadMetrics = async () => {
     setMetricsLoading(true);
@@ -485,6 +519,10 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     loadMetrics();
     fetchDocs();
     fetchUnanswered();
+    supabase
+      .from("imphq_skills")
+      .select("id, nome, descricao")
+      .then(({ data }) => setCustomSkills(data || []));
   }, [projectId, providerId]);
 
   const loadConfig = async () => {
@@ -535,11 +573,15 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     // Fetch project products
     const { data: proj } = await supabase
       .from("imphq_projects")
-      .select("name, data")
+      .select("name, data, owner_phone")
       .eq("id", projectId)
       .maybeSingle();
 
     if (proj) {
+      // Carrega owner_phone no config para exibir no formulário
+      if ((proj as any).owner_phone) {
+        setConfig(p => ({ ...p, owner_phone: (proj as any).owner_phone } as any));
+      }
       const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
       let list: any[] = [];
       if (Array.isArray(d.produtos)) {
@@ -602,6 +644,15 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     const { error } = config.id
       ? await supabase.from("imphq_wa_ai_config").update(payload).eq("id", config.id)
       : await supabase.from("imphq_wa_ai_config").insert(payload);
+
+    // Salva owner_phone no projeto (para relatório semanal)
+    const ownerPhone = (config as any).owner_phone;
+    if (ownerPhone !== undefined && projectId) {
+      await supabase
+        .from("imphq_projects")
+        .update({ owner_phone: ownerPhone || null })
+        .eq("id", projectId);
+    }
 
     if (error) {
       toast.error("Erro ao salvar: " + error.message);
@@ -666,6 +717,35 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando configurações da IA...
     </div>
   );
+
+  const handleUploadReference = async (file: File) => {
+    const ttsUrl = (config as any).local_tts_url?.trim();
+    if (!ttsUrl) {
+      toast.error("Configure a URL do servidor TTS local primeiro.");
+      return;
+    }
+    setUploadingRef(true);
+    setRefUploaded(false);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${ttsUrl.replace(/\/$/, "")}/reference/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setRefUploaded(true);
+      toast.success(`Áudio de referência enviado (${data.size_kb ?? "?"} KB). O servidor já usa esta voz.`);
+    } catch (e: any) {
+      toast.error(`Erro ao enviar áudio: ${e.message}`);
+    } finally {
+      setUploadingRef(false);
+    }
+  };
 
   return (
     <Card className="border-border/50 bg-card/60 backdrop-blur-md shadow-lg overflow-hidden">
@@ -756,11 +836,23 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   </Label>
                   <Select value={config.personality} onValueChange={v => setConfig(p => ({ ...p, personality: v }))}>
                     <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px]">
                       {PERSONALITIES.map(p => (
                         <SelectItem key={p.id} value={p.id} className="text-xs">
                           <span className="font-semibold text-foreground">{p.label}</span>
                           <span className="block text-[10px] text-muted-foreground mt-0.5">{p.desc}</span>
+                        </SelectItem>
+                      ))}
+                      {MENTES_DATA.map(m => (
+                        <SelectItem key={`skill_${m.id}`} value={`skill_${m.id}`} className="text-xs">
+                          <span className="font-semibold text-primary">🧠 Mente: {m.nome}</span>
+                          <span className="block text-[10px] text-muted-foreground mt-0.5">{m.role} · {m.spec}</span>
+                        </SelectItem>
+                      ))}
+                      {customSkills.map(s => (
+                        <SelectItem key={`skill_${s.id}`} value={`skill_${s.id}`} className="text-xs">
+                          <span className="font-semibold text-amber-500">✨ Skill: {s.nome}</span>
+                          <span className="block text-[10px] text-muted-foreground mt-0.5">{s.descricao || "Mente IA customizada"}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -856,6 +948,28 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                 )}
               </div>
 
+              {/* Relatório Semanal Automático */}
+              <div className="border-t border-border/20 pt-4 mt-2 space-y-3">
+                <div>
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    📊 Relatório Semanal Automático
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground leading-normal mt-1">
+                    Toda segunda-feira às 08h você receberá um resumo da semana: conversões, leads ativos, fluxos com melhor ROI e perguntas sem resposta. Informe seu número do WhatsApp abaixo.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">Seu número (WhatsApp) para receber o relatório</Label>
+                  <Input
+                    placeholder="5511999999999"
+                    value={(config as any).owner_phone || ""}
+                    onChange={e => setConfig(p => ({ ...p, owner_phone: e.target.value } as any))}
+                    className="text-xs bg-secondary/40 border-border/30 h-9"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Apenas números, com DDI + DDD. Ex: 5511999887766</p>
+                </div>
+              </div>
+
               {/* Voice Configuration */}
               <div className="border-t border-border/20 pt-4 mt-2 space-y-4">
                 <div className="flex items-center justify-between">
@@ -874,80 +988,294 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                 </div>
 
                 {config.voice_reply_enabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border/30 bg-secondary/10 p-4 rounded-xl animate-fade-in">
-                    
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">Provedor de Voz</Label>
-                      <Select 
-                        value={config.voice_provider || "openai"} 
-                        onValueChange={v => setConfig(p => ({ ...p, voice_provider: v }))}
-                      >
-                        <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openai" className="text-xs">OpenAI TTS (Kits de Voz Padrão)</SelectItem>
-                          <SelectItem value="elevenlabs" className="text-xs">ElevenLabs (Vozes Clonadas HD)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">Avatar de Voz (Voice ID)</Label>
-                      {config.voice_provider === "openai" ? (
-                        <Select 
-                          value={config.voice_name || "alloy"} 
-                          onValueChange={v => setConfig(p => ({ ...p, voice_name: v }))}
+                  <div className="space-y-4 border border-border/30 bg-secondary/10 p-4 rounded-xl animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground">Provedor de Voz</Label>
+                        <Select
+                          value={config.voice_provider || "openai"}
+                          onValueChange={v => setConfig(p => ({ ...p, voice_provider: v }))}
                         >
                           <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="alloy" className="text-xs">Alloy (Neutro)</SelectItem>
-                            <SelectItem value="echo" className="text-xs">Echo (Masculino Neutro)</SelectItem>
-                            <SelectItem value="fable" className="text-xs">Fable (Narrativa)</SelectItem>
-                            <SelectItem value="onyx" className="text-xs">Onyx (Masculino Profundo)</SelectItem>
-                            <SelectItem value="nova" className="text-xs">Nova (Feminino Enérgico)</SelectItem>
-                            <SelectItem value="shimmer" className="text-xs">Shimmer (Feminino Profissional)</SelectItem>
+                            <SelectItem value="openai" className="text-xs">☁️ OpenAI TTS (Kits de Voz Padrão)</SelectItem>
+                            <SelectItem value="elevenlabs" className="text-xs">☁️ ElevenLabs (Vozes Clonadas HD)</SelectItem>
+                            <SelectItem value="local" className="text-xs">🖥️ Servidor Local — edge-tts (Gratuito, pt-BR)</SelectItem>
+                            <SelectItem value="local_clone" className="text-xs">🖥️ Servidor Local — Voz Clonada XTTS v2 (Expert)</SelectItem>
                           </SelectContent>
                         </Select>
-                      ) : (
-                        <div className="space-y-2">
-                          <Select 
-                            value={["fernanda_hq", "felipe_sales", "tatiane_suporte"].includes(config.voice_name || "") ? config.voice_name : "custom"} 
-                            onValueChange={v => {
-                              if (v === "custom") {
-                                setConfig(p => ({ ...p, voice_name: "" }));
-                              } else {
-                                setConfig(p => ({ ...p, voice_name: v }));
-                              }
-                            }}
+                        {(config.voice_provider === "local" || config.voice_provider === "local_clone") && (
+                          <p className="text-[9px] text-amber-500/80 leading-relaxed">
+                            ⚠️ Requer o servidor Python rodando na sua máquina. Veja as instruções abaixo.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground">
+                          {config.voice_provider === "local" ? "Voz pt-BR (edge-tts)" :
+                           config.voice_provider === "local_clone" ? "Identificador da Voz Clonada" :
+                           "Avatar de Voz (Voice ID)"}
+                        </Label>
+
+                        {config.voice_provider === "openai" && (
+                          <Select
+                            value={config.voice_name || "alloy"}
+                            onValueChange={v => setConfig(p => ({ ...p, voice_name: v }))}
                           >
                             <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="fernanda_hq" className="text-xs">Fernanda HQ (Voz Rachel)</SelectItem>
-                              <SelectItem value="felipe_sales" className="text-xs">Felipe Sales (Voz Antoni)</SelectItem>
-                              <SelectItem value="tatiane_suporte" className="text-xs">Tatiane Suporte (Voz Nicole)</SelectItem>
-                              <SelectItem value="custom" className="text-xs">Voz Customizada (ElevenLabs ID)</SelectItem>
+                              <SelectItem value="alloy" className="text-xs">Alloy (Neutro)</SelectItem>
+                              <SelectItem value="echo" className="text-xs">Echo (Masculino Neutro)</SelectItem>
+                              <SelectItem value="fable" className="text-xs">Fable (Narrativa)</SelectItem>
+                              <SelectItem value="onyx" className="text-xs">Onyx (Masculino Profundo)</SelectItem>
+                              <SelectItem value="nova" className="text-xs">Nova (Feminino Enérgico)</SelectItem>
+                              <SelectItem value="shimmer" className="text-xs">Shimmer (Feminino Profissional)</SelectItem>
                             </SelectContent>
                           </Select>
-                          
-                          {!["fernanda_hq", "felipe_sales", "tatiane_suporte"].includes(config.voice_name || "") && (
+                        )}
+
+                        {config.voice_provider === "local" && (
+                          <>
+                            <Select
+                              value={config.voice_name || "pt-BR-FranciscaNeural"}
+                              onValueChange={v => setConfig(p => ({ ...p, voice_name: v }))}
+                            >
+                              <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pt-BR-FranciscaNeural" className="text-xs">Francisca (Feminino, padrão)</SelectItem>
+                                <SelectItem value="pt-BR-AntonioNeural" className="text-xs">Antonio (Masculino)</SelectItem>
+                                <SelectItem value="pt-BR-BrendaNeural" className="text-xs">Brenda (Feminino)</SelectItem>
+                                <SelectItem value="pt-BR-DonatoNeural" className="text-xs">Donato (Masculino)</SelectItem>
+                                <SelectItem value="pt-BR-GiovannaNeural" className="text-xs">Giovanna (Feminino)</SelectItem>
+                                <SelectItem value="pt-BR-HumbertoNeural" className="text-xs">Humberto (Masculino)</SelectItem>
+                                <SelectItem value="pt-BR-JulioNeural" className="text-xs">Julio (Masculino)</SelectItem>
+                                <SelectItem value="pt-BR-LeticiaNeural" className="text-xs">Leticia (Feminino)</SelectItem>
+                                <SelectItem value="pt-BR-ManuelaNeural" className="text-xs">Manuela (Feminino)</SelectItem>
+                                <SelectItem value="pt-BR-YaraNeural" className="text-xs">Yara (Feminino)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                              Vozes Microsoft gratuitas via edge-tts. 100% local, custo zero.
+                            </p>
+                          </>
+                        )}
+
+                        {config.voice_provider === "local_clone" && (
+                          <>
                             <Input
-                              placeholder="Digite o ElevenLabs Voice ID"
+                              placeholder="ex: jp-expert (identificador livre)"
                               value={config.voice_name || ""}
                               onChange={e => setConfig(p => ({ ...p, voice_name: e.target.value }))}
-                              className="text-xs bg-secondary/40 border-border/30 h-9.5 mt-1.5"
+                              className="text-xs bg-secondary/40 border-border/30 h-9.5"
                             />
-                          )}
-                        </div>
-                      )}
+                            <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                              Apenas um rótulo. O servidor usa o arquivo <code>reference.wav</code> como voz de referência.
+                            </p>
+                          </>
+                        )}
+
+                        {config.voice_provider === "elevenlabs" && (
+                          <div className="space-y-2">
+                            {/* Instrução para voz clonada */}
+                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-[10px] text-amber-200/80 leading-relaxed">
+                              💡 <strong>Para usar voz clonada (ex: JP):</strong> No painel do ElevenLabs, vá em <em>Voices → sua voz clonada → copie o Voice ID</em> e cole no campo abaixo. As vozes clonadas aparecem na lista como categoria <em>"cloned"</em>.
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={elevenLabsVoices.some(v => v.id === config.voice_name) ? (config.voice_name || "") : "custom"}
+                                onValueChange={v => {
+                                  if (v === "custom") {
+                                    setConfig(p => ({ ...p, voice_name: "" }));
+                                  } else {
+                                    setConfig(p => ({ ...p, voice_name: v }));
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5 flex-1">
+                                  <SelectValue placeholder="Selecione uma voz do ElevenLabs" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                  {elevenLabsLoading ? (
+                                    <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+                                      <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" /> Carregando vozes...
+                                    </div>
+                                  ) : elevenLabsVoices.length === 0 ? (
+                                    <div className="p-2 text-xs text-muted-foreground italic text-center">
+                                      Nenhuma voz encontrada. Use Voice ID manual.
+                                    </div>
+                                  ) : (
+                                    elevenLabsVoices.map(v => (
+                                      <SelectItem key={v.id} value={v.id} className="text-xs">
+                                        {v.name} ({v.category})
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                  <SelectItem value="custom" className="text-xs text-amber-500 font-semibold">
+                                    + Digitar Voice ID Manual...
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9.5 w-9.5 shrink-0"
+                                onClick={fetchElevenLabsVoices}
+                                disabled={elevenLabsLoading}
+                                title="Recarregar vozes do ElevenLabs"
+                              >
+                                <RefreshCw className={`h-4 w-4 ${elevenLabsLoading ? "animate-spin" : ""}`} />
+                              </Button>
+                            </div>
+
+                            {(() => {
+                              const selectedVoice = elevenLabsVoices.find(v => v.id === config.voice_name);
+                              if (!selectedVoice?.preview_url) return null;
+                              return (
+                                <div className="flex items-center gap-2 bg-background/50 border border-border/30 px-3 py-1.5 rounded-lg animate-fade-in">
+                                  <span className="text-[10px] text-muted-foreground font-medium">Prévia:</span>
+                                  <audio controls src={selectedVoice.preview_url} className="h-6 w-full max-w-[220px]" />
+                                </div>
+                              );
+                            })()}
+
+                            {(config.voice_name === "custom" ||
+                              (!elevenLabsVoices.some(v => v.id === config.voice_name) && !elevenLabsLoading)) && (
+                              <Input
+                                placeholder="Cole o Voice ID do ElevenLabs aqui (ex: abc123de-...)"
+                                value={config.voice_name === "custom" ? "" : config.voice_name || ""}
+                                onChange={e => setConfig(p => ({ ...p, voice_name: e.target.value }))}
+                                className="text-xs bg-secondary/40 border-border/30 h-9.5 mt-1.5 font-mono"
+                              />
+                            )}
+
+                            {/* Confirmação do Voice ID ativo */}
+                            {config.voice_name && config.voice_name !== "custom" && (
+                              <div className="flex items-center justify-between bg-secondary/30 rounded-lg px-3 py-1.5 text-[10px]">
+                                <span className="text-muted-foreground">Voice ID ativo:</span>
+                                <code className="text-primary font-mono truncate max-w-[200px]">{config.voice_name}</code>
+                              </div>
+                            )}
+                            <p className="text-[10px] text-muted-foreground/60">
+                              <a href="https://elevenlabs.io/app/voice-lab" target="_blank" rel="noreferrer" className="underline hover:text-primary">
+                                Abrir ElevenLabs Voice Lab →
+                              </a>
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
+                    {/* ── LOCAL TTS URL (local / local_clone) ── */}
+                    {(config.voice_provider === "local" || config.voice_provider === "local_clone") && (
+                      <div className="space-y-3 border-t border-border/20 pt-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                            <Server className="h-3.5 w-3.5 text-primary" /> URL do Servidor TTS Local
+                          </Label>
+                          <Input
+                            placeholder="https://seu-tunnel.trycloudflare.com  ou  http://localhost:8765"
+                            value={(config as any).local_tts_url || ""}
+                            onChange={e => setConfig(p => ({ ...p, local_tts_url: e.target.value } as any))}
+                            className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
+                          />
+                          <p className="text-[9px] text-muted-foreground/70 leading-relaxed">
+                            A Edge Function do Supabase precisa alcançar essa URL. Use o Cloudflare Tunnel para expor sua máquina publicamente.
+                          </p>
+                        </div>
+
+                        <div className="bg-background/60 border border-border/30 rounded-lg p-3 space-y-2">
+                          <p className="text-[10px] font-semibold text-foreground">🚀 Como iniciar o servidor na sua máquina:</p>
+                          <div className="space-y-1 font-mono text-[9px] text-muted-foreground bg-secondary/30 rounded p-2 leading-relaxed">
+                            <p className="text-primary/80"># 1. Instale as dependências (só na primeira vez)</p>
+                            <p>cd local-tts-server</p>
+                            {config.voice_provider === "local"
+                              ? <p>pip install edge-tts fastapi uvicorn</p>
+                              : <p>pip install edge-tts fastapi uvicorn TTS torch torchaudio</p>
+                            }
+                            <p className="text-primary/80 mt-1"># 2. Inicie o servidor</p>
+                            {config.voice_provider === "local"
+                              ? <p>XTTS_ENABLED=false python server.py</p>
+                              : <p>{"python server.py  # ~4GB download na 1ª vez"}</p>
+                            }
+                            <p className="text-primary/80 mt-1"># 3. Exponha publicamente (Cloudflare Tunnel, gratuito)</p>
+                            <p>cloudflared tunnel --url http://localhost:8765</p>
+                            <p className="text-primary/80 mt-1"># Cole a URL gerada (*.trycloudflare.com) acima ↑</p>
+                          </div>
+                          {config.voice_provider === "local_clone" && (
+                            <div className="space-y-2 mt-1">
+                              <p className="text-[9px] text-amber-500/80 leading-relaxed">
+                                📎 Envie o áudio de referência do expert (10–30s, sem ruído, .wav/.mp3).
+                              </p>
+                              {/* Upload de áudio de referência */}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  ref={refAudioInputRef}
+                                  type="file"
+                                  accept=".wav,.mp3,.ogg,.m4a"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadReference(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[10px] gap-1.5 border-dashed border-primary/40 hover:border-primary/70"
+                                  disabled={uploadingRef}
+                                  onClick={() => refAudioInputRef.current?.click()}
+                                >
+                                  {uploadingRef
+                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                    : refUploaded
+                                      ? <CheckCircle className="h-3 w-3 text-green-400" />
+                                      : <Upload className="h-3 w-3" />
+                                  }
+                                  {uploadingRef ? "Enviando..." : refUploaded ? "Voz enviada ✓" : "Enviar áudio de referência"}
+                                </Button>
+                                {refUploaded && (
+                                  <span className="text-[9px] text-green-400">O servidor já usa esta voz</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── ElevenLabs fallback key (local_clone only) ── */}
+                    {config.voice_provider === "local_clone" && (
+                      <div className="space-y-1.5 border-t border-border/20 pt-3">
+                        <Label className="text-xs font-semibold text-muted-foreground">
+                          Chave ElevenLabs (fallback automático se servidor offline)
+                        </Label>
+                        <Input
+                          type="password"
+                          placeholder="sk_... (opcional — usado apenas se o servidor local falhar)"
+                          value={(config as any).elevenlabs_api_key || ""}
+                          onChange={e => setConfig(p => ({ ...p, elevenlabs_api_key: e.target.value } as any))}
+                          className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
+                        />
+                        <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                          Se o servidor local não responder em 30s, o sistema usa o ElevenLabs com a Voice ID configurada acima como backup automático.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ── ElevenLabs sliders (elevenlabs provider) ── */}
                     {config.voice_provider === "elevenlabs" && (
-                      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/20">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/20">
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-xs text-muted-foreground">
                             <span>Estabilidade</span>

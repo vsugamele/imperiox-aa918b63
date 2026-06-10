@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, ChevronDown, Copy, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Copy, Sparkles, Loader2, X, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -79,9 +79,28 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
     toast.success("Copiado para a área de transferência");
   };
 
+  const clearBlock = (key: string) => {
+    updateVariations(key, [""]);
+  };
+
+  // Detecta se o produto selecionado tem contexto suficiente para gerar copy de qualidade
+  const selectedProductEmpty = useMemo(() => {
+    if (selectedProductIndex === "__all__" || !Array.isArray(produtos)) return false;
+    const idx = parseInt(selectedProductIndex);
+    const prod = produtos[idx];
+    if (!prod) return false;
+    const hasContext = prod.mecanismo_unico || prod.contexto || prod.briefing ||
+      prod.checkout_urls?.length || (prod.links && Object.values(prod.links).some(Boolean));
+    return !hasContext;
+  }, [selectedProductIndex, produtos]);
+
   const applyArsenalResult = (data: any) => {
     console.log("[Arsenal] AI response:", data);
-    if (!data?.arsenal) {
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+    if (!data?.arsenal || Object.keys(data.arsenal).length === 0) {
       toast.error("A IA não retornou um arsenal válido. Tente novamente.");
       return;
     }
@@ -178,6 +197,15 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {selectedProductEmpty && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-300/90 leading-relaxed">
+                  <strong>Produto sem contexto cadastrado.</strong> O copy gerado será genérico. Para resultados melhores, cole a URL da página de vendas abaixo ou descreva o produto no briefing rápido.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1">
               <Label className="text-xs">URL extra (opcional)</Label>
               <Input
@@ -244,9 +272,14 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
                     <p className="text-[10px] text-primary/70 font-medium">{block.subtitle}</p>
                     <p className="text-[10px] text-muted-foreground">{block.desc}</p>
                   </div>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => copyBlock(block.key)} title="Copiar tudo">
-                    <Copy className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => copyBlock(block.key)} title="Copiar tudo">
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => clearBlock(block.key)} title="Limpar bloco para regenerar">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 {variations.map((v, vi) => (
                   <div key={vi} className="flex gap-1">
