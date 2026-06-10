@@ -43,6 +43,9 @@ interface AIConfig {
   expert_persona?: string;
   custom_instructions?: string;
   banned_phrases?: string[];
+  auto_audit_enabled?: boolean;
+  last_audit_at?: string | null;
+  audit_findings?: any[];
   product_focus?: string;
   faq?: FaqItem[];
   ignored_phones?: string[];
@@ -1757,6 +1760,33 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   <p className="text-[10px] text-muted-foreground leading-normal">
                     Frases que a IA <strong>nunca</strong> deve usar. Útil para bloquear clichês de bot que você notar nas conversas (ex: <em>"Faz todo sentido querer..."</em>). Uma frase por linha.
                   </p>
+                </div>
+
+                <div className="space-y-2 p-3.5 rounded-lg bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/20">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        🧠 IA se aprimora sozinha (auto-audit noturno)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Todo dia às 03h, a IA analisa as conversas onde leads sumiram ou pediram humano e <strong>auto-adiciona frases proibidas e regras</strong> para não repetir os mesmos erros.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.auto_audit_enabled || false}
+                      onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_audit_enabled: checked }))}
+                    />
+                  </div>
+                  {config.last_audit_at && (
+                    <p className="text-[10px] text-indigo-400 font-mono">
+                      Último audit: {new Date(config.last_audit_at).toLocaleString("pt-BR")}
+                      {Array.isArray(config.audit_findings) && config.audit_findings.length > 0 && config.audit_findings[0] && (
+                        <span className="text-muted-foreground ml-2">
+                          · {config.audit_findings[0].phrases_added?.length || 0} frase(s) e {config.audit_findings[0].rules_added?.length || 0} regra(s) aplicadas
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
 
