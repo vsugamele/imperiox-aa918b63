@@ -264,6 +264,61 @@ Deno.serve(async (req) => {
       });
     }
 
+    // === ANTI-SPAM: agrega mensagens rápidas em sequência ===
+    // Cenário: lead manda 2-3 áudios/textos em 5s. Sem isso, a IA responderia 3 vezes.
+    // Estratégia: dormir N segundos no início. Após o sono, se há msg mais nova que
+    // a hora em que esta função começou, abortar (a próxima invocação processa tudo).
+    // Quando processa, agrega TODAS msgs incoming desde a última saída → 1 resposta só.
+    if (!isTestMode) {
+      const DEBOUNCE_MS = 5000;
+      const processingStartedAt = Date.now();
+      console.log(`[wa-ai-reply] DEBOUNCE: aguardando ${DEBOUNCE_MS}ms para agregar msgs do lead`);
+      await new Promise(r => setTimeout(r, DEBOUNCE_MS));
+
+      const { data: latestIn } = await supabase
+        .from("imphq_wa_messages")
+        .select("id, content, created_at")
+        .eq("conversation_id", conversation_id)
+        .eq("direction", "incoming")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestIn && new Date(latestIn.created_at).getTime() > processingStartedAt) {
+        console.log(`[wa-ai-reply] DEBOUNCE: msg mais recente em ${latestIn.created_at} > start, abortando para próxima invocação agregar`);
+        return new Response(JSON.stringify({ skipped: "debounced_newer_msg" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Agrega msgs incoming desde a última outgoing (resposta humana ou IA)
+      const { data: lastOut } = await supabase
+        .from("imphq_wa_messages")
+        .select("created_at")
+        .eq("conversation_id", conversation_id)
+        .eq("direction", "outgoing")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const sinceTs = lastOut?.created_at || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { data: batch } = await supabase
+        .from("imphq_wa_messages")
+        .select("content")
+        .eq("conversation_id", conversation_id)
+        .eq("direction", "incoming")
+        .gt("created_at", sinceTs)
+        .order("created_at", { ascending: true });
+
+      if (batch && batch.length > 1) {
+        const joined = batch.map((m: any) => String(m.content || "").trim()).filter(Boolean).join("\n");
+        if (joined && joined.length > 0) {
+          message = joined;
+          console.log(`[wa-ai-reply] DEBOUNCE: agregadas ${batch.length} msgs em uma única consulta para o LLM`);
+        }
+      }
+    }
+
     // Busca provider e verifica se a IA está ativa nele
     const { data: provider } = await supabase
       .from("imphq_wa_providers")
@@ -830,9 +885,27 @@ Regras:
 7. Maximo 3 frases curtas. Nao explique. FECHE.`
         : "";
 
-      // Nome do lead para personalizar
-      const leadFirstName = (conv?.contact_name || push_name || "").trim().split(/\s+/)[0] || "";
-      const leadGreeting = leadFirstName ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa.` : "";
+      // Nome do lead para personalizar — sanitiza emoji-only, símbolos, números soltos
+      function sanitizeLeadName(raw: string): string {
+        if (!raw) return "";
+        const trimmed = raw.trim();
+        if (!trimmed) return "";
+        // Remove emojis e símbolos para contar letras reais
+        const letters = trimmed.replace(/[^A-Za-zÀ-ÿ]/g, "");
+        if (letters.length < 2) return ""; // só emoji/símbolo/dígito → descarta
+        // Filtra nomes "ruins" comuns
+        const lower = trimmed.toLowerCase();
+        const badNames = ["lead", "cliente", "usuario", "user", "test", "teste", "atendimento", "suporte", "whatsapp", "wa"];
+        if (badNames.some(b => lower === b)) return "";
+        // Pega primeira "palavra" alfabética
+        const firstWord = trimmed.split(/\s+/).find(w => /[A-Za-zÀ-ÿ]{2,}/.test(w)) || "";
+        // Remove emojis grudados ao nome (ex: "Maria✨" → "Maria")
+        return firstWord.replace(/[^A-Za-zÀ-ÿ\-']/g, "").trim();
+      }
+      const leadFirstName = sanitizeLeadName(conv?.contact_name || push_name || "");
+      const leadGreeting = leadFirstName
+        ? `O nome do lead e "${leadFirstName}". Use o nome dele nas primeiras mensagens da conversa, com PARCIMÔNIA — nunca em toda mensagem.`
+        : `IMPORTANTE: NÃO temos o nome do lead. NUNCA invente nome, NUNCA use placeholders como "amigo", "querido", "fofo". Inicie a resposta direto, sem cumprimento personalizado.`;
 
       let routingInstructions = "";
       if (activeStep?.ia_routes && activeStep.ia_routes.length > 0) {

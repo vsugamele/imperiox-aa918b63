@@ -15,15 +15,37 @@ const PENDING_STATUSES = ["aguardando_pagamento", "pix_gerado", "boleto_gerado",
 type Variant = { id: string; build: (nome: string, produto: string) => string };
 type Level = { level: number; minMin: number; maxMin: number; variants: Variant[] };
 
-// 3 toques: 15min, 2h, 24h. Cada nível tem 2 variantes A/B.
+// Helper: nome sanitizado (vazio se for emoji-only ou inválido)
+function nomeSan(raw: string): string {
+  if (!raw) return "";
+  const t = raw.trim();
+  const letters = t.replace(/[^A-Za-zÀ-ÿ]/g, "");
+  if (letters.length < 2) return "";
+  const firstWord = t.split(/\s+/).find(w => /[A-Za-zÀ-ÿ]{2,}/.test(w)) || "";
+  return firstWord.replace(/[^A-Za-zÀ-ÿ\-']/g, "").trim();
+}
+// Helper: vírgula+nome só se nome existir ("hey, João" vs "hey")
+function vNome(raw: string): string {
+  const n = nomeSan(raw);
+  return n ? `, ${n}` : "";
+}
+// Helper: prefixo "Oi Nome!" ou só "Oi!" se sem nome
+function oiNome(raw: string): string {
+  const n = nomeSan(raw);
+  return n ? `Oi ${n}!` : "Oi!";
+}
+
+// 3 toques: 15min, 2h, 24h. Cada nível tem 3 variantes (A/B/C) — picked via hash do venda_id.
+// Estilo: humano, curto, sem template-carbono. Sem "Aqui é o JP Freitas", sem ✂️ fixo.
 const RECOVERY_LEVELS: Level[] = [
   {
     level: 1,
     minMin: 15,
     maxMin: 119,
     variants: [
-      { id: "L1A", build: (n, p) => `Oi ${n || ""}! 👋 Vi que você gerou o pagamento de *${p}* mas ainda não foi confirmado. Posso te ajudar a finalizar agora?` },
-      { id: "L1B", build: (n, p) => `${n || "Olá"}! Notei que o pagamento de *${p}* está pendente há alguns minutos. Tá tudo certo? Se precisar de outro link ou Pix, me chama aqui.` },
+      { id: "L1A", build: (n, p) => `${oiNome(n)} Vi que o pagamento de *${produto(p)}* não rolou ainda. Travou em algo? Me fala que resolvo aqui.` },
+      { id: "L1B", build: (n, p) => `Ei${vNome(n)}, deu pra finalizar o *${produto(p)}*? Se precisar de outro link ou outra forma de pagamento, é só me chamar.` },
+      { id: "L1C", build: (n, p) => `${oiNome(n)} Notei que o checkout do *${produto(p)}* ficou pendente. Posso te mandar um novo link ou tirar alguma dúvida?` },
     ],
   },
   {
@@ -31,8 +53,9 @@ const RECOVERY_LEVELS: Level[] = [
     minMin: 120,
     maxMin: 1439,
     variants: [
-      { id: "L2A", build: (n, p) => `${n || "Ei"}, ainda dá tempo! 🔥 Sua reserva de *${produto(p)}* está prestes a expirar. Quer que eu gere um novo link rápido?` },
-      { id: "L2B", build: (n, p) => `${n || "Olá"}! Sua intenção de compra de *${produto(p)}* continua aberta. Se rolou alguma dúvida (preço, prazo, formato), me responde aqui que resolvo agora.` },
+      { id: "L2A", build: (n, p) => `${oiNome(n)} Ainda dá tempo de fechar o *${produto(p)}*. Se ficou alguma dúvida em preço ou formato, me responde por aqui.` },
+      { id: "L2B", build: (n, p) => `Ei${vNome(n)}, sua reserva de *${produto(p)}* tá quase expirando. Quer que eu gere um link novinho?` },
+      { id: "L2C", build: (n, p) => `${nomeSan(n) || "Olá"}, sua intenção de compra do *${produto(p)}* tá em aberto. O que tá faltando pra fechar?` },
     ],
   },
   {
@@ -40,8 +63,9 @@ const RECOVERY_LEVELS: Level[] = [
     minMin: 1440,
     maxMin: 2880,
     variants: [
-      { id: "L3A", build: (n, p) => `Última chamada, ${n || ""}! ⏰ A oferta de *${produto(p)}* expira hoje. Posso liberar uma condição exclusiva pra você fechar agora — me responde se ainda quiser.` },
-      { id: "L3B", build: (n, p) => `${n || "Olá"}, vou ser direto: *${produto(p)}* sai do carrinho em poucas horas. Se faltou só um empurrão, fala comigo que faço por você.` },
+      { id: "L3A", build: (n, p) => `${oiNome(n)} Última chamada — a oferta de *${produto(p)}* expira hoje. Se você quer ainda, me avisa que dou um jeito.` },
+      { id: "L3B", build: (n, p) => `${nomeSan(n) || "Olá"}, vou ser direto: o *${produto(p)}* sai do carrinho em poucas horas. Se faltou só um empurrão, fala comigo.` },
+      { id: "L3C", build: (n, p) => `Ei${vNome(n)}, antes de eu liberar essa vaga pra outra pessoa — você ainda quer o *${produto(p)}*? Responde aqui que eu seguro.` },
     ],
   },
 ];
