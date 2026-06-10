@@ -611,7 +611,12 @@ Deno.serve(async (req) => {
     if (action === "send_message") {
       const body = await req.json();
       const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy, buttons, list_data } = body;
-      const sent_by = rawSentBy || "human";
+      // IMPORTANTE: default "campaign" (não pausa IA). Apenas chamadas que explicitamente
+      // setam sent_by="human" (ChatView do operador, webhook isFromMe real) pausam a IA por 30 min.
+      // Antes o default era "human" e disparadores (payment-recovery, campaign-scheduler, etc.)
+      // pausavam a IA cegando-a na janela crítica de resposta do lead.
+      const sent_by = rawSentBy || "campaign";
+      console.log(`[send_message] sent_by=${sent_by} (raw=${rawSentBy ?? "<unset>"})`);
 
       // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
       let jidSuffix = "s.whatsapp.net";
