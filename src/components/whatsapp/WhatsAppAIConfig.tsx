@@ -46,6 +46,10 @@ interface AIConfig {
   auto_audit_enabled?: boolean;
   last_audit_at?: string | null;
   audit_findings?: any[];
+  auto_tune_enabled?: boolean;
+  auto_tune_apply?: boolean;
+  last_tune_at?: string | null;
+  tune_history?: any[];
   product_focus?: string;
   faq?: FaqItem[];
   ignored_phones?: string[];
@@ -1762,14 +1766,19 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   </p>
                 </div>
 
-                <div className="space-y-2 p-3.5 rounded-lg bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/20">
+                <div className="space-y-3 p-3.5 rounded-lg bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/20">
+                  <div className="flex items-center gap-2 pb-1 border-b border-indigo-500/10">
+                    <Brain className="h-4 w-4 text-indigo-400" />
+                    <Label className="text-xs font-bold text-foreground">Autonomia da IA</Label>
+                  </div>
+
                   <div className="flex items-center justify-between gap-3">
                     <div className="space-y-0.5">
-                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        🧠 IA se aprimora sozinha (auto-audit noturno)
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        🌙 Self-audit noturno (03h)
                       </Label>
                       <p className="text-[10px] text-muted-foreground leading-normal">
-                        Todo dia às 03h, a IA analisa as conversas onde leads sumiram ou pediram humano e <strong>auto-adiciona frases proibidas e regras</strong> para não repetir os mesmos erros.
+                        Toda madrugada analisa conversas onde leads sumiram/pediram humano e <strong>auto-adiciona frases proibidas e regras</strong>.
                       </p>
                     </div>
                     <Switch
@@ -1778,11 +1787,47 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     />
                   </div>
                   {config.last_audit_at && (
-                    <p className="text-[10px] text-indigo-400 font-mono">
-                      Último audit: {new Date(config.last_audit_at).toLocaleString("pt-BR")}
+                    <p className="text-[10px] text-indigo-400 font-mono pl-1 -mt-1">
+                      Último: {new Date(config.last_audit_at).toLocaleString("pt-BR")}
                       {Array.isArray(config.audit_findings) && config.audit_findings.length > 0 && config.audit_findings[0] && (
                         <span className="text-muted-foreground ml-2">
-                          · {config.audit_findings[0].phrases_added?.length || 0} frase(s) e {config.audit_findings[0].rules_added?.length || 0} regra(s) aplicadas
+                          · {config.audit_findings[0].phrases_added?.length || 0}f, {config.audit_findings[0].rules_added?.length || 0}r
+                        </span>
+                      )}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-500/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        🧬 Self-tune semanal (segunda 04h)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Toda segunda compara <strong>conversas que viraram venda vs que não viraram</strong> e propõe ajustes no prompt baseado em padrões reais.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.auto_tune_enabled || false}
+                      onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_tune_enabled: checked }))}
+                    />
+                  </div>
+                  {config.auto_tune_enabled && (
+                    <div className="flex items-center justify-between gap-3 pl-3 -mt-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Aplicar mudanças automaticamente <span className="text-amber-400">(senão, só propõe)</span>
+                      </Label>
+                      <Switch
+                        checked={config.auto_tune_apply || false}
+                        onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_tune_apply: checked }))}
+                      />
+                    </div>
+                  )}
+                  {config.last_tune_at && (
+                    <p className="text-[10px] text-purple-400 font-mono pl-1 -mt-1">
+                      Último: {new Date(config.last_tune_at).toLocaleString("pt-BR")}
+                      {Array.isArray(config.tune_history) && config.tune_history.length > 0 && config.tune_history[0] && (
+                        <span className="text-muted-foreground ml-2">
+                          · {config.tune_history[0].wins_analyzed}w vs {config.tune_history[0].losses_analyzed}l · {config.tune_history[0].applied ? "aplicado" : "proposto"}
                         </span>
                       )}
                     </p>
