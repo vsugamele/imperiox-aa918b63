@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AISaude = lazy(() => import("./pages/AISaude"));
+const Funil = lazy(() => import("./pages/Funil"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
 const KanbanPage = lazy(() => import("./pages/KanbanPage"));
@@ -109,6 +110,7 @@ const App = () => (
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="ai-saude" element={<AISaude />} />
+                <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
                 <Route path="kanban" element={<KanbanPage />} />

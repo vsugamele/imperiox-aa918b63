@@ -628,6 +628,26 @@ Deno.serve(async (req) => {
         } else {
           console.log("[webhook-pagamento] Checkout intent inserido:", vendaInsert.id, vendaStatus, "utm:", webhookUtms?.utm_campaign);
           touchedVendaId = vendaInsert.id;
+
+          // ── WA Attribution: liga venda a um attribution_id de mensagem WhatsApp ──
+          try {
+            const attrFromBody = body?.xc || body?.attr || body?.tracking?.xc || body?.tracking?.attr || body?.data?.purchase?.tracking?.xc;
+            const { linkSaleToAttribution } = await import("../_shared/attribution.ts");
+            const matchedAttr = await linkSaleToAttribution(supabase, {
+              project_id: projectId,
+              venda_id: vendaInsert.id,
+              venda_status: vendaStatus,
+              click_id: attrFromBody ? String(attrFromBody) : null,
+              phone: phone || null,
+              produto_nome: produto || null,
+              valor: valor || undefined,
+            });
+            if (matchedAttr) {
+              console.log("[webhook-pagamento] WA attribution matched:", matchedAttr, "→ venda:", vendaInsert.id);
+            }
+          } catch (e: any) {
+            console.warn("[webhook-pagamento] WA attribution failed (non-blocking):", e?.message);
+          }
         }
       } else {
         // Existing venda — bump activity timestamp so hot-lead-responder reconhece como reemissão

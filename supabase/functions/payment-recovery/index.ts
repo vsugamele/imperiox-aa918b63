@@ -172,7 +172,23 @@ Deno.serve(async (req) => {
 
       const variant = pickVariant(targetLevel, v.id);
       const provider = await findActiveProvider(supabase, v.project_id || lead?.project_id);
-      const message = variant.build(lead?.nome || "", v.produto_nome || "");
+      let message = variant.build(lead?.nome || "", v.produto_nome || "");
+
+      // Atribuição: se houver link de checkout no template, instrumenta
+      try {
+        const { attributeOutgoing } = await import("../_shared/attribution.ts");
+        const result = await attributeOutgoing(supabase, message, {
+          project_id: v.project_id || lead?.project_id || "",
+          phone,
+          source: "payment_recovery",
+          source_detail: `L${targetLevel.level}_${variant.id}`,
+          template_name: variant.id,
+          produto_nome: v.produto_nome || null,
+          metadata: { venda_id: v.id, level: targetLevel.level, valor: v.valor },
+        });
+        message = result.text;
+      } catch (_) {}
+
       const result = await sendWhatsApp(provider, phone, message);
 
       const newMeta = {

@@ -610,13 +610,35 @@ Deno.serve(async (req) => {
     // ── ACTION: send_message ──
     if (action === "send_message") {
       const body = await req.json();
-      const { provider_id, phone: rawPhone, content, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy, buttons, list_data } = body;
+      const { provider_id, phone: rawPhone, content: rawContent, conversation_id, project_id, media_url, media_type, _no_failover, sent_by: rawSentBy, buttons, list_data, attribution_context } = body;
       // IMPORTANTE: default "campaign" (não pausa IA). Apenas chamadas que explicitamente
       // setam sent_by="human" (ChatView do operador, webhook isFromMe real) pausam a IA por 30 min.
-      // Antes o default era "human" e disparadores (payment-recovery, campaign-scheduler, etc.)
-      // pausavam a IA cegando-a na janela crítica de resposta do lead.
       const sent_by = rawSentBy || "campaign";
       console.log(`[send_message] sent_by=${sent_by} (raw=${rawSentBy ?? "<unset>"})`);
+
+      // ── ATRIBUIÇÃO: se há link de checkout no content, gera attribution_id ──
+      let content = rawContent;
+      let attribution_id: string | null = null;
+      if (project_id && rawContent && typeof rawContent === "string") {
+        try {
+          const { attributeOutgoing } = await import("../_shared/attribution.ts");
+          const result = await attributeOutgoing(supabase, rawContent, {
+            project_id,
+            conversation_id: conversation_id || null,
+            phone: rawPhone || null,
+            source: sent_by === "human" ? "chat_manual" : sent_by === "ai" ? "ai_reply" : (attribution_context?.source || "send_message"),
+            source_detail: attribution_context?.source_detail,
+            template_name: attribution_context?.template_name,
+            campaign_id: attribution_context?.campaign_id,
+            produto_nome: attribution_context?.produto_nome,
+            metadata: { sent_by, ...(attribution_context?.metadata || {}) },
+          });
+          content = result.text;
+          attribution_id = result.attribution_id;
+        } catch (e: any) {
+          console.warn(`[send_message] attribution failed: ${e?.message}`);
+        }
+      }
 
       // Buscar sufixo JID da conversa (s.whatsapp.net | lid)
       let jidSuffix = "s.whatsapp.net";
@@ -786,6 +808,7 @@ Deno.serve(async (req) => {
         status: "sent",
         sent_by,
       };
+      if (attribution_id) msgPayload.attribution_id = attribution_id;
       if (media_url) {
         msgPayload.message_type = media_type || "image";
         msgPayload.media_url = media_url;
@@ -795,6 +818,14 @@ Deno.serve(async (req) => {
       }
 
       const { data: savedMsg, error: msgError } = await supabase.from("imphq_wa_messages").insert(msgPayload).select("id").maybeSingle();
+
+      // Atualiza atribuição com message_id (depois do save)
+      if (attribution_id && savedMsg?.id) {
+        supabase.from("imphq_wa_attribution")
+          .update({ message_id: savedMsg.id })
+          .eq("attribution_id", attribution_id)
+          .then(() => {}, () => {});
+      }
 
       if (msgError) {
         console.error("[send_message] DB save error:", msgError.message);
