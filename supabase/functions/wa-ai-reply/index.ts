@@ -806,7 +806,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const pixKey = (aiConfig as any).pix_key || null;
       const pixBlock = pixKey
         ? `\nCHAVE PIX OFICIAL (única chave válida — use EXATAMENTE esta se o lead pedir Pix): ${pixKey}`
-        : `\nPIX: NÃO há chave Pix cadastrada. Se o lead pedir para pagar via Pix, NUNCA invente chave, CNPJ ou dados bancários. Diga: "Vou te passar os dados do Pix agora, me dá um segundo." e adicione a tag [TRANSICAO_HUMANA] no final da resposta.`;
+        : `\nPIX: Se o lead mencionar Pix ou forma de pagamento, NUNCA invente chave, CNPJ ou dados bancários. Oriente-o a acessar a página de vendas/checkout${paymentLink ? ` (${paymentLink})` : ""} e refazer a compra por lá — o checkout aceita todas as formas de pagamento, incluindo Pix. Seja natural e positivo, ex: "O pagamento é feito direto pelo nosso checkout, que já aceita Pix! Acessa aqui: [link]". Se não houver link disponível, adicione [TRANSICAO_HUMANA] no final.`;
       const closerBlock = closerActivated
         ? `
 

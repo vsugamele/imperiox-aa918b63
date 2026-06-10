@@ -135,6 +135,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [unansweredLoading, setUnansweredLoading] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [approvingIds, setApprovingIds] = useState<string[]>([]);
+  const [exampleQuestion, setExampleQuestion] = useState("");
+  const [exampleAnswer, setExampleAnswer] = useState("");
+  const [savingExample, setSavingExample] = useState(false);
   const [metrics, setMetrics] = useState({
     avgLatency: 0,
     totalCost: 0,
@@ -362,6 +365,41 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       toast.error(`Erro ao aprovar: ${err.message}`);
     } finally {
       setApprovingIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleSaveExample = async () => {
+    const q = exampleQuestion.trim();
+    const a = exampleAnswer.trim();
+    if (!q || !a) {
+      toast.error("Preencha a pergunta e a resposta antes de salvar.");
+      return;
+    }
+    setSavingExample(true);
+    try {
+      const { data: embedData, error: embedErr } = await supabase.functions.invoke("wa-doc-embedder", {
+        body: { action: "get_embedding", text: q },
+      });
+      if (embedErr) throw embedErr;
+      if (!embedData?.success || !embedData?.embedding) {
+        throw new Error("Não foi possível gerar o embedding.");
+      }
+      const { error: insErr } = await supabase.from("imphq_wa_knowledge").insert({
+        project_id: projectId,
+        pergunta: q,
+        resposta: a,
+        embedding: embedData.embedding,
+        source: "manual_example",
+        aprovada: true,
+      });
+      if (insErr) throw insErr;
+      toast.success("Exemplo salvo! A IA já aprenderá com ele.");
+      setExampleQuestion("");
+      setExampleAnswer("");
+    } catch (err: any) {
+      toast.error(`Erro ao salvar: ${err.message}`);
+    } finally {
+      setSavingExample(false);
     }
   };
 
@@ -957,7 +995,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
                     />
                     <p className="text-[10px] text-muted-foreground leading-normal">
-                      Se preenchida, a IA usa EXATAMENTE esta chave quando o lead pedir Pix. Se vazia, a IA <strong>nunca inventa</strong> dados de Pix — ela transfere para um humano enviar os dados corretos.
+                      Se preenchida, a IA usa EXATAMENTE esta chave quando o lead pedir Pix. Se vazia, a IA <strong>nunca inventa</strong> dados — orienta o lead a refazer a compra pelo link de checkout, onde o Pix já está disponível.
                     </p>
                   </div>
                 )}
@@ -1917,6 +1955,53 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Ensinar pelo Exemplo Section */}
+              <div className="space-y-3 pt-3 border-t border-border/20">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <MessageSquare className="h-4 w-4 text-indigo-400" /> Ensinar pelo Exemplo
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">Cole uma pergunta real de lead e escreva a resposta ideal. A IA vai aprender esse padrão e usá-lo nas próximas conversas.</p>
+                </div>
+                <div className="space-y-2 p-3.5 rounded-lg bg-secondary/20 border border-border/30">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Pergunta do lead</Label>
+                    <Textarea
+                      value={exampleQuestion}
+                      onChange={e => setExampleQuestion(e.target.value)}
+                      placeholder="Ex: Qual a diferença do plano básico pro avançado?"
+                      className="min-h-[52px] text-xs bg-background border-border/30 resize-none leading-relaxed"
+                      disabled={savingExample}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Resposta ideal da IA</Label>
+                    <Textarea
+                      value={exampleAnswer}
+                      onChange={e => setExampleAnswer(e.target.value)}
+                      placeholder="Ex: No plano avançado você tem acesso às mentorias ao vivo, no básico é só o material gravado. A maioria dos alunos escolhe o avançado por isso."
+                      className="min-h-[72px] text-xs bg-background border-border/30 resize-none leading-relaxed"
+                      disabled={savingExample}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] h-7 px-3 gap-1"
+                      onClick={handleSaveExample}
+                      disabled={savingExample || !exampleQuestion.trim() || !exampleAnswer.trim()}
+                    >
+                      {savingExample ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /> Treinando...</>
+                      ) : (
+                        <><Brain className="h-3 w-3" /> Treinar IA com este exemplo</>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
 

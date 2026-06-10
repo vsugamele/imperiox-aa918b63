@@ -100,11 +100,30 @@ Deno.serve(async (req) => {
     }
 
     if (feedback === "bad" && correction && project_id) {
-      const embedding = await getEmbedding(correction);
+      // Busca pergunta real do lead que antecedeu esta mensagem da IA
+      let leadQuestion = "Resposta corrigida pelo operador (WA)";
+      const { data: badMsg } = await supa.from("imphq_wa_messages")
+        .select("conversation_id, created_at")
+        .eq("id", message_id)
+        .maybeSingle();
+      if (badMsg?.conversation_id) {
+        const { data: prevIn } = await supa.from("imphq_wa_messages")
+          .select("content")
+          .eq("conversation_id", badMsg.conversation_id)
+          .eq("direction", "incoming")
+          .lt("created_at", badMsg.created_at)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (prevIn?.content && prevIn.content.length > 3) {
+          leadQuestion = String(prevIn.content).slice(0, 500);
+        }
+      }
+      const embedding = await getEmbedding(`${leadQuestion}\n\n${correction}`);
       if (embedding) {
         await supa.from("imphq_wa_knowledge").insert({
           project_id,
-          pergunta: "Resposta corrigida pelo operador (WA)",
+          pergunta: leadQuestion,
           resposta: correction,
           embedding,
           source: "feedback:correction:wa",
