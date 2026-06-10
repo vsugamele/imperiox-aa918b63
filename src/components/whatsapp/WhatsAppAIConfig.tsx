@@ -50,6 +50,11 @@ interface AIConfig {
   auto_tune_apply?: boolean;
   last_tune_at?: string | null;
   tune_history?: any[];
+  auto_escalation_enabled?: boolean;
+  auto_drift_enabled?: boolean;
+  auto_scoring_enabled?: boolean;
+  last_drift_at?: string | null;
+  drift_score?: number | null;
   product_focus?: string;
   faq?: FaqItem[];
   ignored_phones?: string[];
@@ -1832,6 +1837,59 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       )}
                     </p>
                   )}
+
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-500/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        🚨 Auto-escalation semântica (20min)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        IA decide sozinha quando passar pra humano <strong>sem precisar de keyword</strong>. Detecta frustração, loop, lead esfriando.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.auto_escalation_enabled || false}
+                      onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_escalation_enabled: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-500/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        🎭 Drift de persona (semanal)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Toda segunda, IA compara as respostas reais com a persona configurada e <strong>reforça quando começa a falar diferente</strong>.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.auto_drift_enabled || false}
+                      onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_drift_enabled: checked }))}
+                    />
+                  </div>
+                  {config.last_drift_at && config.drift_score != null && (
+                    <p className="text-[10px] font-mono pl-1 -mt-1">
+                      <span className={Number(config.drift_score) < 60 ? "text-amber-400" : "text-emerald-400"}>
+                        Score persona: {config.drift_score}/100
+                      </span>
+                      <span className="text-muted-foreground ml-2">· {new Date(config.last_drift_at).toLocaleDateString("pt-BR")}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-500/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        📊 Pontuar conversas + postmortem (4h)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Toda conversa encerrada ganha <strong>score 0-100 + postmortem</strong> (o que funcionou, o que falhou). Alimenta dashboards e o self-tune.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.auto_scoring_enabled || false}
+                      onCheckedChange={(checked) => setConfig(p => ({ ...p, auto_scoring_enabled: checked }))}
+                    />
+                  </div>
                 </div>
               </div>
 
