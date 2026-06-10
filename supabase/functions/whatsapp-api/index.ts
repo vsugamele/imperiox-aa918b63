@@ -1,12 +1,26 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  sleep,
+  isTransientConnError,
+  tryReconnectInstance,
+  sendEvolution,
+  sendEvolutionButtons,
+  sendEvolutionList,
+  sendEvolutionMedia,
+  sendTwilio,
+  sendMetaCloud,
+} from "./_lib/senders.ts";
+import {
+  getProvider as getProviderShared,
+  findOrCreateConversation as findOrCreateConversationShared,
+  updateConversationAfterMessage as updateConversationAfterMessageShared,
+} from "./_lib/db.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -42,313 +56,22 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ── Helper: get provider config (normalizes api_url) ──
-    async function getProvider(providerId: string) {
-      const { data, error } = await supabase
-        .from("imphq_wa_providers")
-        .select("*")
-        .eq("id", providerId)
-        .single();
-      if (error || !data) throw new Error("Provider não encontrado: " + (error?.message || ""));
-      // Normalize: remove trailing slashes from api_url
-      if (data.api_url) data.api_url = data.api_url.replace(/\/+$/, "");
-      return data;
-    }
-
-    // ── Helper: find or create conversation ──
-    async function findOrCreateConversation(phone: string, projectId: string, providerId: string | null, contactName?: string, jidSuffix?: string) {
-      const cleanPhone = phone.replace(/\D/g, "");
-      const suffix = jidSuffix || "s.whatsapp.net";
-
-      // Buscar conversa existente por (phone, project_id, provider_id) — cada chip tem sua thread
-      const baseQuery = supabase
-        .from("imphq_wa_conversations")
-        .select("*")
-        .eq("phone", cleanPhone)
-        .eq("project_id", projectId);
-      const { data: existing } = providerId
-        ? await baseQuery.eq("provider_id", providerId).maybeSingle()
-        : await baseQuery.is("provider_id", null).maybeSingle();
-
-      if (existing) {
-        // Atualiza sufixo se diferente (migração de @s.whatsapp.net → @lid ou vice-versa)
-        if (existing.jid_suffix !== suffix) {
-          await supabase.from("imphq_wa_conversations").update({ jid_suffix: suffix }).eq("id", existing.id);
-          existing.jid_suffix = suffix;
-        }
-        return existing;
-      }
-
-      const { data: created, error } = await supabase
-        .from("imphq_wa_conversations")
-        .insert({
-          phone: cleanPhone,
-          contact_name: contactName || null,
-          session: `session-${Date.now()}`,
-          project_id: projectId,
-          status: "active",
-          provider_id: providerId,
-          message_count: 0,
-          jid_suffix: suffix,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        const retryQuery = supabase
-          .from("imphq_wa_conversations")
-          .select("*")
-          .eq("phone", cleanPhone)
-          .eq("project_id", projectId);
-        const { data: raced } = providerId
-          ? await retryQuery.eq("provider_id", providerId).maybeSingle()
-          : await retryQuery.is("provider_id", null).maybeSingle();
-        if (raced) return raced;
-        console.error("[findOrCreateConversation] Error creating:", error.message);
-        throw new Error("Falha ao criar conversa: " + error.message);
-      }
-      return created;
-    }
-
-
-    // ── Helper: update conversation metadata after message ──
-    async function updateConversationAfterMessage(
+    // ── Wrappers locais para os helpers compartilhados (mantém assinatura igual) ──
+    const getProvider = (id: string) => getProviderShared(supabase, id);
+    const findOrCreateConversation = (
+      phone: string,
+      projectId: string,
+      providerId: string | null,
+      contactName?: string,
+      jidSuffix?: string,
+    ) => findOrCreateConversationShared(supabase, phone, projectId, providerId, contactName, jidSuffix);
+    const updateConversationAfterMessage = (
       conversationId: string,
       content: string,
       currentCount: number,
-      incrementUnread: boolean = false,
-      pauseAI: boolean = false
-    ) {
-      const patch: Record<string, any> = {
-        last_message: content.substring(0, 200),
-        last_message_at: new Date().toISOString(),
-        message_count: (currentCount || 0) + 1,
-        updated_at: new Date().toISOString(),
-        last_message_direction: incrementUnread ? "incoming" : "outgoing",
-      };
-      if (incrementUnread) {
-        const { data: cur } = await supabase
-          .from("imphq_wa_conversations")
-          .select("unread_count")
-          .eq("id", conversationId)
-          .maybeSingle();
-        patch.unread_count = ((cur?.unread_count as number) || 0) + 1;
-      } else {
-        patch.unread_count = 0;
-      }
-
-      if (pauseAI) {
-        // Pausa a IA por 30 minutos a partir de agora
-        patch.ai_paused_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      }
-
-      const { error } = await supabase
-        .from("imphq_wa_conversations")
-        .update(patch)
-        .eq("id", conversationId);
-      if (error) console.warn("[updateConversation] Error:", error.message);
-    }
-
-    // ── Helper: detect transient connection errors from Evolution ──
-    function isTransientConnError(payload: string): boolean {
-      const s = payload.toLowerCase();
-      return s.includes("connection closed") || s.includes("connection lost")
-        || s.includes("connection replaced") || s.includes("timed out")
-        || s.includes("timeout") || s.includes("socket") || s.includes("econnreset");
-    }
-
-    // ── Helper: try to wake up Evolution instance (soft reconnect) ──
-    async function tryReconnectInstance(provider: any): Promise<boolean> {
-      try {
-        const inst = encodeURIComponent(provider.instance_name);
-        const url = `${provider.api_url}/instance/connect/${inst}`;
-        const res = await fetch(url, { method: "GET", headers: { apikey: provider.api_key } });
-        console.log("[tryReconnectInstance] status:", res.status);
-        return res.ok;
-      } catch (e) {
-        console.warn("[tryReconnectInstance] failed:", (e as Error).message);
-        return false;
-      }
-    }
-
-    // ── Helper: sleep ──
-    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-
-    // ── Helper: send buttons via Evolution API ──
-    async function sendEvolutionButtons(provider: any, phone: string, text: string, buttons: any[]) {
-      const inst = encodeURIComponent(provider.instance_name);
-      const apiUrl = `${provider.api_url}/message/sendButtons/${inst}`;
-      console.log("[sendEvolutionButtons] URL:", apiUrl, "phone:", phone, "buttons:", buttons.length);
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: provider.api_key },
-        body: JSON.stringify({
-          number: phone,
-          title: text,
-          description: "Imperio HQ",
-          footer: "Imperio HQ",
-          buttons: buttons.map((b: any, index: number) => ({
-            buttonId: b.id || `btn_${index}`,
-            buttonText: { displayText: b.text },
-            type: 1 // Response Button
-          }))
-        }),
-      });
-      return await res.json().catch(() => ({}));
-    }
-
-    // ── Helper: send list menu via Evolution API ──
-    async function sendEvolutionList(provider: any, phone: string, text: string, listData: any) {
-      const inst = encodeURIComponent(provider.instance_name);
-      const apiUrl = `${provider.api_url}/message/sendList/${inst}`;
-      console.log("[sendEvolutionList] URL:", apiUrl, "phone:", phone, "title:", listData.title);
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: provider.api_key },
-        body: JSON.stringify({
-          number: phone,
-          title: listData.title || "Menu de Opções",
-          description: text,
-          buttonText: listData.buttonText || "Clique para ver",
-          footer: "Imperio HQ",
-          sections: [
-            {
-              title: listData.sectionTitle || "Opções",
-              rows: listData.rows.map((r: any, index: number) => ({
-                rowId: r.id || `row_${index}`,
-                title: r.title,
-                description: r.description || ""
-              }))
-            }
-          ]
-        }),
-      });
-      return await res.json().catch(() => ({}));
-    }
-
-    // ── Helper: send via Evolution API (text) with retry + auto-reconnect ──
-    async function sendEvolution(provider: any, phone: string, text: string) {
-      const inst = encodeURIComponent(provider.instance_name);
-      const apiUrl = `${provider.api_url}/message/sendText/${inst}`;
-      console.log("[sendEvolution] URL:", apiUrl, "phone:", phone, "textLen:", text.length);
-
-      const MAX_ATTEMPTS = 3;
-      let lastErr: string = "";
-
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: provider.api_key },
-          body: JSON.stringify({ number: phone, text }),
-        });
-        const data = await res.json().catch(() => ({}));
-        console.log(`[sendEvolution] attempt=${attempt} status=${res.status}`, JSON.stringify(data).slice(0, 300));
-
-        if (res.ok) return data;
-
-        const msgs = data?.response?.message;
-        if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
-          return { ok: false, error: "invalid_number", details: msgs };
-        }
-
-        const payload = JSON.stringify(data);
-        lastErr = `Evolution error [${res.status}]: ${payload}`;
-
-        // Only retry transient connection errors
-        if (!isTransientConnError(payload) && res.status !== 408 && res.status !== 502 && res.status !== 503 && res.status !== 504) {
-          throw new Error(lastErr);
-        }
-
-        if (attempt < MAX_ATTEMPTS) {
-          // Try waking the instance up before next attempt
-          await tryReconnectInstance(provider);
-          await sleep(800 * attempt); // 800ms, 1600ms backoff
-        }
-      }
-      throw new Error(lastErr || "Evolution: falha após múltiplas tentativas");
-    }
-
-    // ── Helper: send media via Evolution API ──
-    async function sendEvolutionMedia(provider: any, phone: string, mediaUrl: string, mediaType: string, caption?: string) {
-      const inst = encodeURIComponent(provider.instance_name);
-      const endpoint = mediaType === "audio" ? "sendWhatsAppAudio" : "sendMedia";
-      const apiUrl = `${provider.api_url}/message/${endpoint}/${inst}`;
-      console.log("[sendEvolutionMedia] URL:", apiUrl, "phone:", phone, "mediaType:", mediaType);
-      
-      const body: any = { number: phone, mediatype: mediaType, media: mediaUrl };
-      if (caption) body.caption = caption;
-      if (mediaType === "document") body.fileName = caption || "document";
-
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: provider.api_key },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      console.log("[sendEvolutionMedia] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
-      if (!res.ok) {
-        const msgs = data?.response?.message;
-        if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
-          return { ok: false, error: "invalid_number", details: msgs };
-        }
-        throw new Error(`Evolution media error [${res.status}]: ${JSON.stringify(data)}`);
-      }
-      return data;
-    }
-
-    // ── Helper: send via Twilio ──
-    async function sendTwilio(provider: any, phone: string, text: string) {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-      if (!TWILIO_API_KEY) throw new Error("TWILIO_API_KEY not configured");
-
-      const fromNumber = provider.twilio_from || "";
-      const res = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "X-Connection-Api-Key": TWILIO_API_KEY,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          To: `whatsapp:+${phone.replace(/\D/g, "")}`,
-          From: `whatsapp:${fromNumber}`,
-          Body: text,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(`Twilio error [${res.status}]: ${JSON.stringify(data)}`);
-      return data;
-    }
-
-    // ── Helper: send via Meta Cloud API (WhatsApp oficial nativo) ──
-    async function sendMetaCloud(provider: any, phone: string, text: string) {
-      const phoneNumberId = provider.phone_number_id;
-      const accessToken = provider.access_token;
-      if (!phoneNumberId) throw new Error("phone_number_id não configurado no provider Meta Cloud");
-      if (!accessToken) throw new Error("access_token não configurado no provider Meta Cloud");
-
-      const apiUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: phone.replace(/\D/g, ""),
-          type: "text",
-          text: { body: text, preview_url: true },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(`Meta Cloud error [${res.status}]: ${JSON.stringify(data)}`);
-      const msgId = data?.messages?.[0]?.id;
-      return { ...data, key: { id: msgId } };
-    }
+      incrementUnread = false,
+      pauseAI = false,
+    ) => updateConversationAfterMessageShared(supabase, conversationId, content, currentCount, incrementUnread, pauseAI);
 
     // ── Helper: build project context from selected sources ──
     async function buildProjectContext(projectId: string, aiConfig: any) {

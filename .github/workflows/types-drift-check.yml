@@ -1,0 +1,76 @@
+name: Supabase types drift check
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "src/integrations/supabase/types.ts"
+      - ".github/workflows/types-drift-check.yml"
+  workflow_dispatch:
+  schedule:
+    # Diário às 06h UTC (03h BR) — alerta se alguém editou schema sem regenerar tipos
+    - cron: "0 6 * * *"
+
+jobs:
+  types-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Regenerate types from live schema
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase gen types typescript \
+            --project-id tkbivipqiewkfnhktmqq \
+            --schema public > /tmp/types.regenerated.ts
+
+      - name: Compare with committed types
+        id: diff
+        run: |
+          if diff -q src/integrations/supabase/types.ts /tmp/types.regenerated.ts > /dev/null; then
+            echo "drift=false" >> $GITHUB_OUTPUT
+            echo "✅ types.ts está sincronizado com o schema"
+          else
+            echo "drift=true" >> $GITHUB_OUTPUT
+            echo "⚠️ DRIFT detectado entre types.ts e schema live"
+            diff src/integrations/supabase/types.ts /tmp/types.regenerated.ts | head -80 || true
+          fi
+
+      - name: Fail if drift detected on PR
+        if: github.event_name == 'pull_request' && steps.diff.outputs.drift == 'true'
+        run: |
+          echo "::error::types.ts está desatualizado. Rode 'npm run types:gen' e commite o arquivo regenerado."
+          exit 1
+
+      - name: Open issue on scheduled drift
+        if: github.event_name == 'schedule' && steps.diff.outputs.drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔧 Supabase types.ts drift detected (${new Date().toISOString().slice(0,10)})`;
+            const body = `O cron diário detectou que \`src/integrations/supabase/types.ts\` está fora de sincronia com o schema atual do projeto Supabase.\n\nResolva com:\n\n\`\`\`bash\nnpm run types:gen\ngit add src/integrations/supabase/types.ts\ngit commit -m "chore: regen supabase types"\ngit push\n\`\`\`\n\nWorkflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: ["types-drift"]
+            });
+            if (existing.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["types-drift", "automated"]
+              });
+            }
