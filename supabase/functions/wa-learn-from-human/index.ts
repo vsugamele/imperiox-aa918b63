@@ -1,5 +1,6 @@
 // wa-learn-from-human — captura par (pergunta_lead → resposta_humana) e indexa em imphq_wa_knowledge
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { getCachedEmbedding } from "../_shared/embeddings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,28 +74,10 @@ Deno.serve(async (req) => {
     const pergunta = String(prevIn.content).slice(0, 500);
     const resposta = String(humanMsg.content).slice(0, 1000);
 
-    // Gera embedding (768 dims pra casar com a coluna)
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ ok: false, error: "no_lovable_key" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: pergunta, dimensions: 768 }),
-    });
-    if (!embRes.ok) {
-      const t = await embRes.text();
-      console.error("[wa-learn] embed error:", embRes.status, t.slice(0, 200));
-      return new Response(JSON.stringify({ ok: false, error: "embed_failed" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const embJson = await embRes.json();
-    const embedding = embJson?.data?.[0]?.embedding;
+    // Gera embedding (cached)
+    const embedding = await getCachedEmbedding(supabase, pergunta);
     if (!embedding) {
-      return new Response(JSON.stringify({ ok: false, error: "no_embedding" }), {
+      return new Response(JSON.stringify({ ok: false, error: "embed_failed" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

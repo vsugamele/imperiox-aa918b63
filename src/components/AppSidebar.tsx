@@ -38,6 +38,7 @@ const venderItems = [
 ];
 
 const inteligenciaItems = [
+  { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
   { title: "Mentes IA",            url: "/mentes",         icon: Brain },
   { title: "Skills",               url: "/skills",         icon: Zap },

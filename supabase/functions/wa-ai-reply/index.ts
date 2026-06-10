@@ -207,32 +207,21 @@ Deno.serve(async (req) => {
                 console.warn("[wa-ai-reply] Failed to save transcript in DB:", dbErr.message);
               }
 
-              const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-              if (lovableApiKey && project_id && message) {
+              if (project_id && message) {
                 try {
-                  const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ model: "google/gemini-embedding-001", input: message, dimensions: 768 }),
-                  });
-                  if (embRes.ok) {
-                    const embData = await embRes.json();
-                    const embedding = embData?.data?.[0]?.embedding;
-                    if (embedding) {
-                      await supabase.from("imphq_wa_lead_memory").insert({
-                        lead_id: leadRow?.id || null,
-                        project_id: project_id,
-                        phone: phone,
-                        content: `[Áudio] ${message}`,
-                        embedding: embedding,
-                      });
-                      console.log(`[wa-ai-reply] Audio indexado na memoria do lead: phone=${phone}`);
-                    }
-                  } else {
-                    console.warn(`[wa-ai-reply] Lovable embedding for audio failed: ${embRes.status}`);
+                  const embedding = await getCachedEmbedding(supabase, message);
+                  if (embedding) {
+                    await supabase.from("imphq_wa_lead_memory").insert({
+                      lead_id: leadRow?.id || null,
+                      project_id: project_id,
+                      phone: phone,
+                      content: `[Áudio] ${message}`,
+                      embedding,
+                    });
+                    console.log(`[wa-ai-reply] Audio indexado na memoria do lead: phone=${phone}`);
                   }
                 } catch (embErr: any) {
-                  console.error("[wa-ai-reply] Lovable embedding error for audio:", embErr.message);
+                  console.error("[wa-ai-reply] embedding error for audio:", embErr.message);
                 }
               }
             } else {
@@ -631,18 +620,10 @@ Deno.serve(async (req) => {
         console.warn("[wa-ai-reply] Error loading triage intent:", e.message);
       }
 
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (LOVABLE_API_KEY && (!activeStep || activeStep.ia_search_files !== false)) {
+      if (!activeStep || activeStep.ia_search_files !== false) {
         try {
-          const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: "google/gemini-embedding-001", input: message, dimensions: 768 }),
-          });
-          if (embRes.ok) {
-            const embData = await embRes.json();
-            const embedding = embData?.data?.[0]?.embedding;
-            if (embedding) {
+          const embedding = await getCachedEmbedding(supabase, message);
+          if (embedding) {
               // 7.1.1. Match knowledge base
               const { data: matches, error: rpcErr } = await supabase.rpc("match_wa_knowledge_hybrid", {
                 query_embedding: embedding,
@@ -745,9 +726,6 @@ Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA 
                 }
               }
             }
-          } else {
-            console.warn(`[wa-ai-reply] Lovable embeddings failed with status ${embRes.status}`);
-          }
         } catch (e: any) {
           console.warn("[wa-ai-reply] Error fetching semantic context:", e.message);
         }

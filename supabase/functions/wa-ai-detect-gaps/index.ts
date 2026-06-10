@@ -10,6 +10,7 @@
 // este detector PROATIVAMENTE percebe respostas mornas/genéricas e marca como gap.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCachedEmbedding } from "../_shared/embeddings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,20 +25,6 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const MAX_MSGS_PER_RUN = 50;
 const GAP_THRESHOLD = 0.5;
 const MIN_CONTENT_LEN = 20;
-
-async function getEmbedding(text: string): Promise<number[] | null> {
-  if (!LOVABLE_API_KEY) return null;
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-embedding-001", input: text.slice(0, 2000), dimensions: 768 }),
-    });
-    if (!res.ok) return null;
-    const d = await res.json();
-    return d?.data?.[0]?.embedding ?? null;
-  } catch (_) { return null; }
-}
 
 async function classifyResponse(leadQuestion: string, aiResponse: string): Promise<{ score: number; reason: string } | null> {
   const apiKey = LOVABLE_API_KEY || OPENROUTER_API_KEY;
@@ -159,7 +146,7 @@ Deno.serve(async (req) => {
         if (!projectId) continue;
 
         // Dedup: se já existe knowledge entry para pergunta similar não-aprovada, skip
-        const embedding = await getEmbedding(String(prevIn.content));
+        const embedding = await getCachedEmbedding(supa, String(prevIn.content));
         let isDup = false;
         if (embedding) {
           const { data: sims } = await supa.rpc("match_wa_knowledge", {

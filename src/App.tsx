@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 // Lazy-loaded pages for bundle size optimization and faster page load speeds
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AISaude = lazy(() => import("./pages/AISaude"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
 const KanbanPage = lazy(() => import("./pages/KanbanPage"));
@@ -107,6 +108,7 @@ const App = () => (
                 {/* Smart landing — goes straight to pending AI actions */}
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="ai-saude" element={<AISaude />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
                 <Route path="kanban" element={<KanbanPage />} />

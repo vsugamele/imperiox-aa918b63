@@ -14,6 +14,7 @@ const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   dashboard: { kicker: "Overview", title: "Cockpit" },
   imperius: { kicker: "Autonomia", title: "Imperius" },
+  "ai-saude": { kicker: "IA", title: "Saúde da IA" },
   inbox: { kicker: "Canais", title: "Caixa de Entrada" },
   leads: { kicker: "CRM", title: "Leads" },
   whatsapp: { kicker: "Canal", title: "WhatsApp" },
