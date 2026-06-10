@@ -42,6 +42,7 @@ interface AIConfig {
   business_hours_end: string;
   expert_persona?: string;
   custom_instructions?: string;
+  banned_phrases?: string[];
   product_focus?: string;
   faq?: FaqItem[];
   ignored_phones?: string[];
@@ -1741,6 +1742,21 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     placeholder="Regras inquebráveis: Ex: 'Nunca prometa desconto', 'Se perguntarem do prazo, diga 7 dias', 'Evite responder sobre outros nichos'."
                     className="min-h-[100px] text-xs bg-secondary/40 border-border/30 resize-none leading-relaxed"
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                    ⛔ Frases Proibidas (vícios da IA)
+                  </Label>
+                  <Textarea
+                    value={(config.banned_phrases || []).join("\n")}
+                    onChange={e => setConfig(p => ({ ...p, banned_phrases: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) }))}
+                    placeholder={"Uma frase por linha. Ex:\nFaz todo sentido\nImagina!\nEntendo perfeitamente\nQue legal"}
+                    className="min-h-[80px] text-xs bg-secondary/40 border-border/30 resize-none leading-relaxed font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-normal">
+                    Frases que a IA <strong>nunca</strong> deve usar. Útil para bloquear clichês de bot que você notar nas conversas (ex: <em>"Faz todo sentido querer..."</em>). Uma frase por linha.
+                  </p>
                 </div>
               </div>
 

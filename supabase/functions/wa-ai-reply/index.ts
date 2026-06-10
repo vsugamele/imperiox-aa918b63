@@ -706,6 +706,10 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
       const productFocus = aiConfig.product_focus ? `\nOFERTA ATIVA: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
       const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions).slice(0, 600)}` : "";
+      const bannedPhrases = Array.isArray((aiConfig as any).banned_phrases) ? (aiConfig as any).banned_phrases.filter((p: any) => typeof p === "string" && p.trim()) : [];
+      const bannedBlock = bannedPhrases.length
+        ? `\n⛔ FRASES PROIBIDAS (NUNCA use estas frases exatas ou variações próximas — vícios da IA bloqueados pelo operador):\n${bannedPhrases.map((p: string) => `- "${p.trim()}"`).join("\n")}`
+        : "";
       const faqBlock = Array.isArray(aiConfig.faq) && aiConfig.faq.length
         ? `\nFAQ OFICIAL:\n${aiConfig.faq.slice(0, 10).map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`).join("\n").slice(0, 800)}`
         : "";
@@ -891,6 +895,12 @@ ESTILO:
 - Máximo 1 exclamação por mensagem. Pessoa real não exclama em toda frase.
 - Se for mandar mais de 2 ideias, QUEBRE em parágrafos separados por linha em branco
 - Use contrações naturais do PT-BR: "tô", "tá", "pra", "pro", "né", "viu" quando o tom for casual
+
+ESPELHO DE TAMANHO (CRÍTICO):
+- Se o lead manda 1-3 palavras ("ok", "valeu", "blz", "👍"), responda com 1-3 palavras também (ex: "boa", "tmj", "qualquer coisa chama") OU NÃO responda — deixe a conversa morrer naturalmente. NUNCA construa parágrafo em cima de 1 palavra.
+- Se o lead manda 1 frase curta, responda 1-2 frases curtas. Nada mais.
+- Só escreva resposta detalhada (3+ frases) quando o lead trouxer uma pergunta ou objeção substantiva.
+- REGRA DE OURO: nunca responda com mais que o DOBRO de palavras que o lead acabou de mandar, exceto em (B) descoberta ou (C) objeção.
 `;
 
       const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
@@ -930,7 +940,7 @@ REGRAS CRITICAS:
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
@@ -1533,12 +1543,16 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         });
       }
 
-      // Randomized delay: base + jitter (makes responses feel human, not instant/robotic)
+      // Human-like delay: base + typing-time (proporcional ao comprimento) + jitter
+      // Simula tempo de leitura (1s) + tempo de digitação (~250 chars/min ≈ 240ms/char)
+      // + jitter aleatório (1-4s) para variar entre mensagens.
       const delaySec = Number(aiConfig.response_delay_seconds ?? 3);
-      const jitterMs = Math.floor(Math.random() * 7000); // 0-7s extra jitter
-      const totalDelayMs = Math.min(delaySec * 1000 + jitterMs, 18000);
+      const replyChars = finalAiReply.length;
+      const typingMs = Math.min(replyChars * 60, 12000); // ~1000 chars/min, cap em 12s
+      const jitterMs = 1000 + Math.floor(Math.random() * 3000); // 1-4s
+      const totalDelayMs = Math.min(delaySec * 1000 + typingMs + jitterMs, 22000);
       if (totalDelayMs > 0) {
-        console.log(`[wa-ai-reply] Aguardando ${(totalDelayMs / 1000).toFixed(1)}s (base=${delaySec}s + jitter=${(jitterMs/1000).toFixed(1)}s)`);
+        console.log(`[wa-ai-reply] Aguardando ${(totalDelayMs / 1000).toFixed(1)}s (base=${delaySec}s + typing=${(typingMs/1000).toFixed(1)}s + jitter=${(jitterMs/1000).toFixed(1)}s, ${replyChars} chars)`);
         await new Promise((r) => setTimeout(r, totalDelayMs));
       }
 
