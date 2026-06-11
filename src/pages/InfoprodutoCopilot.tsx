@@ -605,6 +605,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       // Insert any generated phases to imphq_docs
       const docsToInsert = PHASES.filter(p => dossier[p.id] && dossier[p.id].trim().length > 0).map(p => {
         return {
+          id: crypto.randomUUID(),
           project_id: newId,
           title: `[Orquestrador] ${p.title}`,
           content: dossier[p.id],
@@ -614,7 +615,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       });
 
       if (docsToInsert.length > 0) {
-        await supabase.from("imphq_docs").insert(docsToInsert);
+        await supabase.from("imphq_docs").insert(docsToInsert as any);
       }
 
       toast.success("Novo projeto criado e sincronizado!");
