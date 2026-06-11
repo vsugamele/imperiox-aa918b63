@@ -529,6 +529,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
           content: dossier[p.id],
           body: dossier[p.id],
           cat: p.dbCat,
+          id: crypto.randomUUID(),
         };
       });
 
@@ -543,7 +544,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
         // Insert new documents
         const { error: docsError } = await supabase
           .from("imphq_docs")
-          .insert(docsToInsert);
+          .insert(docsToInsert as any);
 
         if (docsError) throw docsError;
       }
