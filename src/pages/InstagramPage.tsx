@@ -59,6 +59,7 @@ interface IgMessage {
   ai_generated?: boolean;
   feedback?: string | null;
   feedback_correction?: string | null;
+  metadata?: any;
 }
 
 interface IgComment {
