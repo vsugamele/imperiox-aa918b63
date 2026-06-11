@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
         });
       }
 
+      const startPipeline = resolvePipeline(input);
       const { data: run, error } = await supabase
         .from("imphq_autopilot_runs")
         .insert({
@@ -263,8 +264,8 @@ Deno.serve(async (req) => {
           input,
           user_id: user_id ?? null,
           status: "pending",
-          total_steps: SKILL_PIPELINE.length,
-          steps: SKILL_PIPELINE.map((s) => ({ slug: s.slug, label: s.label, status: "pending", output: "", error: null })),
+          total_steps: startPipeline.length,
+          steps: startPipeline.map((s) => ({ slug: s.slug, label: s.label, status: "pending", output: "", error: null })),
         })
         .select()
         .single();
