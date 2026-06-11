@@ -394,8 +394,8 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           aprovada: true,
           answered: true,
           source: "admin_answer",
-          ...(embedding ? { embedding } : {}),
-        })
+          ...(embedding ? { embedding: embedding as any } : {}),
+        } as any)
         .eq("id", questionId);
 
       if (error) throw error;
