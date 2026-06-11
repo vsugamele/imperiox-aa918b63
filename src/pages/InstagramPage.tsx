@@ -1852,10 +1852,68 @@ export default function InstagramPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-2">
-                      <MessageSquare className="h-10 w-10 text-muted-foreground/60" />
-                      <h3 className="font-semibold">Nenhuma conversa selecionada</h3>
-                      <p className="text-xs text-muted-foreground max-w-sm">Escolha um lead na barra lateral para carregar a auditoria do chat de DMs.</p>
+                    <div className="flex flex-col h-full p-6 overflow-y-auto">
+                      {(() => {
+                        const total = conversations.length;
+                        const unread = conversations.filter(c => c.unread_count > 0);
+                        const topUnread = [...unread]
+                          .sort((a, b) => (b.last_message_at || "").localeCompare(a.last_message_at || ""))
+                          .slice(0, 5);
+                        const stale24h = conversations.filter(c => {
+                          if (!c.last_message_at) return false;
+                          return Date.now() - new Date(c.last_message_at).getTime() > 24 * 3600_000;
+                        }).length;
+                        return (
+                          <>
+                            <div className="text-center mb-6">
+                              <MessageSquare className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                              <h3 className="font-semibold">Resumo do canal</h3>
+                              <p className="text-xs text-muted-foreground">Selecione uma conversa ao lado ou abra uma não lida abaixo.</p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3 mb-6">
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-foreground">{total}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Conversas</div>
+                              </div>
+                              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-amber-400">{unread.length}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Não lidas</div>
+                              </div>
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-foreground/70">{stale24h}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">+24h s/ resp</div>
+                              </div>
+                            </div>
+                            {topUnread.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Não lidas recentes</h4>
+                                {topUnread.map(c => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => setSelectedConv(c)}
+                                    className="w-full text-left bg-secondary/20 hover:bg-secondary/40 border border-border/30 rounded-lg p-2.5 flex items-center gap-3 transition"
+                                  >
+                                    {c.participant_avatar ? (
+                                      <img src={c.participant_avatar} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold shrink-0">
+                                        {(c.participant_username || c.participant_name || "L")[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-semibold truncate">
+                                        {c.participant_username ? `@${c.participant_username}` : c.participant_name || `Lead ${c.participant_id.slice(-4)}`}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground truncate">{c.last_message || "—"}</div>
+                                    </div>
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] shrink-0">{c.unread_count}</Badge>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </Card>

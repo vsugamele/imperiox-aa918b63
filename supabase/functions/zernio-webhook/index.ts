@@ -19,10 +19,33 @@ Deno.serve(async (req) => {
     return new Response("Missing project", { status: 400 });
   }
 
+  let payload: any = null;
   try {
-    const payload = await req.json();
+    payload = await req.json();
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
-    
+
+    // Dedupe idempotente — extrai messageId cedo
+    const earlyMessageId = payload?.data?.message?.id
+      || payload?.data?.message?.messageId
+      || payload?.data?.messageId
+      || payload?.message?.id
+      || null;
+
+    if (earlyMessageId) {
+      const { data: dup } = await supa
+        .from("imphq_ig_webhook_logs")
+        .select("id")
+        .eq("event_type", `zernio_${payload.event || "unknown"}`)
+        .filter("payload->data->message->>id", "eq", earlyMessageId)
+        .eq("processed", true)
+        .limit(1)
+        .maybeSingle();
+      if (dup) {
+        console.log(`[zernio-webhook] Duplicate messageId ${earlyMessageId} — skipping`);
+        return new Response("OK (duplicate)", { status: 200 });
+      }
+    }
+
     // Log do evento recebido para auditoria
     const { data: logEntry } = await supa.from("imphq_ig_webhook_logs").insert({
       event_type: `zernio_${payload.event || "unknown"}`,
@@ -134,6 +157,13 @@ Deno.serve(async (req) => {
       const errText = await forwardRes.text();
       console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}`);
       return new Response(`Error forwarding: ${errText}`, { status: 500 });
+    }
+
+    // Marca conta IG como ativa (heartbeat para card de saúde)
+    if (dbAccId) {
+      await supa.from("imphq_ig_accounts")
+        .update({ updated_at: new Date().toISOString() } as any)
+        .eq("id", dbAccId);
     }
 
     // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
