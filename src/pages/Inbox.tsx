@@ -39,13 +39,13 @@ function HotLeadsTab() {
     const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
     supabase
       .from("imphq_leads")
-      .select("id,nome,email,telefone,score,criado_em,data")
+      .select("id,nome,email,phone,score,criado_em,data")
       .gt("score", 80)
       .gte("criado_em", twoHoursAgo)
       .order("score", { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        setLeads((data as Lead[]) || []);
+        setLeads(((data as any[]) || []).map(l => ({ ...l, telefone: l.phone })) as Lead[]);
         setLoading(false);
       });
   }, []);

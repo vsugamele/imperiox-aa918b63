@@ -171,6 +171,13 @@ export interface Acao {
   work_hours_start?: string;
   work_hours_end?: string;
   work_days?: string;
+  // generic fields used by validators / canvas
+  mensagem?: string;
+  corpo?: string;
+  assunto?: string;
+  conteudo?: string;
+  position_x?: number;
+  position_y?: number;
 }
 
 export interface WaProvider {

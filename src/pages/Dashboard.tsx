@@ -118,12 +118,12 @@ export default function Dashboard() {
         // Aggregate data
         const aggregated = projs.map(p => {
           const projectSales = (sales || []).filter(s => s.project_id === p.id);
-          const revenue = projectSales.reduce((acc, s) => acc + (parseFloat(s.valor) || 0), 0);
+          const revenue = projectSales.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
           const salesCount = projectSales.length;
 
           const projectAds = (ads || []).filter(a => a.project_id === p.id);
           const adsSpend = projectAds.reduce((acc, a) => {
-            const v = parseFloat(a.valor) || 0;
+            const v = Number(a.valor) || 0;
             return acc + (a.moeda === "USD" ? v * 5.2 : v); // BRL conversions
           }, 0);
 

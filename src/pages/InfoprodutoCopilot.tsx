@@ -529,6 +529,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
           content: dossier[p.id],
           body: dossier[p.id],
           cat: p.dbCat,
+          id: crypto.randomUUID(),
         };
       });
 
@@ -543,7 +544,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
         // Insert new documents
         const { error: docsError } = await supabase
           .from("imphq_docs")
-          .insert(docsToInsert);
+          .insert(docsToInsert as any);
 
         if (docsError) throw docsError;
       }
@@ -604,6 +605,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       // Insert any generated phases to imphq_docs
       const docsToInsert = PHASES.filter(p => dossier[p.id] && dossier[p.id].trim().length > 0).map(p => {
         return {
+          id: crypto.randomUUID(),
           project_id: newId,
           title: `[Orquestrador] ${p.title}`,
           content: dossier[p.id],
@@ -613,7 +615,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       });
 
       if (docsToInsert.length > 0) {
-        await supabase.from("imphq_docs").insert(docsToInsert);
+        await supabase.from("imphq_docs").insert(docsToInsert as any);
       }
 
       toast.success("Novo projeto criado e sincronizado!");

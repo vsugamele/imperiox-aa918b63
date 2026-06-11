@@ -266,7 +266,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
       const [ragEventsRes, unansweredRes, feedbackRes, knowledgeCountRes] = await Promise.all([
         supabase
           .from("imphq_events")
-          .select("data")
+          .select("event_data")
           .eq("event_name", "rag_query")
           .eq("project_id", projectId)
           .gte("created_at", since30d),
@@ -291,7 +291,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           .eq("aprovada", true),
       ]);
 
-      const ragEvents = (ragEventsRes.data || []) as Array<{ data: Record<string, unknown> }>;
+      const ragEvents = ((ragEventsRes.data as any[]) || []).map((r) => ({ data: (r?.event_data ?? {}) as Record<string, unknown> }));
       const hits = ragEvents.filter((e) => (e.data as any)?.hit === true).length;
       const misses = ragEvents.filter((e) => (e.data as any)?.hit === false).length;
       const simScores = ragEvents
@@ -394,8 +394,8 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           aprovada: true,
           answered: true,
           source: "admin_answer",
-          ...(embedding ? { embedding } : {}),
-        })
+          ...(embedding ? { embedding: embedding as any } : {}),
+        } as any)
         .eq("id", questionId);
 
       if (error) throw error;

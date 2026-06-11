@@ -202,7 +202,7 @@ export function ZernioTab() {
       if (editingZernio) {
         const { error } = await supabase
           .from("imphq_empresa")
-          .update(payload)
+          .update(payload as any)
           .eq("id", editingZernio.id);
 
         if (error) throw error;
@@ -210,7 +210,7 @@ export function ZernioTab() {
       } else {
         const { error } = await supabase
           .from("imphq_empresa")
-          .insert(payload);
+          .insert(payload as any);
 
         if (error) throw error;
         toast.success("Chave Zernio registrada!");
