@@ -65,9 +65,9 @@ export default function MobileCockpit() {
       let yesterdaySales = 0;
       let sevenDaysSales = 0;
 
-      (sales || []).forEach((s) => {
-        const sDate = s.data || "";
-        const sVal = parseFloat(s.valor) || 0;
+      (sales || []).forEach((s: any) => {
+        const sDate = String(s.data || "");
+        const sVal = Number(s.valor) || 0;
 
         if (sDate.startsWith(todayStr)) {
           todaySales += sVal;
@@ -75,7 +75,7 @@ export default function MobileCockpit() {
         if (sDate.startsWith(yesterdayStr)) {
           yesterdaySales += sVal;
         }
-        if (new Date(sDate) >= sevenDaysAgo) {
+        if (sDate && new Date(sDate) >= sevenDaysAgo) {
           sevenDaysSales += sVal;
         }
       });
