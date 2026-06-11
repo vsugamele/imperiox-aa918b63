@@ -138,6 +138,30 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             </p>
           </div>
 
+          <div>
+            <Label>Profundidade</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {([
+                { id: "essencial", title: "Essencial", desc: "5 skills · ~2 min" },
+                { id: "completo", title: "Completo", desc: "15 skills · ~6 min" },
+              ] as const).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setForm({ ...form, preset: p.id })}
+                  className={`text-left rounded-md border p-3 transition ${
+                    form.preset === p.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-secondary/40 hover:bg-secondary/60"
+                  }`}
+                >
+                  <div className="font-medium">{p.title}</div>
+                  <div className="text-xs text-muted-foreground">{p.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Button onClick={handleStart} disabled={loading} className="w-full">
             {loading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Iniciando...</>
