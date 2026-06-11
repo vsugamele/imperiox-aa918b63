@@ -13,14 +13,41 @@ const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// Phase 1 — núcleo enxuto
-const SKILL_PIPELINE = [
-  { slug: "market-intel", label: "Inteligência de Mercado" },
-  { slug: "avatar-architect", label: "Avatar Architect" },
-  { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
-  { slug: "dossie-problemas", label: "Dossiê de Problemas" },
-  { slug: "lp-persuasiva", label: "Arquitetura de LP" },
-];
+// Pipelines disponíveis
+const PIPELINES: Record<string, { slug: string; label: string }[]> = {
+  essencial: [
+    { slug: "market-intel", label: "Inteligência de Mercado" },
+    { slug: "avatar-architect", label: "Avatar Architect" },
+    { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
+    { slug: "dossie-problemas", label: "Dossiê de Problemas" },
+    { slug: "lp-persuasiva", label: "Arquitetura de LP" },
+  ],
+  completo: [
+    { slug: "market-intel", label: "Inteligência de Mercado" },
+    { slug: "funnel-hacker", label: "Funnel Hacker (concorrência)" },
+    { slug: "avatar-architect", label: "Avatar Architect" },
+    { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
+    { slug: "dossie-problemas", label: "Dossiê de Problemas" },
+    { slug: "reposicionamento", label: "Reposicionamento Estratégico" },
+    { slug: "mecanismo-unico", label: "Mecanismo Único Supremo" },
+    { slug: "alquimia-escada-valor", label: "Escada de Valor" },
+    { slug: "lp-persuasiva", label: "Arquitetura de LP" },
+    { slug: "devastador-copy", label: "Devastador Copy" },
+    { slug: "objection-destroyer", label: "Objection Destroyer" },
+    { slug: "ads-copy-multiplier", label: "Ads Copy Multiplier" },
+    { slug: "video-hook-generator", label: "Video Hooks" },
+    { slug: "roteiros-virais-reels", label: "Roteiros Reels" },
+    { slug: "tripwire-matador", label: "Tripwire Matador" },
+  ],
+};
+
+function resolvePipeline(input: any): { slug: string; label: string }[] {
+  const preset = (input?.preset as string) || "essencial";
+  if (Array.isArray(input?.skills) && input.skills.length > 0) {
+    return input.skills.map((slug: string) => ({ slug, label: slug }));
+  }
+  return PIPELINES[preset] ?? PIPELINES.essencial;
+}
 
 async function updateRun(runId: string, patch: Record<string, unknown>) {
   await supabase.from("imphq_autopilot_runs").update(patch).eq("id", runId);
