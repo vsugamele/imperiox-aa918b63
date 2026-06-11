@@ -17126,6 +17126,54 @@ export type Database = {
           },
         ]
       }
+      imphq_autopilot_runs: {
+        Row: {
+          assets: Json | null
+          created_at: string
+          current_step: number
+          error: string | null
+          id: string
+          input: Json | null
+          project_id: string
+          scraped_context: string | null
+          status: string
+          steps: Json | null
+          total_steps: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id?: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_business_hours: {
         Row: {
           channel: string
