@@ -117,6 +117,50 @@ async function scrapeCompetitor(url: string): Promise<string | null> {
   }
 }
 
+async function extractAssets(produto: string, nicho: string, accumulated: Record<string, string>): Promise<any> {
+  const ctx = Object.entries(accumulated)
+    .map(([slug, txt]) => `### ${slug}\n${txt.slice(0, 4000)}`)
+    .join("\n\n");
+
+  const system = `Você é Imperius, estrategista de copy. Extraia e gere assets prontos para usar a partir do contexto fornecido. Retorne APENAS JSON válido, sem markdown, sem prefixo. Use pt-BR. Seja específico ao produto, evite genéricos.`;
+
+  const user = `PRODUTO: ${produto}\nNICHO: ${nicho || "—"}\n\nCONTEXTO DAS SKILLS:\n${ctx}\n\nGere o JSON no schema:\n{
+  "headlines": string[10],
+  "subheadlines": string[5],
+  "ad_copies": [{ "hook": string, "body": string, "cta": string }] (6 itens),
+  "video_hooks": string[8],
+  "emails": [{ "subject": string, "preview": string, "body": string }] (5 itens, sequência de nutrição),
+  "ctas": string[6],
+  "bullets_lp": string[8],
+  "garantia": string,
+  "faq": [{ "q": string, "a": string }] (5 itens),
+  "promessa_principal": string,
+  "mecanismo_unico_nome": string
+}`;
+
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) throw new Error(`extract ${res.status}`);
+    const json = await res.json();
+    const content = json?.choices?.[0]?.message?.content ?? "{}";
+    return JSON.parse(content);
+  } catch (err) {
+    console.error("[autopilot] extractAssets failed", err);
+    return null;
+  }
+}
+
 async function runAutopilot(runId: string, projectId: string, input: any) {
   try {
     const { nome, nicho, url_concorrente } = input;
@@ -211,6 +255,9 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     const currentBriefing = currentData.briefing ?? {};
     const currentConcorrentes = Array.isArray(currentData.concorrentes) ? currentData.concorrentes : [];
 
+    // 3.1) Extrai assets prontos em JSON estruturado
+    const assets = await extractAssets(nome, nicho || "", accumulatedResults);
+
     const newData = {
       ...currentData,
       briefing: {
@@ -225,6 +272,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
         run_id: runId,
         completed_at: new Date().toISOString(),
         results: accumulatedResults,
+        assets: assets ?? null,
       },
     };
 
@@ -233,6 +281,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     await updateRun(runId, {
       status: "completed",
       current_step: pipeline.length,
+      assets: assets ?? null,
     });
   } catch (err: any) {
     console.error("[autopilot] fatal", err);
