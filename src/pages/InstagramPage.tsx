@@ -112,6 +112,7 @@ export default function InstagramPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [slaStats, setSlaStats] = useState<{ avg_min: number; p90_min: number; over_30min: number; stale_open: number } | null>(null);
 
   // Simulation states
   const [showSimulateDialog, setShowSimulateDialog] = useState(false);
