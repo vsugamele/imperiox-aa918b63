@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
     return new Response("Missing project", { status: 400 });
   }
 
+  let payload: any = null;
   try {
     const payload = await req.json();
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
