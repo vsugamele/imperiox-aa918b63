@@ -124,6 +124,17 @@ function getConversionBucket(hours: number): string {
 
 const PAGE_SIZE = 50;
 const FILTERS_KEY = "imphq:leads:filters:v1";
+
+// Cache de dados de referência da página Leads (5min TTL) - evita refetch ao mudar filtros/páginas
+let leadsRefCache: {
+  at: number;
+  projects: any[];
+  automations: any[];
+  waProviders: any[];
+  waTemplates: any[];
+  captureForms: { id: string; name: string }[];
+  projectCounts: { totalAll: number; byProject: Record<string, number>; noProject: number };
+} | null = null;
 type PersistedFilters = {
   statusFilter: string; platformFilter: string; projectFilter: string;
   stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
@@ -223,19 +234,49 @@ export default function Leads() {
       vendasQuery = vendasQuery.eq("project_id", projectFilter);
     }
 
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes, countsRes] = await Promise.all([
-      leadsQuery, supabase.from("imphq_projects").select("id, name, icon"),
+    const [leadsRes, vendasRes, adsRes] = await Promise.all([
+      leadsQuery,
       vendasQuery,
-      supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("id, data_ref, valor, plataforma, campanha, project_id").order("data_ref", { ascending: false }).limit(500),
+    ]);
+
+    setTotalCount(leadsRes.count ?? 0);
+    const allVendas = (vendasRes.data || []) as any[];
+    setAllVendasRaw(allVendas);
+    setAdsSpend(adsRes.data || []);
+    const vendasByLead = new Map<string, LeadVenda[]>();
+    allVendas.forEach((v: any) => { if (!v.lead_id) return; if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []); vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data, created_at: v.created_at }); });
+    const enrichedLeads = (leadsRes.data || []).map((l: any) => { const lv = vendasByLead.get(l.id) || []; return { ...l, _vendas: lv, _score: calcScore(l, lv) }; }) as Lead[];
+    setLeads(enrichedLeads);
+    setProducts([...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[]);
+    if (productFilter !== "all") { setProductLeadIds(new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id))); } else { setProductLeadIds(null); }
+    setSelectedIds(new Set());
+    setLoading(false);
+  };
+
+  // Dados de referência (projetos, automações, providers WA, templates, forms, contagens) mudam raramente.
+  // Carregam 1x na montagem + cache de 5min para evitar refetch ao trocar filtros/páginas.
+  const loadReference = async () => {
+    const now = Date.now();
+    const TTL = 5 * 60_000;
+    if (leadsRefCache && now - leadsRefCache.at < TTL) {
+      setProjects(leadsRefCache.projects);
+      setAutomations(leadsRefCache.automations);
+      setWaProviders(leadsRefCache.waProviders);
+      setWaTemplates(leadsRefCache.waTemplates);
+      setCaptureForms(leadsRefCache.captureForms);
+      setProjectCounts(leadsRefCache.projectCounts);
+      return;
+    }
+    const [projRes, autoRes, waProvRes, waTplRes, hubSessionsRes, formsRes, countsRes] = await Promise.all([
+      supabase.from("imphq_projects").select("id, name, icon"),
+      supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
       supabase.from("imphq_capture_forms").select("id, name").order("name"),
       supabase.rpc("count_leads_by_project" as any),
     ]);
-
-    // Contagem global por projeto via RPC agregada (evita trazer 20k IDs)
     const countRows = ((countsRes as any)?.data || []) as Array<{ project_id: string; total: number | string }>;
     const byProject: Record<string, number> = {};
     let noProject = 0;
@@ -246,29 +287,23 @@ export default function Leads() {
       if (r.project_id === "__none__") noProject = n;
       else byProject[r.project_id] = n;
     });
-    setProjectCounts({ totalAll, byProject, noProject });
-
-
-    setTotalCount(leadsRes.count ?? 0);
-    const allVendas = (vendasRes.data || []) as any[];
+    const projectCounts = { totalAll, byProject, noProject };
     const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({ id: `hub_${s.id}`, provider: "hub_local", instance_name: s.session_key, twilio_from: null, project_id: s.tenant_id || null, is_active: true }));
-    setWaProviders([...(waProvRes.data || []), ...hubProviders]);
-    setWaTemplates(waTplRes.data || []);
-    setAllVendasRaw(allVendas);
-    setAdsSpend(adsRes.data || []);
-    const vendasByLead = new Map<string, LeadVenda[]>();
-    allVendas.forEach((v: any) => { if (!v.lead_id) return; if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []); vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data, created_at: v.created_at }); });
-    const enrichedLeads = (leadsRes.data || []).map((l: any) => { const lv = vendasByLead.get(l.id) || []; return { ...l, _vendas: lv, _score: calcScore(l, lv) }; }) as Lead[];
-    setLeads(enrichedLeads);
-    setProjects(projRes.data || []);
-    setAutomations(autoRes.data || []);
-    setProducts([...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[]);
-    if (productFilter !== "all") { setProductLeadIds(new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id))); } else { setProductLeadIds(null); }
-    setCaptureForms((formsRes.data || []).map((f: any) => ({ id: f.id, name: f.name })));
-    setSelectedIds(new Set());
-    setLoading(false);
+    const projects = projRes.data || [];
+    const automations = autoRes.data || [];
+    const waProviders = [...(waProvRes.data || []), ...hubProviders];
+    const waTemplates = waTplRes.data || [];
+    const captureForms = (formsRes.data || []).map((f: any) => ({ id: f.id, name: f.name }));
+    leadsRefCache = { at: Date.now(), projects, automations, waProviders, waTemplates, captureForms, projectCounts };
+    setProjects(projects);
+    setAutomations(automations);
+    setWaProviders(waProviders);
+    setWaTemplates(waTemplates);
+    setCaptureForms(captureForms);
+    setProjectCounts(projectCounts);
   };
 
+  useEffect(() => { loadReference(); }, []);
   useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter, tagFilter, sortBy]);
 
   // Persist filters
