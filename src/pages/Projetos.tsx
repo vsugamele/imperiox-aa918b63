@@ -282,6 +282,9 @@ export default function Projetos() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">Projetos</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="default" onClick={() => setAutopilotOpen(true)} className="bg-primary/90 hover:bg-primary">
+            <Sparkles className="h-4 w-4 mr-1" /> Autopilot
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)}>
             <BookTemplate className="h-4 w-4 mr-1" /> Criar de Template
           </Button>
