@@ -146,7 +146,7 @@ export function FunnelConversionDashboard({ projectId }: Props) {
             <h3 className="text-sm font-semibold mb-3 text-foreground/80">Funil de Estágios</h3>
             <div className="flex items-center gap-1 flex-wrap">
               {stages.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-1">
+                <div key={s.stage} className="flex items-center gap-1">
                   <div className="text-center min-w-[80px]">
                     <div className={`rounded-lg border px-3 py-2 ${s.color}`}>
                       <p className="text-lg font-bold">{s.count}</p>
