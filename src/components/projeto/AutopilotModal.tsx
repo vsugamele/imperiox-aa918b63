@@ -89,8 +89,8 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             <Sparkles className="h-5 w-5" /> Criar com Autopilot
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Informe o produto e o nicho. O Imperius roda 5 skills (Market Intel → Avatar →
-            Desejos → Problemas → LP) e monta seu projeto completo em poucos minutos.
+            Informe o produto e o nicho. O Imperius roda as skills selecionadas em sequência,
+            injetando o resultado de uma na próxima, e consolida tudo no projeto.
           </DialogDescription>
         </DialogHeader>
 
