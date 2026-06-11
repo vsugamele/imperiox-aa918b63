@@ -537,8 +537,9 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
 
   const handleNodeClick = useCallback(
     (_: any, node: Node) => {
-      if (node.data?.index !== undefined && node.data.index >= 0 && onNodeClick) {
-        onNodeClick(node.data.acao as Acao, node.data.index as number);
+      const idx = node.data?.index as number | undefined;
+      if (idx !== undefined && idx >= 0 && onNodeClick) {
+        onNodeClick(node.data.acao as Acao, idx);
       }
     },
     [onNodeClick]
@@ -546,7 +547,7 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
 
   const handleNodeDragStop = useCallback(
     (_event: any, node: Node) => {
-      const idx = node.data?.index;
+      const idx = node.data?.index as number | undefined;
       if (idx !== undefined && idx >= 0) {
         const updatedAcoes = [...acoes];
         updatedAcoes[idx] = {
