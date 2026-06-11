@@ -63,6 +63,7 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             nome: form.nome,
             nicho: form.nicho || null,
             url_concorrente: form.url_concorrente.trim() || null,
+            preset: form.preset,
           },
         },
       });
