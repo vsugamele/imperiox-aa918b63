@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
           .from("imphq_ig_accounts")
           .select("id")
           .eq("project_id", project_id)
-          .eq("ig_user_id", ig_user_id)
+          .or(`ig_user_id.eq.${ig_user_id},username.eq.${username}`)
           .maybeSingle();
 
         const payload = {

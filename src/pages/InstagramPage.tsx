@@ -1581,7 +1581,15 @@ export default function InstagramPage() {
                           >
                             <div className="relative shrink-0">
                               {c.participant_avatar ? (
-                                <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border object-cover" />
+                                <img 
+                                  src={c.participant_avatar} 
+                                  alt="" 
+                                  className="w-9 h-9 rounded-full border border-border object-cover" 
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(c.participant_username || c.participant_name || c.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                                  }}
+                                />
                               ) : (
                                 <img
                                   src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(c.participant_username || c.participant_name || c.participant_id)}&backgroundColor=1e293b&fontSize=40`}
@@ -1639,7 +1647,15 @@ export default function InstagramPage() {
                       <div className="bg-secondary/10 px-4 py-3 border-b border-border/40 flex items-center gap-3 justify-between flex-wrap">
                         <div className="flex items-center gap-3">
                           {selectedConv.participant_avatar ? (
-                            <img src={selectedConv.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
+                            <img 
+                              src={selectedConv.participant_avatar} 
+                              alt="" 
+                              className="w-9 h-9 rounded-full border border-border object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedConv.participant_username || selectedConv.participant_name || selectedConv.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                              }}
+                            />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}
@@ -1842,7 +1858,15 @@ export default function InstagramPage() {
                       <div className="space-y-4">
                         <div className="bg-secondary/20 p-3 rounded-lg border border-border/30 flex flex-col items-center text-center">
                           {selectedConv.participant_avatar ? (
-                            <img src={selectedConv.participant_avatar} alt="" className="w-16 h-16 rounded-full border-2 border-amber-500/20 mb-2" />
+                            <img 
+                              src={selectedConv.participant_avatar} 
+                              alt="" 
+                              className="w-16 h-16 rounded-full border-2 border-amber-500/20 mb-2 object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedConv.participant_username || selectedConv.participant_name || selectedConv.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                              }}
+                            />
                           ) : (
                             <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center font-bold text-lg mb-2">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}

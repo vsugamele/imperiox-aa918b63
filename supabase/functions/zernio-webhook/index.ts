@@ -24,15 +24,18 @@ Deno.serve(async (req) => {
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
     
     // Log do evento recebido para auditoria
-    await supa.from("imphq_ig_webhook_logs").insert({
+    const { data: logEntry } = await supa.from("imphq_ig_webhook_logs").insert({
       event_type: `zernio_${payload.event || "unknown"}`,
       payload,
       processed: false,
-    });
+    }).select("id").maybeSingle();
 
     // Nós só processamos mensagens recebidas do cliente (inbound)
     if (payload.event !== "message.received") {
       console.log(`[zernio-webhook] Ignoring event type: ${payload.event}`);
+      if (logEntry) {
+        await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      }
       return new Response("OK", { status: 200 });
     }
 
@@ -79,10 +82,29 @@ Deno.serve(async (req) => {
     const isVerified   = igProfile.isVerified   ?? null;
 
     // igUserId = ID da nossa conta comercial Instagram
-    const igUserId = account?.platformUserId || account?.instagramScopedId || data.accountId || data.igUserId;
+    const zernioAccountId = account?.id || data.accountId || data.account_id;
+    let igUserId = account?.platformUserId || account?.instagramScopedId || data.igUserId;
+    let dbAccId = null;
+
+    if (zernioAccountId) {
+      const { data: dbAcc } = await supa
+        .from("imphq_ig_accounts")
+        .select("id, ig_user_id")
+        .eq("page_id", zernioAccountId)
+        .eq("auth_method", "zernio")
+        .maybeSingle();
+      if (dbAcc) {
+        igUserId = dbAcc.ig_user_id;
+        dbAccId = dbAcc.id;
+      }
+    }
+
+    if (!igUserId) {
+      igUserId = message?.recipient?.id || data.recipientId;
+    }
 
     if (!messageId || !conversationId || !senderId || !igUserId) {
-      console.error("[zernio-webhook] Campos obrigatórios ausentes:", { messageId, conversationId, senderId, igUserId });
+      console.error("[zernio-webhook] Campos obrigatórios ausentes:", { messageId, conversationId, senderId, igUserId, zernioAccountId });
       return new Response("Invalid payload structure", { status: 400 });
     }
 
@@ -115,9 +137,15 @@ Deno.serve(async (req) => {
     }
 
     // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
-    const { data: conv } = await supa
+    let convQuery = supa
       .from("imphq_ig_conversations")
-      .select("id, ig_thread_id, participant_username, participant_name")
+      .select("id, ig_thread_id, participant_username, participant_name");
+    
+    if (dbAccId) {
+      convQuery = convQuery.eq("account_id", dbAccId);
+    }
+    
+    const { data: conv } = await convQuery
       .eq("participant_id", senderId)
       .maybeSingle();
 
@@ -150,9 +178,20 @@ Deno.serve(async (req) => {
       console.warn(`[zernio-webhook] Conversa nao encontrada para: ${senderId}`);
     }
 
+    if (logEntry) {
+      await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+    }
+
     return new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } });
   } catch (err: any) {
     console.error("[zernio-webhook] Error processing webhook:", err);
+    // Write error to log row if it exists
+    try {
+      const supaForErr = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).filter("payload->>id", "eq", payload?.id || "");
+    } catch (dbErr: any) {
+      console.error("[zernio-webhook] Error updating error log in DB:", dbErr.message);
+    }
     return new Response(err.message || "Internal Error", { status: 500 });
   }
 });
