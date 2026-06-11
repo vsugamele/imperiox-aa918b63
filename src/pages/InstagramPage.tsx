@@ -1332,7 +1332,15 @@ export default function InstagramPage() {
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     {selectedAccount.avatar_url ? (
-                      <img src={selectedAccount.avatar_url} alt="" className="w-8 h-8 rounded-full border border-border" />
+                      <img 
+                        src={selectedAccount.avatar_url} 
+                        alt="" 
+                        className="w-8 h-8 rounded-full border border-border object-cover" 
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedAccount.username)}&backgroundColor=1e293b&fontSize=45`;
+                        }}
+                      />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs"><User className="h-4 w-4" /></div>
                     )}

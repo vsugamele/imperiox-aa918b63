@@ -490,6 +490,39 @@ Deno.serve(async (req) => {
       if (!creds?.access_token && !creds?.zernio_api_key) return json({ has_token: false });
 
       if (creds.auth_method === "zernio") {
+        let freshAvatar = null;
+        let freshDisplayName = null;
+        
+        try {
+          const r = await fetch("https://zernio.com/api/v1/accounts", {
+            headers: {
+              "Authorization": `Bearer ${creds.zernio_api_key}`,
+            },
+          });
+          if (r.ok) {
+            const zdata = await r.json();
+            const zAcc = (zdata.accounts || []).find((acc: any) => (acc.id || acc._id) === creds.zernio_account_id);
+            if (zAcc) {
+              freshAvatar = zAcc.avatarUrl || zAcc.avatar || zAcc.profilePicture || null;
+              freshDisplayName = zAcc.name || zAcc.displayName || null;
+            }
+          }
+        } catch (err) {
+          console.error("[instagram-api] Failed to refresh zernio account details:", err);
+        }
+
+        const updates: any = {};
+        if (freshAvatar) updates.avatar_url = freshAvatar;
+        if (freshDisplayName) updates.display_name = freshDisplayName;
+
+        if (Object.keys(updates).length > 0) {
+          await supa
+            .from("imphq_ig_accounts")
+            .update(updates)
+            .eq("project_id", project_id)
+            .eq("ig_user_id", creds.ig_user_id);
+        }
+
         const { data: localAcc } = await supa
           .from("imphq_ig_accounts")
           .select("*")
