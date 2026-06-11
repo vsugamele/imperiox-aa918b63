@@ -24,6 +24,7 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
     nicho: "",
     url_concorrente: "",
     icon: "✨",
+    preset: "essencial" as "essencial" | "completo",
   });
 
   const handleStart = async () => {
@@ -62,6 +63,7 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             nome: form.nome,
             nicho: form.nicho || null,
             url_concorrente: form.url_concorrente.trim() || null,
+            preset: form.preset,
           },
         },
       });
@@ -87,8 +89,8 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             <Sparkles className="h-5 w-5" /> Criar com Autopilot
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Informe o produto e o nicho. O Imperius roda 5 skills (Market Intel → Avatar →
-            Desejos → Problemas → LP) e monta seu projeto completo em poucos minutos.
+            Informe o produto e o nicho. O Imperius roda as skills selecionadas em sequência,
+            injetando o resultado de uma na próxima, e consolida tudo no projeto.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,6 +136,30 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
             <p className="text-xs text-muted-foreground mt-1 leading-7">
               Se informar, o Imperius raspa a página com Firecrawl e injeta como insumo.
             </p>
+          </div>
+
+          <div>
+            <Label>Profundidade</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {([
+                { id: "essencial", title: "Essencial", desc: "5 skills · ~2 min" },
+                { id: "completo", title: "Completo", desc: "15 skills · ~6 min" },
+              ] as const).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setForm({ ...form, preset: p.id })}
+                  className={`text-left rounded-md border p-3 transition ${
+                    form.preset === p.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-secondary/40 hover:bg-secondary/60"
+                  }`}
+                >
+                  <div className="font-medium">{p.title}</div>
+                  <div className="text-xs text-muted-foreground">{p.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <Button onClick={handleStart} disabled={loading} className="w-full">

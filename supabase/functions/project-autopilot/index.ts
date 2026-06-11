@@ -13,14 +13,41 @@ const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// Phase 1 — núcleo enxuto
-const SKILL_PIPELINE = [
-  { slug: "market-intel", label: "Inteligência de Mercado" },
-  { slug: "avatar-architect", label: "Avatar Architect" },
-  { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
-  { slug: "dossie-problemas", label: "Dossiê de Problemas" },
-  { slug: "lp-persuasiva", label: "Arquitetura de LP" },
-];
+// Pipelines disponíveis
+const PIPELINES: Record<string, { slug: string; label: string }[]> = {
+  essencial: [
+    { slug: "market-intel", label: "Inteligência de Mercado" },
+    { slug: "avatar-architect", label: "Avatar Architect" },
+    { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
+    { slug: "dossie-problemas", label: "Dossiê de Problemas" },
+    { slug: "lp-persuasiva", label: "Arquitetura de LP" },
+  ],
+  completo: [
+    { slug: "market-intel", label: "Inteligência de Mercado" },
+    { slug: "funnel-hacker", label: "Funnel Hacker (concorrência)" },
+    { slug: "avatar-architect", label: "Avatar Architect" },
+    { slug: "mapeamento-desejos", label: "Mapeamento de Desejos" },
+    { slug: "dossie-problemas", label: "Dossiê de Problemas" },
+    { slug: "reposicionamento", label: "Reposicionamento Estratégico" },
+    { slug: "mecanismo-unico", label: "Mecanismo Único Supremo" },
+    { slug: "alquimia-escada-valor", label: "Escada de Valor" },
+    { slug: "lp-persuasiva", label: "Arquitetura de LP" },
+    { slug: "devastador-copy", label: "Devastador Copy" },
+    { slug: "objection-destroyer", label: "Objection Destroyer" },
+    { slug: "ads-copy-multiplier", label: "Ads Copy Multiplier" },
+    { slug: "video-hook-generator", label: "Video Hooks" },
+    { slug: "roteiros-virais-reels", label: "Roteiros Reels" },
+    { slug: "tripwire-matador", label: "Tripwire Matador" },
+  ],
+};
+
+function resolvePipeline(input: any): { slug: string; label: string }[] {
+  const preset = (input?.preset as string) || "essencial";
+  if (Array.isArray(input?.skills) && input.skills.length > 0) {
+    return input.skills.map((slug: string) => ({ slug, label: slug }));
+  }
+  return PIPELINES[preset] ?? PIPELINES.essencial;
+}
 
 async function updateRun(runId: string, patch: Record<string, unknown>) {
   await supabase.from("imphq_autopilot_runs").update(patch).eq("id", runId);
@@ -93,7 +120,8 @@ async function scrapeCompetitor(url: string): Promise<string | null> {
 async function runAutopilot(runId: string, projectId: string, input: any) {
   try {
     const { nome, nicho, url_concorrente } = input;
-    const stepsState = SKILL_PIPELINE.map((s) => ({
+    const pipeline = resolvePipeline(input);
+    const stepsState = pipeline.map((s) => ({
       slug: s.slug,
       label: s.label,
       status: "pending" as "pending" | "running" | "done" | "failed",
@@ -103,7 +131,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
 
     await updateRun(runId, {
       status: "running",
-      total_steps: SKILL_PIPELINE.length,
+      total_steps: pipeline.length,
       steps: stepsState,
     });
 
@@ -124,8 +152,8 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     const accumulatedResults: Record<string, string> = {};
 
     // 2) Sequential skill execution
-    for (let i = 0; i < SKILL_PIPELINE.length; i++) {
-      const step = SKILL_PIPELINE[i];
+    for (let i = 0; i < pipeline.length; i++) {
+      const step = pipeline[i];
       stepsState[i].status = "running";
       await updateRun(runId, { current_step: i, steps: stepsState });
 
@@ -204,7 +232,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
 
     await updateRun(runId, {
       status: "completed",
-      current_step: SKILL_PIPELINE.length,
+      current_step: pipeline.length,
     });
   } catch (err: any) {
     console.error("[autopilot] fatal", err);
@@ -228,6 +256,7 @@ Deno.serve(async (req) => {
         });
       }
 
+      const startPipeline = resolvePipeline(input);
       const { data: run, error } = await supabase
         .from("imphq_autopilot_runs")
         .insert({
@@ -235,8 +264,8 @@ Deno.serve(async (req) => {
           input,
           user_id: user_id ?? null,
           status: "pending",
-          total_steps: SKILL_PIPELINE.length,
-          steps: SKILL_PIPELINE.map((s) => ({ slug: s.slug, label: s.label, status: "pending", output: "", error: null })),
+          total_steps: startPipeline.length,
+          steps: startPipeline.map((s) => ({ slug: s.slug, label: s.label, status: "pending", output: "", error: null })),
         })
         .select()
         .single();
