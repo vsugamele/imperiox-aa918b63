@@ -24,6 +24,7 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
     nicho: "",
     url_concorrente: "",
     icon: "✨",
+    preset: "essencial" as "essencial" | "completo",
   });
 
   const handleStart = async () => {
