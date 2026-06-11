@@ -124,6 +124,17 @@ function getConversionBucket(hours: number): string {
 
 const PAGE_SIZE = 50;
 const FILTERS_KEY = "imphq:leads:filters:v1";
+
+// Cache de dados de referência da página Leads (5min TTL) - evita refetch ao mudar filtros/páginas
+let leadsRefCache: {
+  at: number;
+  projects: any[];
+  automations: any[];
+  waProviders: any[];
+  waTemplates: any[];
+  captureForms: { id: string; name: string }[];
+  projectCounts: { totalAll: number; byProject: Record<string, number>; noProject: number };
+} | null = null;
 type PersistedFilters = {
   statusFilter: string; platformFilter: string; projectFilter: string;
   stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
