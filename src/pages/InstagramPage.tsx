@@ -1915,6 +1915,33 @@ export default function InstagramPage() {
                                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">+24h s/ resp</div>
                               </div>
                             </div>
+
+                            {slaStats && (
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">SLA primeira resposta (7d)</h4>
+                                  {slaStats.stale_open > 0 && (
+                                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30 text-[9px]">{slaStats.stale_open} abertos &gt;30min</Badge>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.avg_min > 30 ? "text-red-400" : slaStats.avg_min > 10 ? "text-amber-400" : "text-emerald-400"}`}>
+                                      {slaStats.avg_min.toFixed(0)}min
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">Média</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-lg font-bold text-foreground/80">{slaStats.p90_min.toFixed(0)}min</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">P90</div>
+                                  </div>
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.over_30min > 0 ? "text-amber-400" : "text-foreground/80"}`}>{slaStats.over_30min}</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">&gt;30min</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             {topUnread.length > 0 && (
                               <div className="space-y-2">
                                 <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Não lidas recentes</h4>
