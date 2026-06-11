@@ -2597,6 +2597,7 @@ export default function InstagramPage() {
 
             {activeMainTab === "brain" && (
               <div className="space-y-6">
+                <ZernioHealthCard projectId={selectedProjectId} />
                 {/* Header and Sub-tab selector */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
                   <div className="flex bg-muted/60 p-0.5 rounded-lg border border-border/40 shrink-0">
