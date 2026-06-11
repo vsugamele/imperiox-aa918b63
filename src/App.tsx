@@ -114,6 +114,7 @@ const App = () => (
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+                <Route path="projetos/:id/autopilot/:runId" element={<AutopilotProgress />} />
                 <Route path="kanban" element={<KanbanPage />} />
                 <Route path="tarefas" element={<Tarefas />} />
                 <Route path="chat" element={<Chat />} />
