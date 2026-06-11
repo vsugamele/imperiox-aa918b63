@@ -42,6 +42,13 @@ interface IgConversation {
   lead_id: string | null;
   ai_paused: boolean;
   ai_paused_reason: string | null;
+  ig_profile_data?: {
+    isFollower?: boolean | null;
+    isFollowing?: boolean | null;
+    isVerified?: boolean | null;
+    followerCount?: number | null;
+    updatedAt?: string;
+  } | null;
   // Triage data (loaded separately, merged)
   triage_intent?: string | null;
   triage_fit_score?: number | null;
