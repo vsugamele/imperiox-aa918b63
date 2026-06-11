@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
 
 interface Batch {
   id: string;
@@ -109,6 +110,15 @@ export default function Criativos() {
           ))}
         </div>
       )}
+
+      {/* Creative Factory & Fábrica de Ângulos */}
+      <div className="pt-6 mt-2 border-t border-border/40 space-y-3">
+        <div>
+          <h2 className="font-serif text-2xl text-primary">Fábrica de Ângulos</h2>
+          <p className="text-xs text-muted-foreground mt-1">Hub completo de criativos por projeto.</p>
+        </div>
+        <DashboardCreativeHub projectId="all" />
+      </div>
     </div>
   );
 }
