@@ -152,8 +152,8 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     const accumulatedResults: Record<string, string> = {};
 
     // 2) Sequential skill execution
-    for (let i = 0; i < SKILL_PIPELINE.length; i++) {
-      const step = SKILL_PIPELINE[i];
+    for (let i = 0; i < pipeline.length; i++) {
+      const step = pipeline[i];
       stepsState[i].status = "running";
       await updateRun(runId, { current_step: i, steps: stepsState });
 
