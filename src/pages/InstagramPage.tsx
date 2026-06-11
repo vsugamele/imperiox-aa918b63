@@ -1949,6 +1949,34 @@ export default function InstagramPage() {
                             {selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`}
                           </span>
                           <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "—"}</span>
+                          {selectedConv.ig_profile_data && (
+                            <div className="flex flex-wrap gap-1.5 justify-center mt-2">
+                              {selectedConv.ig_profile_data.isVerified && (
+                                <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[10px]">✓ Verificado</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollower && (
+                                <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">Te segue</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollowing && (
+                                <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px]">Você segue</Badge>
+                              )}
+                              {typeof selectedConv.ig_profile_data.followerCount === "number" && selectedConv.ig_profile_data.followerCount > 0 && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                  {selectedConv.ig_profile_data.followerCount.toLocaleString("pt-BR")} seguidores
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          {selectedConv.participant_username && selectedConv.participant_username !== "null" && (
+                            <a
+                              href={`https://instagram.com/${selectedConv.participant_username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-amber-400 hover:text-amber-300 mt-2 underline-offset-2 hover:underline"
+                            >
+                              Abrir no Instagram ↗
+                            </a>
+                          )}
                         </div>
 
                         <div className="space-y-2 text-xs">
