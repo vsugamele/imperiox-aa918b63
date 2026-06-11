@@ -1246,20 +1246,28 @@ export default function InstagramPage() {
     }
   };
 
-  // Human takeover toggle per conversation
-  const handleToggleAiPaused = async (conv: IgConversation) => {
-    const next = !conv.ai_paused;
+  // Human takeover toggle por conversa (permanente ou temporário)
+  const handleToggleAiPaused = async (conv: IgConversation, minutes?: number) => {
+    const wasPaused = conv.ai_paused;
+    const next = minutes !== undefined ? true : !wasPaused;
+    const until = minutes !== undefined ? new Date(Date.now() + minutes * 60_000).toISOString() : null;
     try {
       const { error } = await supabase
         .from("imphq_ig_conversations")
-        .update({ ai_paused: next, ai_paused_reason: next ? "Operador assumiu" : null })
+        .update({
+          ai_paused: next,
+          ai_paused_reason: next ? (minutes ? `Pausa ${minutes}min` : "Operador assumiu") : null,
+          ai_paused_until: until,
+        } as any)
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused: next } : c));
       if (selectedConv?.id === conv.id) setSelectedConv(s => s ? { ...s, ai_paused: next } : s);
-      toast.success(next ? "🧑 Modo humano ativado — IA pausada nesta conversa." : "🤖 IA retomou o controle desta conversa.");
+      toast.success(next 
+        ? (minutes ? `🧑 IA pausada por ${minutes}min nesta conversa.` : "🧑 Modo humano ativado.") 
+        : "🤖 IA retomou o controle.");
     } catch (e: any) {
-      toast.error("Erro ao alternar modo: " + e.message);
+      toast.error("Erro: " + e.message);
     }
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
