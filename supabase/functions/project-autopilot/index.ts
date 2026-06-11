@@ -255,6 +255,9 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     const currentBriefing = currentData.briefing ?? {};
     const currentConcorrentes = Array.isArray(currentData.concorrentes) ? currentData.concorrentes : [];
 
+    // 3.1) Extrai assets prontos em JSON estruturado
+    const assets = await extractAssets(nome, nicho || "", accumulatedResults);
+
     const newData = {
       ...currentData,
       briefing: {
@@ -269,6 +272,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
         run_id: runId,
         completed_at: new Date().toISOString(),
         results: accumulatedResults,
+        assets: assets ?? null,
       },
     };
 
@@ -277,6 +281,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
     await updateRun(runId, {
       status: "completed",
       current_step: pipeline.length,
+      assets: assets ?? null,
     });
   } catch (err: any) {
     console.error("[autopilot] fatal", err);
