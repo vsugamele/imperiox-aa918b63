@@ -30,9 +30,8 @@ import TodayCard from "@/components/dashboard/TodayCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
-import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
-import RagInspector from "@/components/dashboard/RagInspector";
 import { WeeklyReportWidget } from "@/components/dashboard/WeeklyReportWidget";
+import { LazySection } from "@/components/dashboard/LazySection";
 
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
