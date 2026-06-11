@@ -16,6 +16,7 @@ const AISaude = lazy(() => import("./pages/AISaude"));
 const Funil = lazy(() => import("./pages/Funil"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
+const AutopilotProgress = lazy(() => import("./pages/AutopilotProgress"));
 const KanbanPage = lazy(() => import("./pages/KanbanPage"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Chat = lazy(() => import("./pages/Chat"));
@@ -113,6 +114,7 @@ const App = () => (
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+                <Route path="projetos/:id/autopilot/:runId" element={<AutopilotProgress />} />
                 <Route path="kanban" element={<KanbanPage />} />
                 <Route path="tarefas" element={<Tarefas />} />
                 <Route path="chat" element={<Chat />} />
