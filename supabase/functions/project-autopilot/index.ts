@@ -232,7 +232,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
 
     await updateRun(runId, {
       status: "completed",
-      current_step: SKILL_PIPELINE.length,
+      current_step: pipeline.length,
     });
   } catch (err: any) {
     console.error("[autopilot] fatal", err);
