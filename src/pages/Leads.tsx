@@ -227,7 +227,7 @@ export default function Leads() {
       leadsQuery, supabase.from("imphq_projects").select("id, name, icon"),
       vendasQuery,
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
+      supabase.from("imphq_ads_spend").select("id, data_ref, valor, plataforma, campanha, project_id").order("data_ref", { ascending: false }).limit(500),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),

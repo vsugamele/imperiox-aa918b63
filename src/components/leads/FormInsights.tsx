@@ -39,7 +39,7 @@ export function FormInsights({ projects }: Props) {
   useEffect(() => {
     const load = async () => {
       const [respRes, formsRes, leadsRes] = await Promise.all([
-        supabase.from("imphq_lead_responses").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("imphq_lead_responses").select("id, form_id, lead_id, project_id, answer, field_key, question, created_at").order("created_at", { ascending: false }).limit(1000),
         supabase.from("imphq_capture_forms").select("id, name, project_id, fields"),
         supabase.from("imphq_leads").select("id, nome, email, phone, status, project_id, total_gasto, criado_em"),
       ]);

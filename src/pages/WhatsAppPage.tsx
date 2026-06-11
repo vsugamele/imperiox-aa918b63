@@ -637,7 +637,7 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 
   useEffect(() => {
     Promise.all([
-      supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(100),
+      supabase.from("imphq_wa_messages").select("id, phone, content, created_at, project_id").order("created_at", { ascending: false }).limit(100),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
     ]).then(([msgRes, hubRes]) => {
       setMessages(msgRes.data || []);
