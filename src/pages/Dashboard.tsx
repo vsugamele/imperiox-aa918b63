@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Brain, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Loader2 } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
@@ -175,58 +175,60 @@ export default function Dashboard() {
       <ExecutiveSummary projectFilter={dashProject} />
 
 
-      {/* FILTROS — barra discreta */}
-      <div className="flex items-center gap-2 flex-wrap text-xs">
-        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-        <Select value={dashPeriod} onValueChange={setDashPeriod}>
-          <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/60"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="yesterday">Ontem</SelectItem>
-            <SelectItem value="7d">7 dias</SelectItem>
-            <SelectItem value="30d">30 dias</SelectItem>
-            <SelectItem value="90d">90 dias</SelectItem>
-            <SelectItem value="6m">6 meses</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={dashProject} onValueChange={setDashProject}>
-          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {allProjects.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Package className="h-3.5 w-3.5 text-muted-foreground ml-1" />
-        <Select value={dashProduct} onValueChange={setDashProduct}>
-          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Produto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Produtos</SelectItem>
-            {allProducts.map((p) => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border/60 bg-secondary/20">
-          <GitCompareArrows className="h-3 w-3 text-muted-foreground" />
-          <Label htmlFor="compare-toggle" className="text-[11px] cursor-pointer select-none">Comparar período</Label>
-          <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
+      {/* FILTROS — barra discreta sticky */}
+      <div className="sticky top-14 z-20 -mx-2 px-2 py-2 backdrop-blur-xl bg-background/70 border-b border-border/40">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <Select value={dashPeriod} onValueChange={setDashPeriod}>
+            <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/60"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="yesterday">Ontem</SelectItem>
+              <SelectItem value="7d">7 dias</SelectItem>
+              <SelectItem value="30d">30 dias</SelectItem>
+              <SelectItem value="90d">90 dias</SelectItem>
+              <SelectItem value="6m">6 meses</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dashProject} onValueChange={setDashProject}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos</SelectItem>
+              {allProjects.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Package className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+          <Select value={dashProduct} onValueChange={setDashProduct}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Produtos</SelectItem>
+              {allProducts.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border/60 bg-secondary/20">
+            <GitCompareArrows className="h-3 w-3 text-muted-foreground" />
+            <Label htmlFor="compare-toggle" className="text-[11px] cursor-pointer select-none">Comparar período</Label>
+            <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
+          </div>
+          <RevenueModeToggle />
+          <SectionInfo {...sectionHelpTexts.dashboard} />
+          <Link
+            to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all",
+              recoveryRisk > 0
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+                : "border-border/60 bg-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LifeBuoy className="h-3 w-3" />
+            <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}</span>
+          </Link>
         </div>
-        <RevenueModeToggle />
-        <SectionInfo {...sectionHelpTexts.dashboard} />
-        <Link
-          to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
-          className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all",
-            recoveryRisk > 0
-              ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
-              : "border-border/60 bg-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <LifeBuoy className="h-3 w-3" />
-          <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}</span>
-        </Link>
       </div>
 
       {/* COCKPIT KPI STRIP */}
@@ -315,110 +317,86 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* PRODUCT COPILOT AD BANNER */}
-      <section className="relative rounded-xl border border-gold/30 bg-gradient-to-r from-gold/5 via-secondary/10 to-transparent p-5 backdrop-blur-md overflow-hidden animate-fade-in group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
-          <Brain className="h-24 w-24 text-gold" />
-        </div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[9px] font-bold tracking-[0.2em] uppercase bg-gold/15 text-gold px-2.5 py-0.5 rounded-full border border-gold/30">Cérebro IA</span>
-              <span className="text-[10px] text-muted-foreground font-mono">NOVO RECURSO</span>
-            </div>
-            <h3 className="font-serif text-lg text-foreground font-medium">Modelador de Oferta & Copilot de Produtos</h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-              Escreva ganchos de tráfego, timeline de VSL, stack de bônus e o mecanismo único para qualquer projeto com o novo assistente interativo da Imperio HQ.
-            </p>
-          </div>
-          <Link
-            to="/product-copilot"
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gold text-slate-950 text-xs font-semibold hover:bg-gold/80 transition-all self-start md:self-center shrink-0 shadow-lg shadow-gold/10"
-          >
-            <span>Modelar Novo Produto</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      </section>
-
       <FacebookHealthAlert />
 
       {/* HOJE + LIVE */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodayCard projectId={dashProject} />
-        <LiveFunnelPanel projectFilter={dashProject} />
-      </section>
-
-      {/* CÉREBRO DA IA — INSPETOR DE RAG & MEMÓRIA */}
-      <section className="space-y-3">
-        <SectionHead kicker="Inteligência da IA" title="Central de Conhecimento & RAG Inspector" />
-        <RagInspector projectFilter={dashProject} />
-      </section>
-
-      {/* FÁBRICA DE CRIATIVOS */}
-      <section className="space-y-3">
-        <SectionHead kicker="Fábrica de Criativos" title="Creative Factory & Fábrica de Ângulos" />
-        <DashboardCreativeHub projectId={dashProject} />
-      </section>
+      <LazySection minHeight={320}>
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TodayCard projectId={dashProject} />
+          <LiveFunnelPanel projectFilter={dashProject} />
+        </section>
+      </LazySection>
 
       {/* PREDITIVO + HOT LEADS + ALERTS */}
-      <section className="space-y-4">
-        <SectionHead kicker="Sinais" title="Hoje em risco" />
-        <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-        <HotLeadAlerts projectFilter={dashProject} />
-        <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      </section>
+      <LazySection minHeight={400}>
+        <section className="space-y-4">
+          <SectionHead kicker="Sinais" title="Hoje em risco" />
+          <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+          <HotLeadAlerts projectFilter={dashProject} />
+          <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+        </section>
+      </LazySection>
 
       {/* RECEITA + FUNIL / RECUPERAÇÃO */}
-      <section>
-        <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+      <LazySection minHeight={420}>
+        <section>
+          <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8">
+              <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+            </div>
+            <div className="lg:col-span-4 space-y-6">
+              <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+              <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+            </div>
           </div>
-          <div className="lg:col-span-4 space-y-6">
-            <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-            <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
-          </div>
-        </div>
-      </section>
+        </section>
+      </LazySection>
 
       {/* ADS + AI RECUPERADO */}
-      <section>
-        <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+      <LazySection minHeight={400}>
+        <section>
+          <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8">
+              <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+            </div>
+            <div className="lg:col-span-4">
+              <AIRevenueRecoveredCard projectFilter={dashProject} />
+            </div>
           </div>
-          <div className="lg:col-span-4">
-            <AIRevenueRecoveredCard projectFilter={dashProject} />
-          </div>
-        </div>
-      </section>
+        </section>
+      </LazySection>
 
       {/* CHARTS + CARDS */}
-      <section>
-        <SectionHead kicker="Detalhes" title="O retrato completo" />
-        <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-        <div className="mt-6">
-          <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
-        </div>
-      </section>
+      <LazySection minHeight={500}>
+        <section>
+          <SectionHead kicker="Detalhes" title="O retrato completo" />
+          <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+          <div className="mt-6">
+            <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+          </div>
+        </section>
+      </LazySection>
 
       {/* RELATÓRIO SEMANAL */}
-      <section>
-        <SectionHead kicker="Resumo" title="Relatório da semana" />
-        <WeeklyReportWidget projectFilter={dashProject} />
-      </section>
+      <LazySection minHeight={260}>
+        <section>
+          <SectionHead kicker="Resumo" title="Relatório da semana" />
+          <WeeklyReportWidget projectFilter={dashProject} />
+        </section>
+      </LazySection>
 
       {/* ATIVIDADE + CRESCIMENTO */}
-      <section>
-        <SectionHead kicker="Pulso" title="Atividade e crescimento" />
-        <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
-        <div className="mt-6">
-          <GrowthDashboard projectFilter={dashProject} />
-        </div>
-      </section>
+      <LazySection minHeight={400}>
+        <section>
+          <SectionHead kicker="Pulso" title="Atividade e crescimento" />
+          <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
+          <div className="mt-6">
+            <GrowthDashboard projectFilter={dashProject} />
+          </div>
+        </section>
+      </LazySection>
     </div>
   );
 }
