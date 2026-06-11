@@ -161,7 +161,7 @@ async function extractAssets(produto: string, nicho: string, accumulated: Record
   }
 }
 
-
+async function runAutopilot(runId: string, projectId: string, input: any) {
   try {
     const { nome, nicho, url_concorrente } = input;
     const pipeline = resolvePipeline(input);
