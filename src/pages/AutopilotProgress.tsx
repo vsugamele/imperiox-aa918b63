@@ -40,12 +40,12 @@ export default function AutopilotProgress() {
     let mounted = true;
 
     const fetchRun = async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("imphq_autopilot_runs")
         .select("*")
         .eq("id", runId)
         .maybeSingle();
-      if (mounted && data) setRun(data as any);
+      if (mounted && data) setRun(data as Run);
     };
 
     fetchRun();
