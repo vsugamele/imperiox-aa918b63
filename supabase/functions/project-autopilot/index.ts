@@ -120,7 +120,8 @@ async function scrapeCompetitor(url: string): Promise<string | null> {
 async function runAutopilot(runId: string, projectId: string, input: any) {
   try {
     const { nome, nicho, url_concorrente } = input;
-    const stepsState = SKILL_PIPELINE.map((s) => ({
+    const pipeline = resolvePipeline(input);
+    const stepsState = pipeline.map((s) => ({
       slug: s.slug,
       label: s.label,
       status: "pending" as "pending" | "running" | "done" | "failed",
@@ -130,7 +131,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
 
     await updateRun(runId, {
       status: "running",
-      total_steps: SKILL_PIPELINE.length,
+      total_steps: pipeline.length,
       steps: stepsState,
     });
 
