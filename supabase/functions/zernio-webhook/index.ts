@@ -159,6 +159,13 @@ Deno.serve(async (req) => {
       return new Response(`Error forwarding: ${errText}`, { status: 500 });
     }
 
+    // Marca conta IG como ativa (heartbeat para card de saúde)
+    if (dbAccId) {
+      await supa.from("imphq_ig_accounts")
+        .update({ updated_at: new Date().toISOString() } as any)
+        .eq("id", dbAccId);
+    }
+
     // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
     let convQuery = supa
       .from("imphq_ig_conversations")
