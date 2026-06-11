@@ -121,6 +121,7 @@ export default function Projetos() {
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false);
   const [activeFolder, setActiveFolder] = useState("all");
   const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
+  const [autopilotOpen, setAutopilotOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
