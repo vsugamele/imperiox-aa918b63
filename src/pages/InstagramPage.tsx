@@ -184,8 +184,9 @@ export default function InstagramPage() {
       .eq("provider", "instagram")
       .maybeSingle();
     
-    if (data?.credentials?.icebreakers && Array.isArray(data.credentials.icebreakers)) {
-      const qs = [...data.credentials.icebreakers];
+    const creds = (data?.credentials as any) || {};
+    if (creds?.icebreakers && Array.isArray(creds.icebreakers)) {
+      const qs = [...creds.icebreakers];
       while (qs.length < 4) qs.push("");
       setIcebreakers(qs.slice(0, 4));
     } else {
