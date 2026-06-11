@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Smartphone, MessageSquare, Flame, Check, AlertTriangle,
-  Play, Square, RefreshCw, DollarSign, ExternalLink, UserCheck, Bot
+  Play, Square, RefreshCw, DollarSign, ExternalLink, UserCheck, Bot, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
