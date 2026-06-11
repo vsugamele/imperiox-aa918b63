@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
 
 interface IgAccount {
   id: string;
