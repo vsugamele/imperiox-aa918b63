@@ -112,6 +112,7 @@ export default function InstagramPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [slaStats, setSlaStats] = useState<{ avg_min: number; p90_min: number; over_30min: number; stale_open: number } | null>(null);
 
   // Simulation states
   const [showSimulateDialog, setShowSimulateDialog] = useState(false);
@@ -609,6 +610,20 @@ export default function InstagramPage() {
       });
     }
   }, [selectedConv, loadMessages]);
+
+  // SLA fetch quando seleciona conta
+  useEffect(() => {
+    if (!selectedAccount?.id) { setSlaStats(null); return; }
+    (supabase.rpc as any)("ig_sla_summary", { p_account_id: selectedAccount.id, p_hours: 168 }).then(({ data }: any) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) setSlaStats({
+        avg_min: Number(row.avg_min) || 0,
+        p90_min: Number(row.p90_min) || 0,
+        over_30min: Number(row.over_30min) || 0,
+        stale_open: Number(row.stale_open) || 0,
+      });
+    });
+  }, [selectedAccount?.id]);
 
   // Load comments when tab is comments and account selected
   const loadComments = useCallback(async (accountId: string) => {
@@ -1246,20 +1261,28 @@ export default function InstagramPage() {
     }
   };
 
-  // Human takeover toggle per conversation
-  const handleToggleAiPaused = async (conv: IgConversation) => {
-    const next = !conv.ai_paused;
+  // Human takeover toggle por conversa (permanente ou temporário)
+  const handleToggleAiPaused = async (conv: IgConversation, minutes?: number) => {
+    const wasPaused = conv.ai_paused;
+    const next = minutes !== undefined ? true : !wasPaused;
+    const until = minutes !== undefined ? new Date(Date.now() + minutes * 60_000).toISOString() : null;
     try {
       const { error } = await supabase
         .from("imphq_ig_conversations")
-        .update({ ai_paused: next, ai_paused_reason: next ? "Operador assumiu" : null })
+        .update({
+          ai_paused: next,
+          ai_paused_reason: next ? (minutes ? `Pausa ${minutes}min` : "Operador assumiu") : null,
+          ai_paused_until: until,
+        } as any)
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused: next } : c));
       if (selectedConv?.id === conv.id) setSelectedConv(s => s ? { ...s, ai_paused: next } : s);
-      toast.success(next ? "🧑 Modo humano ativado — IA pausada nesta conversa." : "🤖 IA retomou o controle desta conversa.");
+      toast.success(next 
+        ? (minutes ? `🧑 IA pausada por ${minutes}min nesta conversa.` : "🧑 Modo humano ativado.") 
+        : "🤖 IA retomou o controle.");
     } catch (e: any) {
-      toast.error("Erro ao alternar modo: " + e.message);
+      toast.error("Erro: " + e.message);
     }
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
@@ -1892,6 +1915,33 @@ export default function InstagramPage() {
                                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">+24h s/ resp</div>
                               </div>
                             </div>
+
+                            {slaStats && (
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">SLA primeira resposta (7d)</h4>
+                                  {slaStats.stale_open > 0 && (
+                                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30 text-[9px]">{slaStats.stale_open} abertos &gt;30min</Badge>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.avg_min > 30 ? "text-red-400" : slaStats.avg_min > 10 ? "text-amber-400" : "text-emerald-400"}`}>
+                                      {slaStats.avg_min.toFixed(0)}min
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">Média</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-lg font-bold text-foreground/80">{slaStats.p90_min.toFixed(0)}min</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">P90</div>
+                                  </div>
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.over_30min > 0 ? "text-amber-400" : "text-foreground/80"}`}>{slaStats.over_30min}</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">&gt;30min</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             {topUnread.length > 0 && (
                               <div className="space-y-2">
                                 <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Não lidas recentes</h4>

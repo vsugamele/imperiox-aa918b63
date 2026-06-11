@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
           .upsert(upsertData, { onConflict: "account_id,participant_id" })
-          .select("id, participant_username, participant_name, ai_paused")
+          .select("id, participant_username, participant_name, ai_paused, ai_paused_until")
           .single();
 
         // Fetch/Update user profile info if missing
@@ -289,10 +289,16 @@ Deno.serve(async (req) => {
                     return;
                   }
 
-                  // Check per-conversation human takeover
-                  if (conv?.ai_paused) {
-                    console.log(`[ig-webhook] Human takeover active for conversation ${conv.id} — skipping AI reply`);
+                  // Check per-conversation human takeover (permanente ou temporário)
+                  const pausedUntil = (conv as any)?.ai_paused_until ? new Date((conv as any).ai_paused_until) : null;
+                  const stillPaused = pausedUntil && pausedUntil > new Date();
+                  if (conv?.ai_paused || stillPaused) {
+                    console.log(`[ig-webhook] Human takeover ativo conv=${conv.id} (until=${(conv as any)?.ai_paused_until || 'permanente'})`);
                     return;
+                  }
+                  // Auto-expira pausa temporária vencida
+                  if (pausedUntil && pausedUntil <= new Date()) {
+                    await supabase.from("imphq_ig_conversations").update({ ai_paused_until: null } as any).eq("id", conv.id);
                   }
 
                   // 1. Business hours check
