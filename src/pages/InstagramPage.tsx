@@ -611,6 +611,20 @@ export default function InstagramPage() {
     }
   }, [selectedConv, loadMessages]);
 
+  // SLA fetch quando seleciona conta
+  useEffect(() => {
+    if (!selectedAccount?.id) { setSlaStats(null); return; }
+    (supabase.rpc as any)("ig_sla_summary", { p_account_id: selectedAccount.id, p_hours: 168 }).then(({ data }: any) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) setSlaStats({
+        avg_min: Number(row.avg_min) || 0,
+        p90_min: Number(row.p90_min) || 0,
+        over_30min: Number(row.over_30min) || 0,
+        stale_open: Number(row.stale_open) || 0,
+      });
+    });
+  }, [selectedAccount?.id]);
+
   // Load comments when tab is comments and account selected
   const loadComments = useCallback(async (accountId: string) => {
     setLoadingComments(true);
