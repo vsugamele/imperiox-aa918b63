@@ -16,6 +16,7 @@ const AISaude = lazy(() => import("./pages/AISaude"));
 const Funil = lazy(() => import("./pages/Funil"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
+const AutopilotProgress = lazy(() => import("./pages/AutopilotProgress"));
 const KanbanPage = lazy(() => import("./pages/KanbanPage"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Chat = lazy(() => import("./pages/Chat"));
