@@ -15,6 +15,37 @@ function normalizeBRPhone(raw: string): string {
   return digits;
 }
 
+// Generate all permutations of Brazilian phone formats (with/without DDI, with/without 9th digit)
+function getBrazilianPhoneVariants(raw: string): string[] {
+  const clean = (raw || "").replace(/\D/g, "");
+  if (!clean) return [];
+  const variants = new Set<string>([raw, clean]);
+  
+  let withCC = clean;
+  if (!clean.startsWith("55") && (clean.length === 10 || clean.length === 11)) {
+    withCC = "55" + clean;
+  }
+  
+  if (withCC.startsWith("55")) {
+    variants.add(withCC);
+    variants.add(withCC.substring(2)); // without country code
+    const localNumber = withCC.substring(2);
+    
+    if (localNumber.length === 11 && localNumber.startsWith("9")) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(3);
+      variants.add("55" + ddd + rest);
+      variants.add(ddd + rest);
+    } else if (localNumber.length === 10) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(2);
+      variants.add("55" + ddd + "9" + rest);
+      variants.add(ddd + "9" + rest);
+    }
+  }
+  return Array.from(variants).filter(Boolean);
+}
+
 // Helper to get fuso horário offset by Brazilian DDD
 function getLeadTimezoneOffset(phone: string): number {
   const digits = (phone || "").replace(/\D/g, "");
@@ -477,13 +508,7 @@ Deno.serve(async (req) => {
           // Check if there is any incoming WhatsApp message since originalStart
           if (!hasRepliedOrPurchased && phone) {
             try {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")
@@ -530,6 +555,55 @@ Deno.serve(async (req) => {
           }
 
           break; // Stop flow
+        }
+
+        // Pre-delay logic for actions that define delay_min in the action block itself
+        const actionTypesToDelay = [
+          "whatsapp",
+          "audio",
+          "email",
+          "ia_message",
+          "adicionar_tag",
+          "remover_tag",
+          "update_memory",
+          "ia_scheduling",
+          "webhook_call",
+          "qualify_lead",
+          "notify_operator",
+          "abrir_conversa",
+          "gpt_prompt",
+          "stop_on_event"
+        ];
+
+        if (actionTypesToDelay.includes(step.tipo)) {
+          const delayMin = Number(step.delay_min || 0);
+          if (delayMin > 0) {
+            const alreadyDelayed = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            if (!alreadyDelayed) {
+              if (delayMin > 5) {
+                const nextRun = new Date(Date.now() + delayMin * 60000);
+                stepResult.status = "waiting_delay";
+                stepResult.next_run = nextRun.toISOString();
+                stepResult.finished_at = new Date().toISOString();
+                stepResults.push(stepResult);
+
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i, // We stay on this step to run it when we resume
+                    next_run_at: nextRun.toISOString(),
+                    step_results: stepResults,
+                  })
+                  .eq("id", executionId);
+                
+                status = "waiting";
+                break; // Exit step loop (pauses flow execution)
+              } else {
+                // Short delays: wait inline
+                await delay(delayMin * 60000);
+              }
+            }
+          }
         }
 
         try {
@@ -767,7 +841,7 @@ Deno.serve(async (req) => {
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) {
                   providerId = projProviders[0].id;
@@ -781,7 +855,7 @@ Deno.serve(async (req) => {
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) {
                   providerId = activeProviders[0].id;
@@ -842,7 +916,7 @@ Deno.serve(async (req) => {
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) providerId = projProviders[0].id;
               }
@@ -852,7 +926,7 @@ Deno.serve(async (req) => {
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) providerId = activeProviders[0].id;
               }
@@ -1092,13 +1166,7 @@ Deno.serve(async (req) => {
             let hasReplied = false;
             const phone = lead_data?.phone || lead_data?.telefone;
             if (phone) {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")
@@ -1263,13 +1331,7 @@ Deno.serve(async (req) => {
               stepResult.notes = "Conversa finalizada pelo assistente de IA";
             } else {
               // First time running this step: send initial message and pause!
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
 
               // leadDb is already preloaded in the outer scope
 
@@ -1374,7 +1436,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) providerId = projProviders[0].id;
               }
@@ -1383,7 +1445,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) providerId = activeProviders[0].id;
               }
@@ -1945,13 +2007,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
 
               const aiPausedUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
               const { error: updateConvErr } = await supabase
@@ -1986,13 +2042,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
 
               let chatHistoryContext = "";
               const keepContext = step.gpt_keep_context ?? true;
@@ -2105,7 +2155,7 @@ Instruções Adicionais:
                       .select("id")
                       .eq("is_active", true)
                       .eq("project_id", project_id)
-                      .order("created_at", { ascending: true })
+                      .order("created_at", { ascending: false })
                       .limit(1);
                     if (projProviders?.length) providerId = projProviders[0].id;
                   }
@@ -2114,7 +2164,7 @@ Instruções Adicionais:
                       .from("imphq_wa_providers")
                       .select("id")
                       .eq("is_active", true)
-                      .order("created_at", { ascending: true })
+                      .order("created_at", { ascending: false })
                       .limit(1);
                     if (activeProviders?.length) providerId = activeProviders[0].id;
                   }
@@ -2177,13 +2227,7 @@ Instruções Adicionais:
                 abortReason = "Lead realizou a compra";
               }
             } else if (stopType === "lead_respondeu" && phone) {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")
