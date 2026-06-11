@@ -587,6 +587,8 @@ export default function Projetos() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AutopilotModal open={autopilotOpen} onOpenChange={setAutopilotOpen} onCreated={load} />
     </div>
   );
 }
