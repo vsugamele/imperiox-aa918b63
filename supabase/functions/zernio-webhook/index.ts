@@ -21,9 +21,31 @@ Deno.serve(async (req) => {
 
   let payload: any = null;
   try {
-    const payload = await req.json();
+    payload = await req.json();
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
-    
+
+    // Dedupe idempotente — extrai messageId cedo
+    const earlyMessageId = payload?.data?.message?.id
+      || payload?.data?.message?.messageId
+      || payload?.data?.messageId
+      || payload?.message?.id
+      || null;
+
+    if (earlyMessageId) {
+      const { data: dup } = await supa
+        .from("imphq_ig_webhook_logs")
+        .select("id")
+        .eq("event_type", `zernio_${payload.event || "unknown"}`)
+        .filter("payload->data->message->>id", "eq", earlyMessageId)
+        .eq("processed", true)
+        .limit(1)
+        .maybeSingle();
+      if (dup) {
+        console.log(`[zernio-webhook] Duplicate messageId ${earlyMessageId} — skipping`);
+        return new Response("OK (duplicate)", { status: 200 });
+      }
+    }
+
     // Log do evento recebido para auditoria
     const { data: logEntry } = await supa.from("imphq_ig_webhook_logs").insert({
       event_type: `zernio_${payload.event || "unknown"}`,
