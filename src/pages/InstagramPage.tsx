@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
 
 interface IgAccount {
   id: string;
@@ -42,6 +43,13 @@ interface IgConversation {
   lead_id: string | null;
   ai_paused: boolean;
   ai_paused_reason: string | null;
+  ig_profile_data?: {
+    isFollower?: boolean | null;
+    isFollowing?: boolean | null;
+    isVerified?: boolean | null;
+    followerCount?: number | null;
+    updatedAt?: string;
+  } | null;
   // Triage data (loaded separately, merged)
   triage_intent?: string | null;
   triage_fit_score?: number | null;
@@ -1942,6 +1950,34 @@ export default function InstagramPage() {
                             {selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`}
                           </span>
                           <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "—"}</span>
+                          {selectedConv.ig_profile_data && (
+                            <div className="flex flex-wrap gap-1.5 justify-center mt-2">
+                              {selectedConv.ig_profile_data.isVerified && (
+                                <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[10px]">✓ Verificado</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollower && (
+                                <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">Te segue</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollowing && (
+                                <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px]">Você segue</Badge>
+                              )}
+                              {typeof selectedConv.ig_profile_data.followerCount === "number" && selectedConv.ig_profile_data.followerCount > 0 && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                  {selectedConv.ig_profile_data.followerCount.toLocaleString("pt-BR")} seguidores
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          {selectedConv.participant_username && selectedConv.participant_username !== "null" && (
+                            <a
+                              href={`https://instagram.com/${selectedConv.participant_username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-amber-400 hover:text-amber-300 mt-2 underline-offset-2 hover:underline"
+                            >
+                              Abrir no Instagram ↗
+                            </a>
+                          )}
                         </div>
 
                         <div className="space-y-2 text-xs">
@@ -2561,6 +2597,7 @@ export default function InstagramPage() {
 
             {activeMainTab === "brain" && (
               <div className="space-y-6">
+                <ZernioHealthCard projectId={selectedProjectId} />
                 {/* Header and Sub-tab selector */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
                   <div className="flex bg-muted/60 p-0.5 rounded-lg border border-border/40 shrink-0">
