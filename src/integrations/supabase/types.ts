@@ -18487,6 +18487,42 @@ export type Database = {
           },
         ]
       }
+      imphq_embedding_cache: {
+        Row: {
+          created_at: string | null
+          dimensions: number
+          embedding: string | null
+          hits: number | null
+          id: string
+          last_used_at: string | null
+          model: string
+          text_hash: string
+          text_preview: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dimensions: number
+          embedding?: string | null
+          hits?: number | null
+          id?: string
+          last_used_at?: string | null
+          model: string
+          text_hash: string
+          text_preview?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dimensions?: number
+          embedding?: string | null
+          hits?: number | null
+          id?: string
+          last_used_at?: string | null
+          model?: string
+          text_hash?: string
+          text_preview?: string | null
+        }
+        Relationships: []
+      }
       imphq_empresa: {
         Row: {
           created_at: string | null
@@ -18618,6 +18654,7 @@ export type Database = {
           step_results: Json
           trigger_tipo: string
           updated_at: string
+          waiting_for: string | null
         }
         Insert: {
           automacao_id: string
@@ -18632,6 +18669,7 @@ export type Database = {
           step_results?: Json
           trigger_tipo: string
           updated_at?: string
+          waiting_for?: string | null
         }
         Update: {
           automacao_id?: string
@@ -18646,12 +18684,14 @@ export type Database = {
           step_results?: Json
           trigger_tipo?: string
           updated_at?: string
+          waiting_for?: string | null
         }
         Relationships: []
       }
       imphq_flow_templates: {
         Row: {
           acoes: Json
+          categoria: string | null
           created_at: string
           descricao: string | null
           icon: string | null
@@ -18663,6 +18703,7 @@ export type Database = {
         }
         Insert: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -18674,6 +18715,7 @@ export type Database = {
         }
         Update: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -19140,11 +19182,14 @@ export type Database = {
       imphq_ig_conversations: {
         Row: {
           account_id: string
+          ai_active: boolean | null
           ai_paused: boolean | null
           ai_paused_reason: string | null
+          conversation_summary: string | null
           created_at: string
           follow_up_sent_at: string | null
           follow_up_status: string | null
+          ia_ativa: boolean | null
           id: string
           ig_thread_id: string | null
           last_message: string | null
@@ -19154,16 +19199,20 @@ export type Database = {
           participant_id: string
           participant_name: string | null
           participant_username: string | null
+          reengagement_sent_at: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
           account_id: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19173,16 +19222,20 @@ export type Database = {
           participant_id: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
           account_id?: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19192,6 +19245,7 @@ export type Database = {
           participant_id?: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -19941,13 +19995,19 @@ export type Database = {
       }
       imphq_leads: {
         Row: {
+          awareness_level: number | null
           campanha_id: string | null
+          closer_message_sent_at: string | null
+          closer_triggered_at: string | null
           created_at: string | null
           criado_em: string | null
           data: Json | null
           email: string | null
           funil_id: string | null
           id: string
+          ig_closer_sent_at: string | null
+          ig_participant_id: string | null
+          lead_memory: Json | null
           nome: string | null
           phone: string | null
           plataforma: string | null
@@ -19959,13 +20019,19 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null
           funil_id?: string | null
           id: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
           nome?: string | null
           phone?: string | null
           plataforma?: string | null
@@ -19977,13 +20043,19 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
           email?: string | null
           funil_id?: string | null
           id?: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
           nome?: string | null
           phone?: string | null
           plataforma?: string | null
@@ -20827,6 +20899,7 @@ export type Database = {
       }
       imphq_projects: {
         Row: {
+          active: boolean | null
           avatar: Json | null
           brand_kit: Json | null
           category: string | null
@@ -20846,6 +20919,7 @@ export type Database = {
           members: Json | null
           meta_diaria_notified_date: string | null
           name: string
+          owner_phone: string | null
           parent_id: string | null
           pipeline: Json | null
           settings: Json | null
@@ -20853,6 +20927,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20872,6 +20947,7 @@ export type Database = {
           members?: Json | null
           meta_diaria_notified_date?: string | null
           name: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -20879,6 +20955,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20898,6 +20975,7 @@ export type Database = {
           members?: Json | null
           meta_diaria_notified_date?: string | null
           name?: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -22691,6 +22769,14 @@ export type Database = {
           ai_provider: string
           ai_temperature: number
           ai_top_p: number
+          audit_findings: Json | null
+          auto_audit_enabled: boolean | null
+          auto_drift_enabled: boolean | null
+          auto_escalation_enabled: boolean | null
+          auto_scoring_enabled: boolean | null
+          auto_tune_apply: boolean | null
+          auto_tune_enabled: boolean | null
+          banned_phrases: string[] | null
           business_hours_end: string | null
           business_hours_only: boolean | null
           business_hours_start: string | null
@@ -22703,6 +22789,8 @@ export type Database = {
           custom_instructions: string | null
           debounce_seconds: number | null
           draft_mode: boolean
+          drift_history: Json | null
+          drift_score: number | null
           enabled: boolean | null
           escalation_keywords: string[] | null
           expert_persona: string | null
@@ -22713,10 +22801,14 @@ export type Database = {
           instagram_comments_custom_dm: string | null
           instagram_comments_enabled: boolean | null
           instagram_enabled: boolean | null
+          last_audit_at: string | null
+          last_drift_at: string | null
+          last_tune_at: string | null
           learning_mode: boolean
           max_tokens: number | null
           payment_link: string | null
           personality: string | null
+          pix_key: string | null
           product_focus: string | null
           project_id: string
           provider_id: string | null
@@ -22724,6 +22816,7 @@ export type Database = {
           tone: string | null
           triage_prompt: string | null
           triage_stages: Json | null
+          tune_history: Json | null
           updated_at: string | null
           voice_clarity: number | null
           voice_name: string | null
@@ -22737,6 +22830,14 @@ export type Database = {
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
@@ -22749,6 +22850,8 @@ export type Database = {
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
@@ -22759,10 +22862,14 @@ export type Database = {
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
           payment_link?: string | null
           personality?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id: string
           provider_id?: string | null
@@ -22770,6 +22877,7 @@ export type Database = {
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22783,6 +22891,14 @@ export type Database = {
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
@@ -22795,6 +22911,8 @@ export type Database = {
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
@@ -22805,10 +22923,14 @@ export type Database = {
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
           payment_link?: string | null
           personality?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id?: string
           provider_id?: string | null
@@ -22816,6 +22938,7 @@ export type Database = {
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22959,6 +23082,87 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_wa_attribution: {
+        Row: {
+          attribution_id: string
+          campaign_id: string | null
+          click_id: string | null
+          clicked_at: string | null
+          conversation_id: string | null
+          id: string
+          link_url: string
+          matched_at: string | null
+          message_id: string | null
+          metadata: Json | null
+          phone: string | null
+          produto_nome: string | null
+          project_id: string
+          sent_at: string | null
+          source: string
+          source_detail: string | null
+          template_name: string | null
+          venda_id: string | null
+          venda_status: string | null
+        }
+        Insert: {
+          attribution_id: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id: string
+          sent_at?: string | null
+          source: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Update: {
+          attribution_id?: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url?: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          sent_at?: string | null
+          source?: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_attribution_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_attribution_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_messages"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -23291,15 +23495,68 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_conversation_scores: {
+        Row: {
+          conversation_id: string
+          id: string
+          metadata: Json | null
+          outcome: string
+          postmortem: string | null
+          project_id: string
+          score: number
+          scored_at: string | null
+          what_failed: string[] | null
+          what_worked: string[] | null
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          metadata?: Json | null
+          outcome: string
+          postmortem?: string | null
+          project_id: string
+          score: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          metadata?: Json | null
+          outcome?: string
+          postmortem?: string | null
+          project_id?: string
+          score?: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversation_scores_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_conversations: {
         Row: {
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
+          audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
           contact_name: string | null
+          conversation_summary: string | null
           created_at: string
+          escalation_confidence: number | null
+          escalation_decided_at: string | null
+          escalation_reason: string | null
+          ia_ativa: boolean | null
           id: string
           jid_suffix: string
           last_message: string | null
@@ -23307,6 +23564,7 @@ export type Database = {
           last_message_direction: string | null
           last_reactivation_at: string | null
           last_read_at: string | null
+          lead_id: string | null
           message_count: number
           metadata: Json | null
           phone: string
@@ -23314,6 +23572,7 @@ export type Database = {
           profile_pic_url: string | null
           project_id: string
           provider_id: string | null
+          reengagement_sent_at: string | null
           session: string
           status: string
           temperature: string | null
@@ -23324,10 +23583,16 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          ia_ativa?: boolean | null
           id?: string
           jid_suffix?: string
           last_message?: string | null
@@ -23335,6 +23600,7 @@ export type Database = {
           last_message_direction?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone: string
@@ -23342,6 +23608,7 @@ export type Database = {
           profile_pic_url?: string | null
           project_id: string
           provider_id?: string | null
+          reengagement_sent_at?: string | null
           session: string
           status?: string
           temperature?: string | null
@@ -23352,10 +23619,16 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          ia_ativa?: boolean | null
           id?: string
           jid_suffix?: string
           last_message?: string | null
@@ -23363,6 +23636,7 @@ export type Database = {
           last_message_direction?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone?: string
@@ -23370,6 +23644,7 @@ export type Database = {
           profile_pic_url?: string | null
           project_id?: string
           provider_id?: string | null
+          reengagement_sent_at?: string | null
           session?: string
           status?: string
           temperature?: string | null
@@ -23377,6 +23652,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_wa_conversations_provider_id_fkey"
             columns: ["provider_id"]
@@ -23632,6 +23914,7 @@ export type Database = {
       }
       imphq_wa_knowledge: {
         Row: {
+          answered: boolean
           aprovada: boolean
           conversation_id: string | null
           created_at: string
@@ -23646,6 +23929,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
@@ -23660,6 +23944,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
@@ -23674,6 +23959,64 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      imphq_wa_lead_memories: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          lead_id: string | null
+          memory_type: string
+          phone: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_lead_memories_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
       }
       imphq_wa_lead_memory: {
         Row: {
@@ -23715,10 +24058,13 @@ export type Database = {
       }
       imphq_wa_messages: {
         Row: {
+          attribution_id: string | null
           content: string
           conversation_id: string
           created_at: string
           direction: string | null
+          gap_analyzed: boolean | null
+          gap_score: number | null
           id: string
           media_url: string | null
           message_type: string | null
@@ -23733,12 +24079,16 @@ export type Database = {
           sent_by: string | null
           status: string | null
           tokens_used: number | null
+          transcript: string | null
         }
         Insert: {
+          attribution_id?: string | null
           content: string
           conversation_id: string
           created_at?: string
           direction?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23753,12 +24103,16 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
         }
         Update: {
+          attribution_id?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
           direction?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23773,6 +24127,7 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
         }
         Relationships: [
           {
@@ -23973,6 +24328,7 @@ export type Database = {
       imphq_wa_triage: {
         Row: {
           ai_response: string | null
+          awareness_level: number | null
           conversation_id: string | null
           created_at: string
           escalated: boolean
@@ -23988,6 +24344,7 @@ export type Database = {
         }
         Insert: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -24003,6 +24360,7 @@ export type Database = {
         }
         Update: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -40856,6 +41214,18 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_funnel_daily: {
+        Row: {
+          day: string | null
+          links_clicados: number | null
+          links_enviados: number | null
+          project_id: string | null
+          source: string | null
+          vendas_aprovadas: number | null
+          vendas_geradas: number | null
+        }
+        Relationships: []
+      }
       nutrition_progress_metrics: {
         Row: {
           adherence_rate: number | null
@@ -41054,6 +41424,10 @@ export type Database = {
         Returns: boolean
       }
       areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      areamembrojp_link_legacy_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       areamembrojp_program_metrics: {
         Args: { p_program_id: string }
         Returns: Json
@@ -41169,6 +41543,17 @@ export type Database = {
       }
       diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
+      flow_roi_by_automation: {
+        Args: { p_project_id: string; p_since?: string }
+        Returns: {
+          automacao_id: string
+          automacao_nome: string
+          avg_ticket: number
+          conversions: number
+          leads_touched: number
+          revenue_total: number
+        }[]
+      }
       generate_nutrition_insights: {
         Args: { p_days_to_analyze?: number; p_user_id: string }
         Returns: {
@@ -41370,6 +41755,10 @@ export type Database = {
       jp_is_admin: { Args: { _uid: string }; Returns: boolean }
       jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       link_leads_by_utm: { Args: { p_campanha_id: string }; Returns: number }
+      link_wa_conversation_to_lead: {
+        Args: { p_conv_id: string; p_phone: string; p_project_id: string }
+        Returns: undefined
+      }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
         Args: { message_id: string }
@@ -41415,20 +41804,22 @@ export type Database = {
           min_similarity?: number
           p_project_id: string
           query_embedding: string
-          query_text: string
+          query_text?: string
         }
         Returns: {
           id: string
           pergunta: string
           resposta: string
+          score_uso: number
           similarity: number
+          source: string
         }[]
       }
       match_wa_lead_memory: {
         Args: {
-          match_count: number
-          min_similarity: number
-          p_phone: string
+          match_count?: number
+          min_similarity?: number
+          p_phone?: string
           p_project_id: string
           query_embedding: string
         }
