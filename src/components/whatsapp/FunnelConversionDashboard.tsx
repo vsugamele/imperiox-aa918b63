@@ -35,15 +35,15 @@ export function FunnelConversionDashboard({ projectId }: Props) {
 
       const [leadsRes, vendasRes, execRes, autoRes] = await Promise.all([
         supabase.from("imphq_leads").select("status, score").eq("project_id", projectId).gte("criado_em", since),
-        supabase.from("imphq_vendas").select("valor, automacao_id").eq("project_id", projectId).gte("created_at", since),
+        supabase.from("imphq_vendas").select("valor").eq("project_id", projectId).gte("created_at", since),
         supabase.from("imphq_flow_executions").select("automacao_id, status").eq("project_id", projectId).gte("created_at", since),
         supabase.from("imphq_automacoes").select("id, nome").eq("project_id", projectId).eq("ativo", true),
       ]);
 
-      const leads = leadsRes.data || [];
-      const vendas = vendasRes.data || [];
-      const execs = execRes.data || [];
-      const autos = autoRes.data || [];
+      const leads = (leadsRes.data as any[]) || [];
+      const vendas = (vendasRes.data as any[]) || [];
+      const execs = (execRes.data as any[]) || [];
+      const autos = (autoRes.data as any[]) || [];
 
       // KPIs
       const totalLeads = leads.length;
@@ -61,12 +61,14 @@ export function FunnelConversionDashboard({ projectId }: Props) {
       }
       const total = totalLeads || 1;
       setStages(STAGES.map(s => ({
-        ...s,
+        stage: s.id,
+        label: s.label,
+        color: s.color,
         count: stageCounts[s.id] || 0,
         pct: Math.round(((stageCounts[s.id] || 0) / total) * 100),
       })));
 
-      // Flow stats
+      // Flow stats (vendas não têm automacao_id — apenas execuções)
       const flowMap: Record<string, { nome: string; execucoes: number; vendas: number }> = {};
       for (const a of autos) {
         flowMap[a.id] = { nome: a.nome || a.id, execucoes: 0, vendas: 0 };
@@ -74,11 +76,6 @@ export function FunnelConversionDashboard({ projectId }: Props) {
       for (const e of execs) {
         if (e.automacao_id && flowMap[e.automacao_id]) {
           flowMap[e.automacao_id].execucoes++;
-        }
-      }
-      for (const v of vendas) {
-        if (v.automacao_id && flowMap[v.automacao_id]) {
-          flowMap[v.automacao_id].vendas++;
         }
       }
       const flowStats: FlowStat[] = Object.entries(flowMap)
