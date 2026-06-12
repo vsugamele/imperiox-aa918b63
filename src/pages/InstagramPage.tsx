@@ -17,6 +17,7 @@ import {
   Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCompactTime } from "@/lib/formatCompactTime";
 import { ptBR } from "date-fns/locale";
 import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
 
@@ -1732,7 +1733,7 @@ export default function InstagramPage() {
                                 )}
                                 {c.last_message_at && (
                                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                    {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false, locale: ptBR })}
+                                    {formatCompactTime(c.last_message_at)}
                                   </span>
                                 )}
                               </div>
@@ -2478,7 +2479,7 @@ export default function InstagramPage() {
                                     <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
                                     {c.last_message_at && (
                                       <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                        {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                        {formatCompactTime(c.last_message_at)}
                                       </p>
                                     )}
                                   </div>

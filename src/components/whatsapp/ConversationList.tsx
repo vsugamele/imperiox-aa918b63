@@ -8,6 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { formatCompactTime } from "@/lib/formatCompactTime";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -85,48 +86,7 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
-function formatMessageTime(dateStr: string | undefined): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "";
-
-  const now = new Date();
-  
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const timeStr = `${hours}:${minutes}`;
-
-  // Check if it is today
-  const isToday = date.getDate() === now.getDate() &&
-                  date.getMonth() === now.getMonth() &&
-                  date.getFullYear() === now.getFullYear();
-
-  if (isToday) {
-    return timeStr;
-  }
-
-  // Check if it was yesterday
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday = date.getDate() === yesterday.getDate() &&
-                      date.getMonth() === yesterday.getMonth() &&
-                      date.getFullYear() === yesterday.getFullYear();
-
-  if (isYesterday) {
-    return `Ontem ${timeStr}`;
-  }
-
-  // Same year
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${day}/${month} ${timeStr}`;
-  }
-
-  // Older years
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year} ${timeStr}`;
-}
+const formatMessageTime = (dateStr: string | undefined) => formatCompactTime(dateStr);
 
 function getInitials(name: string | null, phone: string): string {
   if (name) {
