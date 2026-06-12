@@ -38535,6 +38535,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_active_challenge: {
+        Row: {
+          challenge_id: string
+          completed_days: number[]
+          id: string
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_balances: {
         Row: {
           balance: number
@@ -38561,6 +38624,69 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_habits_history: {
+        Row: {
+          completed_habits: string[]
+          created_at: string
+          date: string
+          id: string
+          streak: number
+          user_id: string
+        }
+        Insert: {
+          completed_habits?: string[]
+          created_at?: string
+          date: string
+          id?: string
+          streak?: number
+          user_id: string
+        }
+        Update: {
+          completed_habits?: string[]
+          created_at?: string
+          date?: string
+          id?: string
+          streak?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_interactions: {
         Row: {
