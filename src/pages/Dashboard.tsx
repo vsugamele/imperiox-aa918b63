@@ -48,6 +48,16 @@ function SectionHead({ kicker, title, action }: { kicker: string; title: string;
   );
 }
 
+type DashView = "completo" | "executivo" | "marketing" | "financeiro";
+const VIEW_LS_KEY = "imphq.dashboard.view";
+
+const VIEW_SECTIONS: Record<DashView, Set<string>> = {
+  completo: new Set(["hero","resumo","kpi","imperius","comparativo","fb-health","hoje","preditivo","receita","ads","charts","semanal","atividade"]),
+  executivo: new Set(["hero","resumo","kpi","imperius","comparativo","receita","semanal","atividade"]),
+  marketing: new Set(["kpi","imperius","hoje","preditivo","ads","charts","atividade","fb-health"]),
+  financeiro: new Set(["resumo","kpi","receita","ads","charts","semanal","comparativo"]),
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -56,6 +66,11 @@ export default function Dashboard() {
   const [dashProduct, setDashProduct] = useState("all");
   const [compareMode, setCompareMode] = useState(false);
   const [recoveryRisk, setRecoveryRisk] = useState(0);
+  const [view, setView] = useState<DashView>(() => {
+    try { return (localStorage.getItem(VIEW_LS_KEY) as DashView) || "completo"; } catch { return "completo"; }
+  });
+  useEffect(() => { try { localStorage.setItem(VIEW_LS_KEY, view); } catch {} }, [view]);
+  const show = (id: string) => VIEW_SECTIONS[view].has(id);
 
   // Reference queries — shared hook (TanStack) deduplicates across the whole app
   const { data: allProjects = [] } = useProjectList({ includeArchived: true });
