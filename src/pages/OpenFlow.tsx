@@ -996,7 +996,40 @@ export default function OpenFlow() {
                   onTemplateSaved={loadTemplates}
                   automacaoId={editing.id}
                 />
-... (the rest of the dialog content) ...
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-4">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5" /> Configurações de Tempo
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Silêncio Início (h)</Label>
+                        <Input type="number" min={0} max={23} placeholder="ex: 22" value={editing.quiet_start ?? ""} onChange={e => setEditing({ ...editing, quiet_start: e.target.value === "" ? null : Number(e.target.value) })} className="h-9 bg-background/50 border-white/10" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Silêncio Fim (h)</Label>
+                        <Input type="number" min={0} max={23} placeholder="ex: 8" value={editing.quiet_end ?? ""} onChange={e => setEditing({ ...editing, quiet_end: e.target.value === "" ? null : Number(e.target.value) })} className="h-9 bg-background/50 border-white/10" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-4">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Segurança & Status
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Dedupe (horas)</Label>
+                        <Input type="number" min={0} placeholder="0" value={editing.dedupe_hours ?? 0} onChange={e => setEditing({ ...editing, dedupe_hours: Number(e.target.value) || 0 })} className="h-9 bg-background/50 border-white/10" />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 h-16 pt-4">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Automação Ativa</Label>
+                        <Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
