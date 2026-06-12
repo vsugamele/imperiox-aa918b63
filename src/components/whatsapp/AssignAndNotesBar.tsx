@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserCircle2, StickyNote, Trash2, Plus } from "lucide-react";
+import { UserCircle2, StickyNote, Trash2, Plus, BellOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member { id: string; user_id: string | null; name: string | null; email: string | null; avatar_url: string | null; }
@@ -11,6 +11,7 @@ interface Note { id: string; content: string; author_id: string | null; author_n
 
 export default function AssignAndNotesBar({ conversationId }: { conversationId: string }) {
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -38,8 +39,11 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to").eq("id", conversationId).maybeSingle()
-      .then(({ data }) => setAssignedTo((data as any)?.assigned_to || null));
+    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until").eq("id", conversationId).maybeSingle()
+      .then(({ data }) => {
+        setAssignedTo((data as any)?.assigned_to || null);
+        setSnoozedUntil((data as any)?.snoozed_until || null);
+      });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
         .select("*").eq("conversation_id", conversationId)
