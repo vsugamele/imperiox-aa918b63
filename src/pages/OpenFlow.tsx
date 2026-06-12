@@ -534,7 +534,13 @@ export default function OpenFlow() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span>{tm.icon}</span>
                         <h3 className="font-medium text-sm truncate">{a.nome}</h3>
+                        {(a as any).source === "imperius" && (
+                          <Badge variant="outline" className="text-[9px] uppercase bg-violet-500/15 text-violet-300 border-violet-500/30 shrink-0">
+                            Imperius
+                          </Badge>
+                        )}
                       </div>
+
                       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
                           <Play className="h-3 w-3 text-primary" />
