@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
@@ -977,6 +977,20 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       }
     };
 
+    const markAsGold = async (m: Message) => {
+      try {
+        const { data, error } = await supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conversationId, message_id: m.id, project_id: projectId, gold: true },
+        });
+        if (error) throw error;
+        if ((data as any)?.skipped) { toast.info("Pulado: " + (data as any).skipped); return; }
+        setFeedbackSent(prev => ({ ...prev, [m.id]: "good" }));
+        toast.success("⭐ Marcada como exemplo de ouro — a IA vai replicar esse padrão");
+      } catch (e: any) {
+        toast.error("Erro: " + e.message);
+      }
+    };
+
     const startEdit = (m: Message) => {
       setEditingId(m.id);
       setEditText(m.content || "");
@@ -1366,6 +1380,13 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                   title="Corrigir resposta"
                                 >
                                   <ThumbsDown className="h-2.5 w-2.5 text-amber-400" />
+                                </button>
+                                <button
+                                  onClick={() => markAsGold(m)}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                  title="Ouro — ensinar a IA a replicar esta resposta"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-primary" />
                                 </button>
                               </>
                             )}

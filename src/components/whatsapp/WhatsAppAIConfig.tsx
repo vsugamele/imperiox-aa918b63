@@ -122,6 +122,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [saving, setSaving] = useState(false);
   const [customSkills, setCustomSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backfillLoading, setBackfillLoading] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
   const [refUploaded, setRefUploaded] = useState(false);
   const refAudioInputRef = useRef<HTMLInputElement>(null);
@@ -1595,11 +1596,38 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     <p className="text-xs font-bold text-foreground">Aprendizado de Máquina (Auto-Learning)</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-normal">
-                    Indexa automaticamente respostas que sua equipe dá no chat humano. O cérebro da IA fica mais inteligente a cada conversa real!
+                    Indexa automaticamente respostas que você dá no chat humano <strong>e também pelo celular</strong>. O cérebro da IA fica mais inteligente a cada conversa real.
                   </p>
                 </div>
                 <Switch checked={(config as any).learning_mode !== false}
                   onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
+              </div>
+
+              {/* Backfill histórico */}
+              <div className="p-4 rounded-lg border border-border/30 bg-secondary/10 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">Aprender do histórico</p>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Varre as suas respostas humanas dos últimos 30 dias e indexa na knowledge base. Use uma vez após ativar o aprendizado.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" disabled={backfillLoading}
+                  onClick={async () => {
+                    setBackfillLoading(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("wa-learn-backfill", {
+                        body: { project_id: projectId, days: 30, limit: 500 },
+                      });
+                      if (error) throw error;
+                      toast.success(`✓ ${data?.aprendidas || 0} aprendidas · ${data?.dedupadas || 0} já existiam · ${data?.puladas || 0} puladas`);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Erro no backfill");
+                    } finally {
+                      setBackfillLoading(false);
+                    }
+                  }}>
+                  {backfillLoading ? "Processando…" : "Rodar agora"}
+                </Button>
               </div>
             </TabsContent>
 
