@@ -79,14 +79,32 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast.success(`✅ Zernio: ${data.imported} registros, ${data.ads} ads, ${data.campaigns} campanhas`);
       setLastSync(new Date().toISOString());
+      setLastStatus("success");
+      setLastError(null);
       setOpen(false);
       onAfterSync?.();
     } catch (e: any) {
-      toast.error(`Falha sync Zernio: ${e?.message || e}`);
+      const msg = e?.message || String(e);
+      setLastSync(new Date().toISOString());
+      setLastStatus("error");
+      setLastError(msg);
+      toast.error(`Falha sync Zernio: ${msg}`);
     } finally {
       setSyncing(false);
     }
   };
+
+  const relTime = (iso: string | null) => {
+    if (!iso) return null;
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return "agora";
+    if (min < 60) return `${min}m`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  };
+
 
   if (!hasZernio) return null;
 
