@@ -653,7 +653,7 @@ export default function Leads() {
                 className={cn("h-9 gap-1", hotOnly && "bg-orange-500 hover:bg-orange-600 text-white")}
                 title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
               >
-                🔥 Hot {hotOnly ? "ON" : ""}
+                <Flame className="h-4 w-4" /> Hot {hotOnly ? "ON" : ""}
               </Button>
               {someSelected && (
                 <>
