@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { conversation_id, message_id, project_id } = await req.json();
+    const { conversation_id, message_id, project_id, gold, source } = await req.json();
     if (!conversation_id || !project_id) {
       return new Response(JSON.stringify({ ok: false, error: "missing_params" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
