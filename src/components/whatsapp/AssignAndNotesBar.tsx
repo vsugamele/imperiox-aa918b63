@@ -84,6 +84,15 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     if (error) toast.error("Falha ao apagar");
   };
 
+  const snooze = async (mins: number | null) => {
+    const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
+    setSnoozedUntil(until);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ snoozed_until: until } as any).eq("id", conversationId);
+    if (error) { toast.error("Falha ao silenciar"); return; }
+    toast.success(until ? `Silenciada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "Silêncio removido");
+  };
+
+  const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
   const owner = members.find(m => m.user_id === assignedTo);
 
   return (
