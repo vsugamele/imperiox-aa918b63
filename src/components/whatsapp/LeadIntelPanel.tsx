@@ -15,9 +15,12 @@ interface LeadIntelPanelProps {
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
   const [intel, setIntel] = useState<any>(null);
   const [activeFlow, setActiveFlow] = useState<any>(null);
+  const [sales, setSales] = useState<any[]>([]);
+  const [resolvedLeadIdState, setResolvedLeadIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+
     if (!leadId && !phone) return;
     const load = async () => {
       setLoading(true);
