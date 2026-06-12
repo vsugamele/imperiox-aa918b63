@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
       || payload?.data?.message?.messageId
       || payload?.data?.messageId
       || payload?.message?.id
+      || payload?.message?.messageId
       || null;
 
     if (earlyMessageId) {
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
         .from("imphq_ig_webhook_logs")
         .select("id")
         .eq("event_type", `zernio_${payload.event || "unknown"}`)
-        .filter("payload->data->message->>id", "eq", earlyMessageId)
+        .or(`payload->data->message->>id.eq.${earlyMessageId},payload->message->>id.eq.${earlyMessageId}`)
         .eq("processed", true)
         .limit(1)
         .maybeSingle();
@@ -72,10 +73,18 @@ Deno.serve(async (req) => {
     const messageId      = message?.id || message?.messageId || data.messageId;
     const conversationId = conversation?.id || conversation?.conversationId || data.conversationId;
     const text           = message?.text || message?.content || message?.body || data.text || "";
+    const attachments    = Array.isArray(message?.attachments)
+      ? message.attachments.map((att: any) => ({
+          type: att.originalType || att.type || "file",
+          payload: { url: att.payload?.url || att.url || null },
+        }))
+      : [];
 
     // Para outbound, o "lead" (counterpart) está em conversation.participantId.
     // Para inbound, o sender já é o próprio lead.
-    const sender       = message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {};
+    const sender       = isOutbound
+      ? {}
+      : (message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {});
     const senderId     = isOutbound
       ? (conversation?.participantId || conversation?.platformConversationId || data.recipientId)
       : (sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId);
@@ -150,23 +159,32 @@ Deno.serve(async (req) => {
         messaging: [{
           sender: envelopeSender,
           recipient: envelopeRecipient,
-          timestamp: Date.now(),
-          message: { mid: messageId, text, attachments: [] },
+          timestamp: new Date(message?.sentAt || data.timestamp || payload.timestamp || Date.now()).getTime(),
+          message: { mid: messageId, text, attachments },
         }],
       }],
     };
 
     console.log(`[zernio-webhook] Forwarding ${isOutbound ? "OUTBOUND" : "inbound"} to instagram-webhook (lead: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const forwardHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    if (anonKey) {
+      forwardHeaders.Authorization = `Bearer ${anonKey}`;
+      forwardHeaders.apikey = anonKey;
+    }
     const forwardRes = await fetch(forwardUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") || "" },
+      headers: forwardHeaders,
       body: JSON.stringify(metaEnvelope),
     });
 
     if (!forwardRes.ok) {
       const errText = await forwardRes.text();
       console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}`);
+      if (logEntry) {
+        await supa.from("imphq_ig_webhook_logs").update({ error: errText }).eq("id", logEntry.id);
+      }
       return new Response(`Error forwarding: ${errText}`, { status: 500 });
     }
 
