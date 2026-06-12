@@ -235,9 +235,12 @@ Deno.serve(async (req) => {
         await supabaseForCatch.from("imphq_webhook_errors").insert({
           scanner: "zernio-ads-sync",
           project_id: project_id_for_log,
-          error_message: errMsg.slice(0, 1000),
+          plataforma: "zernio",
+          evento: "ads_sync",
+          erro: errMsg.slice(0, 1000),
           payload: {},
         });
+
       }
     } catch (_) { /* ignore */ }
     return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: jsonHeaders });
