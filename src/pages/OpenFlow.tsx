@@ -26,6 +26,7 @@ import { ColdLeadReactivation } from "@/components/openflow/ColdLeadReactivation
 import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StepGuide } from "@/components/openflow/StepGuide";
+import { VersionHistoryDrawer } from "@/components/openflow/VersionHistoryDrawer";
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
@@ -87,6 +88,7 @@ export default function OpenFlow() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "", tag_filtro: "" });
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
@@ -359,6 +361,7 @@ export default function OpenFlow() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setEditing(null)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">Cancelar</Button>
+                {editing && <Button variant="outline" onClick={() => setShowHistory(true)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10"><History className="h-3.5 w-3.5 mr-1.5" /> Histórico</Button>}
                 {editing && <Button onClick={() => saveAutomacao(editing)} className="h-9 px-6 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]"><Save className="h-4 w-4 mr-2" /> Salvar Automação</Button>}
               </div>
             </div>
@@ -409,6 +412,24 @@ export default function OpenFlow() {
           )}
         </DialogContent>
       </Dialog>
+
+      <VersionHistoryDrawer
+        open={showHistory}
+        onOpenChange={setShowHistory}
+        automacaoId={editing?.id || null}
+        automacaoNome={editing?.nome}
+        onRestore={(snap) => {
+          if (!editing) return;
+          setEditing({
+            ...editing,
+            ...(snap.nome ? { nome: snap.nome } : {}),
+            ...(snap.trigger_tipo ? { trigger_tipo: snap.trigger_tipo } : {}),
+            ...(Array.isArray(snap.acoes) ? { acoes: snap.acoes } : {}),
+            ...(snap.flow_objective !== undefined ? { flow_objective: snap.flow_objective } : {}),
+          });
+          load();
+        }}
+      />
     </div>
   );
 }

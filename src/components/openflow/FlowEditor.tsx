@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +63,8 @@ const ACAO_TIPOS = [
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
   { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
+  { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
+  { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -135,6 +137,12 @@ export interface Acao {
   score_max?: number;
   // slack_notify
   text?: string;
+  // update_lead
+  lead_field?: string;
+  lead_op?: string;
+  lead_value?: string;
+  // move_stage
+  target_stage?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
@@ -2367,6 +2375,68 @@ export function FlowEditor({
                     </p>
                   </div>
                 )}
+
+                {/* update_lead fields */}
+                {acao.tipo === "update_lead" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Campo do Lead</Label>
+                        <Select value={acao.lead_field || ""} onValueChange={v => updateAcao(selectedIdx, "lead_field", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="status">status</SelectItem>
+                            <SelectItem value="score">score (número)</SelectItem>
+                            <SelectItem value="awareness_level">awareness_level</SelectItem>
+                            <SelectItem value="nome">nome</SelectItem>
+                            <SelectItem value="email">email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Operação</Label>
+                        <Select value={acao.lead_op || "set"} onValueChange={v => updateAcao(selectedIdx, "lead_op", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="set">Definir (set)</SelectItem>
+                            <SelectItem value="inc">Incrementar (+) — apenas score</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Valor</Label>
+                      <Input
+                        value={acao.lead_value ?? ""}
+                        onChange={e => updateAcao(selectedIdx, "lead_value", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: qualificado, 25, sales_aware"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👤 Atualiza o campo no registro do lead. Para <code>score</code> use número; para <code>awareness_level</code> use unaware/problem_aware/solution_aware/product_aware/most_aware.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* move_stage fields */}
+                {acao.tipo === "move_stage" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Novo Funil/Etapa (funil_id)</Label>
+                      <Input
+                        value={acao.target_stage || ""}
+                        onChange={e => updateAcao(selectedIdx, "target_stage", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: aquisicao, conversao, retencao"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        ➡️ Move o lead para outra etapa do funil atualizando <code>imphq_leads.funil_id</code>. Use o slug exato da etapa.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 
                 {/* notify_operator fields */}
                 {acao.tipo === "notify_operator" && (
