@@ -56,6 +56,7 @@ interface Row {
   thumbnail_url?: string | null;
   creative_body?: string | null;
   creative_title?: string | null;
+  source?: string | null;
   valor: number;
   impressoes: number;
   cliques: number;
@@ -70,6 +71,9 @@ interface Row {
   receita: number;
   ticket?: number;
 }
+
+const fnFor = (row: Row) => row.source === "zernio" ? "zernio-ads-toggle" : "facebook-ads-toggle";
+const hasValidId = (row: Row) => !!row.id && row.id !== "—" && (row.source === "zernio" || /^\d+$/.test(row.id));
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
@@ -101,7 +105,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
     const r: Row = {
       level, id: key, parent_id: parent_id ?? null, name,
       effective_status: null, daily_budget: null,
-      thumbnail_url: null, creative_body: null, creative_title: null,
+      thumbnail_url: null, creative_body: null, creative_title: null, source: null,
       valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
       hook_rate: 0, cpm: 0, frequencia: 0, alcance: 0, lp_views: 0, receita: 0,
     };
@@ -123,6 +127,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
       if (!r.thumbnail_url && a.thumbnail_url) r.thumbnail_url = a.thumbnail_url;
       if (!r.creative_body && a.creative_body) r.creative_body = a.creative_body;
       if (!r.creative_title && a.creative_title) r.creative_title = a.creative_title;
+      if (!r.source && a.source) r.source = a.source;
     }
     r.hook_rate = hookN ? hookSum / hookN : 0;
     r.cpm = cpmN ? cpmSum / cpmN : 0;
