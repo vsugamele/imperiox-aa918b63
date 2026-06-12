@@ -834,8 +834,10 @@ export function FlowEditor({
             acoes={acoes}
             triggerTipo={triggerTipo}
             onChange={onChange}
-            onNodeClick={(acao, index) => setSelectedIdx(index)}
+            onActionSelect={setSelectedIdx}
             stepStats={stepStats}
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
           />
         ) : (
           <div 
