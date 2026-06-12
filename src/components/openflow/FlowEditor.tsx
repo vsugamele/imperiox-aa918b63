@@ -63,6 +63,8 @@ const ACAO_TIPOS = [
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
   { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
+  { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
+  { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
