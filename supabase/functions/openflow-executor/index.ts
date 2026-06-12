@@ -172,6 +172,48 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Exit Conditions: cancel running/waiting executions when the incoming
+    // trigger matches an automation's exit_trigger_tipo. If exit_cascade=true,
+    // cancel ALL active flows for this lead in the project.
+    if (lead_data?.lead_id) {
+      const { data: exitMatches } = await supabase
+        .from("imphq_automacoes")
+        .select("id, nome, exit_trigger_tipo, exit_cascade")
+        .eq("project_id", project_id)
+        .in("exit_trigger_tipo", triggerVariants);
+
+      if (exitMatches && exitMatches.length > 0) {
+        const cascade = exitMatches.some((a: any) => a.exit_cascade);
+        let killQuery = supabase
+          .from("imphq_flow_executions")
+          .update({
+            status: "exited",
+            error_message: `Exit condition: ${trigger_tipo}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("project_id", project_id)
+          .eq("lead_id", lead_data.lead_id)
+          .in("status", ["running", "waiting"]);
+
+        if (!cascade) {
+          killQuery = killQuery.in("automacao_id", exitMatches.map((a: any) => a.id));
+        }
+
+        const { data: killed } = await killQuery.select("id, automacao_id, current_step");
+        if (killed && killed.length > 0) {
+          for (const k of killed) {
+            await supabase.from("imphq_automacao_logs").insert({
+              automacao_id: k.automacao_id,
+              project_id,
+              lead_id: lead_data.lead_id,
+              tipo: "exit_condition",
+              mensagem: `Flow encerrado por exit condition (${trigger_tipo}) em Passo ${k.current_step ?? 0}${cascade ? " · cascade" : ""}`,
+            }).then(() => {}, () => {});
+          }
+        }
+      }
+    }
+
     // Fetch lead details if lead_id is present to get accurate, latest tags
     let leadTags: string[] = [];
     if (lead_data?.lead_id) {
