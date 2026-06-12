@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjectList } from "@/hooks/useProjectList";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -56,15 +57,9 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [recoveryRisk, setRecoveryRisk] = useState(0);
 
-  // Reference queries — cached 5min via QueryClient defaults, deduped across components
-  const { data: allProjects = [] } = useQuery({
-    queryKey: ["dashboard", "projects"],
-    queryFn: async () => {
-      const { data } = await supabase.from("imphq_projects").select("id, name, icon");
-      return data || [];
-    },
-    staleTime: 5 * 60_000,
-  });
+  // Reference queries — shared hook (TanStack) deduplicates across the whole app
+  const { data: allProjects = [] } = useProjectList({ includeArchived: true });
+
 
   const { data: allProducts = [] } = useQuery({
     queryKey: ["dashboard", "products"],
