@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Zap, Tag, Activity, Cpu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 interface LeadIntelPanelProps {
   leadId?: string | null;
   phone?: string | null;
   projectId?: string | null;
 }
+
 
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
   const [intel, setIntel] = useState<any>(null);
