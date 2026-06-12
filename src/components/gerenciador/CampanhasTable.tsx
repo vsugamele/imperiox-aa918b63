@@ -532,9 +532,12 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     </TableCell>
                     <TableCell className="font-medium text-foreground/90 max-w-[320px]">
                       <div className="flex items-center gap-1.5 min-w-0">
+                        {row.source === "zernio" && (
+                          <span className="shrink-0 text-[9px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30" title="Sincronizado via Zernio">Zernio</span>
+                        )}
                         <InlineRename
                           value={optimisticName.get(id) ?? row.name}
-                          disabled={!/^\d+$/.test(id)}
+                          disabled={!hasValidId(row)}
                           onSave={async (next) => {
                             const prev = optimisticName.get(id) ?? row.name;
                             setOptimisticName(m => new Map(m).set(id, next));
@@ -587,7 +590,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     {isVisible("receita") && <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>}
                     {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>}
                     {isVisible("daily_budget") && <TableCell className="text-right">
-                      <BudgetEditor value={dailyBudget} disabled={!/^\d+$/.test(id)} onSave={(n) => handleBudget("campaign", row, n)} />
+                      <BudgetEditor value={dailyBudget} disabled={!hasValidId(row)} onSave={(n) => handleBudget("campaign", row, n)} />
                     </TableCell>}
                     {isVisible("verdict") && <TableCell className="text-right">
                       <span className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor((row as any).verdict as Verdict))} title={(row as any).verdictReason}>
@@ -747,7 +750,7 @@ function ReactFragment(props: {
         {isVisible("receita") && <TableCell className="text-right tabular-nums">{adset.receita ? brl(adset.receita) : "—"}</TableCell>}
         {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={adset.roas} /></TableCell>}
         {isVisible("daily_budget") && <TableCell className="text-right">
-          <BudgetEditor value={adsetBudget} disabled={!/^\d+$/.test(adset.id)} onSave={onBudget} />
+          <BudgetEditor value={adsetBudget} disabled={!hasValidId(adset)} onSave={onBudget} />
         </TableCell>}
         {isVisible("verdict") && <TableCell></TableCell>}
       </TableRow>
@@ -802,7 +805,7 @@ function ReactFragment(props: {
             {isVisible("receita") && <TableCell className="text-right tabular-nums">{ad.receita ? brl(ad.receita) : "—"}</TableCell>}
             {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={ad.roas} /></TableCell>}
             {isVisible("daily_budget") && <TableCell className="text-right">
-              <BudgetEditor value={adBudget} disabled={!/^\d+$/.test(ad.id)} onSave={(n) => onAdBudget(ad, n)} />
+              <BudgetEditor value={adBudget} disabled={!hasValidId(ad)} onSave={(n) => onAdBudget(ad, n)} />
             </TableCell>}
             {isVisible("verdict") && <TableCell></TableCell>}
           </TableRow>
