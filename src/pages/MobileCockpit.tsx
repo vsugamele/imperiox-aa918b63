@@ -202,6 +202,17 @@ export default function MobileCockpit() {
         </select>
       </div>
 
+      <button
+        onClick={() => {
+          localStorage.setItem("imphq_force_desktop", "1");
+          window.location.href = "/dashboard";
+        }}
+        className="w-full text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-amber-500 transition py-1"
+      >
+        Ver versão desktop →
+      </button>
+
+
       {/* Sales Stats Carousel/Grid */}
       <div className="grid grid-cols-3 gap-2.5">
         <Card className="bg-slate-900 border-border/50 text-center shadow-md">
