@@ -34,6 +34,31 @@ function isUnreadSession(s: WaSession): boolean {
   return lastRead < lastMsg;
 }
 
+// SLA: tempo desde a última mensagem do lead aguardando resposta
+function waitingMinutes(s: WaSession): number | null {
+  const dir = s.last_message_direction;
+  if (dir !== "in" && dir !== "incoming") return null;
+  if (!s.last_message_at) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(s.last_message_at).getTime()) / 60000));
+}
+
+function formatWaiting(min: number): string {
+  if (min < 1) return "agora";
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h${min % 60 ? ` ${min % 60}min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+function slaColor(min: number): string {
+  if (min < 5) return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+  if (min < 30) return "bg-amber-500/20 text-amber-300 border-amber-500/40";
+  if (min < 120) return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+  return "bg-red-500/25 text-red-300 border-red-500/50 animate-pulse";
+}
+
+
 
 interface Provider {
   id: string;
