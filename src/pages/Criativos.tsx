@@ -36,7 +36,9 @@ export default function Criativos() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 8000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
