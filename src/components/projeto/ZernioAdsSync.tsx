@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Zap, RefreshCw } from "lucide-react";
+import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -30,6 +30,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const [savedAcc, setSavedAcc] = useState<string | undefined>();
   const [hasZernio, setHasZernio] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [lastStatus, setLastStatus] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Load saved Zernio config
   useEffect(() => {
@@ -45,8 +47,11 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setHasZernio(ok);
       setSavedAcc(c.zernio_ad_account_id);
       setLastSync(c.zernio_ads_last_sync || null);
+      setLastStatus(c.zernio_ads_last_sync_status || null);
+      setLastError(c.zernio_ads_last_sync_error || null);
     })();
   }, [projectId]);
+
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -74,14 +79,32 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast.success(`✅ Zernio: ${data.imported} registros, ${data.ads} ads, ${data.campaigns} campanhas`);
       setLastSync(new Date().toISOString());
+      setLastStatus("success");
+      setLastError(null);
       setOpen(false);
       onAfterSync?.();
     } catch (e: any) {
-      toast.error(`Falha sync Zernio: ${e?.message || e}`);
+      const msg = e?.message || String(e);
+      setLastSync(new Date().toISOString());
+      setLastStatus("error");
+      setLastError(msg);
+      toast.error(`Falha sync Zernio: ${msg}`);
     } finally {
       setSyncing(false);
     }
   };
+
+  const relTime = (iso: string | null) => {
+    if (!iso) return null;
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return "agora";
+    if (min < 60) return `${min}m`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  };
+
 
   if (!hasZernio) return null;
 
@@ -93,9 +116,19 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
           variant="outline"
           className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
           onClick={() => { setOpen(true); loadAccounts(); }}
-          title={lastSync ? `Último sync Zernio: ${new Date(lastSync).toLocaleString("pt-BR")}` : "Sync via Zernio"}
+          title={lastSync ? `Último sync Zernio: ${new Date(lastSync).toLocaleString("pt-BR")}${lastError ? `\nErro: ${lastError}` : ""}` : "Sync via Zernio"}
         >
           <Zap className="h-3.5 w-3.5 mr-1" /> Sync Zernio
+          {lastStatus === "success" && lastSync && (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-green-400">
+              <CheckCircle2 className="h-3 w-3" /> {relTime(lastSync)}
+            </span>
+          )}
+          {lastStatus === "error" && lastSync && (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-red-400">
+              <AlertTriangle className="h-3 w-3" /> {relTime(lastSync)}
+            </span>
+          )}
         </Button>
         {savedAcc && (
           <Button
@@ -110,6 +143,7 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
           </Button>
         )}
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-secondary/40 max-w-md">
