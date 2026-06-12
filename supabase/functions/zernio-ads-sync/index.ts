@@ -30,11 +30,16 @@ function pickAction(actions: any[], type: string): number {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  let project_id_for_log: string | null = null;
+  let supabaseForCatch: any = null;
+  let credsForCatch: any = null;
   try {
     const { project_id, ad_account_id, date_from, date_to } = await req.json();
+    project_id_for_log = project_id;
     if (!project_id) return new Response(JSON.stringify({ error: "project_id obrigatório" }), { status: 400, headers: jsonHeaders });
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    supabaseForCatch = supabase;
 
     const { data: creds } = await supabase
       .from("imphq_integration_credentials")
@@ -42,6 +47,7 @@ Deno.serve(async (req) => {
       .eq("project_id", project_id)
       .eq("provider", "instagram")
       .maybeSingle();
+    credsForCatch = creds;
 
     const apiKey = creds?.credentials?.zernio_api_key;
     const zernioAccountId = creds?.credentials?.zernio_account_id;
@@ -50,6 +56,7 @@ Deno.serve(async (req) => {
     if (!apiKey || !zernioAccountId) {
       return new Response(JSON.stringify({ error: "Zernio não configurado (provider=instagram, auth_method=zernio)" }), { status: 400, headers: jsonHeaders });
     }
+
     if (!adAccountId) {
       return new Response(JSON.stringify({ error: "ad_account_id obrigatório (ou configure zernio_ad_account_id)" }), { status: 400, headers: jsonHeaders });
     }
@@ -182,7 +189,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist last sync timestamp
+    // Persist last sync timestamp + status
     await supabase
       .from("imphq_integration_credentials")
       .update({
@@ -190,6 +197,9 @@ Deno.serve(async (req) => {
           ...(creds?.credentials || {}),
           zernio_ad_account_id: adAccountId,
           zernio_ads_last_sync: new Date().toISOString(),
+          zernio_ads_last_sync_status: "success",
+          zernio_ads_last_sync_error: null,
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size },
         },
       })
       .eq("project_id", project_id)
@@ -206,6 +216,34 @@ Deno.serve(async (req) => {
       ad_account_id: adAccountId,
     }), { headers: jsonHeaders });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: jsonHeaders });
+    const errMsg = e instanceof Error ? e.message : String(e);
+    // Tenta persistir o erro
+    try {
+      if (supabaseForCatch && project_id_for_log) {
+        await supabaseForCatch
+          .from("imphq_integration_credentials")
+          .update({
+            credentials: {
+              ...(credsForCatch?.credentials || {}),
+              zernio_ads_last_sync: new Date().toISOString(),
+              zernio_ads_last_sync_status: "error",
+              zernio_ads_last_sync_error: errMsg.slice(0, 500),
+            },
+          })
+          .eq("project_id", project_id_for_log)
+          .eq("provider", "instagram");
+        await supabaseForCatch.from("imphq_webhook_errors").insert({
+          project_id: project_id_for_log,
+          plataforma: "zernio",
+          evento: "ads_sync",
+          erro: errMsg.slice(0, 1000),
+          payload: {},
+        });
+
+
+      }
+    } catch (_) { /* ignore */ }
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: jsonHeaders });
   }
 });
+
