@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -24,6 +24,7 @@ import FlowROIDashboard from "@/components/openflow/FlowROIDashboard";
 import { ColdLeadReactivation } from "@/components/openflow/ColdLeadReactivation";
 import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { StepGuide } from "@/components/openflow/StepGuide";
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
@@ -63,6 +64,7 @@ interface Automacao {
   exit_trigger_tipo?: string | null;
   exit_trigger_payload?: any;
   exit_cascade?: boolean;
+  flow_objective?: string | null;
 }
 
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
@@ -192,6 +194,7 @@ export default function OpenFlow() {
       stalled_hours: a.stalled_hours, stalled_operator: a.stalled_operator,
       follow_up_hours: a.follow_up_hours, follow_up_template: a.follow_up_template,
       exit_trigger_tipo: a.exit_trigger_tipo, exit_cascade: a.exit_cascade,
+      flow_objective: a.flow_objective,
     } as any).eq("id", a.id);
     if (error) toast.error(error.message);
     else { toast.success("Salvo!"); setEditing(null); load(); }
@@ -226,6 +229,7 @@ export default function OpenFlow() {
       <Tabs defaultValue="fluxos" className="w-full">
         <TabsList className="bg-slate-900/80 border border-white/5 p-1">
           <TabsTrigger value="fluxos" className="gap-2"><Zap className="h-4 w-4" /> Fluxos Ativos</TabsTrigger>
+          <TabsTrigger value="guia" className="gap-2"><Info className="h-4 w-4" /> Guia de Etapas</TabsTrigger>
           <TabsTrigger value="campanhas" className="gap-2"><Megaphone className="h-4 w-4" /> Campanhas</TabsTrigger>
           <TabsTrigger value="logs" className="gap-2"><Activity className="h-4 w-4" /> Logs & Monitoramento</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Performance</TabsTrigger>
@@ -279,6 +283,7 @@ export default function OpenFlow() {
           </div>
         </TabsContent>
 
+        <TabsContent value="guia"><StepGuide /></TabsContent>
         <TabsContent value="campanhas"><CampanhasManager projects={projects} /></TabsContent>
         <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
@@ -336,7 +341,18 @@ export default function OpenFlow() {
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Filtro por Tag</Label><Select value={editing.tag_filtro || "none"} onValueChange={v => setEditing({ ...editing, tag_filtro: v === "none" ? undefined : v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhuma</SelectItem>{allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
                 </div>
 
-                <FlowEditor triggerTipo={editing.trigger_tipo} acoes={editing.acoes} onChange={v => setEditing({ ...editing, acoes: v })} projectId={editing.project_id} providers={providers} templates={projectTemplates} onTemplateSaved={loadTemplates} automacaoId={editing.id} />
+                <FlowEditor 
+                  triggerTipo={editing.trigger_tipo} 
+                  acoes={editing.acoes} 
+                  onChange={v => setEditing({ ...editing, acoes: v })} 
+                  projectId={editing.project_id} 
+                  providers={providers} 
+                  templates={projectTemplates} 
+                  onTemplateSaved={loadTemplates} 
+                  automacaoId={editing.id} 
+                  flowObjective={editing.flow_objective || ""}
+                  onUpdateObjective={v => setEditing({ ...editing, flow_objective: v })}
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-4">

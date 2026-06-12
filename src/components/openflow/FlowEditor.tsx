@@ -157,6 +157,8 @@ export interface Acao {
   ia_vision?: boolean;
   ia_voice_response?: boolean;
   ia_routes?: { name: string; jump_steps: number }[];
+  personality_prompt?: string;
+  questioning_strategy?: string;
   // condicao_lead
   condition_field?: string;
   condition_operator?: string;
@@ -224,12 +226,14 @@ interface FlowEditorProps {
   projectId?: string;
   onTemplateSaved?: () => void;
   automacaoId?: string;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
 }
 
 export function FlowEditor({
   triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
-  automacaoId
+  automacaoId, flowObjective, onUpdateObjective
 }: FlowEditorProps) {
 
   const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
@@ -830,8 +834,10 @@ export function FlowEditor({
             acoes={acoes}
             triggerTipo={triggerTipo}
             onChange={onChange}
-            onNodeClick={(acao, index) => setSelectedIdx(index)}
+            onActionSelect={setSelectedIdx}
             stepStats={stepStats}
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
           />
         ) : (
           <div 
@@ -2524,6 +2530,32 @@ export function FlowEditor({
                       </Select>
                       <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
                         Define a persona e o tom de voz que a IA usará especificamente nesta etapa do fluxo.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Instruções de Agir (Persona)</Label>
+                      <Textarea 
+                        value={acao.personality_prompt || ""} 
+                        onChange={e => updateAcao(selectedIdx, "personality_prompt", e.target.value)}
+                        placeholder="Ex: Aja como um vendedor amigável que nunca pressiona o cliente, mas usa gatilhos de prova social..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Como a IA deve se comportar nesta etapa? (Tom de voz, restrições, estilo).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">O que perguntar? (Direcionamento)</Label>
+                      <Textarea 
+                        value={acao.questioning_strategy || ""} 
+                        onChange={e => updateAcao(selectedIdx, "questioning_strategy", e.target.value)}
+                        placeholder="Ex: Pergunte se o problema dele é o preço ou a falta de tempo para implementar..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Quais perguntas ou tópicos a IA deve abordar para direcionar o lead?
                       </p>
                     </div>
 

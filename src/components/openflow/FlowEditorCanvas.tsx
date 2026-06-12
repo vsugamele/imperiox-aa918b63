@@ -15,6 +15,7 @@ import {
   BackgroundVariant,
   Panel,
 } from "@xyflow/react";
+import { Textarea } from "@/components/ui/textarea";
 import "@xyflow/react/dist/style.css";
 import {
   Mail,
@@ -316,7 +317,9 @@ const nodeTypes = { actionNode: ActionNode };
 function acoesToNodesEdges(
   acoes: Acao[], 
   triggerTipo: string,
-  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>
+  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>,
+  flowObjective?: string,
+  onUpdateObjective?: (objective: string) => void
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -560,8 +563,10 @@ interface FlowEditorCanvasProps {
   acoes: Acao[];
   triggerTipo: string;
   onChange: (acoes: Acao[]) => void;
-  onNodeClick?: (acao: Acao, index: number) => void;
+  onActionSelect?: (index: number) => void;
   stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
 }
 
 // Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
@@ -583,10 +588,18 @@ const PALETTE_TYPES: { tipo: string; label: string }[] = [
   { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
 ];
 
-export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, stepStats }: FlowEditorCanvasProps) {
+export function FlowEditorCanvas({ 
+  acoes, 
+  triggerTipo, 
+  onChange, 
+  onActionSelect, 
+  stepStats,
+  flowObjective,
+  onUpdateObjective
+}: FlowEditorCanvasProps) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
-    () => acoesToNodesEdges(acoes, triggerTipo, stepStats),
-    [acoes, triggerTipo, stepStats]
+    () => acoesToNodesEdges(acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective),
+    [acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective]
   );
   
   const [nodes, setNodes, onNodesChange] = useNodesState(initNodes);
@@ -603,11 +616,11 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
   const handleNodeClick = useCallback(
     (_: any, node: Node) => {
       const idx = node.data?.index as number | undefined;
-      if (idx !== undefined && idx >= 0 && onNodeClick) {
-        onNodeClick(node.data.acao as Acao, idx);
+      if (idx !== undefined && idx >= 0 && onActionSelect) {
+        onActionSelect(idx);
       }
     },
-    [onNodeClick]
+    [onActionSelect]
   );
 
   const handleNodeDragStop = useCallback(
@@ -689,6 +702,28 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
           className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg"
         >
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
+        </Panel>
+
+        {/* Painel de Objetivo Estratégico */}
+        <Panel
+          position="top-left"
+          className="bg-slate-900/95 border border-purple-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-500"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-purple-400">
+              <Brain className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+            </div>
+            <Textarea 
+              value={flowObjective || ""} 
+              onChange={(e) => onUpdateObjective?.(e.target.value)}
+              placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
+              className="text-[11px] bg-slate-950/50 border-white/10 min-h-[80px] resize-none leading-relaxed text-slate-300 scrollbar-none"
+            />
+            <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
+              Este objetivo guia a IA e ajuda a manter a régua estratégica.
+            </p>
+          </div>
         </Panel>
 
         {/* Paleta de adicionar etapa direto no canvas */}
