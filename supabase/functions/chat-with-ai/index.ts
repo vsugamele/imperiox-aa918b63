@@ -11,7 +11,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { messages, model: requestedModel } = body;
-    const model = requestedModel || "openai/gpt-4o-mini";
+    const model = requestedModel || "google/gemini-2.5-flash";
 
     // Detect if model is a Lovable model
     const isLovableModel = model.startsWith("google/") || model.startsWith("openai/");

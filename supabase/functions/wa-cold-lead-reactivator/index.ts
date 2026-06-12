@@ -15,7 +15,7 @@ async function callLLM(prompt: string, systemMsg: string): Promise<string> {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "openai/gpt-4o-mini",
+      model: "deepseek/deepseek-chat-v3.1",
       messages: [{ role: "system", content: systemMsg }, { role: "user", content: prompt }],
       max_tokens: 120,
       temperature: 0.8,

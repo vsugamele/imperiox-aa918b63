@@ -1409,7 +1409,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                     "X-Title": "Imperio HQ",
                   },
                   body: JSON.stringify({
-                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "openai/gpt-4o-mini")),
+                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "google/gemini-2.5-flash")),
                     messages: [
                       { role: "system", content: systemPrompt },
                       { role: "user", content: "Gere a mensagem curta inicial de reativação." }
@@ -2149,9 +2149,9 @@ Instruções Adicionais:
 
               const modelMap: Record<string, string> = {
                 "gpt-4o": "openai/gpt-4o",
-                "gpt-4o-mini": "openai/gpt-4o-mini"
+                "gpt-4o-mini": "google/gemini-2.5-flash"
               };
-              const selectedModel = modelMap[step.gpt_model] || "openai/gpt-4o-mini";
+              const selectedModel = modelMap[step.gpt_model] || "google/gemini-2.5-flash";
 
               const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",

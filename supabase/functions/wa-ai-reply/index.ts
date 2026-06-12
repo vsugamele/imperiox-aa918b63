@@ -1047,11 +1047,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         }
       }
 
-      let model = aiConfig.ai_model || "openai/gpt-4o-mini";
+      let model = aiConfig.ai_model || "google/gemini-2.5-flash";
       if (activeStep?.ia_search_web) {
         model = "google/gemini-2.5-flash"; // native search grounding on OpenRouter
       } else if (activeStep?.ia_model) {
-        model = activeStep.ia_model === "gpt-4o" ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+        model = activeStep.ia_model === "gpt-4o" ? "openai/gpt-4o" : "google/gemini-2.5-flash";
       }
       console.log(`[wa-ai-reply] Chamando OpenRouter model=${model} msgs=${msgs.length} lastRole=${msgs[msgs.length - 1]?.role}`);
 

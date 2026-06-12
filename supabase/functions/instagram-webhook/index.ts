@@ -517,7 +517,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   });
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
@@ -540,7 +540,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] OpenRouter primary model failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
                   } catch (e: any) {
                     console.warn("[ig-webhook] AI provider call failed:", e?.message);
@@ -853,7 +853,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                   ];
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
@@ -876,7 +876,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] Comment OpenRouter failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
                   } catch (e: any) {
                     console.warn("[ig-webhook] Comment AI provider call failed:", e?.message);
