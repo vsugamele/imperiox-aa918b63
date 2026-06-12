@@ -122,6 +122,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [saving, setSaving] = useState(false);
   const [customSkills, setCustomSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backfillLoading, setBackfillLoading] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
   const [refUploaded, setRefUploaded] = useState(false);
   const refAudioInputRef = useRef<HTMLInputElement>(null);
