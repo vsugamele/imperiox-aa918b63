@@ -588,7 +588,15 @@ const PALETTE_TYPES: { tipo: string; label: string }[] = [
   { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
 ];
 
-export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, stepStats }: FlowEditorCanvasProps) {
+export function FlowEditorCanvas({ 
+  acoes, 
+  triggerTipo, 
+  onChange, 
+  onActionSelect, 
+  stepStats,
+  flowObjective,
+  onUpdateObjective
+}: FlowEditorCanvasProps) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
     () => acoesToNodesEdges(acoes, triggerTipo, stepStats),
     [acoes, triggerTipo, stepStats]
