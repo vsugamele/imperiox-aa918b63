@@ -313,12 +313,12 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const callToggle = async (entity_type: Level, row: Row, next: "ACTIVE" | "PAUSED") => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
-    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta. Sincronize primeiro."); return false; }
+    if (!hasValidId(row)) { toast.error("Entidade sem ID. Sincronize primeiro."); return false; }
     setTogglingId(row.id);
     const prev = optimistic.get(row.id) ?? row.effective_status;
     setOptimistic(m => new Map(m).set(row.id, next));
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
+      const { data, error } = await supabase.functions.invoke(fnFor(row), {
         body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: next, previous_status: prev },
       });
       if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
@@ -342,11 +342,11 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const handleBudget = async (entity_type: Level, row: Row, next: number) => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return; }
+    if (!hasValidId(row)) { toast.error("Entidade sem ID."); return; }
     const prev = row.daily_budget;
     setOptimisticBudget(m => new Map(m).set(row.id, next));
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
+      const { data, error } = await supabase.functions.invoke(fnFor(row), {
         body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: "UPDATE_BUDGET", daily_budget: next, previous_budget: prev },
       });
       if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
@@ -360,12 +360,12 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const runBulk = async (action: "ACTIVE" | "PAUSED" | "DUPLICATE_CAMPAIGN") => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-    const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id));
+    const rows = enrichedCampaigns.filter(r => selected.has(r.id) && hasValidId(r));
     if (rows.length === 0) { toast.error("Nenhuma campanha válida selecionada"); return; }
     setBulkLoading(true);
     let okCount = 0, errCount = 0;
     const results = await Promise.allSettled(rows.map(r =>
-      supabase.functions.invoke("facebook-ads-toggle", {
+      supabase.functions.invoke(fnFor(r), {
         body: {
           project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name,
           action, previous_status: r.effective_status,
@@ -628,7 +628,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         loading={bulkLoading}
         onConfirm={async (mode, value) => {
           if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id) && r.daily_budget != null);
+          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && hasValidId(r) && r.daily_budget != null);
           if (rows.length === 0) { toast.error("Nenhuma campanha com orçamento editável"); return; }
           setBulkLoading(true);
           const results = await Promise.allSettled(rows.map(r => {
@@ -636,7 +636,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
             const next = mode === "increase_pct" ? prev * (1 + value / 100)
               : mode === "decrease_pct" ? prev * (1 - value / 100)
               : value;
-            return supabase.functions.invoke("facebook-ads-toggle", {
+            return supabase.functions.invoke(fnFor(r), {
               body: { project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name, action: "UPDATE_BUDGET", daily_budget: Number(next.toFixed(2)), previous_budget: prev },
             });
           }));
@@ -666,9 +666,9 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
 async function callRename(supabaseClient: typeof supabase, projectId: string | undefined, entity_type: Level, row: Row, next: string, prev: string) {
   if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
-  if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return false; }
+  if (!hasValidId(row)) { toast.error("Entidade sem ID."); return false; }
   try {
-    const { data, error } = await supabaseClient.functions.invoke("facebook-ads-toggle", {
+    const { data, error } = await supabaseClient.functions.invoke(fnFor(row), {
       body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: prev, action: "RENAME", new_name: next, previous_name: prev },
     });
     if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
