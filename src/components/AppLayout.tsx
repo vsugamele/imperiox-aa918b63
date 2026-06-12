@@ -164,6 +164,7 @@ export function AppLayout() {
           </main>
         </div>
         <CopilotFab />
+        <ImperiusRail />
       </div>
     </SidebarProvider>
   );
