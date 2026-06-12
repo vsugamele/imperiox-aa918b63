@@ -51,6 +51,13 @@ interface WaSession {
   ai_paused_until?: string | null;
 }
 
+let waRefCache: {
+  ts: number;
+  projects: { id: string; name: string }[];
+  providers: any[];
+  templates: WaTemplate[];
+} = { ts: 0, projects: [], providers: [], templates: [] };
+
 export default function WhatsApp() {
   const [sessions, setSessions] = useState<WaSession[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
