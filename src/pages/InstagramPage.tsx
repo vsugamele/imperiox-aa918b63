@@ -1914,7 +1914,19 @@ export default function InstagramPage() {
 
                       {/* Compositor de Mensagem */}
                       <div className="border-t border-border/40 bg-card">
-                        {/* Quick reply templates */}
+                        {/* Aviso de janela 24h fechada */}
+                        {(() => {
+                          const lastInbound = [...messages].reverse().find(m => m.direction === "in" || (m.direction as string) === "incoming");
+                          if (!lastInbound) return null;
+                          const diffH = (Date.now() - new Date(lastInbound.created_at).getTime()) / 3600000;
+                          if (diffH < 24) return null;
+                          return (
+                            <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/30 text-[11px] text-amber-300 flex items-center gap-2">
+                              <span>⚠</span>
+                              <span>Janela do Instagram fechada — o lead respondeu há mais de 24h. A Meta só permite enviar quando ele responder novamente.</span>
+                            </div>
+                          );
+                        })()}
                         {showTemplates && (
                           <div className="px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b border-border/30">
                             {[
