@@ -17,6 +17,7 @@ import {
   Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCompactTime } from "@/lib/formatCompactTime";
 import { ptBR } from "date-fns/locale";
 import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
 
