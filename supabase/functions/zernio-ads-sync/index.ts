@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist last sync timestamp
+    // Persist last sync timestamp + status
     await supabase
       .from("imphq_integration_credentials")
       .update({
@@ -197,6 +197,9 @@ Deno.serve(async (req) => {
           ...(creds?.credentials || {}),
           zernio_ad_account_id: adAccountId,
           zernio_ads_last_sync: new Date().toISOString(),
+          zernio_ads_last_sync_status: "success",
+          zernio_ads_last_sync_error: null,
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size },
         },
       })
       .eq("project_id", project_id)
@@ -213,6 +216,31 @@ Deno.serve(async (req) => {
       ad_account_id: adAccountId,
     }), { headers: jsonHeaders });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: jsonHeaders });
+    const errMsg = e instanceof Error ? e.message : String(e);
+    // Tenta persistir o erro
+    try {
+      if (supabaseForCatch && project_id_for_log) {
+        await supabaseForCatch
+          .from("imphq_integration_credentials")
+          .update({
+            credentials: {
+              ...(credsForCatch?.credentials || {}),
+              zernio_ads_last_sync: new Date().toISOString(),
+              zernio_ads_last_sync_status: "error",
+              zernio_ads_last_sync_error: errMsg.slice(0, 500),
+            },
+          })
+          .eq("project_id", project_id_for_log)
+          .eq("provider", "instagram");
+        await supabaseForCatch.from("imphq_webhook_errors").insert({
+          scanner: "zernio-ads-sync",
+          project_id: project_id_for_log,
+          error_message: errMsg.slice(0, 1000),
+          payload: {},
+        });
+      }
+    } catch (_) { /* ignore */ }
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: jsonHeaders });
   }
 });
+
