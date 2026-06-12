@@ -977,6 +977,20 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       }
     };
 
+    const markAsGold = async (m: Message) => {
+      try {
+        const { data, error } = await supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conversationId, message_id: m.id, project_id: projectId, gold: true },
+        });
+        if (error) throw error;
+        if ((data as any)?.skipped) { toast.info("Pulado: " + (data as any).skipped); return; }
+        setFeedbackSent(prev => ({ ...prev, [m.id]: "good" }));
+        toast.success("⭐ Marcada como exemplo de ouro — a IA vai replicar esse padrão");
+      } catch (e: any) {
+        toast.error("Erro: " + e.message);
+      }
+    };
+
     const startEdit = (m: Message) => {
       setEditingId(m.id);
       setEditText(m.content || "");
