@@ -17,6 +17,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import "@xyflow/react/dist/style.css";
 import {
   Mail,
@@ -38,7 +39,10 @@ import {
   BarChart3,
   Sparkles,
   Repeat,
-  Octagon
+  Octagon,
+  LogOut,
+  CheckCircle2,
+  Plus
 } from "lucide-react";
 import type { Acao } from "./FlowEditor";
 
