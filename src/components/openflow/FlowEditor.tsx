@@ -1654,13 +1654,6 @@ export function FlowEditor({
                   </div>
                 )}
 
-                {/* ab_split spacer */}
-                {false && (
-                  <div>
-                    <p>placeholder</p>
-                    </div>
-                  </div>
-                )}
 
                 {/* branch_by_awareness */}
                 {acao.tipo === "branch_by_awareness" && (
