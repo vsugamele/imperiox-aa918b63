@@ -8,8 +8,10 @@ import {
   Position,
   useNodesState,
   useEdgesState,
+  addEdge, // Added
   type Node,
   type Edge,
+  type Connection, // Added
   BackgroundVariant,
   Panel,
 } from "@xyflow/react";
@@ -208,6 +210,23 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
               }}
             />
           </div>
+          <div className="relative flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded px-2 py-1 text-[9px] text-red-400 font-semibold shadow-sm">
+            <span>Se Não / Falso</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="branch-false"
+              style={{
+                top: "50%",
+                right: -4,
+                transform: "translateY(-50%)",
+                background: "#ef4444",
+                width: 7,
+                height: 7,
+                border: "2px solid #0f172a",
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -321,7 +340,7 @@ function acoesToNodesEdges(
 
   // 2. Add Action Nodes
   acoes.forEach((acao: any, i) => {
-    const id = `step-${i}`;
+    const id = acao.id || `step-${i}`;
     let label = acao.template || acao.webhook_url || acao.tag || "";
     
     if (acao.tipo === "ia_message") {
@@ -355,42 +374,88 @@ function acoesToNodesEdges(
       },
     });
 
-    // Connect from previous node sequentially
-    const source = i === 0 ? "trigger" : `step-${i - 1}`;
+    // ── SEQUENTIAL CONNECTIONS ──
+    // Determine the source node for the sequential connection
+    let sourceId = i === 0 ? "trigger" : (acoes[i - 1].id || `step-${i - 1}`);
     
-    let edgeLabel = undefined;
-    let edgeStyle = { stroke: "#64748b", strokeWidth: 2 };
-    let edgeLabelStyle = { fill: "#94a3b8", fontSize: 9, fontWeight: "bold" };
+    // If the action has an explicit next_id, we'll use that for the connection
+    // But for now we still support the legacy sequential flow by default if no explicit connection exists
+    const hasExplicitNext = !!acao.next_id;
     
-    if (i > 0 && stepStats) {
-      const prev = stepStats[i - 1];
-      const curr = stepStats[i];
-      if (prev && curr && prev.reached > 0) {
-        const pct = Math.min(100, Math.round((curr.reached / prev.reached) * 100));
-        edgeLabel = `${pct}% conv`;
-        edgeStyle = { stroke: pct > 50 ? "#10b981" : "#64748b", strokeWidth: 2 };
-        edgeLabelStyle = { fill: pct > 50 ? "#10b981" : "#94a3b8", fontSize: 9, fontWeight: "bold" };
+    if (!hasExplicitNext) {
+      // Default sequential connection
+      let edgeLabel = undefined;
+      let edgeStyle = { stroke: "#64748b", strokeWidth: 2 };
+      let edgeLabelStyle = { fill: "#94a3b8", fontSize: 9, fontWeight: "bold" };
+      
+      if (i > 0 && stepStats) {
+        const prev = stepStats[i - 1];
+        const curr = stepStats[i];
+        if (prev && curr && prev.reached > 0) {
+          const pct = Math.min(100, Math.round((curr.reached / prev.reached) * 100));
+          edgeLabel = `${pct}% conv`;
+          edgeStyle = { stroke: pct > 50 ? "#10b981" : "#64748b", strokeWidth: 2 };
+          edgeLabelStyle = { fill: pct > 50 ? "#10b981" : "#94a3b8", fontSize: 9, fontWeight: "bold" };
+        }
       }
+
+      edges.push({
+        id: `e-${sourceId}-${id}`,
+        source: sourceId,
+        target: id,
+        label: edgeLabel,
+        style: edgeStyle,
+        labelStyle: edgeLabelStyle,
+        animated: false,
+      });
+    } else if (acao.next_id) {
+      // Explicit connection from next_id
+      edges.push({
+        id: `e-${id}-${acao.next_id}`,
+        source: id,
+        target: acao.next_id,
+        style: { stroke: "#64748b", strokeWidth: 2 },
+        animated: false,
+      });
     }
 
-    edges.push({
-      id: `e-${source}-${id}`,
-      source,
-      target: id,
-      label: edgeLabel,
-      style: edgeStyle,
-      labelStyle: edgeLabelStyle,
-      animated: false,
-    });
+    // ── BRANCHING CONNECTIONS (Legacy jumps + New IDs) ──
+    
+    // 1. Explicit true_next_id / false_next_id
+    if (acao.true_next_id) {
+      edges.push({
+        id: `e-${id}-true-${acao.true_next_id}`,
+        source: id,
+        sourceHandle: "branch-true",
+        target: acao.true_next_id,
+        label: "Se Sim",
+        style: { stroke: "#8b5cf6", strokeWidth: 2, strokeDasharray: "5,3" },
+        labelStyle: { fill: "#8b5cf6", fontSize: 9, fontWeight: "bold" },
+      });
+    }
 
-    // Handle branching jumps (Conditions / AB Split / Semantic Router / Business Hours)
+    if (acao.false_next_id) {
+      edges.push({
+        id: `e-${id}-false-${acao.false_next_id}`,
+        source: id,
+        sourceHandle: "branch-false", // We should probably add this handle to ActionNode
+        target: acao.false_next_id,
+        label: "Se Não",
+        style: { stroke: "#ef4444", strokeWidth: 2, strokeDasharray: "5,3" },
+        labelStyle: { fill: "#ef4444", fontSize: 9, fontWeight: "bold" },
+      });
+    }
+
+    // 2. Legacy jumps (Compatibility)
     if (
+      !acao.true_next_id &&
       (acao.tipo === "condicao_lead" || acao.tipo === "ab_split" || acao.tipo === "condicao" || acao.tipo === "semantic_router" || acao.tipo === "business_hours_split") &&
       (acao.condition_jump_steps || acao.jump_steps || acao.else_skip)
     ) {
       const jumpVal = acao.condition_jump_steps || acao.jump_steps || acao.else_skip || 1;
-      const jumpTarget = i + jumpVal;
-      if (jumpTarget < acoes.length) {
+      const jumpTargetIdx = i + jumpVal;
+      if (jumpTargetIdx < acoes.length) {
+        const jumpTargetId = acoes[jumpTargetIdx].id || `step-${jumpTargetIdx}`;
         const isAb = acao.tipo === "ab_split";
         const isSem = acao.tipo === "semantic_router";
         const isBh = acao.tipo === "business_hours_split";
@@ -412,7 +477,7 @@ function acoesToNodesEdges(
         let labelText = label;
         if (stepStats) {
           const src = stepStats[i];
-          const tgt = stepStats[jumpTarget];
+          const tgt = stepStats[jumpTargetIdx];
           if (src && tgt && src.reached > 0) {
             const pct = Math.min(100, Math.round((tgt.reached / src.reached) * 100));
             labelText = `${label} (${pct}% conv)`;
@@ -420,10 +485,10 @@ function acoesToNodesEdges(
         }
 
         edges.push({
-          id: `e-branch-${id}`,
+          id: `e-legacy-branch-${id}`,
           source: id,
           sourceHandle: handleId,
-          target: `step-${jumpTarget}`,
+          target: jumpTargetId,
           label: labelText,
           style: { stroke: strokeColor, strokeWidth: 2, strokeDasharray: "5,3" },
           labelStyle: { fill: strokeColor, fontSize: 9, fontWeight: "bold" },
@@ -561,6 +626,36 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
     [acoes, onChange]
   );
 
+  const onConnect = useCallback(
+    (params: Connection) => {
+      setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2 } }, eds));
+      
+      const updatedAcoes = [...acoes];
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const sourceIdx = sourceNode?.data?.index as number | undefined;
+      const targetId = params.target;
+      
+      if (sourceIdx !== undefined && sourceIdx >= 0) {
+        if (params.sourceHandle === "branch-true") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], true_next_id: targetId };
+        } else if (params.sourceHandle === "branch-false") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], false_next_id: targetId };
+        } else if (params.sourceHandle?.startsWith("route-")) {
+          updatedAcoes[sourceIdx] = { ...updatedAcaoInIdx(updatedAcoes, sourceIdx), next_id: targetId };
+        } else {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+        }
+        onChange(updatedAcoes);
+      }
+    },
+    [nodes, acoes, onChange, setEdges]
+  );
+
+  // Helper function to handle potential undefined
+  function updatedAcaoInIdx(arr: any[], idx: number) {
+    return arr[idx] || {};
+  }
+
   return (
     <div className="flex-1 w-full h-full relative" style={{ minHeight: "530px" }}>
       <ReactFlow
@@ -568,6 +663,7 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}

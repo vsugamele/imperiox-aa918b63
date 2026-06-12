@@ -96,6 +96,7 @@ const DYNAMIC_VARS = [
 ];
 
 export interface Acao {
+  id?: string;
   tipo: string;
   template: string;
   delay_min: number;
@@ -108,6 +109,9 @@ export interface Acao {
   voice_stability?: number;
   voice_clarity?: number;
   tag?: string;
+  next_id?: string;
+  true_next_id?: string;
+  false_next_id?: string;
   else_action?: string;
   else_skip?: number;
   // branch_by_awareness
@@ -327,6 +331,18 @@ export function FlowEditor({
 
     fetchStats();
   }, [automacaoId, acoes.length]);
+
+  useEffect(() => {
+    // Ensure all actions have a unique ID for graph branching
+    const needsIds = acoes.some(a => !a.id);
+    if (needsIds) {
+      const updated = acoes.map(a => ({
+        ...a,
+        id: a.id || crypto.randomUUID()
+      }));
+      onChange(updated);
+    }
+  }, [acoes, onChange]);
 
   useEffect(() => {
     if (!projectId) {
@@ -595,14 +611,35 @@ export function FlowEditor({
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
 
   const addAcao = (insertAt?: number) => {
-    const newAcao: Acao = { tipo: "email", template: "", delay_min: 0 };
+    const newAcao: Acao = { 
+      id: crypto.randomUUID(),
+      tipo: "email", 
+      template: "", 
+      delay_min: 0 
+    };
     if (insertAt !== undefined) {
       const updated = [...acoes];
+      // When inserting between nodes, we should probably update connections too
+      // but for now let's just insert into the array for compatibility
       updated.splice(insertAt + 1, 0, newAcao);
+      
+      // Update next_id if it's a linear flow
+      if (updated[insertAt]) {
+        updated[insertAt].next_id = newAcao.id;
+      }
+      if (updated[insertAt + 2]) {
+        newAcao.next_id = updated[insertAt + 2].id;
+      }
+
       onChange(updated);
       setSelectedIdx(insertAt + 1);
     } else {
-      onChange([...acoes, newAcao]);
+      const lastAcao = acoes[acoes.length - 1];
+      const updated = [...acoes, newAcao];
+      if (lastAcao) {
+        lastAcao.next_id = newAcao.id;
+      }
+      onChange(updated);
       setSelectedIdx(acoes.length);
     }
     toast.success("Novo nó adicionado ao fluxo!");
