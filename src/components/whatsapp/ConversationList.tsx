@@ -411,6 +411,7 @@ export default function ConversationList({
                           {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                         </span>
                       </div>
+                    </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
                     )}
