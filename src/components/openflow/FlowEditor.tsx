@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,12 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FlowEditorCanvas } from "./FlowEditorCanvas";
+import { useFlowHistory } from "./flow-editor/useFlowHistory";
+import { validateFlow } from "./flow-editor/validate";
+import { ValidationPanel } from "./flow-editor/ValidationPanel";
+import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { Undo2, Redo2 } from "lucide-react";
+
 
 const CONDICAO_TIPOS = [
   { value: "nao_abriu_email", label: "Não abriu email" },
@@ -208,10 +214,15 @@ interface FlowEditorProps {
 }
 
 export function FlowEditor({
-  triggerTipo, acoes, onChange, onGenerateAI, isGenerating,
+  triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
   automacaoId
 }: FlowEditorProps) {
+
+  const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
+  const onChange = history.push;
+  const issues = useMemo(() => validateFlow(acoes), [acoes]);
+
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
@@ -669,7 +680,46 @@ export function FlowEditor({
             </Button>
           </>
         )}
+
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.undo}
+          disabled={!history.canUndo}
+          title={`Desfazer (Ctrl+Z) — ${history.pastSize} passos`}
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.redo}
+          disabled={!history.canRedo}
+          title="Refazer (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <ValidationPanel
+          issues={issues}
+          onJump={(i) => {
+            setSelectedIdx(i);
+            const el = document.querySelector(`[data-step-index="${i}"]`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
+        <TemplatePicker
+          triggerTipo={triggerTipo}
+          onApply={(novasAcoes) => {
+            onChange(novasAcoes);
+            toast.success("Template aplicado");
+          }}
+        />
       </div>
+
 
       {/* ── VIEWPORT TABS (Top Centered Toolbar) ── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-lg shrink-0 select-none">
@@ -773,18 +823,30 @@ export function FlowEditor({
           {acoes.length > 0 && <SVGBezierConnector delay="0s" />}
 
           {acoes.length === 0 && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-3">
               <SVGBezierConnector delay="0s" />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => addAcao()} 
-                className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <TemplatePicker
+                  triggerTipo={triggerTipo}
+                  variant="hero"
+                  onApply={(novasAcoes) => {
+                    onChange(novasAcoes);
+                    toast.success("Template aplicado");
+                  }}
+                />
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">ou</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addAcao()}
+                  className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
+                </Button>
+              </div>
             </div>
           )}
+
 
           {/* ACTION NODES (Floating Serpentine Seriado Layout) */}
           {acoes.map((acao, idx) => {
@@ -803,6 +865,7 @@ export function FlowEditor({
             return (
               <div 
                 key={idx} 
+                data-step-index={idx}
                 className="flex flex-col items-center shrink-0"
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={(e) => handleDrop(e, idx)}
