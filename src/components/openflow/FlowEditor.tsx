@@ -680,7 +680,46 @@ export function FlowEditor({
             </Button>
           </>
         )}
+
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.undo}
+          disabled={!history.canUndo}
+          title={`Desfazer (Ctrl+Z) — ${history.pastSize} passos`}
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.redo}
+          disabled={!history.canRedo}
+          title="Refazer (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <ValidationPanel
+          issues={issues}
+          onJump={(i) => {
+            setSelectedIdx(i);
+            const el = document.querySelector(`[data-step-index="${i}"]`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
+        <TemplatePicker
+          triggerTipo={triggerTipo}
+          onApply={(novasAcoes) => {
+            onChange(novasAcoes);
+            toast.success("Template aplicado");
+          }}
+        />
       </div>
+
 
       {/* ── VIEWPORT TABS (Top Centered Toolbar) ── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-lg shrink-0 select-none">
