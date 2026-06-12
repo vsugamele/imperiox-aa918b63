@@ -23788,6 +23788,7 @@ export type Database = {
           provider_id: string | null
           reengagement_sent_at: string | null
           session: string
+          snoozed_until: string | null
           status: string
           temperature: string | null
           unread_count: number
@@ -23825,6 +23826,7 @@ export type Database = {
           provider_id?: string | null
           reengagement_sent_at?: string | null
           session: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
@@ -23862,6 +23864,7 @@ export type Database = {
           provider_id?: string | null
           reengagement_sent_at?: string | null
           session?: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
@@ -24499,6 +24502,57 @@ export type Database = {
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_scheduled: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          phone: string
+          project_id: string | null
+          provider_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone?: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
         }
         Relationships: []
       }
