@@ -1644,6 +1644,21 @@ export function FlowEditor({
                         Número de ações consecutivas a serem puladas caso o lead caia na Rota B.
                       </p>
                     </div>
+
+                    <ABVariantStats
+                      automacaoId={automacaoId}
+                      stepIndex={selectedIdx}
+                      jumpSteps={acao.jump_steps ?? 1}
+                      onPromoteWinner={(pct) => updateAcao(selectedIdx, "rota_a_porcentagem", pct)}
+                    />
+                  </div>
+                )}
+
+                {/* ab_split spacer */}
+                {false && (
+                  <div>
+                    <p>placeholder</p>
+                    </div>
                   </div>
                 )}
 
