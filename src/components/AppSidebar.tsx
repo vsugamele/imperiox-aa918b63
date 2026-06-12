@@ -34,14 +34,14 @@ const venderItems = [
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
   { title: "Webinar",              url: "/webinar",    icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
-  { title: "Tracker UTM",          url: "/tracker",    icon: Link2 },
+  
 ];
 
 const inteligenciaItems = [
   { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
   { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
-  { title: "Mentes IA",            url: "/mentes",         icon: Brain },
+  
   { title: "Skills",               url: "/skills",         icon: Zap },
   { title: "Studio",               url: "/studio",         icon: Clapperboard },
   { title: "Swipe File",           url: "/swipe",          icon: Library },
