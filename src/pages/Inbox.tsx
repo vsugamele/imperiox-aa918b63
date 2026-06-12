@@ -98,8 +98,8 @@ function HotLeadsTab() {
                   </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex gap-3">
-                  {lead.telefone && <span>📱 {lead.telefone}</span>}
-                  {lead.email && <span>✉️ {lead.email}</span>}
+                  {lead.telefone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.telefone}</span>}
+                  {lead.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> {lead.email}</span>}
                   <span>
                     {new Date(lead.criado_em).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
