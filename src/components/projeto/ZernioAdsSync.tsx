@@ -116,9 +116,19 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
           variant="outline"
           className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
           onClick={() => { setOpen(true); loadAccounts(); }}
-          title={lastSync ? `Último sync Zernio: ${new Date(lastSync).toLocaleString("pt-BR")}` : "Sync via Zernio"}
+          title={lastSync ? `Último sync Zernio: ${new Date(lastSync).toLocaleString("pt-BR")}${lastError ? `\nErro: ${lastError}` : ""}` : "Sync via Zernio"}
         >
           <Zap className="h-3.5 w-3.5 mr-1" /> Sync Zernio
+          {lastStatus === "success" && lastSync && (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-green-400">
+              <CheckCircle2 className="h-3 w-3" /> {relTime(lastSync)}
+            </span>
+          )}
+          {lastStatus === "error" && lastSync && (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-red-400">
+              <AlertTriangle className="h-3 w-3" /> {relTime(lastSync)}
+            </span>
+          )}
         </Button>
         {savedAcc && (
           <Button
@@ -133,6 +143,7 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
           </Button>
         )}
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-secondary/40 max-w-md">
