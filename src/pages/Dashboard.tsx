@@ -164,14 +164,18 @@ export default function Dashboard() {
   return (
     <div className="space-y-10 animate-fade-in max-w-[1600px] mx-auto">
       {/* HERO EDITORIAL */}
-      <DashboardHero
-        projectFilter={dashProject}
-        projectLabel={projectLabel}
-        productLabel={dashProduct}
-      />
+      {show("hero") && (
+        <DashboardHero
+          projectFilter={dashProject}
+          projectLabel={projectLabel}
+          productLabel={dashProduct}
+        />
+      )}
 
       {/* RESUMO EXECUTIVO — visão consolidada */}
-      <ExecutiveSummary projectFilter={dashProject} />
+      {show("resumo") && <ExecutiveSummary projectFilter={dashProject} />}
+
+
 
 
       {/* FILTROS — barra discreta sticky */}
