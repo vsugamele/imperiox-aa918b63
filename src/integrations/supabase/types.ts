@@ -23760,6 +23760,7 @@ export type Database = {
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
+          assigned_to: string | null
           audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
@@ -23796,6 +23797,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
@@ -23832,6 +23834,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
@@ -24124,6 +24127,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_wa_internal_notes: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
       }
       imphq_wa_knowledge: {
         Row: {

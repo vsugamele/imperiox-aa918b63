@@ -6,6 +6,7 @@ import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
+import AssignAndNotesBar from "./AssignAndNotesBar";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
@@ -1273,6 +1274,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
         <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
           <ContactTagsPanel projectId={projectId} phone={phone} />
+          <AssignAndNotesBar conversationId={conversationId} />
           {(() => {
             const last = messages[messages.length - 1];
             if (!last || last.direction !== "incoming") return null;
