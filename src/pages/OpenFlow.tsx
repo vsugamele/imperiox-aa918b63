@@ -1107,6 +1107,43 @@ export default function OpenFlow() {
                   </div>
                 </div>
               </div>
+
+              {/* Exit Conditions */}
+              <div className="border border-border/60 bg-secondary/20 rounded-lg p-3 space-y-3">
+                <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogOut className="h-3.5 w-3.5 text-rose-400" />
+                  Encerramento (Exit Conditions)
+                </h4>
+                <p className="text-[10px] text-muted-foreground -mt-1">Quando o evento abaixo ocorrer para o lead, este fluxo é encerrado automaticamente. Útil para parar a régua de Pix quando a compra é aprovada.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Encerrar quando ocorrer</Label>
+                    <Select
+                      value={editing.exit_trigger_tipo || "__none__"}
+                      onValueChange={v => setEditing({ ...editing, exit_trigger_tipo: v === "__none__" ? null : v })}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Nenhum (sem exit) —</SelectItem>
+                        {TRIGGERS.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex items-center gap-2 h-8">
+                      <Switch
+                        checked={!!editing.exit_cascade}
+                        onCheckedChange={v => setEditing({ ...editing, exit_cascade: v })}
+                        disabled={!editing.exit_trigger_tipo}
+                      />
+                      <Label className="text-[11px]">Cascade: encerrar TODOS os fluxos ativos deste lead</Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}
