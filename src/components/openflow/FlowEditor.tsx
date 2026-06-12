@@ -214,10 +214,15 @@ interface FlowEditorProps {
 }
 
 export function FlowEditor({
-  triggerTipo, acoes, onChange, onGenerateAI, isGenerating,
+  triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
   automacaoId
 }: FlowEditorProps) {
+
+  const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
+  const onChange = history.push;
+  const issues = useMemo(() => validateFlow(acoes), [acoes]);
+
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
