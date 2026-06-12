@@ -333,6 +333,18 @@ export function FlowEditor({
   }, [automacaoId, acoes.length]);
 
   useEffect(() => {
+    // Ensure all actions have a unique ID for graph branching
+    const needsIds = acoes.some(a => !a.id);
+    if (needsIds) {
+      const updated = acoes.map(a => ({
+        ...a,
+        id: a.id || crypto.randomUUID()
+      }));
+      onChange(updated);
+    }
+  }, [acoes, onChange]);
+
+  useEffect(() => {
     if (!projectId) {
       setResendConfig(null);
       return;
