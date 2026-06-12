@@ -233,13 +233,13 @@ Deno.serve(async (req) => {
           .eq("project_id", project_id_for_log)
           .eq("provider", "instagram");
         await supabaseForCatch.from("imphq_webhook_errors").insert({
-          scanner: "zernio-ads-sync",
           project_id: project_id_for_log,
           plataforma: "zernio",
           evento: "ads_sync",
           erro: errMsg.slice(0, 1000),
           payload: {},
         });
+
 
       }
     } catch (_) { /* ignore */ }
