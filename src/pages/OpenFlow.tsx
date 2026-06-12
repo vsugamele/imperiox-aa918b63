@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3 } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -75,6 +75,9 @@ interface Automacao {
   stalled_operator?: string | null;
   follow_up_hours?: number | null;
   follow_up_template?: string | null;
+  exit_trigger_tipo?: string | null;
+  exit_trigger_payload?: any;
+  exit_cascade?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -118,6 +121,9 @@ export default function OpenFlow() {
   const [customProductMode, setCustomProductMode] = useState(false);
   const [customTagModeNew, setCustomTagModeNew] = useState(false);
   const [customProductModeNew, setCustomProductModeNew] = useState(false);
+  const [health, setHealth] = useState<Map<string, { execucoes: number; sucessos: number; falhas: number; taxa_sucesso: number }>>(new Map());
+  const [versionsOf, setVersionsOf] = useState<Automacao | null>(null);
+  const [versionsList, setVersionsList] = useState<any[]>([]);
 
   // ── Data loading ─────────────────────────────────────────────
   const load = async () => {
@@ -174,6 +180,16 @@ export default function OpenFlow() {
       if (l.project_id) byProject.set(l.project_id, (byProject.get(l.project_id) || 0) + 1);
     });
     setLeadCounts({ byCamp, byProject, global });
+
+    // Health metrics (last 7 days, view aggregated)
+    try {
+      const { data: hRows } = await supabase.from("imphq_automacao_health" as any).select("*");
+      const hMap = new Map<string, any>();
+      (hRows || []).forEach((h: any) => hMap.set(h.automacao_id, h));
+      setHealth(hMap);
+    } catch (e) {
+      console.warn("Erro ao buscar health metrics", e);
+    }
   };
 
   const loadKpis = async () => {
@@ -315,6 +331,9 @@ export default function OpenFlow() {
       stalled_operator: editing.stalled_operator || null,
       follow_up_hours: editing.follow_up_hours ?? null,
       follow_up_template: editing.follow_up_template || null,
+      exit_trigger_tipo: editing.exit_trigger_tipo || null,
+      exit_trigger_payload: editing.exit_trigger_payload || {},
+      exit_cascade: !!editing.exit_cascade,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null);
@@ -340,6 +359,36 @@ export default function OpenFlow() {
     if (error) { toast.error("Erro ao duplicar: " + error.message); return; }
     toast.success("Automação duplicada!"); load();
   };
+
+  const openVersions = async (auto: Automacao) => {
+    setVersionsOf(auto);
+    setVersionsList([]);
+    const { data, error } = await supabase
+      .from("imphq_automacao_versions" as any)
+      .select("*")
+      .eq("automacao_id", auto.id)
+      .order("versao_num", { ascending: false });
+    if (error) { toast.error("Erro ao carregar versões"); return; }
+    setVersionsList(data || []);
+  };
+
+  const restoreVersion = async (v: any) => {
+    if (!versionsOf) return;
+    const snap = v.snapshot || {};
+    const { error } = await supabase.from("imphq_automacoes").update({
+      nome: snap.nome,
+      trigger_tipo: snap.trigger_tipo,
+      acoes: snap.acoes,
+      exit_trigger_tipo: snap.exit_trigger_tipo || null,
+      exit_trigger_payload: snap.exit_trigger_payload || {},
+      exit_cascade: !!snap.exit_cascade,
+    } as any).eq("id", versionsOf.id);
+    if (error) { toast.error("Falha ao restaurar: " + error.message); return; }
+    toast.success(`Versão #${v.versao_num} restaurada`);
+    setVersionsOf(null);
+    load();
+  };
+
 
   const testAutomacao = async () => {
     if (!testDialog) return;
@@ -542,6 +591,20 @@ export default function OpenFlow() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        {(() => {
+                          const h = health.get(a.id);
+                          if (!h || !h.execucoes) return null;
+                          const rate = Math.round((h.taxa_sucesso || 0) * 100);
+                          const dot = rate >= 70 ? "🟢" : rate >= 40 ? "🟡" : "🔴";
+                          return (
+                            <span className="text-[10px] text-muted-foreground" title={`7d · ${h.execucoes} execuções · ${h.sucessos} ok · ${h.falhas} falhas`}>
+                              {dot} {rate}% · {h.execucoes}
+                            </span>
+                          );
+                        })()}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico de versões" onClick={() => openVersions(a)}>
+                          <History className="h-3 w-3 text-muted-foreground" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
                           <Play className="h-3 w-3 text-primary" />
                         </Button>
@@ -1044,6 +1107,43 @@ export default function OpenFlow() {
                   </div>
                 </div>
               </div>
+
+              {/* Exit Conditions */}
+              <div className="border border-border/60 bg-secondary/20 rounded-lg p-3 space-y-3">
+                <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogOut className="h-3.5 w-3.5 text-rose-400" />
+                  Encerramento (Exit Conditions)
+                </h4>
+                <p className="text-[10px] text-muted-foreground -mt-1">Quando o evento abaixo ocorrer para o lead, este fluxo é encerrado automaticamente. Útil para parar a régua de Pix quando a compra é aprovada.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Encerrar quando ocorrer</Label>
+                    <Select
+                      value={editing.exit_trigger_tipo || "__none__"}
+                      onValueChange={v => setEditing({ ...editing, exit_trigger_tipo: v === "__none__" ? null : v })}
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Nenhum (sem exit) —</SelectItem>
+                        {TRIGGERS.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex items-center gap-2 h-8">
+                      <Switch
+                        checked={!!editing.exit_cascade}
+                        onCheckedChange={v => setEditing({ ...editing, exit_cascade: v })}
+                        disabled={!editing.exit_trigger_tipo}
+                      />
+                      <Label className="text-[11px]">Cascade: encerrar TODOS os fluxos ativos deste lead</Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <FlowEditor
                 triggerTipo={editing.trigger_tipo}
                 acoes={editing.acoes}
@@ -1062,6 +1162,38 @@ export default function OpenFlow() {
             <Button variant="destructive" size="sm" onClick={() => editing && deleteAutomacao(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
             <Button onClick={saveAutomacao}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Versions Dialog ───────────────────────────────────── */}
+      <Dialog open={!!versionsOf} onOpenChange={() => setVersionsOf(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><History className="h-4 w-4" /> Histórico — {versionsOf?.nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {versionsList.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma versão anterior. Edite e salve a automação para começar a gerar snapshots (mantemos os últimos 10).</p>
+            )}
+            {versionsList.map(v => {
+              const snap = v.snapshot || {};
+              const steps = Array.isArray(snap.acoes) ? snap.acoes.length : 0;
+              return (
+                <div key={v.id} className="flex items-center justify-between border border-border/60 rounded p-2 bg-background/40">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium">Versão #{v.versao_num} · {snap.nome}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {new Date(v.criado_em).toLocaleString("pt-BR")} · gatilho: {snap.trigger_tipo} · {steps} passo(s)
+                      {snap.exit_trigger_tipo ? ` · exit: ${snap.exit_trigger_tipo}` : ""}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => restoreVersion(v)}>
+                    <RotateCcw className="h-3 w-3 mr-1" /> Restaurar
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -17048,6 +17048,33 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_versions: {
+        Row: {
+          automacao_id: string
+          criado_em: string
+          criado_por: string | null
+          id: string
+          snapshot: Json
+          versao_num: number
+        }
+        Insert: {
+          automacao_id: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot: Json
+          versao_num: number
+        }
+        Update: {
+          automacao_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot?: Json
+          versao_num?: number
+        }
+        Relationships: []
+      }
       imphq_automacoes: {
         Row: {
           acoes: Json | null
@@ -17055,6 +17082,9 @@ export type Database = {
           campanha_id: string | null
           created_at: string | null
           dedupe_hours: number | null
+          exit_cascade: boolean
+          exit_trigger_payload: Json | null
+          exit_trigger_tipo: string | null
           follow_up_hours: number | null
           follow_up_template: string | null
           id: string
@@ -17077,6 +17107,9 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exit_cascade?: boolean
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id: string
@@ -17099,6 +17132,9 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exit_cascade?: boolean
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id?: string
@@ -41368,6 +41404,18 @@ export type Database = {
           id: string | null
           name: string | null
           phone: string | null
+        }
+        Relationships: []
+      }
+      imphq_automacao_health: {
+        Row: {
+          aguardando: number | null
+          automacao_id: string | null
+          execucoes: number | null
+          falhas: number | null
+          saidas: number | null
+          sucessos: number | null
+          taxa_sucesso: number | null
         }
         Relationships: []
       }
