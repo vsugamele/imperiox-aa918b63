@@ -22,7 +22,7 @@ import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
 import { Undo2, Redo2 } from "lucide-react";
-import { useMemo } from "react";
+
 
 const CONDICAO_TIPOS = [
   { value: "nao_abriu_email", label: "Não abriu email" },
