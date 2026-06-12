@@ -21,6 +21,7 @@ import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { Undo2, Redo2 } from "lucide-react";
 
 
@@ -1644,8 +1645,16 @@ export function FlowEditor({
                         Número de ações consecutivas a serem puladas caso o lead caia na Rota B.
                       </p>
                     </div>
+
+                    <ABVariantStats
+                      automacaoId={automacaoId}
+                      stepIndex={selectedIdx}
+                      jumpSteps={acao.jump_steps ?? 1}
+                      onPromoteWinner={(pct) => updateAcao(selectedIdx, "rota_a_porcentagem", pct)}
+                    />
                   </div>
                 )}
+
 
                 {/* branch_by_awareness */}
                 {acao.tipo === "branch_by_awareness" && (
