@@ -5016,6 +5016,51 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_push_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          notif_type: string
+          recipients_count: number
+          removed_count: number
+          segment: Json
+          sent_by: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_push_subscriptions: {
         Row: {
           auth: string
