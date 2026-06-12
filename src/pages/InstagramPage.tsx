@@ -3685,8 +3685,26 @@ export default function InstagramPage() {
                 </div>
               )}
 
+              <div className="flex items-center justify-between gap-2 bg-amber-500/5 border border-amber-500/20 rounded-md px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-amber-300 font-medium">✨ Gerar com IA</p>
+                  <p className="text-[9px] text-slate-400">A IA usa briefing/avatar do projeto + a palavra-chave pra escrever resposta pública e DM.</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={generateTriggerCopy}
+                  disabled={genTriggerLoading || !newTrigger.trigger_keyword.trim()}
+                  className="bg-amber-500/90 hover:bg-amber-500 text-black font-semibold text-[11px] h-7 px-3 shrink-0"
+                >
+                  {genTriggerLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  Gerar
+                </Button>
+              </div>
+
               {(triggerSourceType === "all" || triggerSourceType === "specific") && (
                 <div className="space-y-1.5 animate-fade-in">
+
                   <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
                   <Input
                     value={newTrigger.reply_comment_template}
