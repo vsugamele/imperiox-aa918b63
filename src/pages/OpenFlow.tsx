@@ -331,6 +331,9 @@ export default function OpenFlow() {
       stalled_operator: editing.stalled_operator || null,
       follow_up_hours: editing.follow_up_hours ?? null,
       follow_up_template: editing.follow_up_template || null,
+      exit_trigger_tipo: editing.exit_trigger_tipo || null,
+      exit_trigger_payload: editing.exit_trigger_payload || {},
+      exit_cascade: !!editing.exit_cascade,
     } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null);
