@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Calendar } from "lucide-react";
+import { Download, Calendar, Plus } from "lucide-react";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
@@ -13,8 +13,10 @@ import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
 import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
 import { TictoEventFlowDiagnostic } from "@/components/gerenciador/TictoEventFlowDiagnostic";
 import { RulesPanel } from "@/components/gerenciador/RulesPanel";
+import { CreateCampaignModal } from "@/components/gerenciador/CreateCampaignModal";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
+
 
 const PERIODS = [
   { label: "Hoje", days: 0 },
@@ -34,6 +36,8 @@ export default function Gerenciador() {
   const [vendasPrev, setVendasPrev] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [forcedSearch, setForcedSearch] = useState<string | undefined>();
+  const [createOpen, setCreateOpen] = useState(false);
+
 
   // Carregar projetos
   useEffect(() => {
@@ -162,10 +166,21 @@ export default function Gerenciador() {
           <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5 h-9 text-xs">
             <Download className="h-3.5 w-3.5" /> CSV
           </Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5 h-9 text-xs">
+            <Plus className="h-3.5 w-3.5" /> Nova Campanha
+          </Button>
           <RevenueModeToggle />
           <span className="text-xs text-muted-foreground tabular-nums px-2">{periodLabel}</span>
         </div>
       </div>
+
+      <CreateCampaignModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        defaultProjectId={projectId !== "__all__" ? projectId : undefined}
+        onCreated={() => setRefreshKey(k => k + 1)}
+      />
+
 
       <Tabs defaultValue="meta" className="space-y-4">
         <TabsList className="bg-transparent border-b border-border/30 rounded-none h-auto p-0 gap-1">

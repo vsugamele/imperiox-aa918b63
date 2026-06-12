@@ -155,7 +155,9 @@ ${rag.block}`;
         messages: aiMessages,
         stream,
       }),
+      signal: req.signal,
     });
+
 
     if (!aiRes.ok) {
       const t = await aiRes.text();
@@ -218,11 +220,16 @@ ${rag.block}`;
         }
       },
       async flush(controller) {
+        // Se o cliente abortou, ele persiste a parcial — evita race/duplicidade
+        if (req.signal.aborted) {
+          console.log("[copilot-imperius] aborted by client, skipping server persist");
+          return;
+        }
         const savedThreadId = await persistThread(fullText || "Sem resposta.");
-        // Envia metadados finais como evento custom
         const meta = `data: ${JSON.stringify({ type: "meta", threadId: savedThreadId, sources: rag.sources })}\n\n`;
-        controller.enqueue(encoder.encode(meta));
+        try { controller.enqueue(encoder.encode(meta)); } catch { /* fechado */ }
       },
+
     });
 
     return new Response(aiRes.body!.pipeThrough(transform), {
