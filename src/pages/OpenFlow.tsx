@@ -229,6 +229,7 @@ export default function OpenFlow() {
       <Tabs defaultValue="fluxos" className="w-full">
         <TabsList className="bg-slate-900/80 border border-white/5 p-1">
           <TabsTrigger value="fluxos" className="gap-2"><Zap className="h-4 w-4" /> Fluxos Ativos</TabsTrigger>
+          <TabsTrigger value="guia" className="gap-2"><Info className="h-4 w-4" /> Guia de Etapas</TabsTrigger>
           <TabsTrigger value="campanhas" className="gap-2"><Megaphone className="h-4 w-4" /> Campanhas</TabsTrigger>
           <TabsTrigger value="logs" className="gap-2"><Activity className="h-4 w-4" /> Logs & Monitoramento</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Performance</TabsTrigger>
