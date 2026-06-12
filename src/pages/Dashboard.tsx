@@ -346,86 +346,100 @@ export default function Dashboard() {
         </section>
       )}
 
-      <FacebookHealthAlert />
+      {show("fb-health") && <FacebookHealthAlert />}
 
       {/* HOJE + LIVE */}
-      <LazySection minHeight={320}>
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TodayCard projectId={dashProject} />
-          <LiveFunnelPanel projectFilter={dashProject} />
-        </section>
-      </LazySection>
+      {show("hoje") && (
+        <LazySection minHeight={320}>
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TodayCard projectId={dashProject} />
+            <LiveFunnelPanel projectFilter={dashProject} />
+          </section>
+        </LazySection>
+      )}
 
       {/* PREDITIVO + HOT LEADS + ALERTS */}
-      <LazySection minHeight={400}>
-        <section className="space-y-4">
-          <SectionHead kicker="Sinais" title="Hoje em risco" />
-          <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-          <HotLeadAlerts projectFilter={dashProject} />
-          <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-        </section>
-      </LazySection>
+      {show("preditivo") && (
+        <LazySection minHeight={400}>
+          <section className="space-y-4">
+            <SectionHead kicker="Sinais" title="Hoje em risco" />
+            <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+            <HotLeadAlerts projectFilter={dashProject} />
+            <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+          </section>
+        </LazySection>
+      )}
 
       {/* RECEITA + FUNIL / RECUPERAÇÃO */}
-      <LazySection minHeight={420}>
-        <section>
-          <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8">
-              <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+      {show("receita") && (
+        <LazySection minHeight={420}>
+          <section>
+            <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8">
+                <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+              </div>
+              <div className="lg:col-span-4 space-y-6">
+                <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+                <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+              </div>
             </div>
-            <div className="lg:col-span-4 space-y-6">
-              <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-              <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
-            </div>
-          </div>
-        </section>
-      </LazySection>
+          </section>
+        </LazySection>
+      )}
 
       {/* ADS + AI RECUPERADO */}
-      <LazySection minHeight={400}>
-        <section>
-          <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8">
-              <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+      {show("ads") && (
+        <LazySection minHeight={400}>
+          <section>
+            <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8">
+                <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+              </div>
+              <div className="lg:col-span-4">
+                <AIRevenueRecoveredCard projectFilter={dashProject} />
+              </div>
             </div>
-            <div className="lg:col-span-4">
-              <AIRevenueRecoveredCard projectFilter={dashProject} />
-            </div>
-          </div>
-        </section>
-      </LazySection>
+          </section>
+        </LazySection>
+      )}
 
       {/* CHARTS + CARDS */}
-      <LazySection minHeight={500}>
-        <section>
-          <SectionHead kicker="Detalhes" title="O retrato completo" />
-          <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-          <div className="mt-6">
-            <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
-          </div>
-        </section>
-      </LazySection>
+      {show("charts") && (
+        <LazySection minHeight={500}>
+          <section>
+            <SectionHead kicker="Detalhes" title="O retrato completo" />
+            <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+            <div className="mt-6">
+              <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+            </div>
+          </section>
+        </LazySection>
+      )}
 
       {/* RELATÓRIO SEMANAL */}
-      <LazySection minHeight={260}>
-        <section>
-          <SectionHead kicker="Resumo" title="Relatório da semana" />
-          <WeeklyReportWidget projectFilter={dashProject} />
-        </section>
-      </LazySection>
+      {show("semanal") && (
+        <LazySection minHeight={260}>
+          <section>
+            <SectionHead kicker="Resumo" title="Relatório da semana" />
+            <WeeklyReportWidget projectFilter={dashProject} />
+          </section>
+        </LazySection>
+      )}
 
       {/* ATIVIDADE + CRESCIMENTO */}
-      <LazySection minHeight={400}>
-        <section>
-          <SectionHead kicker="Pulso" title="Atividade e crescimento" />
-          <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
-          <div className="mt-6">
-            <GrowthDashboard projectFilter={dashProject} />
-          </div>
-        </section>
-      </LazySection>
+      {show("atividade") && (
+        <LazySection minHeight={400}>
+          <section>
+            <SectionHead kicker="Pulso" title="Atividade e crescimento" />
+            <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
+            <div className="mt-6">
+              <GrowthDashboard projectFilter={dashProject} />
+            </div>
+          </section>
+        </LazySection>
+      )}
     </div>
   );
 }
