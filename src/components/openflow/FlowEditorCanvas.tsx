@@ -563,8 +563,10 @@ interface FlowEditorCanvasProps {
   acoes: Acao[];
   triggerTipo: string;
   onChange: (acoes: Acao[]) => void;
-  onNodeClick?: (acao: Acao, index: number) => void;
+  onActionSelect?: (index: number) => void;
   stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
 }
 
 // Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
