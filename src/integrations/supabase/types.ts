@@ -16435,6 +16435,7 @@ export type Database = {
           plataforma: string
           project_id: string | null
           resultado: string
+          source: string
           tipo: string
           valor_anterior: string | null
           valor_novo: string | null
@@ -16451,6 +16452,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16467,6 +16469,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo?: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16622,6 +16625,7 @@ export type Database = {
           project_id: string | null
           purchases: number | null
           resultados: number | null
+          source: string
           spend: number | null
           stop_rate: number | null
           thumbnail_url: string | null
@@ -16669,6 +16673,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
@@ -16716,6 +16721,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
