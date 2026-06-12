@@ -90,7 +90,19 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               prev ? { ...prev, lastIntent: (triage as any).intent } : prev
             );
           }
+
+          setResolvedLeadIdState(resolvedLeadId);
+
+          // Últimas vendas do lead
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, produto_nome, valor, status, data_venda, tipo_venda")
+            .eq("lead_id", resolvedLeadId)
+            .order("data_venda", { ascending: false })
+            .limit(3);
+          setSales((vendas as any[]) || []);
         }
+
       } catch (e) {
         console.error("LeadIntelPanel load error:", e);
       } finally {
