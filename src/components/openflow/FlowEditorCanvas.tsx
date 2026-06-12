@@ -317,7 +317,9 @@ const nodeTypes = { actionNode: ActionNode };
 function acoesToNodesEdges(
   acoes: Acao[], 
   triggerTipo: string,
-  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>
+  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>,
+  flowObjective?: string,
+  onUpdateObjective?: (objective: string) => void
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
