@@ -1019,12 +1019,32 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     };
 
 
+    // Realtime: subscribe to new messages for this conversation.
+    // Mantém polling como fallback (60s) caso o canal caia.
     useEffect(() => {
-      const interval = setInterval(() => {
+      const channel = supabase
+        .channel(`wa-msg-${conversationId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .subscribe();
+
+      const fallback = setInterval(() => {
         if (document.visibilityState === "visible") pollNew();
-      }, 15000);
-      return () => clearInterval(interval);
-    }, [pollNew]);
+      }, 60000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(fallback);
+      };
+    }, [conversationId, pollNew]);
 
     useEffect(() => {
       if (isComposingRef.current) return;
@@ -1253,6 +1273,22 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
         <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
           <ContactTagsPanel projectId={projectId} phone={phone} />
+          {(() => {
+            const last = messages[messages.length - 1];
+            if (!last || last.direction !== "incoming") return null;
+            const min = Math.max(0, Math.floor((Date.now() - new Date(last.created_at).getTime()) / 60000));
+            const label = min < 1 ? "agora" : min < 60 ? `${min}min` : min < 1440 ? `${Math.floor(min/60)}h${min % 60 ? ` ${min%60}min` : ""}` : `${Math.floor(min/1440)}d`;
+            const cls = min < 5 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+              : min < 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+              : min < 120 ? "bg-orange-500/10 text-orange-300 border-orange-500/30"
+              : "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse";
+            return (
+              <div className={`px-3 py-1.5 text-[11px] border-b ${cls} flex items-center gap-2 font-medium`}>
+                <span>⏱</span>
+                <span>Aguardando sua resposta há <strong>{label}</strong></span>
+              </div>
+            );
+          })()}
           {/* Chat area with WhatsApp-like pattern background */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,

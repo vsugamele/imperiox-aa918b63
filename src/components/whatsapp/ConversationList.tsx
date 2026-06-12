@@ -34,6 +34,31 @@ function isUnreadSession(s: WaSession): boolean {
   return lastRead < lastMsg;
 }
 
+// SLA: tempo desde a última mensagem do lead aguardando resposta
+function waitingMinutes(s: WaSession): number | null {
+  const dir = s.last_message_direction;
+  if (dir !== "in" && dir !== "incoming") return null;
+  if (!s.last_message_at) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(s.last_message_at).getTime()) / 60000));
+}
+
+function formatWaiting(min: number): string {
+  if (min < 1) return "agora";
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h${min % 60 ? ` ${min % 60}min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+function slaColor(min: number): string {
+  if (min < 5) return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+  if (min < 30) return "bg-amber-500/20 text-amber-300 border-amber-500/40";
+  if (min < 120) return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+  return "bg-red-500/25 text-red-300 border-red-500/50 animate-pulse";
+}
+
+
 
 interface Provider {
   id: string;
@@ -369,9 +394,23 @@ export default function ConversationList({
                         )}
 
                       </div>
-                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
-                        {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {(() => {
+                          const w = waitingMinutes(s);
+                          if (w === null) return null;
+                          return (
+                            <span
+                              className={`text-[9px] font-semibold px-1.5 py-0 rounded border ${slaColor(w)} leading-tight`}
+                              title={`Aguardando resposta há ${formatWaiting(w)}`}
+                            >
+                              ⏱ {formatWaiting(w)}
+                            </span>
+                          );
+                        })()}
+                        <span className={`text-[10px] ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
+                          {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
+                        </span>
+                      </div>
                     </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
