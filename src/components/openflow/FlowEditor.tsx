@@ -21,6 +21,7 @@ import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { Undo2, Redo2 } from "lucide-react";
 
 
