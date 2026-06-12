@@ -878,9 +878,133 @@ export default function OpenFlow() {
       </Dialog>
 
       {/* ── Edit Dialog ───────────────────────────────────────── */}
-      <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Editar Automação</DialogTitle></DialogHeader>
+      <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
+        <DialogContent className={`${(editing?.acoes || []).length > 0 ? "max-w-[98vw] w-[98vw] h-[95vh]" : "max-w-4xl"} p-0 overflow-hidden bg-slate-950 border-white/10 flex flex-col`}>
+          <DialogHeader className="px-6 py-4 border-b border-white/5 bg-slate-900/50 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-primary" />
+                </div>
+                {editing && (
+                  <div>
+                    <DialogTitle className="text-xl font-bold text-slate-100">{editing.nome || "Editar Fluxo"}</DialogTitle>
+                    <p className="text-xs text-muted-foreground font-mono">ID: {editing.id.slice(0, 8)}... | Projeto: {projects.find(p => p.id === editing.project_id)?.name || "Nenhum"}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setEditing(null)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">
+                  Cancelar
+                </Button>
+                {editing && (
+                  <Button onClick={() => saveAutomacao(editing)} className="h-9 px-6 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                    <Save className="h-4 w-4 mr-2" />
+                    Salvar Automação
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+
+          {editing && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-6 max-w-7xl mx-auto">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-secondary/10 p-4 rounded-2xl border border-white/5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Nome do Fluxo</Label>
+                    <Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} className="h-9 bg-background/50 border-white/10" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Projeto</Label>
+                    <Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}>
+                      <SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Todos</SelectItem>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Trigger</Label>
+                    <Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}>
+                      <SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Produto</Label>
+                    {customProductMode ? (
+                      <div className="flex gap-1 items-center">
+                        <Input
+                          value={editing.produto || ""}
+                          onChange={e => setEditing({ ...editing, produto: e.target.value })}
+                          className="h-9 bg-background/50 border-white/10"
+                        />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setCustomProductMode(false)}><History className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <Select
+                        value={editing.produto || "none"}
+                        onValueChange={v => v === "custom" ? setCustomProductMode(true) : setEditing({ ...editing, produto: v === "none" ? undefined : v })}
+                      >
+                        <SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Todos</SelectItem>
+                          {(editProjectProducts.length > 0 ? editProjectProducts : allProducts).map(p => (
+                            <SelectItem key={p} value={p}>📦 {p}</SelectItem>
+                          ))}
+                          <SelectItem value="custom" className="text-primary font-bold">➕ Personalizado...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Filtro por Tag</Label>
+                    {customTagMode ? (
+                      <div className="flex gap-1 items-center">
+                        <Input
+                          value={editing.tag_filtro || ""}
+                          onChange={e => setEditing({ ...editing, tag_filtro: e.target.value })}
+                          className="h-9 bg-background/50 border-white/10"
+                        />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setCustomTagMode(false)}><History className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <Select
+                        value={editing.tag_filtro || "none"}
+                        onValueChange={v => v === "custom" ? setCustomTagMode(true) : setEditing({ ...editing, tag_filtro: v === "none" ? undefined : v })}
+                      >
+                        <SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Sem tag" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhuma tag</SelectItem>
+                          {allTags.map(t => <SelectItem key={t} value={t}>🏷️ {t}</SelectItem>)}
+                          <SelectItem value="custom" className="text-primary font-bold">➕ Personalizado...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+
+                <FlowEditor
+                  triggerTipo={editing.trigger_tipo}
+                  acoes={editing.acoes}
+                  onChange={v => setEditing({ ...editing, acoes: v })}
+                  projectId={editing.project_id}
+                  providers={providers}
+                  templates={projectTemplates}
+                  onTemplateSaved={loadTemplates}
+                  automacaoId={editing.id}
+                />
+... (the rest of the dialog content) ...
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
           {editing && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
