@@ -341,7 +341,18 @@ export default function OpenFlow() {
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Filtro por Tag</Label><Select value={editing.tag_filtro || "none"} onValueChange={v => setEditing({ ...editing, tag_filtro: v === "none" ? undefined : v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhuma</SelectItem>{allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
                 </div>
 
-                <FlowEditor triggerTipo={editing.trigger_tipo} acoes={editing.acoes} onChange={v => setEditing({ ...editing, acoes: v })} projectId={editing.project_id} providers={providers} templates={projectTemplates} onTemplateSaved={loadTemplates} automacaoId={editing.id} />
+                <FlowEditor 
+                  triggerTipo={editing.trigger_tipo} 
+                  acoes={editing.acoes} 
+                  onChange={v => setEditing({ ...editing, acoes: v })} 
+                  projectId={editing.project_id} 
+                  providers={providers} 
+                  templates={projectTemplates} 
+                  onTemplateSaved={loadTemplates} 
+                  automacaoId={editing.id} 
+                  flowObjective={editing.flow_objective || ""}
+                  onUpdateObjective={v => setEditing({ ...editing, flow_objective: v })}
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-4">
