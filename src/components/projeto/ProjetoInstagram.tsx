@@ -50,6 +50,7 @@ export function ProjetoInstagram({ projectId }: Props) {
   const [zernioAccounts, setZernioAccounts] = useState<any[]>([]);
   const [selectedZernioAccountId, setSelectedZernioAccountId] = useState("");
   const [fetchingZernioAccounts, setFetchingZernioAccounts] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   // Form AI Config
   const [aiConfig, setAiConfig] = useState<any>(null);
