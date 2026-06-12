@@ -268,7 +268,96 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             </div>
           </div>
         )}
+
+        {/* Histórico de Compras */}
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <ShoppingBag className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-muted-foreground font-medium">Histórico de Compras</span>
+          </div>
+          {sales.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground/70 italic">Nenhuma compra registrada.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {sales.map((v) => (
+                <div key={v.id} className="bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-2 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-foreground font-semibold truncate text-[11px]" title={v.produto_nome}>
+                      {v.produto_nome || "—"}
+                    </span>
+                    <span className="text-emerald-300 font-mono text-[11px] shrink-0">
+                      R${Number(v.valor || 0).toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                    <span>{v.data_venda ? new Date(v.data_venda).toLocaleDateString("pt-BR") : ""}</span>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase">
+                      {v.tipo_venda || v.status || "venda"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Ações Rápidas */}
+        <div className="p-4 space-y-1.5">
+          <span className="text-muted-foreground font-medium text-[10px] uppercase tracking-wider">Ações Rápidas</span>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 justify-start text-[11px] gap-1.5 hover:bg-orange-500/10 hover:border-orange-500/40 hover:text-orange-300"
+              disabled={!resolvedLeadIdState}
+              onClick={async () => {
+                if (!resolvedLeadIdState) return;
+                const { error } = await supabase
+                  .from("imphq_leads")
+                  .update({ score: 95 } as any)
+                  .eq("id", resolvedLeadIdState);
+                if (error) toast.error("Erro: " + error.message);
+                else { toast.success("🔥 Marcado como hot lead"); setIntel((p: any) => ({ ...p, score: 95 })); }
+              }}
+            >
+              <Flame className="h-3 w-3" /> Marcar como hot lead
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 justify-start text-[11px] gap-1.5"
+              disabled={!resolvedLeadIdState}
+              onClick={async () => {
+                if (!resolvedLeadIdState) return;
+                const titulo = window.prompt("Título da tarefa:", `Follow-up: ${intel?.name || "lead"}`);
+                if (!titulo) return;
+                const { error } = await supabase.from("imphq_tarefas" as any).insert({
+                  titulo,
+                  projeto_id: projectId,
+                  prioridade: "alta",
+                  status: "pendente",
+                  origem: "inbox_quick_action",
+                  descricao: `Lead: ${intel?.name || ""} · score ${intel?.score || 0}`,
+                });
+                if (error) toast.error("Erro: " + error.message);
+                else toast.success("📋 Tarefa criada");
+              }}
+            >
+              <ListPlus className="h-3 w-3" /> Criar tarefa
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 justify-start text-[11px] gap-1.5"
+              disabled={!resolvedLeadIdState}
+              onClick={() => { window.open(`/leads?id=${resolvedLeadIdState}`, "_blank"); }}
+            >
+              <ExternalLink className="h-3 w-3" /> Abrir no CRM
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
