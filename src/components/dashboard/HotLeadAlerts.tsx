@@ -79,7 +79,7 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
       .channel("hot_leads_rt")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_leads" }, load)
       .subscribe();
-    const interval = setInterval(load, 5 * 60_000); // safety fallback a cada 5min
+    const interval = setInterval(() => { if (document.visibilityState === "visible") load(); }, 5 * 60_000); // safety fallback a cada 5min, pausa em tab oculta
     return () => { clearInterval(interval); supabase.removeChannel(ch); };
   }, [projectFilter]);
 
