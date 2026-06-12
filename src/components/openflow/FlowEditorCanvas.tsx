@@ -8,8 +8,10 @@ import {
   Position,
   useNodesState,
   useEdgesState,
+  addEdge, // Added
   type Node,
   type Edge,
+  type Connection, // Added
   BackgroundVariant,
   Panel,
 } from "@xyflow/react";
@@ -202,6 +204,23 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
                 right: -4,
                 transform: "translateY(-50%)",
                 background: "#8b5cf6",
+                width: 7,
+                height: 7,
+                border: "2px solid #0f172a",
+              }}
+            />
+          </div>
+          <div className="relative flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded px-2 py-1 text-[9px] text-red-400 font-semibold shadow-sm">
+            <span>Se Não / Falso</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="branch-false"
+              style={{
+                top: "50%",
+                right: -4,
+                transform: "translateY(-50%)",
+                background: "#ef4444",
                 width: 7,
                 height: 7,
                 border: "2px solid #0f172a",
@@ -607,6 +626,32 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
     [acoes, onChange]
   );
 
+  const onConnect = useCallback(
+    (params: Connection) => {
+      setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2 } }, eds));
+      
+      const updatedAcoes = [...acoes];
+      const sourceIdx = nodes.find(n => n.id === params.source)?.data?.index;
+      const targetId = params.target;
+      
+      if (sourceIdx !== undefined && sourceIdx >= 0) {
+        if (params.sourceHandle === "branch-true") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], true_next_id: targetId };
+        } else if (params.sourceHandle === "branch-false") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], false_next_id: targetId };
+        } else if (params.sourceHandle?.startsWith("route-")) {
+          // IA routes are handled differently, but we can store them in ia_routes array if we find the matching index
+          // For now let's just use next_id as a fallback
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+        } else {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+        }
+        onChange(updatedAcoes);
+      }
+    },
+    [nodes, acoes, onChange, setEdges]
+  );
+
   return (
     <div className="flex-1 w-full h-full relative" style={{ minHeight: "530px" }}>
       <ReactFlow
@@ -614,6 +659,7 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
