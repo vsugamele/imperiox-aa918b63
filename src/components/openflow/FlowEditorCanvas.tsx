@@ -598,8 +598,8 @@ export function FlowEditorCanvas({
   onUpdateObjective
 }: FlowEditorCanvasProps) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
-    () => acoesToNodesEdges(acoes, triggerTipo, stepStats),
-    [acoes, triggerTipo, stepStats]
+    () => acoesToNodesEdges(acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective),
+    [acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective]
   );
   
   const [nodes, setNodes, onNodesChange] = useNodesState(initNodes);
