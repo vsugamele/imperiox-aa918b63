@@ -257,23 +257,27 @@ export default function Dashboard() {
 
 
       {/* COCKPIT KPI STRIP */}
-      <section>
-        <DashboardStats
-          period={dashPeriod}
-          projectFilter={dashProject}
-          productFilter={dashProduct}
-          compare={compareMode}
-          variant="strip"
-        />
-      </section>
+      {show("kpi") && (
+        <section>
+          <DashboardStats
+            period={dashPeriod}
+            projectFilter={dashProject}
+            productFilter={dashProduct}
+            compare={compareMode}
+            variant="strip"
+          />
+        </section>
+      )}
 
       {/* IMPERIUS STRIP */}
-      <section>
-        <ImperiusStrip projectId={dashProject} />
-      </section>
+      {show("imperius") && (
+        <section>
+          <ImperiusStrip projectId={dashProject} />
+        </section>
+      )}
 
       {/* COMPARATIVO DE PROJETOS */}
-      {dashProject === "all" && (
+      {show("comparativo") && dashProject === "all" && (
         <section className="space-y-3">
           <SectionHead kicker="Consolidado" title="Performance Comparativa de Projetos" />
           <div className="rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm overflow-hidden p-6">
