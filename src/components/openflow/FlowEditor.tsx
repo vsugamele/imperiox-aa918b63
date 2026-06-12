@@ -157,6 +157,8 @@ export interface Acao {
   ia_vision?: boolean;
   ia_voice_response?: boolean;
   ia_routes?: { name: string; jump_steps: number }[];
+  personality_prompt?: string;
+  questioning_strategy?: string;
   // condicao_lead
   condition_field?: string;
   condition_operator?: string;
