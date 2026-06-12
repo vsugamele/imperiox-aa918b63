@@ -1107,9 +1107,12 @@ export default function InstagramPage() {
   const activeUnreadCount = useMemo(() => conversations.reduce((acc, c) => acc + c.unread_count, 0), [conversations]);
 
   const filteredConversations = useMemo(() => {
-    if (!convSearch.trim()) return conversations;
+    const getTs = (c: any) =>
+      new Date(c.last_message_at || c.updated_at || c.created_at || 0).getTime();
+    const sorted = [...conversations].sort((a, b) => getTs(b) - getTs(a));
+    if (!convSearch.trim()) return sorted;
     const q = convSearch.toLowerCase();
-    return conversations.filter(c =>
+    return sorted.filter(c =>
       (c.participant_username || "").toLowerCase().includes(q) ||
       (c.participant_name || "").toLowerCase().includes(q) ||
       (c.last_message || "").toLowerCase().includes(q)
