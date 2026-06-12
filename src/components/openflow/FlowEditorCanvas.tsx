@@ -700,30 +700,54 @@ export function FlowEditorCanvas({
         />
         <Panel
           position="bottom-left"
-          className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg"
+          className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg pointer-events-none"
         >
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
-        {/* Painel de Objetivo Estratégico */}
-        <Panel
-          position="top-left"
-          className="bg-slate-900/95 border border-purple-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-500"
-        >
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-purple-400">
-              <Brain className="h-4 w-4" />
-              <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+        {/* Painéis Estratégicos */}
+        <Panel position="top-left" className="m-4 flex flex-col gap-4 pointer-events-none">
+          {/* Painel de Objetivo Estratégico */}
+          <div className="bg-slate-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-500 pointer-events-auto">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-purple-400">
+                <Brain className="h-4 w-4" />
+                <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+              </div>
+              <Textarea 
+                value={flowObjective || ""} 
+                onChange={(e) => onUpdateObjective?.(e.target.value)}
+                placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
+                className="text-[11px] bg-slate-950/50 border-white/10 min-h-[80px] resize-none leading-relaxed text-slate-300 scrollbar-none"
+              />
+              <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
+                Este objetivo guia a IA e ajuda a manter a régua estratégica.
+              </p>
             </div>
-            <Textarea 
-              value={flowObjective || ""} 
-              onChange={(e) => onUpdateObjective?.(e.target.value)}
-              placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
-              className="text-[11px] bg-slate-950/50 border-white/10 min-h-[80px] resize-none leading-relaxed text-slate-300 scrollbar-none"
-            />
-            <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
-              Este objetivo guia a IA e ajuda a manter a régua estratégica.
-            </p>
+          </div>
+
+          {/* Painel de Condições de Saída */}
+          <div className="bg-slate-900/95 backdrop-blur-md border border-rose-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-700 pointer-events-auto">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <LogOut className="h-4 w-4" />
+                <span className="text-[10px] uppercase font-bold tracking-wider">Condições de Saída</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                O lead sairá do fluxo se:
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Compra Aprovada
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Lead respondeu (se IA)
+                </div>
+                <Button variant="outline" size="sm" className="w-full text-[9px] h-7 border-dashed border-white/10 bg-transparent hover:bg-white/5">
+                  <Plus className="h-3 w-3 mr-1" /> Add Condição Personalizada
+                </Button>
+              </div>
+            </div>
           </div>
         </Panel>
 
