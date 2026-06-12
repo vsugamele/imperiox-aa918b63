@@ -2479,7 +2479,7 @@ export default function InstagramPage() {
                                     <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
                                     {c.last_message_at && (
                                       <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                        {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                        {formatCompactTime(c.last_message_at)}
                                       </p>
                                     )}
                                   </div>
