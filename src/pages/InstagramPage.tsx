@@ -935,6 +935,19 @@ export default function InstagramPage() {
       };
       setMessages(prev => [...prev, optMsg]);
       setComposedMsg("");
+
+      // Sobe a conversa pro topo imediatamente (ordem de chegada)
+      const nowIso = new Date().toISOString();
+      setConversations(prev => prev.map(c =>
+        c.id === selectedConv.id
+          ? { ...c, last_message: textToSend, last_message_at: nowIso, updated_at: nowIso }
+          : c
+      ));
+      supabase.from("imphq_ig_conversations").update({
+        last_message: textToSend,
+        last_message_at: nowIso,
+        updated_at: nowIso,
+      } as any).eq("id", selectedConv.id).then(() => {});
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar mensagem");
     } finally {
@@ -1107,9 +1120,12 @@ export default function InstagramPage() {
   const activeUnreadCount = useMemo(() => conversations.reduce((acc, c) => acc + c.unread_count, 0), [conversations]);
 
   const filteredConversations = useMemo(() => {
-    if (!convSearch.trim()) return conversations;
+    const getTs = (c: any) =>
+      new Date(c.last_message_at || c.updated_at || c.created_at || 0).getTime();
+    const sorted = [...conversations].sort((a, b) => getTs(b) - getTs(a));
+    if (!convSearch.trim()) return sorted;
     const q = convSearch.toLowerCase();
-    return conversations.filter(c =>
+    return sorted.filter(c =>
       (c.participant_username || "").toLowerCase().includes(q) ||
       (c.participant_name || "").toLowerCase().includes(q) ||
       (c.last_message || "").toLowerCase().includes(q)
