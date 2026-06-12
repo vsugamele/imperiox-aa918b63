@@ -331,14 +331,13 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
                 if (!resolvedLeadIdState) return;
                 const titulo = window.prompt("Título da tarefa:", `Follow-up: ${intel?.name || "lead"}`);
                 if (!titulo) return;
-                const { error } = await supabase.from("imphq_tarefas" as any).insert({
-                  titulo,
-                  projeto_id: projectId,
-                  prioridade: "alta",
+                const { error } = await supabase.from("imphq_tasks").insert({
+                  title: titulo,
+                  project_id: projectId,
+                  priority: "alta",
                   status: "pendente",
-                  origem: "inbox_quick_action",
-                  descricao: `Lead: ${intel?.name || ""} · score ${intel?.score || 0}`,
-                });
+                  description: `Lead: ${intel?.name || ""} · score ${intel?.score || 0} · origem: inbox`,
+                } as any);
                 if (error) toast.error("Erro: " + error.message);
                 else toast.success("📋 Tarefa criada");
               }}
