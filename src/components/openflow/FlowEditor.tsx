@@ -60,6 +60,8 @@ const ACAO_TIPOS = [
   { value: "ia_scheduling", label: "Agendamento por IA", icon: Clock, emoji: "📅", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "semantic_router", label: "Roteador Semântico (IA)", icon: GitBranch, emoji: "🔀", color: "border-purple-500/40 bg-purple-500/5 hover:border-purple-400" },
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
+  { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
+  { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -121,7 +123,13 @@ export interface Acao {
   lead_stage?: string;
   // wait_event
   event_name?: string;
+  event_names?: string;
   timeout_min?: number;
+  // branch_by_score
+  score_min?: number;
+  score_max?: number;
+  // slack_notify
+  text?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
@@ -1690,7 +1698,46 @@ export function FlowEditor({
                   </div>
                 )}
 
-                {/* update_memory */}
+                {/* branch_by_score */}
+                {acao.tipo === "branch_by_score" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Continua o fluxo apenas se o score do lead estiver dentro do intervalo. Caso contrário, pula N nós.
+                      <br />Sugestão: cold &lt;30, warm 30-70, hot &gt;70.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score mín.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_min ?? 0} onChange={e => updateAcao(selectedIdx, "score_min", parseInt(e.target.value) || 0)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score máx.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_max ?? 100} onChange={e => updateAcao(selectedIdx, "score_max", parseInt(e.target.value) || 100)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pular N nós (se fora do range)</Label>
+                      <Input type="number" min={1} value={acao.else_skip ?? 1} onChange={e => updateAcao(selectedIdx, "else_skip", parseInt(e.target.value) || 1)} className="h-9 text-xs bg-background/50 border-border/80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* slack_notify */}
+                {acao.tipo === "slack_notify" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Envia uma mensagem para um canal do Slack via Incoming Webhook. Use <code className="bg-muted px-0.5 rounded">{"{{variavel}}"}</code> no texto.
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Webhook URL</Label>
+                      <Input value={acao.webhook_url || ""} onChange={e => updateAcao(selectedIdx, "webhook_url", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="https://hooks.slack.com/services/..." />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Texto</Label>
+                      <Textarea value={acao.text || ""} onChange={e => updateAcao(selectedIdx, "text", e.target.value)} className="text-xs bg-background/50 border-border/80 min-h-[80px]" placeholder="🔥 Novo hot lead: {{nome}} ({{phone}})" />
+                    </div>
+                  </div>
+                )}
                 {acao.tipo === "update_memory" && (
                   <div className="space-y-3">
                     <p className="text-[10px] text-muted-foreground/70 leading-relaxed">

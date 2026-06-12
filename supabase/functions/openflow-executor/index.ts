@@ -634,32 +634,33 @@ Deno.serve(async (req) => {
           }
 
           else if (step.tipo === "wait_event" || step.tipo === "wait_until_event") {
-            const eventName = step.event_name;
+            // Supports single event_name OR multiple events via event_names (comma-separated, OR logic)
+            const eventNames: string[] = (step.event_names
+              ? String(step.event_names).split(",").map((s: string) => s.trim()).filter(Boolean)
+              : (step.event_name ? [String(step.event_name).trim()] : []));
             const timeoutMin = Number(step.timeout_min || 60);
-            
-            let eventOccurred = false;
-            if (lead_data?.lead_id && eventName) {
+
+            let detectedEvent: string | null = null;
+            if (lead_data?.lead_id && eventNames.length > 0) {
               const { data: evts } = await supabase
                 .from("imphq_events")
-                .select("id")
+                .select("event_name")
                 .eq("lead_id", lead_data.lead_id)
-                .eq("event_name", eventName)
+                .in("event_name", eventNames)
                 .gt("created_at", originalStart)
                 .limit(1);
-              if (evts && evts.length > 0) {
-                eventOccurred = true;
-              }
+              if (evts && evts.length > 0) detectedEvent = (evts[0] as any).event_name;
             }
-            
-            if (eventOccurred) {
+
+            if (detectedEvent) {
               stepResult.status = "completed";
-              stepResult.reason = `Evento "${eventName}" detectado. Prosseguindo.`;
+              stepResult.matched_event = detectedEvent;
+              stepResult.reason = `Evento "${detectedEvent}" detectado. Prosseguindo.`;
             } else {
-              // Check if we are resuming from this step (which means timeout occurred)
               const isTimeout = resume_from_step !== undefined && Number(resume_from_step) === i;
               if (isTimeout) {
                 stepResult.status = "completed";
-                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem o evento "${eventName}". Prosseguindo.`;
+                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem evento(s) [${eventNames.join(", ")}]. Prosseguindo.`;
               } else {
                 const nextRun = new Date(Date.now() + timeoutMin * 60000);
                 await supabase.from("imphq_flow_executions")
@@ -667,7 +668,7 @@ Deno.serve(async (req) => {
                     status: "waiting",
                     current_step: i,
                     next_run_at: nextRun.toISOString(),
-                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento "${eventName}" ou timeout em ${nextRun.toISOString()}` }],
+                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento(s) [${eventNames.join(", ")}] ou timeout em ${nextRun.toISOString()}` }],
                   })
                   .eq("id", executionId);
                 status = "waiting";
@@ -1574,6 +1575,63 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               const skipCount = parseInt(step.else_skip) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
+            }
+          }
+
+          else if (step.tipo === "branch_by_score") {
+            let score = 0;
+            if (lead_data?.score != null) {
+              score = Number(lead_data.score);
+            } else if (lead_data?.lead_id) {
+              const { data: ld } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+              score = Number((ld as any)?.score || 0);
+            }
+            const min = Number(step.score_min ?? 0);
+            const max = Number(step.score_max ?? 100);
+            const conditionMet = score >= min && score <= max;
+            stepResult.status = "evaluated";
+            stepResult.score = score;
+            stepResult.condition_met = conditionMet;
+            if (!conditionMet) {
+              const skipCount = parseInt(step.else_skip) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+              console.log(`[openflow-executor] branch_by_score: score=${score} fora de [${min},${max}], pulando ${skipCount} step(s)`);
+            }
+          }
+
+          else if (step.tipo === "slack_notify") {
+            const webhookUrl = String(step.webhook_url || "").trim();
+            const text = replaceVariables(step.text || "", lead_data, leadDb) || "Notificação OpenFlow";
+            if (!webhookUrl.startsWith("https://hooks.slack.com/")) {
+              stepResult.status = "error";
+              stepResult.response = { success: false, error: "webhook_url inválido (deve começar com https://hooks.slack.com/)" };
+              stepsFailed++;
+              failureMessages.push(`Step ${i} (slack_notify): webhook_url inválido`);
+            } else {
+              try {
+                const resp = await fetch(webhookUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ text }),
+                });
+                if (!resp.ok) {
+                  const errTxt = await resp.text().catch(() => "");
+                  stepResult.status = "error";
+                  stepResult.response = { success: false, error: `Slack ${resp.status}: ${errTxt.slice(0, 200)}` };
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (slack_notify): HTTP ${resp.status}`);
+                } else {
+                  stepResult.status = "completed";
+                  stepResult.message_preview = text.slice(0, 120);
+                  stepResult.response = { success: true };
+                }
+              } catch (e: any) {
+                stepResult.status = "error";
+                stepResult.response = { success: false, error: e?.message || "fetch falhou" };
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (slack_notify): ${e?.message || "erro"}`);
+              }
             }
           }
 
