@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -53,108 +54,96 @@ export default function Dashboard() {
   const [dashProject, setDashProject] = useState("all");
   const [dashProduct, setDashProduct] = useState("all");
   const [compareMode, setCompareMode] = useState(false);
-  const [allProjects, setAllProjects] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<string[]>([]);
   const [recoveryRisk, setRecoveryRisk] = useState(0);
-  const [projectComparison, setProjectComparison] = useState<any[]>([]);
-  const [loadingComparison, setLoadingComparison] = useState(false);
 
-  useEffect(() => {
-    const queries: PromiseLike<any>[] = [
-      supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || [])),
-      supabase.from("imphq_vendas").select("produto_nome").neq("produto_nome", "").not("produto_nome", "is", null).then(({ data }) => {
-        const unique = [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
-        setAllProducts(unique);
-      }),
-    ];
-    if (user) {
-      queries.push(
-        supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-          const r = (data?.role || "").toLowerCase();
-          setIsAdmin(r === "admin" || r === "owner");
-        })
-      );
-    }
-    Promise.all(queries);
-  }, [user]);
+  // Reference queries — cached 5min via QueryClient defaults, deduped across components
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["dashboard", "projects"],
+    queryFn: async () => {
+      const { data } = await supabase.from("imphq_projects").select("id, name, icon");
+      return data || [];
+    },
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    if (dashProject !== "all") return;
-    
-    async function loadComparisonData() {
-      setLoadingComparison(true);
-      try {
-        const { from, to } = getPeriodRange(dashPeriod);
-        const fromDate = from.split("T")[0];
-        const toDate = to.split("T")[0];
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["dashboard", "products"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("imphq_vendas")
+        .select("produto_nome")
+        .neq("produto_nome", "")
+        .not("produto_nome", "is", null);
+      return [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
+    },
+    staleTime: 10 * 60_000,
+  });
 
-        // 1. Fetch all projects
-        const { data: projs } = await supabase.from("imphq_projects").select("id, name, icon");
-        if (!projs) return;
+  useQuery({
+    queryKey: ["dashboard", "role", user?.id],
+    enabled: !!user,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("imphq_team_members").select("role").eq("user_id", user!.id).maybeSingle();
+      const r = (data?.role || "").toLowerCase();
+      setIsAdmin(r === "admin" || r === "owner");
+      return data;
+    },
+  });
 
-        // 2. Fetch approved sales grouped by project
-        const { data: sales } = await supabase
+  // Comparison data — only when "all" projects selected, cached per period
+  const { data: projectComparison = [], isFetching: loadingComparison } = useQuery({
+    queryKey: ["dashboard", "comparison", dashPeriod, allProjects.length],
+    enabled: dashProject === "all" && allProjects.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { from, to } = getPeriodRange(dashPeriod);
+      const fromDate = from.split("T")[0];
+      const toDate = to.split("T")[0];
+
+      const [projsRes, salesRes, adsRes, leadsRes] = await Promise.all([
+        supabase.from("imphq_projects").select("id, name, icon"),
+        supabase
           .from("imphq_vendas")
           .select("project_id, valor, valor_liquido")
           .gte("data_venda", from)
           .lte("data_venda", to)
-          .in("status", ["aprovado", "approved", "paid", "completed"]);
-
-        // 3. Fetch ads spend grouped by project
-        const { data: ads } = await supabase
+          .in("status", ["aprovado", "approved", "paid", "completed"]),
+        supabase
           .from("imphq_ads_spend")
           .select("project_id, valor, moeda")
           .gte("data_ref", fromDate)
-          .lte("data_ref", toDate);
-
-        // 4. Fetch leads count grouped by project
-        const { data: leads } = await supabase
+          .lte("data_ref", toDate),
+        supabase
           .from("imphq_leads")
           .select("project_id, criado_em")
           .gte("criado_em", from)
-          .lte("criado_em", to);
+          .lte("criado_em", to),
+      ]);
 
-        // Aggregate data
-        const aggregated = projs.map(p => {
-          const projectSales = (sales || []).filter(s => s.project_id === p.id);
-          const revenue = projectSales.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
-          const salesCount = projectSales.length;
+      const projs = projsRes.data || [];
+      const sales = salesRes.data || [];
+      const ads = adsRes.data || [];
+      const leads = leadsRes.data || [];
 
-          const projectAds = (ads || []).filter(a => a.project_id === p.id);
-          const adsSpend = projectAds.reduce((acc, a) => {
-            const v = Number(a.valor) || 0;
-            return acc + (a.moeda === "USD" ? v * 5.2 : v); // BRL conversions
-          }, 0);
+      const aggregated = projs.map(p => {
+        const projectSales = sales.filter(s => s.project_id === p.id);
+        const revenue = projectSales.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+        const salesCount = projectSales.length;
+        const projectAds = ads.filter(a => a.project_id === p.id);
+        const adsSpend = projectAds.reduce((acc, a) => {
+          const v = Number(a.valor) || 0;
+          return acc + (a.moeda === "USD" ? v * 5.2 : v);
+        }, 0);
+        const leadsCount = leads.filter(l => l.project_id === p.id).length;
+        const roas = adsSpend > 0 ? revenue / adsSpend : 0;
+        return { id: p.id, name: p.name, icon: p.icon || "📁", revenue, adsSpend, roas, leadsCount, salesCount };
+      });
 
-          const projectLeads = (leads || []).filter(l => l.project_id === p.id);
-          const leadsCount = projectLeads.length;
-
-          const roas = adsSpend > 0 ? revenue / adsSpend : 0;
-
-          return {
-            id: p.id,
-            name: p.name,
-            icon: p.icon || "📁",
-            revenue,
-            adsSpend,
-            roas,
-            leadsCount,
-            salesCount
-          };
-        });
-
-        // Sort by revenue descending
-        aggregated.sort((a, b) => b.revenue - a.revenue);
-        setProjectComparison(aggregated);
-      } catch (err) {
-        console.error("Erro ao carregar comparação de projetos:", err);
-      } finally {
-        setLoadingComparison(false);
-      }
-    }
-
-    loadComparisonData();
-  }, [dashProject, dashPeriod, allProjects]);
+      aggregated.sort((a, b) => b.revenue - a.revenue);
+      return aggregated;
+    },
+  });
 
   const projectLabel = useMemo(() => {
     if (dashProject === "all") return "all";
