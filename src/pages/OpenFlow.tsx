@@ -591,6 +591,20 @@ export default function OpenFlow() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                        {(() => {
+                          const h = health.get(a.id);
+                          if (!h || !h.execucoes) return null;
+                          const rate = Math.round((h.taxa_sucesso || 0) * 100);
+                          const dot = rate >= 70 ? "🟢" : rate >= 40 ? "🟡" : "🔴";
+                          return (
+                            <span className="text-[10px] text-muted-foreground" title={`7d · ${h.execucoes} execuções · ${h.sucessos} ok · ${h.falhas} falhas`}>
+                              {dot} {rate}% · {h.execucoes}
+                            </span>
+                          );
+                        })()}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Histórico de versões" onClick={() => openVersions(a)}>
+                          <History className="h-3 w-3 text-muted-foreground" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setTestDialog(a); setTestResult(null); }}>
                           <Play className="h-3 w-3 text-primary" />
                         </Button>
