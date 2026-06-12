@@ -68,6 +68,8 @@ interface IgMessage {
   feedback?: string | null;
   feedback_correction?: string | null;
   metadata?: any;
+  failure_reason?: string | null;
+  _local?: boolean;
 }
 
 interface IgComment {
