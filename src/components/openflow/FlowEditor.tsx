@@ -60,6 +60,8 @@ const ACAO_TIPOS = [
   { value: "ia_scheduling", label: "Agendamento por IA", icon: Clock, emoji: "📅", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "semantic_router", label: "Roteador Semântico (IA)", icon: GitBranch, emoji: "🔀", color: "border-purple-500/40 bg-purple-500/5 hover:border-purple-400" },
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
+  { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
+  { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
