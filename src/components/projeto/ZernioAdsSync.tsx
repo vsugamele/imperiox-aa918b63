@@ -30,6 +30,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const [savedAcc, setSavedAcc] = useState<string | undefined>();
   const [hasZernio, setHasZernio] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [lastStatus, setLastStatus] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Load saved Zernio config
   useEffect(() => {
@@ -45,8 +47,11 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setHasZernio(ok);
       setSavedAcc(c.zernio_ad_account_id);
       setLastSync(c.zernio_ads_last_sync || null);
+      setLastStatus(c.zernio_ads_last_sync_status || null);
+      setLastError(c.zernio_ads_last_sync_error || null);
     })();
   }, [projectId]);
+
 
   const loadAccounts = async () => {
     setLoading(true);
