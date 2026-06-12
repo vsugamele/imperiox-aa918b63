@@ -88,6 +88,7 @@ export default function OpenFlow() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [form, setForm] = useState({ nome: "", trigger_tipo: "carrinho_abandonado", project_id: "", produto: "", campanha_id: "", tag_filtro: "" });
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
