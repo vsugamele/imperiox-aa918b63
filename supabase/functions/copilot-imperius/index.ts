@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.10";
+import { getCachedEmbedding } from "../_shared/embeddings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,6 +69,31 @@ async function buildContext(supabase: any, projectId: string | null): Promise<Co
   };
 }
 
+async function buildRagBlock(supabase: any, query: string, projectId: string | null): Promise<{ block: string; sources: any[] }> {
+  try {
+    const emb = await getCachedEmbedding(supabase, query);
+    if (!emb) return { block: "", sources: [] };
+    const { data, error } = await supabase.rpc("match_rag_chunks", {
+      query_embedding: emb as any,
+      p_project_id: projectId,
+      top_k: 5,
+      min_similarity: 0.4,
+    });
+    if (error || !data?.length) return { block: "", sources: [] };
+    const block = "\n## Conhecimento do projeto (top relevantes)\n" +
+      data.map((c: any, i: number) => `[${i + 1}] (${c.source_type}/${c.source_field || "main"}, sim=${c.similarity.toFixed(2)})\n${c.content}`).join("\n\n");
+    const sources = data.map((c: any) => ({
+      source_type: c.source_type,
+      source_field: c.source_field,
+      similarity: Number(c.similarity.toFixed(2)),
+    }));
+    return { block, sources };
+  } catch (e: any) {
+    console.warn("[copilot-imperius] RAG failed:", e?.message);
+    return { block: "", sources: [] };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -83,9 +109,14 @@ serve(async (req) => {
     if (!user) return new Response(JSON.stringify({ error: "Não autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = await req.json();
-    const { messages, projectId, threadId } = body as { messages: any[]; projectId: string | null; threadId?: string };
+    const { messages, projectId, threadId, stream = true } = body as { messages: any[]; projectId: string | null; threadId?: string; stream?: boolean };
 
-    const ctx = await buildContext(supabase, projectId);
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+
+    const [ctx, rag] = await Promise.all([
+      buildContext(supabase, projectId),
+      buildRagBlock(supabase, lastUserMsg, projectId),
+    ]);
 
     const contextBlock = `# CONTEXTO REAL DO NEGÓCIO ${projectId ? `(projeto ${projectId})` : "(todos os projetos)"} — últimos 30d
 
@@ -106,7 +137,7 @@ serve(async (req) => {
 ## Recuperação pendente
 - Vendas abertas: ${ctx.recuperacao.abertas}
 - Potencial em R$: ${ctx.recuperacao.potencial.toFixed(2)}
-`;
+${rag.block}`;
 
     const aiMessages = [
       { role: "system", content: PERSONA + "\n\n" + contextBlock },
@@ -122,6 +153,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: aiMessages,
+        stream,
       }),
     });
 
@@ -133,28 +165,73 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Falha na IA" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const aiData = await aiRes.json();
-    const reply = aiData.choices?.[0]?.message?.content || "Sem resposta.";
+    // Helper para persistir thread após terminar
+    const persistThread = async (replyText: string) => {
+      const newMessages = [...messages, { role: "assistant", content: replyText, ts: new Date().toISOString(), sources: rag.sources }];
+      const title = messages[0]?.content?.slice(0, 60) || "Nova conversa";
+      try {
+        if (threadId) {
+          await supabase.from("imphq_copilot_threads").update({ messages: newMessages, updated_at: new Date().toISOString() }).eq("id", threadId).eq("user_id", user.id);
+          return threadId;
+        }
+        const { data: inserted } = await supabase.from("imphq_copilot_threads").insert({
+          user_id: user.id, project_id: projectId, title, messages: newMessages,
+        }).select("id").single();
+        return inserted?.id;
+      } catch (e: any) {
+        console.error("[copilot-imperius] persist failed:", e?.message);
+        return threadId;
+      }
+    };
 
-    // Salvar/atualizar thread
-    const newMessages = [...messages, { role: "assistant", content: reply, ts: new Date().toISOString() }];
-    const title = messages[0]?.content?.slice(0, 60) || "Nova conversa";
-
-    let savedThreadId = threadId;
-    if (threadId) {
-      await supabase.from("imphq_copilot_threads").update({ messages: newMessages, updated_at: new Date().toISOString() }).eq("id", threadId).eq("user_id", user.id);
-    } else {
-      const { data: inserted } = await supabase.from("imphq_copilot_threads").insert({
-        user_id: user.id,
-        project_id: projectId,
-        title,
-        messages: newMessages,
-      }).select("id").single();
-      savedThreadId = inserted?.id;
+    // Modo legacy (sem stream)
+    if (!stream) {
+      const aiData = await aiRes.json();
+      const reply = aiData.choices?.[0]?.message?.content || "Sem resposta.";
+      const savedThreadId = await persistThread(reply);
+      return new Response(JSON.stringify({ reply, threadId: savedThreadId, context: ctx, sources: rag.sources }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ reply, threadId: savedThreadId, context: ctx }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Modo streaming SSE — tee do upstream pro cliente e pra persistência
+    let fullText = "";
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = "";
+
+    const transform = new TransformStream({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const json = JSON.parse(payload);
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) fullText += delta;
+          } catch { /* ignora chunks parciais */ }
+        }
+      },
+      async flush(controller) {
+        const savedThreadId = await persistThread(fullText || "Sem resposta.");
+        // Envia metadados finais como evento custom
+        const meta = `data: ${JSON.stringify({ type: "meta", threadId: savedThreadId, sources: rag.sources })}\n\n`;
+        controller.enqueue(encoder.encode(meta));
+      },
+    });
+
+    return new Response(aiRes.body!.pipeThrough(transform), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
   } catch (err: any) {
     console.error("copilot-imperius error", err);
