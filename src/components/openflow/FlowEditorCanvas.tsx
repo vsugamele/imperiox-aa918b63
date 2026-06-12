@@ -469,8 +469,9 @@ function acoesToNodesEdges(
         const isBh = acao.tipo === "business_hours_split";
         const handleId = isAb || isSem || isBh ? "route-b" : "branch-true";
         
-        let label = "Se Sim / Verdadeiro";
-        let strokeColor = "#8b5cf6";
+        let label = "Se Sim";
+        let strokeColor = "#10b981";
+
         if (isAb) {
           label = "Rota B";
           strokeColor = "#d946ef";
@@ -503,6 +504,39 @@ function acoesToNodesEdges(
         });
       }
     }
+
+    // 2b. Else branch real (If/Else) para condicao_lead — desenha aresta vermelha "Se Não"
+    if (
+      acao.tipo === "condicao_lead" &&
+      !acao.false_next_id &&
+      typeof acao.condition_else_jump_steps === "number" &&
+      acao.condition_else_jump_steps > 0
+    ) {
+      const elseTargetIdx = i + acao.condition_else_jump_steps;
+      if (elseTargetIdx < acoes.length) {
+        const elseTargetId = acoes[elseTargetIdx].id || `step-${elseTargetIdx}`;
+        let labelText = "Se Não";
+        if (stepStats) {
+          const src = stepStats[i];
+          const tgt = stepStats[elseTargetIdx];
+          if (src && tgt && src.reached > 0) {
+            const pct = Math.min(100, Math.round((tgt.reached / src.reached) * 100));
+            labelText = `Se Não (${pct}% conv)`;
+          }
+        }
+        edges.push({
+          id: `e-legacy-else-${id}`,
+          source: id,
+          sourceHandle: "branch-false",
+          target: elseTargetId,
+          label: labelText,
+          style: { stroke: "#ef4444", strokeWidth: 2, strokeDasharray: "5,3" },
+          labelStyle: { fill: "#ef4444", fontSize: 9, fontWeight: "bold" },
+        });
+      }
+    }
+
+
 
     // Handle branching jumps for Conversational AI (ia_message routes)
     if (acao.tipo === "ia_message" && Array.isArray(acao.ia_routes) && acao.ia_routes.length > 0) {

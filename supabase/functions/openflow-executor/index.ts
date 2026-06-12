@@ -1944,11 +1944,14 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
 
             if (conditionMet) {
               stepResult.notes = `Condição atendida. Pulando ${jumpSteps} passos.`;
+              stepResult.branch_taken = "if";
               i += jumpSteps;
             } else {
               stepResult.notes = `Condição não atendida. Pulando ${elseJumpSteps} passos.`;
+              stepResult.branch_taken = "else";
               i += elseJumpSteps;
             }
+
           }
 
           else if (step.tipo === "webhook_call") {

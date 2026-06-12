@@ -144,6 +144,18 @@ export function ActionInbox() {
                       )}
                       <p className="text-sm font-medium text-foreground">{a.title}</p>
                       {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
+                      {a.kind === "createFlow" && a.payload?.pattern_evidence?.estimated_recovery && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-300 border-emerald-500/30">
+                            📈 {a.payload.pattern_evidence.estimated_recovery}
+                          </Badge>
+                          {a.payload.pattern_evidence.metric && (
+                            <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-300 border-amber-500/30">
+                              {a.payload.pattern_evidence.metric}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                       {a.kind === "createFlow" && Array.isArray(a.payload?.acoes) && (
                         <div className="mt-2 space-y-1 pl-2 border-l border-violet-500/30">
                           {a.payload.acoes.map((step: any, i: number) => (
@@ -156,6 +168,7 @@ export function ActionInbox() {
                           ))}
                         </div>
                       )}
+
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <Badge variant="outline" className={`text-[10px] uppercase ${riskColor(a.risk_level)}`}>
