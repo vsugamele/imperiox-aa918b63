@@ -283,7 +283,6 @@ export default function OpenFlow() {
         <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
-        <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
