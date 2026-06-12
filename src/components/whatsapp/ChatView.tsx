@@ -1381,6 +1381,13 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                 >
                                   <ThumbsDown className="h-2.5 w-2.5 text-amber-400" />
                                 </button>
+                                <button
+                                  onClick={() => markAsGold(m)}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                  title="Ouro — ensinar a IA a replicar esta resposta"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-primary" />
+                                </button>
                               </>
                             )}
                           </div>
