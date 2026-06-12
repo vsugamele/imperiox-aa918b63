@@ -865,6 +865,7 @@ export function FlowEditor({
             return (
               <div 
                 key={idx} 
+                data-step-index={idx}
                 className="flex flex-col items-center shrink-0"
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={(e) => handleDrop(e, idx)}
