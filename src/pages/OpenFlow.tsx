@@ -135,7 +135,9 @@ export default function OpenFlow() {
       const hMap = new Map<string, any>();
       (hRows || []).forEach((h: any) => hMap.set(h.automacao_id, h));
       setHealth(hMap);
-    } catch (e) { console.warn(e); }
+    } catch (e) {
+      console.warn("Erro ao buscar health metrics", e);
+    }
   };
 
   const loadKpis = async () => {
@@ -277,10 +279,10 @@ export default function OpenFlow() {
           </div>
         </TabsContent>
 
-        <TabsContent value="campanhas"><CampanhasManager /></TabsContent>
-        <TabsContent value="logs"><AutomacaoLogs initialProjectId={filterProject === "__all__" ? undefined : filterProject} /></TabsContent>
-        <TabsContent value="analytics"><OpenFlowAnalytics /></TabsContent>
-        <TabsContent value="roi"><FlowROIDashboard /></TabsContent>
+        <TabsContent value="campanhas"><CampanhasManager projects={projects} /></TabsContent>
+        <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
+        <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
+        <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
