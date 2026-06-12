@@ -587,16 +587,16 @@ export default function Leads() {
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
             <TabsList>
-              <TabsTrigger value="quentes" className="text-xs relative">
-                🔥 Quentes
+              <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
+                <Flame className="h-3 w-3" /> Quentes
                 {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
               </TabsTrigger>
-              <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
-              <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
-              <TabsTrigger value="formularios" className="text-xs">📝 Formulários & Insights</TabsTrigger>
-              <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
-              <TabsTrigger value="custo" className="text-xs">💰 Custo</TabsTrigger>
-              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
+              <TabsTrigger value="leads" className="text-[10px] uppercase tracking-wider gap-1.5"><ListChecks className="h-3 w-3" /> Leads</TabsTrigger>
+              <TabsTrigger value="analytics" className="text-[10px] uppercase tracking-wider gap-1.5"><BarChart3 className="h-3 w-3" /> Analytics</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-[10px] uppercase tracking-wider gap-1.5"><FileText className="h-3 w-3" /> Formulários</TabsTrigger>
+              <TabsTrigger value="predicoes" className="text-[10px] uppercase tracking-wider gap-1.5"><Brain className="h-3 w-3" /> Predições</TabsTrigger>
+              <TabsTrigger value="custo" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Custo</TabsTrigger>
+              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
               {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
