@@ -74,20 +74,38 @@ export default function WhatsApp() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
+    const sRes = await supabase
+      .from("imphq_wa_conversations")
+      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+    setSessions(sRes.data as any[] || []);
+    setLoading(false);
+  }, []);
+
+  const loadReference = useCallback(async () => {
+    const now = Date.now();
+    if (waRefCache.ts && now - waRefCache.ts < 5 * 60_000) {
+      setProjects(waRefCache.projects);
+      setProviders(waRefCache.providers);
+      setTemplates(waRefCache.templates);
+      return;
+    }
+    const [pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
-    setSessions(sRes.data as any[] || []);
-    setProjects(pRes.data || []);
-    setProviders(provRes.data as any[] || []);
-    setTemplates((tRes.data as any[]) || []);
-    setLoading(false);
+    const projectsData = pRes.data || [];
+    const providersData = (provRes.data as any[]) || [];
+    const templatesData = (tRes.data as any[]) || [];
+    waRefCache = { ts: now, projects: projectsData, providers: providersData, templates: templatesData };
+    setProjects(projectsData);
+    setProviders(providersData);
+    setTemplates(templatesData);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadReference(); }, [load, loadReference]);
 
   // Realtime: nova mensagem → atualiza preview + incrementa unread localmente e move pro topo
   useEffect(() => {
