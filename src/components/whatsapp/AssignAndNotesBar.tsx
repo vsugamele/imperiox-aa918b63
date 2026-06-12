@@ -176,6 +176,42 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
           </div>
         </PopoverContent>
       </Popover>
+
+      <div className="w-px h-4 bg-border" />
+
+      {/* Snooze */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isSnoozed ? "text-purple-300" : ""}`}>
+            <BellOff className="h-3.5 w-3.5" />
+            {isSnoozed ? (
+              <span>Silenciada até {new Date(snoozedUntil!).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
+            ) : (
+              <span>Silenciar</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-44 p-1 bg-popover" align="start">
+          {[
+            { label: "30min", min: 30 },
+            { label: "1 hora", min: 60 },
+            { label: "3 horas", min: 180 },
+            { label: "Até amanhã 8h", min: -1 },
+          ].map(o => (
+            <button key={o.label} className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
+              onClick={() => {
+                if (o.min === -1) {
+                  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0);
+                  snooze(Math.round((d.getTime() - Date.now()) / 60000));
+                } else snooze(o.min);
+              }}>{o.label}</button>
+          ))}
+          {isSnoozed && (
+            <button className="w-full text-left px-2 py-1.5 rounded hover:bg-destructive/20 text-xs text-destructive border-t border-border mt-1"
+              onClick={() => snooze(null)}>Remover silêncio</button>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
