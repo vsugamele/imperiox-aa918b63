@@ -123,7 +123,13 @@ export interface Acao {
   lead_stage?: string;
   // wait_event
   event_name?: string;
+  event_names?: string;
   timeout_min?: number;
+  // branch_by_score
+  score_min?: number;
+  score_max?: number;
+  // slack_notify
+  text?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
