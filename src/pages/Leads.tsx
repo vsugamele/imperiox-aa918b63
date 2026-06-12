@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -587,16 +587,16 @@ export default function Leads() {
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
             <TabsList>
-              <TabsTrigger value="quentes" className="text-xs relative">
-                🔥 Quentes
+              <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
+                <Flame className="h-3 w-3" /> Quentes
                 {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
               </TabsTrigger>
-              <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
-              <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
-              <TabsTrigger value="formularios" className="text-xs">📝 Formulários & Insights</TabsTrigger>
-              <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
-              <TabsTrigger value="custo" className="text-xs">💰 Custo</TabsTrigger>
-              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
+              <TabsTrigger value="leads" className="text-[10px] uppercase tracking-wider gap-1.5"><ListChecks className="h-3 w-3" /> Leads</TabsTrigger>
+              <TabsTrigger value="analytics" className="text-[10px] uppercase tracking-wider gap-1.5"><BarChart3 className="h-3 w-3" /> Analytics</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-[10px] uppercase tracking-wider gap-1.5"><FileText className="h-3 w-3" /> Formulários</TabsTrigger>
+              <TabsTrigger value="predicoes" className="text-[10px] uppercase tracking-wider gap-1.5"><Brain className="h-3 w-3" /> Predições</TabsTrigger>
+              <TabsTrigger value="custo" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Custo</TabsTrigger>
+              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
               {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
@@ -613,7 +613,7 @@ export default function Leads() {
                 const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `leads_${format(periodRange.from, "yyyy-MM-dd")}.csv`; a.click(); URL.revokeObjectURL(url);
                 toast.success(`${filtered.length} leads exportados`);
-              }}>📥 Export CSV</Button>
+              }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
               <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar</Button>
               <Button size="sm" variant="outline" onClick={async () => {
                 const toAnalyze = filtered.filter(l => l.project_id);
@@ -641,11 +641,11 @@ export default function Leads() {
               <div className="relative max-w-xs flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" /></div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Plataforma" /></SelectTrigger><SelectContent><SelectItem value="all">Plataforma</SelectItem>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
-              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "score"); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">⏱️ Recentes</SelectItem><SelectItem value="score">🧠 Score (ML)</SelectItem></SelectContent></Select>
+              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "score"); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">Recentes</SelectItem><SelectItem value="score">Score (ML)</SelectItem></SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
-              {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
-              {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>🏷️ {tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
-              {tagFilter !== "all" && (<button onClick={() => setTagFilter("all")} className="h-9 px-2.5 rounded-md bg-gold/10 border border-gold/40 text-gold text-xs flex items-center gap-1.5 hover:bg-gold/20" title="Limpar filtro de tag">🏷️ {tagFilter} <span className="text-base leading-none">×</span></button>)}
+              {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select>)}
+              {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>{tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
+              {tagFilter !== "all" && (<button onClick={() => setTagFilter("all")} className="h-9 px-2.5 rounded-md bg-gold/10 border border-gold/40 text-gold text-xs flex items-center gap-1.5 hover:bg-gold/20" title="Limpar filtro de tag"><Tag className="h-3 w-3" /> {tagFilter} <span className="text-base leading-none">×</span></button>)}
               <Button
                 size="sm"
                 variant={hotOnly ? "default" : "outline"}
@@ -653,7 +653,7 @@ export default function Leads() {
                 className={cn("h-9 gap-1", hotOnly && "bg-orange-500 hover:bg-orange-600 text-white")}
                 title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
               >
-                🔥 Hot {hotOnly ? "ON" : ""}
+                <Flame className="h-4 w-4" /> Hot {hotOnly ? "ON" : ""}
               </Button>
               {someSelected && (
                 <>
