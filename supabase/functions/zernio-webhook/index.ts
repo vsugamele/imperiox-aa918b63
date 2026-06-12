@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
       processed: false,
     }).select("id").maybeSingle();
 
-    // Nós só processamos mensagens recebidas do cliente (inbound)
-    if (payload.event !== "message.received") {
+    // Processamos inbound (cliente -> nós) e outbound (nós -> cliente, vindo do app nativo do IG)
+    if (payload.event !== "message.received" && payload.event !== "message.sent") {
       console.log(`[zernio-webhook] Ignoring event type: ${payload.event}`);
       if (logEntry) {
         await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
+    const isOutbound = payload.event === "message.sent";
     const data = payload.data || payload;
     const message = data.message;
     const conversation = data.conversation;
@@ -72,9 +73,12 @@ Deno.serve(async (req) => {
     const conversationId = conversation?.id || conversation?.conversationId || data.conversationId;
     const text           = message?.text || message?.content || message?.body || data.text || "";
 
-    // sender pode estar em vários lugares dependendo da versão do Zernio
+    // Para outbound, o "lead" (counterpart) está em conversation.participantId.
+    // Para inbound, o sender já é o próprio lead.
     const sender       = message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {};
-    const senderId     = sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId;
+    const senderId     = isOutbound
+      ? (conversation?.participantId || conversation?.platformConversationId || data.recipientId)
+      : (sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId);
 
     // Nome e foto — cascata de fallbacks para pegar o máximo possível
     const senderUsername = sender.username
@@ -131,21 +135,28 @@ Deno.serve(async (req) => {
       return new Response("Invalid payload structure", { status: 400 });
     }
 
-    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook
+    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook.
+    // Outbound: sender = nossa conta (igUserId), recipient = lead (senderId).
+    // Inbound: sender = lead, recipient = nossa conta.
+    const envelopeSender = isOutbound
+      ? { id: igUserId }
+      : { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar };
+    const envelopeRecipient = isOutbound ? { id: senderId } : { id: igUserId };
+
     const metaEnvelope = {
       object: "instagram",
       entry: [{
         id: igUserId,
         messaging: [{
-          sender: { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar },
-          recipient: { id: igUserId },
+          sender: envelopeSender,
+          recipient: envelopeRecipient,
           timestamp: Date.now(),
           message: { mid: messageId, text, attachments: [] },
         }],
       }],
     };
 
-    console.log(`[zernio-webhook] Forwarding to instagram-webhook (sender: ${senderId}, name: ${senderName})`);
+    console.log(`[zernio-webhook] Forwarding ${isOutbound ? "OUTBOUND" : "inbound"} to instagram-webhook (lead: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
     const forwardRes = await fetch(forwardUrl, {
       method: "POST",
