@@ -1362,6 +1362,56 @@ Deno.serve(async (req) => {
             }
           }
 
+          else if (step.tipo === "update_lead") {
+            const field = step.lead_field;
+            const op = step.lead_op || "set";
+            const value = step.lead_value;
+            const ALLOWED = new Set(["status", "score", "awareness_level", "nome", "email"]);
+            if (!lead_data?.lead_id || !field || !ALLOWED.has(field)) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou campo inválido";
+            } else {
+              let updatePayload: any = {};
+              if (op === "inc" && field === "score") {
+                const { data: cur } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+                const base = Number(cur?.score || 0);
+                const inc = Number(value || 0);
+                updatePayload.score = base + inc;
+              } else if (field === "score") {
+                updatePayload.score = Number(value || 0);
+              } else {
+                updatePayload[field] = value;
+              }
+              const { error: upErr } = await supabase.from("imphq_leads").update(updatePayload).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "lead_updated";
+                stepResult.field = field;
+                stepResult.op = op;
+                stepResult.value = updatePayload[field];
+              }
+            }
+          }
+
+          else if (step.tipo === "move_stage") {
+            const target = step.target_stage;
+            if (!lead_data?.lead_id || !target) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou target_stage";
+            } else {
+              const { error: upErr } = await supabase.from("imphq_leads").update({ funil_id: target }).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "stage_moved";
+                stepResult.target_stage = target;
+              }
+            }
+          }
+
           else if (step.tipo === "ia_message") {
             const phone = lead_data?.phone || lead_data?.telefone;
             if (!phone) {
