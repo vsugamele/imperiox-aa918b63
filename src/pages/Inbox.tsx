@@ -72,8 +72,8 @@ function HotLeadsTab() {
   return (
     <div className="p-4 space-y-3 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-display text-lg text-foreground">
-          🔥 {leads.length} leads quentes — últimas 2h
+        <h2 className="font-display text-lg text-foreground flex items-center gap-2">
+          <Flame className="h-4 w-4 text-orange-400" /> {leads.length} leads quentes — últimas 2h
         </h2>
         <Badge variant="outline" className="text-emerald-400 border-emerald-500/30">
           Score &gt; 80
