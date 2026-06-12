@@ -75,6 +75,9 @@ interface Automacao {
   stalled_operator?: string | null;
   follow_up_hours?: number | null;
   follow_up_template?: string | null;
+  exit_trigger_tipo?: string | null;
+  exit_trigger_payload?: any;
+  exit_cascade?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
