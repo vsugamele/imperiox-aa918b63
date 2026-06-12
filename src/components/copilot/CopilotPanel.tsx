@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Crown, Send, Loader2, Sparkles, Trash2, Plus } from "lucide-react";
+import { Crown, Send, Loader2, Sparkles, Trash2, Plus, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,11 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [history, setHistory] = useState<ThreadRow[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const threadIdRef = useRef<string | null>(null);
+  const savedCancelRef = useRef(false);
+
+  useEffect(() => { threadIdRef.current = threadId; }, [threadId]);
 
   useEffect(() => {
     if (open) loadHistory();
@@ -53,6 +58,14 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  // Aborta stream em andamento ao desmontar/fechar
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+  useEffect(() => {
+    if (!open) abortRef.current?.abort();
+  }, [open]);
 
   const loadHistory = async () => {
     const { data } = await supabase
@@ -64,6 +77,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
   };
 
   const newConversation = () => {
+    abortRef.current?.abort();
     setThreadId(null);
     setMessages([]);
     setInput("");
@@ -80,6 +94,37 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
     loadHistory();
   };
 
+  // Persiste mensagem parcial quando o usuário cancela (Worker é morto antes do onFinish do servidor)
+  const persistCanceled = async (allMessages: Msg[]) => {
+    if (savedCancelRef.current) return;
+    savedCancelRef.current = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const tId = threadIdRef.current;
+      const title = allMessages[0]?.content?.slice(0, 60) || "Nova conversa";
+      if (tId) {
+        await supabase.from("imphq_copilot_threads")
+          .update({ messages: allMessages as any, updated_at: new Date().toISOString() })
+          .eq("id", tId).eq("user_id", user.id);
+      } else {
+        const { data: inserted } = await supabase.from("imphq_copilot_threads").insert({
+          user_id: user.id,
+          project_id: routeProjectId || null,
+          title,
+          messages: allMessages as any,
+        }).select("id").single();
+        if (inserted?.id) setThreadId(inserted.id);
+      }
+    } catch (e) {
+      console.error("[copilot] persist canceled failed", e);
+    }
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+  };
+
   const send = async (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || loading) return;
@@ -87,9 +132,14 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
     setMessages(next);
     setInput("");
     setLoading(true);
+    savedCancelRef.current = false;
 
     // Otimista: adiciona placeholder do assistant para receber tokens
     setMessages([...next, { role: "assistant", content: "", ts: new Date().toISOString() }]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let accText = "";
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -105,6 +155,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ messages: next, projectId: routeProjectId || null, threadId, stream: true }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -117,7 +168,6 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let accText = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -157,10 +207,31 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
       }
       loadHistory();
     } catch (err: any) {
-      toast.error(err.message || "Falha ao consultar Imperius");
-      setMessages(next);
+      const aborted = err?.name === "AbortError" || controller.signal.aborted;
+      if (aborted) {
+        // Marca como parado e persiste do lado do cliente
+        const stoppedText = (accText || "") + (accText ? "\n\n" : "") + "_Parado._";
+        setMessages((prev) => {
+          const copy = [...prev];
+          const last = copy[copy.length - 1];
+          if (last?.role === "assistant") {
+            copy[copy.length - 1] = { ...last, content: stoppedText };
+          }
+          return copy;
+        });
+        const finalMsgs: Msg[] = [
+          ...next,
+          { role: "assistant", content: stoppedText, ts: new Date().toISOString() },
+        ];
+        await persistCanceled(finalMsgs);
+        loadHistory();
+      } else {
+        toast.error(err.message || "Falha ao consultar Imperius");
+        setMessages(next);
+      }
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -250,16 +321,28 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      send();
+                      if (loading) { stop(); } else { send(); }
                     }
                   }}
                   placeholder="Pergunta ao Imperius… (Enter envia, Shift+Enter quebra linha)"
                   className="min-h-[60px] resize-none text-sm"
                   disabled={loading}
                 />
-                <Button onClick={() => send()} disabled={loading || !input.trim()} size="icon" className="self-end">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
+                {loading ? (
+                  <Button
+                    onClick={stop}
+                    size="icon"
+                    variant="destructive"
+                    className="self-end"
+                    title="Parar resposta"
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={() => send()} disabled={!input.trim()} size="icon" className="self-end">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
