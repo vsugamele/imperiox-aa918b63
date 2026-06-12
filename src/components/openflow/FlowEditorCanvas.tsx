@@ -631,7 +631,8 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
       setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2 } }, eds));
       
       const updatedAcoes = [...acoes];
-      const sourceIdx = nodes.find(n => n.id === params.source)?.data?.index;
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const sourceIdx = sourceNode?.data?.index as number | undefined;
       const targetId = params.target;
       
       if (sourceIdx !== undefined && sourceIdx >= 0) {
@@ -640,9 +641,7 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
         } else if (params.sourceHandle === "branch-false") {
           updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], false_next_id: targetId };
         } else if (params.sourceHandle?.startsWith("route-")) {
-          // IA routes are handled differently, but we can store them in ia_routes array if we find the matching index
-          // For now let's just use next_id as a fallback
-          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+          updatedAcoes[sourceIdx] = { ...updatedAcaoInIdx(updatedAcoes, sourceIdx), next_id: targetId };
         } else {
           updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
         }
@@ -651,6 +650,11 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
     },
     [nodes, acoes, onChange, setEdges]
   );
+
+  // Helper function to handle potential undefined
+  function updatedAcaoInIdx(arr: any[], idx: number) {
+    return arr[idx] || {};
+  }
 
   return (
     <div className="flex-1 w-full h-full relative" style={{ minHeight: "530px" }}>
