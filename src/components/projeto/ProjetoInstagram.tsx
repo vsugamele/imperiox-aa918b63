@@ -638,6 +638,33 @@ export function ProjetoInstagram({ projectId }: Props) {
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {account && account.auth_method === "zernio" ? "Atualizar conexão Zernio" : "Conectar via Zernio"}
               </Button>
+
+              {account && account.auth_method === "zernio" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={backfilling}
+                  onClick={async () => {
+                    setBackfilling(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("ig-zernio-backfill", {
+                        body: { project_id: projectId, max_conversations: 50, max_messages: 30 },
+                      });
+                      if (error) throw error;
+                      if (data?.error) throw new Error(data.error);
+                      toast.success(`Sincronizado: ${data.conversations_processed} conversas, ${data.messages_imported} mensagens`);
+                    } catch (e: any) {
+                      toast.error(e.message || "Falha ao sincronizar");
+                    } finally {
+                      setBackfilling(false);
+                    }
+                  }}
+                >
+                  {backfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Sincronizar conversas do Zernio
+                </Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
