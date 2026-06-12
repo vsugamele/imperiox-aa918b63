@@ -1733,7 +1733,7 @@ export default function InstagramPage() {
                                 )}
                                 {c.last_message_at && (
                                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                    {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false, locale: ptBR })}
+                                    {formatCompactTime(c.last_message_at)}
                                   </span>
                                 )}
                               </div>
