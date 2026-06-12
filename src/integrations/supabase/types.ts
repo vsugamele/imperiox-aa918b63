@@ -4746,11 +4746,16 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           email: string | null
+          engagement_score: number
           id: string
           is_blocked: boolean
           last_seen_at: string | null
+          lifecycle_stage: string
+          lifecycle_updated_at: string | null
           name: string | null
           push_enabled: boolean
+          score_breakdown: Json
+          score_updated_at: string | null
           updated_at: string
         }
         Insert: {
@@ -4760,11 +4765,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -4774,11 +4784,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -42330,6 +42345,8 @@ export type Database = {
         Args: { p_salao_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       spend_points: {
         Args: { p_amount: number; p_type: string; p_user_id: string }
         Returns: boolean
