@@ -1823,23 +1823,42 @@ export default function InstagramPage() {
                             {messages.map((m) => {
                               const isInbound = m.direction === "in" || (m.direction as string) === "incoming";
                               const isAI = !isInbound && m.ai_generated;
+                              const isFailed = m.status === "failed";
                               return (
                                 <div key={m.id} className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
                                   <div className="group relative">
-                                    <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${isInbound ? "bg-secondary text-foreground rounded-tl-none border border-border/40" : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"}`}>
+                                    <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                                      isInbound
+                                        ? "bg-secondary text-foreground rounded-tl-none border border-border/40"
+                                        : isFailed
+                                          ? "bg-secondary/40 text-muted-foreground rounded-tr-none border border-dashed border-amber-500/40 italic"
+                                          : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"
+                                    }`}>
                                       {m.content}
-                                      <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-60">
+                                      <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-70">
                                         <span>
                                           {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
                                         </span>
                                         {!isInbound && (
                                           <span className="capitalize flex items-center gap-1">
                                             {isAI && <span className="text-[8px] opacity-80">IA</span>}
-                                            {m.status || "enviado"}
+                                            {isFailed
+                                              ? <span className="text-amber-400 not-italic font-medium">⚠ Não entregue · janela 24h</span>
+                                              : (m.status || "enviado")}
                                           </span>
                                         )}
                                       </div>
                                     </div>
+                                    {isFailed && m._local && (
+                                      <div className="flex justify-end mt-1">
+                                        <button
+                                          onClick={() => setMessages(prev => prev.filter(x => x.id !== m.id))}
+                                          className="text-[9px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                                        >
+                                          Remover
+                                        </button>
+                                      </div>
+                                    )}
                                     {/* Badge reengajamento automático */}
                                     {!isInbound && (m.metadata as any)?.source === "ig-reengagement" && (
                                       <div className="flex items-center gap-1 mt-1 mb-0.5">
