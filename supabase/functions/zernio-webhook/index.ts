@@ -135,21 +135,28 @@ Deno.serve(async (req) => {
       return new Response("Invalid payload structure", { status: 400 });
     }
 
-    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook
+    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook.
+    // Outbound: sender = nossa conta (igUserId), recipient = lead (senderId).
+    // Inbound: sender = lead, recipient = nossa conta.
+    const envelopeSender = isOutbound
+      ? { id: igUserId }
+      : { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar };
+    const envelopeRecipient = isOutbound ? { id: senderId } : { id: igUserId };
+
     const metaEnvelope = {
       object: "instagram",
       entry: [{
         id: igUserId,
         messaging: [{
-          sender: { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar },
-          recipient: { id: igUserId },
+          sender: envelopeSender,
+          recipient: envelopeRecipient,
           timestamp: Date.now(),
           message: { mid: messageId, text, attachments: [] },
         }],
       }],
     };
 
-    console.log(`[zernio-webhook] Forwarding to instagram-webhook (sender: ${senderId}, name: ${senderName})`);
+    console.log(`[zernio-webhook] Forwarding ${isOutbound ? "OUTBOUND" : "inbound"} to instagram-webhook (lead: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
     const forwardRes = await fetch(forwardUrl, {
       method: "POST",
