@@ -205,9 +205,9 @@ Deno.serve(async (req) => {
             await supabase.from("imphq_automacao_logs").insert({
               automacao_id: k.automacao_id,
               project_id,
-              lead_id: lead_data.lead_id,
-              tipo: "exit_condition",
-              mensagem: `Flow encerrado por exit condition (${trigger_tipo}) em Passo ${k.current_step ?? 0}${cascade ? " · cascade" : ""}`,
+              status: "exited",
+              trigger_data: { trigger_tipo, lead_id: lead_data.lead_id, exit_step: k.current_step ?? 0, cascade },
+              error_message: `Flow encerrado por exit condition (${trigger_tipo}) em Passo ${k.current_step ?? 0}`,
             }).then(() => {}, () => {});
           }
         }
