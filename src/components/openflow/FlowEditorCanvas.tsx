@@ -616,11 +616,11 @@ export function FlowEditorCanvas({
   const handleNodeClick = useCallback(
     (_: any, node: Node) => {
       const idx = node.data?.index as number | undefined;
-      if (idx !== undefined && idx >= 0 && onNodeClick) {
-        onNodeClick(node.data.acao as Acao, idx);
+      if (idx !== undefined && idx >= 0 && onActionSelect) {
+        onActionSelect(idx);
       }
     },
-    [onNodeClick]
+    [onActionSelect]
   );
 
   const handleNodeDragStop = useCallback(
