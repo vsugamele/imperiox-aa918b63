@@ -353,6 +353,33 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     // Detect bump for Kiwify
     if (body.is_bump === true || body.bump_id) tipo_venda = "orderbump";
   }
+  // ── Ticto flat (abandoned_cart e similares) ──
+  else if (body?.token && body?.email_customer && body?.status) {
+    plataforma = "Ticto";
+    const tictoFlatMap: Record<string, string> = {
+      abandoned_cart: "carrinho_abandonado",
+      authorized: "compra_aprovada",
+      refunded: "reembolso",
+      waiting_payment: "aguardando_pagamento",
+      pix_created: "pix_gerado",
+      pix_expired: "pagamento_expirado",
+      chargeback: "chargeback",
+      blocked: "bloqueado",
+      started: "inicio_checkout",
+      refused: "pagamento_recusado",
+      expired: "pagamento_expirado",
+      bank_slip_created: "boleto_gerado",
+      bank_slip_expired: "pagamento_expirado",
+    };
+    evento = tictoFlatMap[body.status] || body.status || "desconhecido";
+    email = body.email_customer || "";
+    nome = body.name_customer || "";
+    const rawPhone = body.phone_number_customer || "";
+    phone = (rawPhone && rawPhone !== "Não informado") ? String(rawPhone).replace(/\D/g, "") : "";
+    produto = body.name_prod || body.name_offer || "";
+    valor = 0;
+    data_compra = body.created_at || null;
+  }
   // ── Generic fallback ──
   else {
     plataforma = body.plataforma || "Outro";
