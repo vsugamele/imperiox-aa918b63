@@ -1165,6 +1165,38 @@ export default function OpenFlow() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Versions Dialog ───────────────────────────────────── */}
+      <Dialog open={!!versionsOf} onOpenChange={() => setVersionsOf(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><History className="h-4 w-4" /> Histórico — {versionsOf?.nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {versionsList.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma versão anterior. Edite e salve a automação para começar a gerar snapshots (mantemos os últimos 10).</p>
+            )}
+            {versionsList.map(v => {
+              const snap = v.snapshot || {};
+              const steps = Array.isArray(snap.acoes) ? snap.acoes.length : 0;
+              return (
+                <div key={v.id} className="flex items-center justify-between border border-border/60 rounded p-2 bg-background/40">
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium">Versão #{v.versao_num} · {snap.nome}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {new Date(v.criado_em).toLocaleString("pt-BR")} · gatilho: {snap.trigger_tipo} · {steps} passo(s)
+                      {snap.exit_trigger_tipo ? ` · exit: ${snap.exit_trigger_tipo}` : ""}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => restoreVersion(v)}>
+                    <RotateCcw className="h-3 w-3 mr-1" /> Restaurar
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Test Dialog ───────────────────────────────────────── */}
       <Dialog open={!!testDialog} onOpenChange={() => { setTestDialog(null); setTestResult(null); }}>
         <DialogContent>
