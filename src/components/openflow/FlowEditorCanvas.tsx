@@ -704,6 +704,28 @@ export function FlowEditorCanvas({
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
+        {/* Painel de Objetivo Estratégico */}
+        <Panel
+          position="top-left"
+          className="bg-slate-900/95 border border-purple-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-500"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-purple-400">
+              <Brain className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+            </div>
+            <Textarea 
+              value={flowObjective || ""} 
+              onChange={(e) => onUpdateObjective?.(e.target.value)}
+              placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
+              className="text-[11px] bg-slate-950/50 border-white/10 min-h-[80px] resize-none leading-relaxed text-slate-300 scrollbar-none"
+            />
+            <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
+              Este objetivo guia a IA e ajuda a manter a régua estratégica.
+            </p>
+          </div>
+        </Panel>
+
         {/* Paleta de adicionar etapa direto no canvas */}
         <Panel
           position="top-center"
