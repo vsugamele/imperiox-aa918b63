@@ -1,0 +1,211 @@
+// Sync Meta Ads data via Zernio API (read-only).
+// Endpoints used:
+//   GET /api/v1/ads/accounts?accountId=<zernioAcc>
+//   GET /api/v1/ads/campaigns?accountId=<zernioAcc>&adAccountId=<act_xxx>
+//   GET /api/v1/ads?accountId=<zernioAcc>&adAccountId=<act_xxx>
+//   GET /api/v1/ads/insights?accountId=<zernioAcc>&adId=<zernio_ad_id>&since=&until=
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+const ZERNIO_BASE = "https://zernio.com/api/v1";
+
+const brtDateStr = (d: Date = new Date()) =>
+  d.toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" }).split(",")[0];
+
+async function zFetch(path: string, apiKey: string) {
+  const r = await fetch(`${ZERNIO_BASE}${path}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+  const body = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, body };
+}
+
+function pickAction(actions: any[], type: string): number {
+  if (!Array.isArray(actions)) return 0;
+  const a = actions.find((x) => x?.action_type === type);
+  return a ? parseInt(a.value || "0", 10) : 0;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  try {
+    const { project_id, ad_account_id, date_from, date_to } = await req.json();
+    if (!project_id) return new Response(JSON.stringify({ error: "project_id obrigatório" }), { status: 400, headers: jsonHeaders });
+
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    const { data: creds } = await supabase
+      .from("imphq_integration_credentials")
+      .select("credentials")
+      .eq("project_id", project_id)
+      .eq("provider", "instagram")
+      .maybeSingle();
+
+    const apiKey = creds?.credentials?.zernio_api_key;
+    const zernioAccountId = creds?.credentials?.zernio_account_id;
+    const adAccountId = ad_account_id || creds?.credentials?.zernio_ad_account_id;
+
+    if (!apiKey || !zernioAccountId) {
+      return new Response(JSON.stringify({ error: "Zernio não configurado (provider=instagram, auth_method=zernio)" }), { status: 400, headers: jsonHeaders });
+    }
+    if (!adAccountId) {
+      return new Response(JSON.stringify({ error: "ad_account_id obrigatório (ou configure zernio_ad_account_id)" }), { status: 400, headers: jsonHeaders });
+    }
+
+    const today = brtDateStr();
+    const dfrom = date_from || brtDateStr(new Date(Date.now() - 30 * 86400000));
+    const dto = date_to || today;
+
+    const qBase = `accountId=${encodeURIComponent(zernioAccountId)}&adAccountId=${encodeURIComponent(adAccountId)}`;
+
+    // 1. Campaigns (paginated)
+    const campaignsByZId = new Map<string, any>();
+    {
+      let page = 1;
+      while (true) {
+        const { ok, status, body } = await zFetch(`/ads/campaigns?${qBase}&page=${page}&limit=50`, apiKey);
+        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar campanhas Zernio", status, details: body }), { status: 502, headers: jsonHeaders });
+        for (const c of (body.campaigns || [])) campaignsByZId.set(String(c.id), c);
+        const pages = body?.pagination?.pages || 1;
+        if (page >= pages) break;
+        page++;
+      }
+    }
+
+    // 2. Ads (paginated)
+    const ads: any[] = [];
+    {
+      let page = 1;
+      while (true) {
+        const { ok, status, body } = await zFetch(`/ads?${qBase}&page=${page}&limit=50`, apiKey);
+        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar anúncios Zernio", status, details: body }), { status: 502, headers: jsonHeaders });
+        ads.push(...(body.ads || []));
+        const pages = body?.pagination?.pages || 1;
+        if (page >= pages) break;
+        page++;
+      }
+    }
+
+    let imported = 0;
+    let errors = 0;
+    let insightsFailures = 0;
+
+    // 3. For each ad, fetch insights with time_increment=1
+    for (const ad of ads) {
+      const adId = ad?.id ?? ad?.adId ?? ad?.ad_id;
+      if (!adId) continue;
+      const campaignId = ad?.campaignId ?? ad?.campaign_id ?? null;
+      const adsetId = ad?.adsetId ?? ad?.adset_id ?? null;
+      const campaignName = ad?.campaignName ?? ad?.campaign_name ?? (campaignId && campaignsByZId.get(String(campaignId))?.name) ?? null;
+      const adsetName = ad?.adsetName ?? ad?.adset_name ?? null;
+      const adName = ad?.name ?? ad?.adName ?? null;
+      const thumb = ad?.creative?.thumbnail_url ?? ad?.creative?.image_url ?? ad?.thumbnail_url ?? null;
+      const creativeBody = ad?.creative?.body ?? null;
+      const creativeTitle = ad?.creative?.title ?? null;
+      const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.status ?? null;
+
+      const insightsPath = `/ads/insights?accountId=${encodeURIComponent(zernioAccountId)}&adId=${encodeURIComponent(adId)}&since=${dfrom}&until=${dto}&timeIncrement=1`;
+      const ins = await zFetch(insightsPath, apiKey);
+      if (!ins.ok) {
+        insightsFailures++;
+        continue;
+      }
+      const rows = ins.body?.insights || ins.body?.data || [];
+      for (const row of rows) {
+        const dateRef = row?.date_start || row?.date || row?.dateStart;
+        if (!dateRef) continue;
+        const spend = parseFloat(row?.spend ?? "0");
+        const impressoes = parseInt(row?.impressions ?? "0", 10);
+        const alcance = parseInt(row?.reach ?? "0", 10);
+        const cliques = parseInt(row?.clicks ?? "0", 10);
+        const ctr = parseFloat(row?.ctr ?? "0");
+        const frequencia = parseFloat(row?.frequency ?? "0");
+        const linkClicks = parseInt(row?.inline_link_clicks ?? row?.linkClicks ?? "0", 10);
+        const actions = row?.actions || [];
+        const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
+        const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
+        const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
+        const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
+        const lpViews = pickAction(actions, "landing_page_view");
+        const v3 = Array.isArray(row?.video_play_actions) && row.video_play_actions[0] ? parseInt(row.video_play_actions[0].value, 10) : 0;
+        const vTru = Array.isArray(row?.video_thruplay_watched_actions) && row.video_thruplay_watched_actions[0] ? parseInt(row.video_thruplay_watched_actions[0].value, 10) : 0;
+
+        const record: Record<string, unknown> = {
+          project_id,
+          plataforma: "Facebook",
+          source: "zernio",
+          campanha: campaignName,
+          conjunto_anuncios: adsetName,
+          anuncio: adName,
+          campaign_id: campaignId ? String(campaignId) : null,
+          adset_id: adsetId ? String(adsetId) : null,
+          ad_id: String(adId),
+          data_ref: dateRef,
+          valor: spend,
+          impressoes,
+          alcance,
+          cliques,
+          leads,
+          compras,
+          init_checkout: initCheckout,
+          add_to_cart: addToCart,
+          landing_page_views: lpViews,
+          video_3s_views: v3,
+          video_thruplay: vTru,
+          link_clicks: linkClicks,
+          custo_por_compra: compras > 0 ? spend / compras : null,
+          ctr,
+          frequencia,
+          moeda: row?.currency || "BRL",
+          thumbnail_url: thumb,
+          creative_body: creativeBody,
+          creative_title: creativeTitle,
+          effective_status: effectiveStatus,
+        };
+
+        // Upsert keyed by (project_id, source, ad_id, data_ref)
+        const { data: existing } = await supabase
+          .from("imphq_ads_spend")
+          .select("id")
+          .eq("project_id", project_id)
+          .eq("source", "zernio")
+          .eq("ad_id", String(adId))
+          .eq("data_ref", dateRef)
+          .maybeSingle();
+
+        const { error } = existing
+          ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
+          : await supabase.from("imphq_ads_spend").insert(record);
+        if (error) errors++; else imported++;
+      }
+    }
+
+    // Persist last sync timestamp
+    await supabase
+      .from("imphq_integration_credentials")
+      .update({
+        credentials: {
+          ...(creds?.credentials || {}),
+          zernio_ad_account_id: adAccountId,
+          zernio_ads_last_sync: new Date().toISOString(),
+        },
+      })
+      .eq("project_id", project_id)
+      .eq("provider", "instagram");
+
+    return new Response(JSON.stringify({
+      success: true,
+      imported,
+      errors,
+      insights_failures: insightsFailures,
+      campaigns: campaignsByZId.size,
+      ads: ads.length,
+      period: { from: dfrom, to: dto },
+      ad_account_id: adAccountId,
+    }), { headers: jsonHeaders });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: jsonHeaders });
+  }
+});

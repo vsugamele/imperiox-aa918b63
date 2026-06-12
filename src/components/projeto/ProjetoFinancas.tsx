@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import ZernioAdsSync from "./ZernioAdsSync";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -819,6 +820,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 </Button>
               </div>
             )}
+            <ZernioAdsSync projectId={projectId} dateRange={dateRange} onAfterSync={() => { loadData(); onRefresh?.(); }} />
             <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
               <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
             </Button>
