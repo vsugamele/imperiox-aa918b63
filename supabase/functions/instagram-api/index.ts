@@ -273,6 +273,14 @@ Deno.serve(async (req) => {
             messageId = data.message_id;
             provider = zernioErr ? "meta_fallback" : "meta";
           } else {
+            if (zernioErr && /outside of allowed window|outside the allowed window|24[- ]?hour/i.test(zernioErr)) {
+              return json({
+                error: "OUTSIDE_24H_WINDOW",
+                code: "OUTSIDE_24H_WINDOW",
+                message: "O Instagram só permite enviar mensagens até 24h após a última resposta do usuário. Aguarde o lead responder novamente.",
+                fallback: true,
+              }, 200);
+            }
             return json({ error: zernioErr || "Sem método de envio configurado (Zernio/Meta/n8n)" }, 400);
           }
 
