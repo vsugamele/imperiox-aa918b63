@@ -823,18 +823,30 @@ export function FlowEditor({
           {acoes.length > 0 && <SVGBezierConnector delay="0s" />}
 
           {acoes.length === 0 && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-3">
               <SVGBezierConnector delay="0s" />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => addAcao()} 
-                className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <TemplatePicker
+                  triggerTipo={triggerTipo}
+                  variant="hero"
+                  onApply={(novasAcoes) => {
+                    onChange(novasAcoes);
+                    toast.success("Template aplicado");
+                  }}
+                />
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">ou</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addAcao()}
+                  className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
+                </Button>
+              </div>
             </div>
           )}
+
 
           {/* ACTION NODES (Floating Serpentine Seriado Layout) */}
           {acoes.map((acao, idx) => {
