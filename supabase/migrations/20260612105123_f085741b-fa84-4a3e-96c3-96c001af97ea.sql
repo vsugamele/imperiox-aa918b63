@@ -1,0 +1,2 @@
+ALTER TABLE public.imphq_automacoes ADD COLUMN IF NOT EXISTS flow_objective TEXT;
+COMMENT ON COLUMN public.imphq_automacoes.flow_objective IS 'Objetivo central e estratégico definido pelo usuário para este fluxo de automação.';

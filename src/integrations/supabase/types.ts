@@ -17085,6 +17085,7 @@ export type Database = {
           exit_cascade: boolean
           exit_trigger_payload: Json | null
           exit_trigger_tipo: string | null
+          flow_objective: string | null
           follow_up_hours: number | null
           follow_up_template: string | null
           id: string
@@ -17110,6 +17111,7 @@ export type Database = {
           exit_cascade?: boolean
           exit_trigger_payload?: Json | null
           exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id: string
@@ -17135,6 +17137,7 @@ export type Database = {
           exit_cascade?: boolean
           exit_trigger_payload?: Json | null
           exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id?: string
