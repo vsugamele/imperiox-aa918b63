@@ -5634,6 +5634,75 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_tenant_magic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_path: string
+          tenant_origin: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_path?: string
+          tenant_origin: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_path?: string
+          tenant_origin?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areamembrojp_tenant_settings: {
         Row: {
           accent_hsl: string
@@ -17083,6 +17152,7 @@ export type Database = {
           created_at: string | null
           dedupe_hours: number | null
           exit_cascade: boolean
+          exit_conditions: Json | null
           exit_trigger_payload: Json | null
           exit_trigger_tipo: string | null
           flow_objective: string | null
@@ -17098,6 +17168,7 @@ export type Database = {
           quiet_start: number | null
           stalled_hours: number | null
           stalled_operator: string | null
+          stats_cache: Json | null
           tag_filtro: string | null
           trigger_tipo: string
           updated_at: string | null
@@ -17109,6 +17180,7 @@ export type Database = {
           created_at?: string | null
           dedupe_hours?: number | null
           exit_cascade?: boolean
+          exit_conditions?: Json | null
           exit_trigger_payload?: Json | null
           exit_trigger_tipo?: string | null
           flow_objective?: string | null
@@ -17124,6 +17196,7 @@ export type Database = {
           quiet_start?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
           trigger_tipo: string
           updated_at?: string | null
@@ -17135,6 +17208,7 @@ export type Database = {
           created_at?: string | null
           dedupe_hours?: number | null
           exit_cascade?: boolean
+          exit_conditions?: Json | null
           exit_trigger_payload?: Json | null
           exit_trigger_tipo?: string | null
           flow_objective?: string | null
@@ -17150,6 +17224,7 @@ export type Database = {
           quiet_start?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
           trigger_tipo?: string
           updated_at?: string | null

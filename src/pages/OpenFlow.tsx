@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -268,12 +269,45 @@ export default function OpenFlow() {
                     <div className="flex items-center gap-2 mb-4">
                       <Badge variant="outline" className="bg-slate-950/50 border-white/5 text-[10px]">{meta.icon} {meta.label}</Badge>
                       {a.produto && <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-none">📦 {a.produto}</Badge>}
+                      {(a as any).exit_conditions?.length > 0 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge variant="outline" className="text-[10px] border-rose-500/30 text-rose-400 bg-rose-500/5">
+                                <LogOut className="h-2.5 w-2.5 mr-1" /> {(a as any).exit_conditions.length} Saídas
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Este fluxo possui {(a as any).exit_conditions.length} condições de saída configuradas.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
-                    {stats && (
-                      <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
-                        <div className="text-center"><p className="text-[9px] text-muted-foreground uppercase">Execs</p><p className="text-xs font-bold">{stats.execucoes}</p></div>
-                        <div className="text-center"><p className="text-[9px] text-muted-foreground uppercase">Sucesso</p><p className="text-xs font-bold text-emerald-400">{stats.sucessos}</p></div>
-                        <div className="text-center"><p className="text-[9px] text-muted-foreground uppercase">Taxa</p><p className="text-xs font-bold text-primary">{stats.taxa_sucesso}%</p></div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
+                      <div className="text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase">Execs</p>
+                        <p className="text-xs font-bold">{(a as any).stats_cache?.executions || stats?.execucoes || 0}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase">Taxa</p>
+                        <p className={`text-xs font-bold ${(a as any).stats_cache?.success_rate > 70 ? 'text-emerald-400' : 'text-primary'}`}>
+                          {(a as any).stats_cache?.success_rate || stats?.taxa_sucesso || 0}%
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase">Receita</p>
+                        <p className="text-xs font-bold text-emerald-400">
+                          R$ {((a as any).stats_cache?.revenue || 0).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {((a as any).stats_cache?.success_rate < 30 && ((a as any).stats_cache?.executions > 10)) && (
+                      <div className="mt-3 flex items-center gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/20">
+                        <Activity className="h-3 w-3 text-rose-400" />
+                        <span className="text-[10px] text-rose-300 font-medium">Saúde Crítica: Ajuste o fluxo</span>
                       </div>
                     )}
                   </CardContent>
