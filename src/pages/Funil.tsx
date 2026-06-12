@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, MessageSquare, MousePointerClick, CreditCard, CheckCircle2,
-  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles
+  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles, Trophy, Link2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -273,9 +273,9 @@ export default function Funil() {
       {/* Tabs: source breakdown / templates / matches recentes */}
       <Tabs defaultValue="sources" className="w-full">
         <TabsList>
-          <TabsTrigger value="sources">🎯 Por origem</TabsTrigger>
-          <TabsTrigger value="templates">🏆 Templates campeões</TabsTrigger>
-          <TabsTrigger value="matches">🔗 Últimas vendas atribuídas</TabsTrigger>
+          <TabsTrigger value="sources" className="gap-1.5"><Target className="h-3.5 w-3.5" /> Por origem</TabsTrigger>
+          <TabsTrigger value="templates" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Templates campeões</TabsTrigger>
+          <TabsTrigger value="matches" className="gap-1.5"><Link2 className="h-3.5 w-3.5" /> Últimas vendas atribuídas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sources" className="mt-4 space-y-2">

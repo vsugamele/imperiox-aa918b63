@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, MessageSquare, Instagram, Flame } from "lucide-react";
+import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,8 +72,8 @@ function HotLeadsTab() {
   return (
     <div className="p-4 space-y-3 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-display text-lg text-foreground">
-          🔥 {leads.length} leads quentes — últimas 2h
+        <h2 className="font-display text-lg text-foreground flex items-center gap-2">
+          <Flame className="h-4 w-4 text-orange-400" /> {leads.length} leads quentes — últimas 2h
         </h2>
         <Badge variant="outline" className="text-emerald-400 border-emerald-500/30">
           Score &gt; 80
@@ -98,8 +98,8 @@ function HotLeadsTab() {
                   </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex gap-3">
-                  {lead.telefone && <span>📱 {lead.telefone}</span>}
-                  {lead.email && <span>✉️ {lead.email}</span>}
+                  {lead.telefone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.telefone}</span>}
+                  {lead.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> {lead.email}</span>}
                   <span>
                     {new Date(lead.criado_em).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
