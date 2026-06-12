@@ -219,6 +219,27 @@ export default function Dashboard() {
           </div>
           <RevenueModeToggle />
           <SectionInfo {...sectionHelpTexts.dashboard} />
+          <div className="flex items-center gap-0.5 border border-border/60 rounded-md p-0.5 bg-secondary/20" title="Visão do Dashboard">
+            {([
+              ["completo", LayoutGrid, "Tudo"],
+              ["executivo", Crown, "Executivo"],
+              ["marketing", Megaphone, "Marketing"],
+              ["financeiro", DollarSign, "Financeiro"],
+            ] as const).map(([key, Icon, label]) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={cn(
+                  "flex items-center gap-1 px-1.5 py-1 rounded text-[10px] uppercase tracking-wider transition",
+                  view === key ? "bg-gold/15 text-gold" : "text-muted-foreground/70 hover:text-foreground"
+                )}
+                title={label}
+              >
+                <Icon className="h-3 w-3" />
+                <span className="hidden xl:inline">{label}</span>
+              </button>
+            ))}
+          </div>
           <Link
             to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
             className={cn(
@@ -233,6 +254,7 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
 
       {/* COCKPIT KPI STRIP */}
       <section>
