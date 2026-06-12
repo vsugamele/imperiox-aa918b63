@@ -289,7 +289,17 @@ Deno.serve(async (req) => {
             await saveCreds(supa, project_id, updatedCreds);
           }
         } catch (metaErr: any) {
-          return json({ error: zernioErr ? `Zernio: ${zernioErr} | Fallback: ${metaErr.message}` : metaErr.message }, 400);
+          const combined = zernioErr ? `Zernio: ${zernioErr} | Fallback: ${metaErr.message}` : metaErr.message;
+          // Janela de 24h do Instagram — não é bug, é regra da Meta. Responde 200 com código amigável.
+          if (/outside of allowed window|outside the allowed window|24[- ]?hour/i.test(combined)) {
+            return json({
+              error: "OUTSIDE_24H_WINDOW",
+              code: "OUTSIDE_24H_WINDOW",
+              message: "O Instagram só permite enviar mensagens até 24h após a última resposta do usuário. Aguarde o lead responder novamente.",
+              fallback: true,
+            }, 200);
+          }
+          return json({ error: combined }, 400);
         }
       }
 
