@@ -185,8 +185,9 @@ export function ActionInbox() {
                           </Button>
                           <Button size="sm" className="h-7 px-2" disabled={busyId === a.id} onClick={() => handle(a, "execute")}>
                             {busyId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                            <span className="ml-1 text-xs">Aprovar</span>
+                            <span className="ml-1 text-xs">{a.kind === "createFlow" ? "Criar Draft" : "Aprovar"}</span>
                           </Button>
+
                         </>
                       )}
                       {a.status === "executed" && (
