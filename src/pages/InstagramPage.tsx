@@ -887,6 +887,7 @@ export default function InstagramPage() {
   // Send Direct Message
   async function handleSendDM() {
     if (!composedMsg.trim() || !selectedConv || !selectedAccount) return;
+    const textToSend = composedMsg.trim();
     setSendingMsg(true);
     try {
       const { data, error } = await supabase.functions.invoke("instagram-api", {
@@ -894,19 +895,40 @@ export default function InstagramPage() {
           action: "send_text",
           project_id: selectedProjectId,
           recipient_id: selectedConv.participant_id,
-          text: composedMsg.trim(),
+          text: textToSend,
         },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
+      if (error) throw new Error(error.message);
+
+      // Janela de 24h do Instagram — não é erro de sistema, é regra da Meta
+      if (data?.code === "OUTSIDE_24H_WINDOW") {
+        toast.warning(data.message || "Fora da janela de 24h do Instagram.", { duration: 6000 });
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          conversation_id: selectedConv.id,
+          direction: "out",
+          type: "text",
+          content: textToSend,
+          media_url: null,
+          created_at: new Date().toISOString(),
+          status: "failed",
+          failure_reason: "24h_window",
+          _local: true,
+        }]);
+        setComposedMsg("");
+        return;
+      }
+
+      if (data?.error) throw new Error(data.error);
       toast.success("Mensagem enviada!");
-      
+
       // Optmistic insert local state until webhook arrives
       const optMsg: IgMessage = {
         id: crypto.randomUUID(),
         conversation_id: selectedConv.id,
         direction: "out",
         type: "text",
-        content: composedMsg.trim(),
+        content: textToSend,
         media_url: null,
         created_at: new Date().toISOString(),
         status: "sent",
