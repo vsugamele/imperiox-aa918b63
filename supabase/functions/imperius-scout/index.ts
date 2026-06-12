@@ -128,6 +128,20 @@ async function scoutProject(supabase: any, projeto: any): Promise<Proposed[]> {
 }
 
 // ── Detector de padrões → propõe drafts de OpenFlow ──
+
+// Confidence dinâmica: cresce com sample_size (saturação)
+function dynamicConfidence(sample: number, threshold: number, base = 0.7, max = 0.95): number {
+  if (sample <= threshold) return base;
+  const ratio = Math.min(1, (sample - threshold) / (threshold * 3));
+  return Math.min(max, base + ratio * (max - base));
+}
+
+function buildPreview(acoes: any[]): string[] {
+  return acoes
+    .filter((a) => a.template && a.tipo !== "aguardar")
+    .map((a) => `${a.tipo}: ${String(a.template).slice(0, 90)}`);
+}
+
 async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
@@ -146,6 +160,43 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     return (data?.length || 0) > 0;
   };
 
+  const pushFlow = (cfg: {
+    title: string;
+    reason: string;
+    flow_name: string;
+    trigger_tipo: string;
+    acoes: any[];
+    sample: number;
+    threshold: number;
+    metric: string;
+    estimated_recovery: string;
+    source: string;
+  }) => {
+    const conf = dynamicConfidence(cfg.sample, cfg.threshold);
+    out.push({
+      kind: "createFlow",
+      risk_level: "low",
+      confidence: conf,
+      title: cfg.title,
+      reason: cfg.reason,
+      payload: {
+        flow_name: cfg.flow_name,
+        trigger_tipo: cfg.trigger_tipo,
+        projeto_id: projetoId,
+        acoes: cfg.acoes,
+        preview_messages: buildPreview(cfg.acoes),
+        pattern_evidence: {
+          sample_size: cfg.sample,
+          metric: cfg.metric,
+          estimated_recovery: cfg.estimated_recovery,
+          confidence_basis: `${cfg.sample} amostras nos últimos 7-30d`,
+        },
+      },
+      projeto_id: projetoId,
+      source: cfg.source,
+    });
+  };
+
   // Padrão A — Pix/Boleto sem recuperação automática
   if (!(await hasFlow("aguardando_pagamento"))) {
     const { count } = await supabase
@@ -155,24 +206,20 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
       .in("status", ["waiting_payment", "pending"])
       .gte("created_at", since7);
     if ((count || 0) >= 10) {
-      out.push({
-        kind: "createFlow",
-        risk_level: "low",
-        confidence: 0.9,
-        title: `Criar recuperação automática de Pix/Boleto`,
+      pushFlow({
+        title: "Criar recuperação automática de Pix/Boleto",
         reason: `${count} pagamentos pendentes nos últimos 7d sem flow ativo. Recuperação típica: 15-25%.`,
-        payload: {
-          flow_name: "Recuperação Pix/Boleto (Imperius)",
-          trigger_tipo: "aguardando_pagamento",
-          projeto_id: projetoId,
-          acoes: [
-            { tipo: "whatsapp", template: "Oi {{nome}}! Vi que você gerou o pagamento mas ainda não finalizou. Posso te ajudar?", delay_min: 15 },
-            { tipo: "aguardar", template: "", delay_min: 120 },
-            { tipo: "whatsapp", template: "{{nome}}, seu Pix está prestes a expirar. Quer que eu envie um novo link?", delay_min: 0 },
-          ],
-          pattern_evidence: { sample_size: count, metric: `${count} pendentes/7d`, estimated_recovery: `~${Math.round((count || 0) * 0.2)} vendas/sem` },
-        },
-        projeto_id: projetoId,
+        flow_name: "Recuperação Pix/Boleto (Imperius)",
+        trigger_tipo: "aguardando_pagamento",
+        acoes: [
+          { tipo: "whatsapp", template: "Oi {{nome}}! Vi que você gerou o pagamento mas ainda não finalizou. Posso te ajudar?", delay_min: 15 },
+          { tipo: "aguardar", template: "", delay_min: 120 },
+          { tipo: "whatsapp", template: "{{nome}}, seu Pix está prestes a expirar. Quer que eu envie um novo link?", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 10,
+        metric: `${count} pendentes/7d`,
+        estimated_recovery: `~${Math.round((count || 0) * 0.2)} vendas/sem`,
         source: "scout-pattern-recovery",
       });
     }
@@ -187,24 +234,20 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
       .gte("score", 70)
       .gte("created_at", since7);
     if ((count || 0) >= 15) {
-      out.push({
-        kind: "createFlow",
-        risk_level: "low",
-        confidence: 0.85,
-        title: `Criar boas-vindas automática para leads quentes`,
+      pushFlow({
+        title: "Criar boas-vindas automática para leads quentes",
         reason: `${count} hot leads (score≥70) nos últimos 7d sem flow de novo lead ativo.`,
-        payload: {
-          flow_name: "Boas-vindas Lead Quente (Imperius)",
-          trigger_tipo: "lead_novo",
-          projeto_id: projetoId,
-          acoes: [
-            { tipo: "whatsapp", template: "Oi {{nome}}! Que bom te ver por aqui. Em que posso ajudar?", delay_min: 5 },
-            { tipo: "aguardar", template: "", delay_min: 30 },
-            { tipo: "audio", template: "Áudio personalizado de boas-vindas mencionando o interesse do lead.", delay_min: 0 },
-          ],
-          pattern_evidence: { sample_size: count, metric: `${count} hot leads/7d`, estimated_recovery: "+8% conversão típica" },
-        },
-        projeto_id: projetoId,
+        flow_name: "Boas-vindas Lead Quente (Imperius)",
+        trigger_tipo: "lead_novo",
+        acoes: [
+          { tipo: "whatsapp", template: "Oi {{nome}}! Que bom te ver por aqui. Em que posso ajudar?", delay_min: 5 },
+          { tipo: "aguardar", template: "", delay_min: 30 },
+          { tipo: "audio", template: "Áudio personalizado de boas-vindas mencionando o interesse do lead.", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 15,
+        metric: `${count} hot leads/7d`,
+        estimated_recovery: "+8% conversão típica",
         source: "scout-pattern-welcome",
       });
     }
@@ -219,31 +262,113 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
       .in("status", ["approved", "paid"])
       .gte("created_at", since30);
     if ((count || 0) >= 20) {
-      out.push({
-        kind: "createFlow",
-        risk_level: "low",
-        confidence: 0.85,
-        title: `Criar onboarding pós-compra automático`,
+      pushFlow({
+        title: "Criar onboarding pós-compra automático",
         reason: `${count} compras aprovadas em 30d sem flow de onboarding ativo. Reduz reembolsos e melhora LTV.`,
-        payload: {
-          flow_name: "Onboarding Pós-Compra (Imperius)",
-          trigger_tipo: "compra_aprovada",
-          projeto_id: projetoId,
-          acoes: [
-            { tipo: "whatsapp", template: "Parabéns pela compra, {{nome}}! Seu acesso já está liberado.", delay_min: 5 },
-            { tipo: "aguardar", template: "", delay_min: 60 },
-            { tipo: "whatsapp", template: "{{nome}}, já conseguiu acessar? Qualquer dúvida me chama.", delay_min: 0 },
-          ],
-          pattern_evidence: { sample_size: count, metric: `${count} compras/30d`, estimated_recovery: "-30% reembolso típico" },
-        },
-        projeto_id: projetoId,
+        flow_name: "Onboarding Pós-Compra (Imperius)",
+        trigger_tipo: "compra_aprovada",
+        acoes: [
+          { tipo: "whatsapp", template: "Parabéns pela compra, {{nome}}! Seu acesso já está liberado.", delay_min: 5 },
+          { tipo: "aguardar", template: "", delay_min: 60 },
+          { tipo: "whatsapp", template: "{{nome}}, já conseguiu acessar? Qualquer dúvida me chama.", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 20,
+        metric: `${count} compras/30d`,
+        estimated_recovery: "-30% reembolso típico",
         source: "scout-pattern-onboarding",
+      });
+    }
+  }
+
+  // Padrão D — Carrinho abandonado sem flow
+  if (!(await hasFlow("carrinho_abandonado")) && !(await hasFlow("inicio_checkout"))) {
+    const { count } = await supabase
+      .from("imphq_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .in("status", ["abandoned", "checkout_abandoned", "cart_abandoned"])
+      .gte("created_at", since7);
+    if ((count || 0) >= 8) {
+      pushFlow({
+        title: "Criar recuperação de carrinho abandonado",
+        reason: `${count} carrinhos abandonados em 7d. Recuperação típica de carrinho: 10-15%.`,
+        flow_name: "Recuperação de Carrinho (Imperius)",
+        trigger_tipo: "carrinho_abandonado",
+        acoes: [
+          { tipo: "whatsapp", template: "Oi {{nome}}! Vi que você quase finalizou {{produto}}. Travou alguma coisa?", delay_min: 30 },
+          { tipo: "aguardar", template: "", delay_min: 180 },
+          { tipo: "whatsapp", template: "{{nome}}, separei seu carrinho aqui. Quer que eu envie o link de novo?", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 8,
+        metric: `${count} carrinhos/7d`,
+        estimated_recovery: `~${Math.round((count || 0) * 0.12)} vendas/sem`,
+        source: "scout-pattern-cart",
+      });
+    }
+  }
+
+  // Padrão E — Reembolsos sem flow de retenção
+  if (!(await hasFlow("reembolso"))) {
+    const { count } = await supabase
+      .from("imphq_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .in("status", ["refunded", "chargeback"])
+      .gte("created_at", since30);
+    if ((count || 0) >= 3) {
+      pushFlow({
+        title: "Criar flow de retenção pós-reembolso",
+        reason: `${count} reembolsos/chargebacks em 30d. Entender o motivo reduz churn e melhora produto.`,
+        flow_name: "Retenção Pós-Reembolso (Imperius)",
+        trigger_tipo: "reembolso",
+        acoes: [
+          { tipo: "whatsapp", template: "Oi {{nome}}, vi que pediu reembolso. Sem pressão — pode me contar o que não rolou? Sua resposta ajuda demais.", delay_min: 60 },
+          { tipo: "wait_reply", template: "", delay_min: 0, timeout_min: 2880 },
+          { tipo: "notify_operator", template: "Lead {{nome}} respondeu motivo do reembolso. Avaliar oferta de retenção.", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 3,
+        metric: `${count} reembolsos/30d`,
+        estimated_recovery: "Insights de churn + ~10% retenção",
+        source: "scout-pattern-refund",
+      });
+    }
+  }
+
+  // Padrão F — Leads que clicaram link mas não compraram
+  if (!(await hasFlow("clicou_link")) && !(await hasFlow("tag_adicionada"))) {
+    const { count } = await supabase
+      .from("imphq_clicks")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .gte("created_at", since7);
+    if ((count || 0) >= 30) {
+      pushFlow({
+        title: "Criar follow-up para leads que clicaram mas não compraram",
+        reason: `${count} cliques de tracker em 7d sem flow de follow-up. Maioria não converte sozinha.`,
+        flow_name: "Follow-up Clique sem Compra (Imperius)",
+        trigger_tipo: "tag_adicionada",
+        acoes: [
+          { tipo: "aguardar", template: "", delay_min: 240 },
+          { tipo: "whatsapp", template: "{{nome}}, vi que você clicou no link de {{produto}}. Posso te tirar alguma dúvida rápida?", delay_min: 0 },
+          { tipo: "wait_reply", template: "", delay_min: 0, timeout_min: 1440 },
+          { tipo: "ia_message", template: "Qualificar interesse, identificar objeção principal e oferecer ajuda.", delay_min: 0 },
+        ],
+        sample: count || 0,
+        threshold: 30,
+        metric: `${count} cliques/7d`,
+        estimated_recovery: `~${Math.round((count || 0) * 0.05)} vendas/sem`,
+        source: "scout-pattern-clickers",
       });
     }
   }
 
   return out;
 }
+
+
 
 
 Deno.serve(async (req) => {
