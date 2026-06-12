@@ -207,7 +207,7 @@ REGRAS DO FOLLOW-UP:
           throw new Error("OPENROUTER_API_KEY ausente.");
         }
 
-        const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+        const model = aiConfig.ai_model || "google/gemini-2.5-flash";
         const temperature = Number(aiConfig.ai_temperature ?? 0.7);
         const top_p = Number(aiConfig.ai_top_p ?? 1);
 

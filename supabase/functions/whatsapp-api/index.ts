@@ -1451,7 +1451,7 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
       // Call LLM (using Lovable AI gateway or OpenRouter based on config)
       const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
       const provider = aiConfig?.ai_provider === "openrouter" ? "openrouter" : "lovable";
-      const model = aiConfig?.ai_model || (provider === "openrouter" ? "openai/gpt-4o-mini" : "google/gemini-3-flash-preview");
+      const model = aiConfig?.ai_model || (provider === "openrouter" ? "google/gemini-2.5-flash" : "google/gemini-3-flash-preview");
       const temperature = 0.4; // Slightly lower temperature for deterministic simulation outputs
 
       async function callSimulationLLM() {
