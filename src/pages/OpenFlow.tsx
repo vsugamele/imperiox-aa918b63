@@ -360,6 +360,36 @@ export default function OpenFlow() {
     toast.success("Automação duplicada!"); load();
   };
 
+  const openVersions = async (auto: Automacao) => {
+    setVersionsOf(auto);
+    setVersionsList([]);
+    const { data, error } = await supabase
+      .from("imphq_automacao_versions" as any)
+      .select("*")
+      .eq("automacao_id", auto.id)
+      .order("versao_num", { ascending: false });
+    if (error) { toast.error("Erro ao carregar versões"); return; }
+    setVersionsList(data || []);
+  };
+
+  const restoreVersion = async (v: any) => {
+    if (!versionsOf) return;
+    const snap = v.snapshot || {};
+    const { error } = await supabase.from("imphq_automacoes").update({
+      nome: snap.nome,
+      trigger_tipo: snap.trigger_tipo,
+      acoes: snap.acoes,
+      exit_trigger_tipo: snap.exit_trigger_tipo || null,
+      exit_trigger_payload: snap.exit_trigger_payload || {},
+      exit_cascade: !!snap.exit_cascade,
+    } as any).eq("id", versionsOf.id);
+    if (error) { toast.error("Falha ao restaurar: " + error.message); return; }
+    toast.success(`Versão #${v.versao_num} restaurada`);
+    setVersionsOf(null);
+    load();
+  };
+
+
   const testAutomacao = async () => {
     if (!testDialog) return;
     setIsTesting(true); setTestResult(null);
