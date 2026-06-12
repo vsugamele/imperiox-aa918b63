@@ -202,6 +202,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState("");
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
