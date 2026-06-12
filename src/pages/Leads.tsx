@@ -613,7 +613,7 @@ export default function Leads() {
                 const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `leads_${format(periodRange.from, "yyyy-MM-dd")}.csv`; a.click(); URL.revokeObjectURL(url);
                 toast.success(`${filtered.length} leads exportados`);
-              }}>📥 Export CSV</Button>
+              }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
               <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar</Button>
               <Button size="sm" variant="outline" onClick={async () => {
                 const toAnalyze = filtered.filter(l => l.project_id);
