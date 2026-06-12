@@ -167,6 +167,42 @@ export default function InstagramPage() {
   });
 
   const [triggerSourceType, setTriggerSourceType] = useState<"all" | "dm" | "story" | "story_mention" | "specific">("all");
+  const [genTriggerLoading, setGenTriggerLoading] = useState(false);
+
+  const generateTriggerCopy = async () => {
+    if (!newTrigger.trigger_keyword.trim()) {
+      toast.error("Informe a palavra-chave primeiro.");
+      return;
+    }
+    setGenTriggerLoading(true);
+    try {
+      const channel =
+        triggerSourceType === "dm" ? "dm" :
+        triggerSourceType === "story" ? "story" :
+        triggerSourceType === "story_mention" ? "story_mention" : "comment";
+      const { data, error } = await supabase.functions.invoke("ig-trigger-ai-generate", {
+        body: {
+          project_id: selectedProjectId || null,
+          keyword: newTrigger.trigger_keyword.trim(),
+          channel,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setNewTrigger(prev => ({
+        ...prev,
+        reply_comment_template: (data as any).reply_public || prev.reply_comment_template,
+        send_dm_template: (data as any).dm_message || prev.send_dm_template,
+      }));
+      toast.success("Copy gerada! Revise antes de salvar.");
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao gerar copy");
+    } finally {
+      setGenTriggerLoading(false);
+    }
+  };
+
+
 
   const loadLeadData = useCallback(async (conv: IgConversation) => {
     const leadId = conv.lead_id || `ig_${conv.participant_id}`;
