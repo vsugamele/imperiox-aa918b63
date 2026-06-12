@@ -26,6 +26,7 @@ import { ColdLeadReactivation } from "@/components/openflow/ColdLeadReactivation
 import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StepGuide } from "@/components/openflow/StepGuide";
+import { VersionHistoryDrawer } from "@/components/openflow/VersionHistoryDrawer";
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
