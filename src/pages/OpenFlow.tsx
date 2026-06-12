@@ -412,6 +412,24 @@ export default function OpenFlow() {
           )}
         </DialogContent>
       </Dialog>
+
+      <VersionHistoryDrawer
+        open={showHistory}
+        onOpenChange={setShowHistory}
+        automacaoId={editing?.id || null}
+        automacaoNome={editing?.nome}
+        onRestore={(snap) => {
+          if (!editing) return;
+          setEditing({
+            ...editing,
+            ...(snap.nome ? { nome: snap.nome } : {}),
+            ...(snap.trigger_tipo ? { trigger_tipo: snap.trigger_tipo } : {}),
+            ...(Array.isArray(snap.acoes) ? { acoes: snap.acoes } : {}),
+            ...(snap.flow_objective !== undefined ? { flow_objective: snap.flow_objective } : {}),
+          });
+          load();
+        }}
+      />
     </div>
   );
 }
