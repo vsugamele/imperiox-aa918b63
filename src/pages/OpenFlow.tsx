@@ -283,6 +283,7 @@ export default function OpenFlow() {
           </div>
         </TabsContent>
 
+        <TabsContent value="guia"><StepGuide /></TabsContent>
         <TabsContent value="campanhas"><CampanhasManager projects={projects} /></TabsContent>
         <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
