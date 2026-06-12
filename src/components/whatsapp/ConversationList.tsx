@@ -22,6 +22,7 @@ interface WaSession {
   unread_count?: number;
   last_message_direction?: string | null;
   jid_suffix?: string | null;
+  snoozed_until?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
@@ -158,10 +159,20 @@ export default function ConversationList({
 }: Props) {
   const [search, setSearch] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-snooze-mode") as any) : null) || "hide"
+  );
+  const cycleSnoozeMode = () => {
+    const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
+    setSnoozeMode(next);
+    try { localStorage.setItem("wa-snooze-mode", next); } catch {}
+  };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const findProvider = (providerId: string | null) =>
     providerId && providers ? providers.find(p => p.id === providerId) : undefined;
+
+  const isSnoozed = (s: WaSession) => !!s.snoozed_until && new Date(s.snoozed_until).getTime() > Date.now();
 
   const filtered = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
@@ -170,7 +181,9 @@ export default function ConversationList({
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
     const matchUnread = !onlyUnread || isUnreadSession(s);
-    return matchProject && matchProvider && matchSearch && matchUnread;
+    const snoozed = isSnoozed(s);
+    const matchSnooze = snoozeMode === "show" ? true : snoozeMode === "only" ? snoozed : !snoozed;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
@@ -179,6 +192,8 @@ export default function ConversationList({
     const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
     return tb - ta;
   });
+
+  const snoozedCount = sessions.filter(isSnoozed).length;
 
   const totalUnread = sessions.reduce(
     (acc, s) => acc + (isUnreadSession(s) ? Math.max(s.unread_count || 0, 1) : 0),
@@ -205,6 +220,18 @@ export default function ConversationList({
               title="Mostrar apenas não lidas"
             >
               Não lidas
+            </button>
+            <button
+              onClick={cycleSnoozeMode}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
+                snoozeMode === "only" ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                : snoozeMode === "show" ? "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+              title="Silenciadas: clique para alternar (ocultar / mostrar / só silenciadas)"
+            >
+              {snoozeMode === "hide" ? "🔕 Ocultar" : snoozeMode === "show" ? "🔔 Todas" : "🔕 Só silenciadas"}
+              {snoozedCount > 0 && snoozeMode !== "only" && <span className="ml-1 opacity-70">({snoozedCount})</span>}
             </button>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
               <Plus className="h-4 w-4" />
