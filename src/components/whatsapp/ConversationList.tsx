@@ -86,7 +86,6 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
-import { formatCompactTime } from "@/lib/formatCompactTime";
 const formatMessageTime = (dateStr: string | undefined) => formatCompactTime(dateStr);
 
 function getInitials(name: string | null, phone: string): string {
