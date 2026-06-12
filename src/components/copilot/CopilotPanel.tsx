@@ -87,14 +87,74 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
     setMessages(next);
     setInput("");
     setLoading(true);
+
+    // Otimista: adiciona placeholder do assistant para receber tokens
+    setMessages([...next, { role: "assistant", content: "", ts: new Date().toISOString() }]);
+
     try {
-      const { data, error } = await supabase.functions.invoke("copilot-imperius", {
-        body: { messages: next, projectId: routeProjectId || null, threadId },
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/copilot-imperius`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ messages: next, projectId: routeProjectId || null, threadId, stream: true }),
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setMessages([...next, { role: "assistant", content: data.reply, ts: new Date().toISOString() }]);
-      if (data.threadId) setThreadId(data.threadId);
+
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "");
+        let errMsg = "Falha ao consultar Imperius";
+        try { errMsg = JSON.parse(errText).error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const json = JSON.parse(payload);
+            if (json.type === "meta") {
+              if (json.threadId) setThreadId(json.threadId);
+              continue;
+            }
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) {
+              accText += delta;
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === "assistant") {
+                  copy[copy.length - 1] = { ...last, content: accText };
+                }
+                return copy;
+              });
+            }
+          } catch { /* chunk parcial */ }
+        }
+      }
+
+      if (!accText) {
+        setMessages((prev) => prev.slice(0, -1));
+        toast.error("Imperius não respondeu — tenta de novo");
+      }
       loadHistory();
     } catch (err: any) {
       toast.error(err.message || "Falha ao consultar Imperius");
