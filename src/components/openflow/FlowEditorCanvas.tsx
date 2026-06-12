@@ -15,6 +15,7 @@ import {
   BackgroundVariant,
   Panel,
 } from "@xyflow/react";
+import { Textarea } from "@/components/ui/textarea";
 import "@xyflow/react/dist/style.css";
 import {
   Mail,
