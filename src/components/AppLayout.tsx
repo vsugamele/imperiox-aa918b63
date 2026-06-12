@@ -105,6 +105,8 @@ function CmdKHint() {
   );
 }
 
+const MOBILE_OVERRIDE_KEY = "imphq.mobile.override";
+
 export function AppLayout() {
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -115,6 +117,25 @@ export function AppLayout() {
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
   }, [open]);
+
+  // Mobile auto-redirect → /mobile-cockpit (escape via ?desktop=1 ou link "Versão desktop")
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    if (!isMobile) return;
+    if (pathname.startsWith("/mobile-cockpit")) return;
+    try {
+      const params = new URLSearchParams(search);
+      if (params.get("desktop") === "1") {
+        sessionStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
+        return;
+      }
+      if (sessionStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
+    } catch {}
+    navigate("/mobile-cockpit", { replace: true });
+  }, [isMobile, pathname, search, navigate]);
+
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
