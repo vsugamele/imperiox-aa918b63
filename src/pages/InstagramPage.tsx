@@ -935,6 +935,19 @@ export default function InstagramPage() {
       };
       setMessages(prev => [...prev, optMsg]);
       setComposedMsg("");
+
+      // Sobe a conversa pro topo imediatamente (ordem de chegada)
+      const nowIso = new Date().toISOString();
+      setConversations(prev => prev.map(c =>
+        c.id === selectedConv.id
+          ? { ...c, last_message: textToSend, last_message_at: nowIso, updated_at: nowIso }
+          : c
+      ));
+      supabase.from("imphq_ig_conversations").update({
+        last_message: textToSend,
+        last_message_at: nowIso,
+        updated_at: nowIso,
+      } as any).eq("id", selectedConv.id).then(() => {});
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar mensagem");
     } finally {
