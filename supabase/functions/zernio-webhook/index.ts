@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
       const { data: dbAcc } = await supa
         .from("imphq_ig_accounts")
         .select("id, ig_user_id")
+        .eq("project_id", projectId)
         .eq("page_id", zernioAccountId)
         .eq("auth_method", "zernio")
         .maybeSingle();
@@ -137,6 +138,16 @@ Deno.serve(async (req) => {
 
     if (!igUserId) {
       igUserId = message?.recipient?.id || data.recipientId;
+    }
+
+    if (!dbAccId && igUserId) {
+      const { data: dbAcc } = await supa
+        .from("imphq_ig_accounts")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("ig_user_id", igUserId)
+        .maybeSingle();
+      if (dbAcc) dbAccId = dbAcc.id;
     }
 
     if (!messageId || !conversationId || !senderId || !igUserId) {
@@ -173,19 +184,72 @@ Deno.serve(async (req) => {
       forwardHeaders.Authorization = `Bearer ${anonKey}`;
       forwardHeaders.apikey = anonKey;
     }
-    const forwardRes = await fetch(forwardUrl, {
-      method: "POST",
-      headers: forwardHeaders,
-      body: JSON.stringify(metaEnvelope),
-    });
+    let forwarded = false;
+    try {
+      const forwardRes = await fetch(forwardUrl, {
+        method: "POST",
+        headers: forwardHeaders,
+        body: JSON.stringify(metaEnvelope),
+      });
 
-    if (!forwardRes.ok) {
-      const errText = await forwardRes.text();
-      console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}`);
-      if (logEntry) {
-        await supa.from("imphq_ig_webhook_logs").update({ error: errText }).eq("id", logEntry.id);
+      if (forwardRes.ok) {
+        forwarded = true;
+      } else {
+        const errText = await forwardRes.text();
+        console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}. Persistindo direto...`);
+        if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: errText }).eq("id", logEntry.id);
       }
-      return new Response(`Error forwarding: ${errText}`, { status: 500 });
+    } catch (forwardErr: any) {
+      console.error(`[zernio-webhook] Erro ao encaminhar. Persistindo direto...`, forwardErr?.message || forwardErr);
+      if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: forwardErr?.message || "forward failed" }).eq("id", logEntry.id);
+    }
+
+    if (!forwarded) {
+      if (!dbAccId) {
+        console.error("[zernio-webhook] Conta IG não encontrada para persistência direta", { igUserId, zernioAccountId, projectId });
+        return new Response("Instagram account not found", { status: 404 });
+      }
+
+      const messageAt = new Date(message?.sentAt || data.timestamp || payload.timestamp || Date.now()).toISOString();
+      const firstAttachment = attachments[0] || null;
+      const { data: directConv, error: convErr } = await supa
+        .from("imphq_ig_conversations")
+        .upsert({
+          account_id: dbAccId,
+          participant_id: senderId,
+          participant_username: senderUsername,
+          participant_name: senderName,
+          participant_avatar: senderAvatar,
+          ig_thread_id: conversationId,
+          last_message: text || (firstAttachment ? "[mídia]" : ""),
+          last_message_at: messageAt,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "account_id,participant_id" })
+        .select("id")
+        .single();
+
+      if (convErr) throw convErr;
+
+      const { data: existingMsg } = await supa
+        .from("imphq_ig_messages")
+        .select("id")
+        .eq("mid", messageId)
+        .maybeSingle();
+
+      if (!existingMsg && directConv) {
+        const { error: msgErr } = await supa.from("imphq_ig_messages").insert({
+          conversation_id: directConv.id,
+          direction: isOutbound ? "out" : "in",
+          type: firstAttachment?.type || "text",
+          content: text || null,
+          media_url: firstAttachment?.payload?.url || null,
+          mid: messageId,
+          status: isOutbound ? "sent" : "received",
+          created_at: messageAt,
+          metadata: { source: "zernio-webhook-direct", zernio_conversation_id: conversationId },
+        });
+        if (msgErr) throw msgErr;
+      }
     }
 
     // Marca conta IG como ativa (heartbeat para card de saúde)
