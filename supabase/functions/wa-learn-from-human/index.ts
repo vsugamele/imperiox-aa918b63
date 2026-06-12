@@ -101,7 +101,8 @@ Deno.serve(async (req) => {
 
     const { data: inserted, error: insErr } = await supabase.from("imphq_wa_knowledge").insert({
       project_id, pergunta, resposta, embedding,
-      source: "human_reply", conversation_id, aprovada: false,
+      source: source || (gold ? "manual:gold" : "human_reply"),
+      conversation_id, aprovada: gold === true,
     }).select("id").maybeSingle();
     if (insErr) {
       console.error("[wa-learn] insert error:", insErr.message);
