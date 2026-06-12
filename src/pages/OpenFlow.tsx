@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,6 +188,20 @@ export default function OpenFlow() {
   };
 
   useEffect(() => { load(); loadKpis(); }, []);
+
+  // Open editor when arriving via ?flow=<id> (e.g., from Imperius createFlow)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const flowId = searchParams.get("flow");
+    if (!flowId || automacoes.length === 0) return;
+    const target = automacoes.find((a) => a.id === flowId);
+    if (target) {
+      setEditing(target);
+      searchParams.delete("flow");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, automacoes]);
+
 
   // ── Templates loading ────────────────────────────────────────
   const loadTemplates = async () => {
