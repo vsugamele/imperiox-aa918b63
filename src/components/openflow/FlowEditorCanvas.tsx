@@ -469,8 +469,9 @@ function acoesToNodesEdges(
         const isBh = acao.tipo === "business_hours_split";
         const handleId = isAb || isSem || isBh ? "route-b" : "branch-true";
         
-        let label = "Se Sim / Verdadeiro";
-        let strokeColor = "#8b5cf6";
+        let label = "Se Sim";
+        let strokeColor = "#10b981";
+
         if (isAb) {
           label = "Rota B";
           strokeColor = "#d946ef";
