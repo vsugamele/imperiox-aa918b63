@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, MessageSquare, MousePointerClick, CreditCard, CheckCircle2,
-  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles
+  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles, Trophy, Link2
 } from "lucide-react";
 import { toast } from "sonner";
 
