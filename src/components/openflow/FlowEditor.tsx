@@ -226,6 +226,8 @@ interface FlowEditorProps {
   projectId?: string;
   onTemplateSaved?: () => void;
   automacaoId?: string;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
 }
 
 export function FlowEditor({
