@@ -1019,12 +1019,32 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     };
 
 
+    // Realtime: subscribe to new messages for this conversation.
+    // Mantém polling como fallback (60s) caso o canal caia.
     useEffect(() => {
-      const interval = setInterval(() => {
+      const channel = supabase
+        .channel(`wa-msg-${conversationId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .subscribe();
+
+      const fallback = setInterval(() => {
         if (document.visibilityState === "visible") pollNew();
-      }, 15000);
-      return () => clearInterval(interval);
-    }, [pollNew]);
+      }, 60000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(fallback);
+      };
+    }, [conversationId, pollNew]);
 
     useEffect(() => {
       if (isComposingRef.current) return;
