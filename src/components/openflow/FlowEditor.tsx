@@ -96,7 +96,7 @@ const DYNAMIC_VARS = [
 ];
 
 export interface Acao {
-  id: string;
+  id?: string;
   tipo: string;
   template: string;
   delay_min: number;
