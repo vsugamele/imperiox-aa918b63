@@ -361,6 +361,7 @@ export default function OpenFlow() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setEditing(null)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">Cancelar</Button>
+                {editing && <Button variant="outline" onClick={() => setShowHistory(true)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10"><History className="h-3.5 w-3.5 mr-1.5" /> Histórico</Button>}
                 {editing && <Button onClick={() => saveAutomacao(editing)} className="h-9 px-6 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]"><Save className="h-4 w-4 mr-2" /> Salvar Automação</Button>}
               </div>
             </div>
