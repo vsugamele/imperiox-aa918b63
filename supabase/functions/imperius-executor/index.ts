@@ -17,6 +17,7 @@ type ActionKind =
   | "updateLead"
   | "adjustBudget"
   | "runStudio"
+  | "createFlow"
   | "notify";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
@@ -77,6 +78,24 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
         const r = await supabase.functions.invoke("studio-generate", { body: p });
         if (r.error) throw new Error(r.error.message);
         return { ok: true, result: r.data };
+      }
+      case "createFlow": {
+        const { flow_name, trigger_tipo, projeto_id, produto, acoes } = p;
+        if (!flow_name || !trigger_tipo || !Array.isArray(acoes)) {
+          throw new Error("createFlow: payload inválido (flow_name, trigger_tipo, acoes)");
+        }
+        const { data, error } = await supabase.from("imphq_automacoes").insert({
+          id: crypto.randomUUID(),
+          nome: flow_name,
+          trigger_tipo,
+          project_id: projeto_id || action.projeto_id || null,
+          produto: produto || null,
+          acoes,
+          ativo: false,
+          source: "imperius",
+        }).select().single();
+        if (error) throw error;
+        return { ok: true, result: { flow_id: data.id, redirect: `/openflow?flow=${data.id}` }, revert_payload: { flow_id: data.id } };
       }
       case "notify": {
         // Só registra; UI mostrará no inbox

@@ -127,6 +127,125 @@ async function scoutProject(supabase: any, projeto: any): Promise<Proposed[]> {
   return out;
 }
 
+// ── Detector de padrões → propõe drafts de OpenFlow ──
+async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed[]> {
+  const out: Proposed[] = [];
+  const projetoId = projeto.id;
+  const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Helper: existe automação ativa para este trigger no projeto?
+  const hasFlow = async (trigger: string) => {
+    const { data } = await supabase
+      .from("imphq_automacoes")
+      .select("id")
+      .eq("project_id", projetoId)
+      .eq("trigger_tipo", trigger)
+      .eq("ativo", true)
+      .limit(1);
+    return (data?.length || 0) > 0;
+  };
+
+  // Padrão A — Pix/Boleto sem recuperação automática
+  if (!(await hasFlow("aguardando_pagamento"))) {
+    const { count } = await supabase
+      .from("imphq_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .in("status", ["waiting_payment", "pending"])
+      .gte("created_at", since7);
+    if ((count || 0) >= 10) {
+      out.push({
+        kind: "createFlow",
+        risk_level: "low",
+        confidence: 0.9,
+        title: `Criar recuperação automática de Pix/Boleto`,
+        reason: `${count} pagamentos pendentes nos últimos 7d sem flow ativo. Recuperação típica: 15-25%.`,
+        payload: {
+          flow_name: "Recuperação Pix/Boleto (Imperius)",
+          trigger_tipo: "aguardando_pagamento",
+          projeto_id: projetoId,
+          acoes: [
+            { tipo: "whatsapp", template: "Oi {{nome}}! Vi que você gerou o pagamento mas ainda não finalizou. Posso te ajudar?", delay_min: 15 },
+            { tipo: "aguardar", template: "", delay_min: 120 },
+            { tipo: "whatsapp", template: "{{nome}}, seu Pix está prestes a expirar. Quer que eu envie um novo link?", delay_min: 0 },
+          ],
+          pattern_evidence: { sample_size: count, metric: `${count} pendentes/7d`, estimated_recovery: `~${Math.round((count || 0) * 0.2)} vendas/sem` },
+        },
+        projeto_id: projetoId,
+        source: "scout-pattern-recovery",
+      });
+    }
+  }
+
+  // Padrão B — Hot leads sem flow de boas-vindas
+  if (!(await hasFlow("lead_novo"))) {
+    const { count } = await supabase
+      .from("imphq_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .gte("score", 70)
+      .gte("created_at", since7);
+    if ((count || 0) >= 15) {
+      out.push({
+        kind: "createFlow",
+        risk_level: "low",
+        confidence: 0.85,
+        title: `Criar boas-vindas automática para leads quentes`,
+        reason: `${count} hot leads (score≥70) nos últimos 7d sem flow de novo lead ativo.`,
+        payload: {
+          flow_name: "Boas-vindas Lead Quente (Imperius)",
+          trigger_tipo: "lead_novo",
+          projeto_id: projetoId,
+          acoes: [
+            { tipo: "whatsapp", template: "Oi {{nome}}! Que bom te ver por aqui. Em que posso ajudar?", delay_min: 5 },
+            { tipo: "aguardar", template: "", delay_min: 30 },
+            { tipo: "audio", template: "Áudio personalizado de boas-vindas mencionando o interesse do lead.", delay_min: 0 },
+          ],
+          pattern_evidence: { sample_size: count, metric: `${count} hot leads/7d`, estimated_recovery: "+8% conversão típica" },
+        },
+        projeto_id: projetoId,
+        source: "scout-pattern-welcome",
+      });
+    }
+  }
+
+  // Padrão C — Compras aprovadas sem onboarding
+  if (!(await hasFlow("compra_aprovada"))) {
+    const { count } = await supabase
+      .from("imphq_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("projeto_id", projetoId)
+      .in("status", ["approved", "paid"])
+      .gte("created_at", since30);
+    if ((count || 0) >= 20) {
+      out.push({
+        kind: "createFlow",
+        risk_level: "low",
+        confidence: 0.85,
+        title: `Criar onboarding pós-compra automático`,
+        reason: `${count} compras aprovadas em 30d sem flow de onboarding ativo. Reduz reembolsos e melhora LTV.`,
+        payload: {
+          flow_name: "Onboarding Pós-Compra (Imperius)",
+          trigger_tipo: "compra_aprovada",
+          projeto_id: projetoId,
+          acoes: [
+            { tipo: "whatsapp", template: "Parabéns pela compra, {{nome}}! Seu acesso já está liberado.", delay_min: 5 },
+            { tipo: "aguardar", template: "", delay_min: 60 },
+            { tipo: "whatsapp", template: "{{nome}}, já conseguiu acessar? Qualquer dúvida me chama.", delay_min: 0 },
+          ],
+          pattern_evidence: { sample_size: count, metric: `${count} compras/30d`, estimated_recovery: "-30% reembolso típico" },
+        },
+        projeto_id: projetoId,
+        source: "scout-pattern-onboarding",
+      });
+    }
+  }
+
+  return out;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -144,7 +263,7 @@ Deno.serve(async (req) => {
     let autoExecCount = 0;
 
     for (const p of projetos || []) {
-      const proposals = await scoutProject(supabase, p);
+      const proposals = [...(await scoutProject(supabase, p)), ...(await detectFlowPatterns(supabase, p))];
       for (const prop of proposals) {
         // Dedup: não duplica ação aberta para mesmo (kind + payload chave)
         const dedupKey = JSON.stringify({ kind: prop.kind, projeto: prop.projeto_id, key: prop.payload?.entity_id || prop.payload?.lead_id || prop.payload?.venda_id });
@@ -157,7 +276,7 @@ Deno.serve(async (req) => {
           .limit(1);
         if (existing && existing.length > 0) continue;
 
-        const autoExec = prop.risk_level === "low" && prop.confidence >= 0.8 && prop.kind !== "notify";
+        const autoExec = prop.risk_level === "low" && prop.confidence >= 0.8 && prop.kind !== "notify" && prop.kind !== "createFlow";
 
         const { data: inserted } = await supabase.from("imphq_ai_actions").insert({
           ...prop,
