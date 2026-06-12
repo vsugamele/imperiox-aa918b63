@@ -180,6 +180,16 @@ export default function OpenFlow() {
       if (l.project_id) byProject.set(l.project_id, (byProject.get(l.project_id) || 0) + 1);
     });
     setLeadCounts({ byCamp, byProject, global });
+
+    // Health metrics (last 7 days, view aggregated)
+    try {
+      const { data: hRows } = await supabase.from("imphq_automacao_health" as any).select("*");
+      const hMap = new Map<string, any>();
+      (hRows || []).forEach((h: any) => hMap.set(h.automacao_id, h));
+      setHealth(hMap);
+    } catch (e) {
+      console.warn("Erro ao buscar health metrics", e);
+    }
   };
 
   const loadKpis = async () => {
