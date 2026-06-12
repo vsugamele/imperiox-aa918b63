@@ -43,7 +43,7 @@ type AttributionRow = {
 };
 
 export default function Funil() {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const { data: projects = [] } = useProjectList();
   const [projectId, setProjectId] = useState<string>("");
   const [days, setDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
@@ -54,12 +54,8 @@ export default function Funil() {
   const [topTemplates, setTopTemplates] = useState<{ template: string; sent: number; sales: number; rate: number }[]>([]);
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      const list = (data || []) as any[];
-      setProjects(list);
-      if (list.length > 0) setProjectId(list[0].id);
-    });
-  }, []);
+    if (!projectId && projects.length > 0) setProjectId(projects[0].id);
+  }, [projects, projectId]);
 
   const reload = async () => {
     if (!projectId) return;
