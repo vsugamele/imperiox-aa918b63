@@ -233,7 +233,7 @@ interface FlowEditorProps {
 export function FlowEditor({
   triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
-  automacaoId
+  automacaoId, flowObjective, onUpdateObjective
 }: FlowEditorProps) {
 
   const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
