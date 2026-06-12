@@ -394,10 +394,23 @@ export default function ConversationList({
                         )}
 
                       </div>
-                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
-                        {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {(() => {
+                          const w = waitingMinutes(s);
+                          if (w === null) return null;
+                          return (
+                            <span
+                              className={`text-[9px] font-semibold px-1.5 py-0 rounded border ${slaColor(w)} leading-tight`}
+                              title={`Aguardando resposta há ${formatWaiting(w)}`}
+                            >
+                              ⏱ {formatWaiting(w)}
+                            </span>
+                          );
+                        })()}
+                        <span className={`text-[10px] ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
+                          {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
+                        </span>
+                      </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
                     )}
