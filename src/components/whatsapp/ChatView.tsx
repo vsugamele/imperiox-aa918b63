@@ -835,7 +835,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         }
       };
       fetchDraft();
-      const t = setInterval(fetchDraft, 8000);
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") fetchDraft();
+      }, 30000);
       return () => { stop = true; clearInterval(t); };
     }, [conversationId]);
 
@@ -1004,7 +1006,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
 
     useEffect(() => {
-      const interval = setInterval(pollNew, 8000);
+      const interval = setInterval(() => {
+        if (document.visibilityState === "visible") pollNew();
+      }, 15000);
       return () => clearInterval(interval);
     }, [pollNew]);
 
