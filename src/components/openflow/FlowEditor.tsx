@@ -2369,6 +2369,68 @@ export function FlowEditor({
                     </p>
                   </div>
                 )}
+
+                {/* update_lead fields */}
+                {acao.tipo === "update_lead" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Campo do Lead</Label>
+                        <Select value={acao.lead_field || ""} onValueChange={v => updateAcao(selectedIdx, "lead_field", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="status">status</SelectItem>
+                            <SelectItem value="score">score (número)</SelectItem>
+                            <SelectItem value="awareness_level">awareness_level</SelectItem>
+                            <SelectItem value="nome">nome</SelectItem>
+                            <SelectItem value="email">email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Operação</Label>
+                        <Select value={acao.lead_op || "set"} onValueChange={v => updateAcao(selectedIdx, "lead_op", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="set">Definir (set)</SelectItem>
+                            <SelectItem value="inc">Incrementar (+) — apenas score</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Valor</Label>
+                      <Input
+                        value={acao.lead_value ?? ""}
+                        onChange={e => updateAcao(selectedIdx, "lead_value", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: qualificado, 25, sales_aware"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👤 Atualiza o campo no registro do lead. Para <code>score</code> use número; para <code>awareness_level</code> use unaware/problem_aware/solution_aware/product_aware/most_aware.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* move_stage fields */}
+                {acao.tipo === "move_stage" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Novo Funil/Etapa (funil_id)</Label>
+                      <Input
+                        value={acao.target_stage || ""}
+                        onChange={e => updateAcao(selectedIdx, "target_stage", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: aquisicao, conversao, retencao"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        ➡️ Move o lead para outra etapa do funil atualizando <code>imphq_leads.funil_id</code>. Use o slug exato da etapa.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 
                 {/* notify_operator fields */}
                 {acao.tipo === "notify_operator" && (
