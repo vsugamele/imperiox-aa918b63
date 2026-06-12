@@ -137,6 +137,12 @@ export interface Acao {
   score_max?: number;
   // slack_notify
   text?: string;
+  // update_lead
+  lead_field?: string;
+  lead_op?: string;
+  lead_value?: string;
+  // move_stage
+  target_stage?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
