@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserCircle2, StickyNote, Trash2, Plus } from "lucide-react";
+import { UserCircle2, StickyNote, Trash2, Plus, BellOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member { id: string; user_id: string | null; name: string | null; email: string | null; avatar_url: string | null; }
@@ -11,6 +11,7 @@ interface Note { id: string; content: string; author_id: string | null; author_n
 
 export default function AssignAndNotesBar({ conversationId }: { conversationId: string }) {
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -38,8 +39,11 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to").eq("id", conversationId).maybeSingle()
-      .then(({ data }) => setAssignedTo((data as any)?.assigned_to || null));
+    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until").eq("id", conversationId).maybeSingle()
+      .then(({ data }) => {
+        setAssignedTo((data as any)?.assigned_to || null);
+        setSnoozedUntil((data as any)?.snoozed_until || null);
+      });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
         .select("*").eq("conversation_id", conversationId)
@@ -80,6 +84,15 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     if (error) toast.error("Falha ao apagar");
   };
 
+  const snooze = async (mins: number | null) => {
+    const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
+    setSnoozedUntil(until);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ snoozed_until: until } as any).eq("id", conversationId);
+    if (error) { toast.error("Falha ao silenciar"); return; }
+    toast.success(until ? `Silenciada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "Silêncio removido");
+  };
+
+  const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
   const owner = members.find(m => m.user_id === assignedTo);
 
   return (
@@ -161,6 +174,42 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
               </div>
             ))}
           </div>
+        </PopoverContent>
+      </Popover>
+
+      <div className="w-px h-4 bg-border" />
+
+      {/* Snooze */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isSnoozed ? "text-purple-300" : ""}`}>
+            <BellOff className="h-3.5 w-3.5" />
+            {isSnoozed ? (
+              <span>Silenciada até {new Date(snoozedUntil!).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
+            ) : (
+              <span>Silenciar</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-44 p-1 bg-popover" align="start">
+          {[
+            { label: "30min", min: 30 },
+            { label: "1 hora", min: 60 },
+            { label: "3 horas", min: 180 },
+            { label: "Até amanhã 8h", min: -1 },
+          ].map(o => (
+            <button key={o.label} className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
+              onClick={() => {
+                if (o.min === -1) {
+                  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0);
+                  snooze(Math.round((d.getTime() - Date.now()) / 60000));
+                } else snooze(o.min);
+              }}>{o.label}</button>
+          ))}
+          {isSnoozed && (
+            <button className="w-full text-left px-2 py-1.5 rounded hover:bg-destructive/20 text-xs text-destructive border-t border-border mt-1"
+              onClick={() => snooze(null)}>Remover silêncio</button>
+          )}
         </PopoverContent>
       </Popover>
     </div>

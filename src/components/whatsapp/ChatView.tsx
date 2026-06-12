@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
@@ -202,6 +202,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState("");
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -1848,6 +1849,62 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 >
                   <Sparkles className="h-4 w-4" />
                 </Button>
+
+                {/* Agendar mensagem */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-9 w-9 rounded-full text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
+                      title="Agendar mensagem"
+                      disabled={!text.trim()}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 bg-popover" align="end" side="top">
+                    <p className="text-xs font-semibold mb-2">Agendar envio</p>
+                    <Input
+                      type="datetime-local"
+                      value={scheduleAt}
+                      onChange={e => setScheduleAt(e.target.value)}
+                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                      className="h-9 text-xs mb-2"
+                    />
+                    <div className="flex gap-1 mb-2">
+                      {[
+                        { label: "+15min", min: 15 },
+                        { label: "+1h", min: 60 },
+                        { label: "Amanhã 9h", min: -1 },
+                      ].map(p => (
+                        <Button key={p.label} size="sm" variant="outline" className="h-7 text-[10px] flex-1"
+                          onClick={() => {
+                            const d = new Date();
+                            if (p.min === -1) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+                            else d.setMinutes(d.getMinutes() + p.min);
+                            setScheduleAt(d.toISOString().slice(0, 16));
+                          }}>{p.label}</Button>
+                      ))}
+                    </div>
+                    <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                      onClick={async () => {
+                        if (!scheduleAt || !text.trim()) { toast.error("Defina data e texto"); return; }
+                        const when = new Date(scheduleAt);
+                        if (when.getTime() < Date.now() + 30000) { toast.error("Escolha um horário futuro"); return; }
+                        const { error } = await supabase.from("imphq_wa_scheduled").insert({
+                          conversation_id: conversationId, project_id: projectId, provider_id: providerId,
+                          phone, content: text, scheduled_at: when.toISOString(),
+                        } as any);
+                        if (error) { toast.error("Falha ao agendar: " + error.message); return; }
+                        toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
+                        setText(""); setScheduleAt("");
+                      }}>Agendar</Button>
+                  </PopoverContent>
+                </Popover>
+
+
 
                 {/* Message input */}
                 <Textarea
