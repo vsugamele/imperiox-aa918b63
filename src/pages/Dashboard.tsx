@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Loader2 } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Loader2, Crown, Megaphone, DollarSign, LayoutGrid } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
