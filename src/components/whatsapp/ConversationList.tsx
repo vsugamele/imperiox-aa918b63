@@ -318,6 +318,7 @@ export default function ConversationList({
               const color = providerColor(s.provider_id);
               const unread = s.unread_count || 0;
               const hasUnread = isUnreadSession(s);
+              const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               return (
                 <button
