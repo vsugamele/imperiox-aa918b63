@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     }
 
     const model = body.model_override || cfg.model || "google/gemini-2.5-flash";
-    const payload: Record<string, unknown> = { model, messages, stream: false };
+    const stream = body.stream === true && cfg.output_format !== "json";
+    const payload: Record<string, unknown> = { model, messages, stream };
     if (cfg.output_format === "json") {
       payload.response_format = { type: "json_object" };
     }
@@ -79,6 +80,17 @@ Deno.serve(async (req) => {
       const txt = await upstream.text();
       console.error("[copy-engine] upstream", upstream.status, txt);
       return json({ error: txt }, upstream.status);
+    }
+
+    if (stream) {
+      return new Response(upstream.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
     }
 
     const data = await upstream.json();
