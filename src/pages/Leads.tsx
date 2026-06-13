@@ -231,8 +231,11 @@ export default function Leads() {
     const to = from + PAGE_SIZE - 1;
     if (sortBy === "score") {
       leadsQuery = leadsQuery.order("score", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
-    } else {
+    } else if (sortBy === "updated") {
       leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    } else {
+      // "recent" = mais novos por data de criação (dia atual no topo)
+      leadsQuery = leadsQuery.order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
     }
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
