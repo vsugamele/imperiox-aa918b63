@@ -508,39 +508,51 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                   {ofertas.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhuma oferta cadastrada</p>}
                   {ofertas.map((of: any, oi: number) => (
-                    <div key={oi} className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 rounded-md bg-background/50 border border-border/50 items-end">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Nome</Label>
-                        <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                    <div key={oi} className="space-y-2 p-3 rounded-md bg-background/50 border border-border/50">
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Nome</Label>
+                          <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">De R$</Label>
+                          <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Por R$</Label>
+                          <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Tipo</Label>
+                          <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
+                            <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
+                          <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
+                            {of.ativo !== false ? "Ativo" : "Inativo"}
+                          </Badge>
+                          <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeOffer(i, oi)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">De R$</Label>
-                        <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Por R$</Label>
-                        <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Tipo</Label>
-                        <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
-                          <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
-                        <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
-                          {of.ativo !== false ? "Ativo" : "Inativo"}
-                        </Badge>
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeOffer(i, oi)}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Validade (opcional)</Label>
+                          <Input type="datetime-local" value={of.validade || ""} onChange={(e) => updateOffer(i, oi, "validade", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label className="text-[10px] text-muted-foreground">Motivo / gatilho (a IA usa isso na copy)</Label>
+                          <Input value={of.motivo || ""} onChange={(e) => updateOffer(i, oi, "motivo", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="Ex: aniversário, black friday, queima de estoque..." />
+                        </div>
                       </div>
                     </div>
                   ))}

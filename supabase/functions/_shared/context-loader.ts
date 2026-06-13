@@ -1,5 +1,6 @@
 // Carrega contexto unificado (projeto, avatar, branding, produto, expert) para o Motor de Copy.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatOfertasAtivas } from "./oferta-context.ts";
 
 export interface CopyContextInput {
   project_id?: string;
@@ -15,6 +16,7 @@ export interface CopyContextOutput {
   avatar: any | null;
   expert: any | null;
   lead: any | null;
+  ofertas_block: string;
 }
 
 export async function loadCopyContext(
@@ -25,7 +27,7 @@ export async function loadCopyContext(
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
   const out: CopyContextOutput = {
-    project: null, product: null, branding: null, avatar: null, expert: null, lead: null,
+    project: null, product: null, branding: null, avatar: null, expert: null, lead: null, ofertas_block: "",
   };
 
   if (input.project_id) {
@@ -38,6 +40,9 @@ export async function loadCopyContext(
       out.expert = d.expert || null;
       if (input.product_slug && Array.isArray(d.produtos)) {
         out.product = d.produtos.find((p: any) => p.slug === input.product_slug || p.nome === input.product_slug) || null;
+      }
+      if (Array.isArray(d.produtos)) {
+        out.ofertas_block = formatOfertasAtivas(d.produtos, input.product_slug || null);
       }
     }
   }
@@ -58,6 +63,7 @@ export function contextToSystemAddendum(ctx: CopyContextOutput): string {
   if (ctx.avatar) parts.push(`AVATAR: ${JSON.stringify(ctx.avatar).slice(0, 1200)}`);
   if (ctx.expert) parts.push(`EXPERT: ${JSON.stringify(ctx.expert).slice(0, 400)}`);
   if (ctx.lead) parts.push(`LEAD: ${ctx.lead.nome || ctx.lead.email || ctx.lead.phone}`);
-  if (!parts.length) return "";
-  return `\n\n=== CONTEXTO ===\n${parts.join("\n")}\n=== FIM CONTEXTO ===`;
+  const base = parts.length ? `\n\n=== CONTEXTO ===\n${parts.join("\n")}\n=== FIM CONTEXTO ===` : "";
+  return `${base}${ctx.ofertas_block || ""}`;
 }
+

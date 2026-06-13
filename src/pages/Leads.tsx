@@ -781,7 +781,7 @@ export default function Leads() {
 
         {/* Edit Lead Dialog - kept inline as it's deeply coupled with state */}
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
-          <DialogContent className="max-w-2xl bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
             <DialogHeader>
               <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
             </DialogHeader>
