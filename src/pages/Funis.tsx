@@ -19,6 +19,7 @@ interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
   url?: string; image_url?: string; pos_x?: number; pos_y?: number;
   descricao?: string; connects_to?: number[];
+  width?: number; height?: number;
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
