@@ -112,6 +112,17 @@ function providerLabel(prov: Provider | undefined): string | null {
   return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
 }
 
+// Chip de canal fixo por tipo de provider
+function channelChip(prov: Provider | undefined): { label: string; icon: string; cls: string } | null {
+  if (!prov) return null;
+  const p = (prov.provider || "").toLowerCase();
+  if (p.includes("instagram") || p === "ig" || p === "meta_ig") {
+    return { label: "Instagram", icon: "📷", cls: "bg-pink-500/15 border-pink-500/50 text-pink-300" };
+  }
+  // evolution, twilio, wppconnect, etc → WhatsApp
+  return { label: "WhatsApp", icon: "💬", cls: "bg-emerald-500/15 border-emerald-500/50 text-emerald-300" };
+}
+
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
@@ -307,6 +318,7 @@ export default function ConversationList({
               const color = providerColor(s.provider_id);
               const unread = s.unread_count || 0;
               const hasUnread = isUnreadSession(s);
+              const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               return (
                 <button
@@ -357,6 +369,15 @@ export default function ConversationList({
                         <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"}`}>
                           {s.contact_name || s.phone}
                         </span>
+                        {channel && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] h-4 px-1.5 shrink-0 font-medium ${channel.cls}`}
+                            title={channel.label}
+                          >
+                            {channel.icon} {channel.label}
+                          </Badge>
+                        )}
                         {provLabel && (
                           <Badge
                             variant="outline"
