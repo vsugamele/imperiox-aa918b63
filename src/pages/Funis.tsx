@@ -448,6 +448,91 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
 
+  const uploadImageFile = async (file: File): Promise<string | null> => {
+    if (!selectedFunil) return null;
+    if (!file.type.startsWith("image/")) {
+      toast.error(`${file.name} não é uma imagem`);
+      return null;
+    }
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `funis/${selectedFunil.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("project-media").upload(path, file, { upsert: false });
+    if (error) {
+      toast.error(`Upload falhou: ${error.message}`);
+      return null;
+    }
+    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const addImageNodesFromFiles = async (files: FileList | File[], originCanvasX?: number, originCanvasY?: number) => {
+    if (!selectedFunil) return;
+    const arr = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (arr.length === 0) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const baseX = originCanvasX ?? (rect ? (-pan.x + rect.width / 2) / zoom - IMG_DEFAULT_W / 2 : 200);
+    const baseY = originCanvasY ?? (rect ? (-pan.y + rect.height / 2) / zoom - IMG_DEFAULT_H / 2 : 200);
+
+    const uploaded: { url: string; name: string }[] = [];
+    for (const f of arr) {
+      const url = await uploadImageFile(f);
+      if (url) uploaded.push({ url, name: f.name.replace(/\.[^.]+$/, "") });
+    }
+    if (uploaded.length === 0) return;
+
+    const cols = Math.ceil(Math.sqrt(uploaded.length));
+    const gap = 20;
+    const newEtapas: Etapa[] = uploaded.map((u, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      return {
+        nome: u.name.slice(0, 60),
+        tipo: "imagem",
+        visitantes: 0, conversoes: 0,
+        image_url: u.url,
+        pos_x: Math.round(baseX + col * (IMG_DEFAULT_W + gap)),
+        pos_y: Math.round(baseY + row * (IMG_DEFAULT_H + gap)),
+        width: IMG_DEFAULT_W,
+        height: IMG_DEFAULT_H,
+      };
+    });
+
+    const updated = [...(selectedFunil.data.etapas || []), ...newEtapas];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    triggerAutoSave();
+    toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
+  };
+
+  const handleCanvasPaste = useCallback(async (e: ClipboardEvent) => {
+    if (!selectedFunil) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f && f.type.startsWith("image/")) files.push(f);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    await addImageNodesFromFiles(files);
+  }, [selectedFunil, pan, zoom]);
+
+  useEffect(() => {
+    if (!selectedFunil) return;
+    const handler = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      handleCanvasPaste(e);
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [selectedFunil, handleCanvasPaste]);
+
+
+
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
     const etapas = (selectedFunil.data.etapas || []).filter((_, i) => i !== idx);
