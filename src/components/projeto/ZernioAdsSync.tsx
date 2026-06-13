@@ -53,17 +53,37 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   }, [projectId]);
 
 
-  const loadAccounts = async () => {
+  const loadAccounts = async (): Promise<ZernioAccount[]> => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("zernio-ads-accounts", { body: { project_id: projectId } });
       if (error || data?.error) throw new Error(data?.error || error?.message);
-      setAccounts(data.accounts || []);
+      const list: ZernioAccount[] = data.accounts || [];
+      setAccounts(list);
       if (!selected && savedAcc) setSelected(savedAcc);
+      return list;
     } catch (e: any) {
       toast.error(`Falha ao listar contas Zernio: ${e?.message || e}`);
+      return [];
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSmartSync = async () => {
+    if (savedAcc) {
+      runSync(savedAcc);
+      return;
+    }
+    const list = await loadAccounts();
+    if (list.length === 1) {
+      toast.success(`Conta Zernio detectada: ${list[0].name}`);
+      runSync(list[0].id);
+    } else if (list.length === 0) {
+      toast.error("Nenhuma Ad Account vinculada na sua workspace Zernio.");
+    } else {
+      setOpen(true);
+      setSelected(list[0].id);
     }
   };
 
