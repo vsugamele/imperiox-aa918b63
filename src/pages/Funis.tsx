@@ -958,6 +958,61 @@ export default function Funis() {
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
               const cardH = isTextType ? CARD_H_SIMPLE : (isSimple ? CARD_H_SIMPLE : CARD_H_METRICS);
+              // ── Image node (free-form) ──
+              if (etapa.tipo === "imagem" && etapa.image_url) {
+                const iw = etapa.width ?? IMG_DEFAULT_W;
+                const ih = etapa.height ?? IMG_DEFAULT_H;
+                return (
+                  <div
+                    key={i}
+                    className="etapa-card group absolute rounded-lg overflow-hidden border-2 border-transparent hover:border-primary/50 shadow-lg transition-colors"
+                    style={{ left: x, top: y, width: iw, height: ih, zIndex: draggingIdx === i || resizingIdx === i ? 50 : 1 }}
+                    onMouseDown={(e) => handleCardMouseDown(e, i)}
+                  >
+                    {/* Connection dots */}
+                    <div
+                      className="connect-dot absolute rounded-full bg-primary/60 hover:bg-primary hover:scale-150 transition-all cursor-crosshair border-2 border-background z-20"
+                      style={{ right: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                      title="Conectar"
+                      onMouseDown={(e) => { e.stopPropagation(); setConnectingFrom(i); }}
+                    />
+                    <div
+                      className="absolute rounded-full bg-muted-foreground/30 border-2 border-background z-20"
+                      style={{ left: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                    />
+
+                    <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover pointer-events-none" draggable={false} />
+
+                    {/* Caption + delete (hover) */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <span className="text-[10px] font-mono text-white/60 shrink-0">#{i}</span>
+                      <Input
+                        defaultValue={etapa.nome}
+                        onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                        className="h-6 text-[11px] bg-black/40 border-white/10 text-white p-1 flex-1"
+                        placeholder="Legenda..."
+                      />
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 hover:bg-destructive/20" onClick={(e) => { e.stopPropagation(); removeEtapa(i); }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+
+                    {/* Resize handle */}
+                    <div
+                      className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize bg-primary/60 hover:bg-primary opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setResizingIdx(i);
+                        setResizeStart({ x: e.clientX, y: e.clientY, w: iw, h: ih });
+                      }}
+                      title="Redimensionar"
+                    />
+                  </div>
+                );
+              }
+
               const IconComp = tipoStyle.icon;
 
               return (
