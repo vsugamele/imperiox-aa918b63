@@ -11,6 +11,7 @@ import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
 import { AlertsHeader } from "@/components/gerenciador/AlertsHeader";
 import { AttributionDiagnostic } from "@/components/gerenciador/AttributionDiagnostic";
+import { IntegrationsHealthStrip } from "@/components/gerenciador/IntegrationsHealthStrip";
 import { TictoEventFlowDiagnostic } from "@/components/gerenciador/TictoEventFlowDiagnostic";
 import { RulesPanel } from "@/components/gerenciador/RulesPanel";
 import { CreateCampaignModal } from "@/components/gerenciador/CreateCampaignModal";
@@ -189,6 +190,9 @@ export default function Gerenciador() {
         </TabsList>
 
         <TabsContent value="meta" className="space-y-6 mt-4">
+          {/* Saúde das integrações */}
+          <IntegrationsHealthStrip />
+
           {/* KPI Cards com Δ% vs período anterior */}
           <KpiCardsHeader current={totals.cur} previous={totals.prev} />
 
