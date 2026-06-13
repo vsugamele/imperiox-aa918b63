@@ -358,7 +358,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               variant="outline"
               className="h-7 justify-start text-[11px] gap-1.5"
               disabled={!resolvedLeadIdState}
-              onClick={() => { window.open(`/lead/${resolvedLeadIdState}`, "_blank"); }}
+              onClick={() => { window.open(`/leads/${resolvedLeadIdState}`, "_blank"); }}
             >
               <Activity className="h-3 w-3" /> Lead 360°
             </Button>
