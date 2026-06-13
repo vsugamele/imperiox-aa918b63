@@ -369,6 +369,15 @@ export default function ConversationList({
                         <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"}`}>
                           {s.contact_name || s.phone}
                         </span>
+                        {channel && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] h-4 px-1.5 shrink-0 font-medium ${channel.cls}`}
+                            title={channel.label}
+                          >
+                            {channel.icon} {channel.label}
+                          </Badge>
+                        )}
                         {provLabel && (
                           <Badge
                             variant="outline"
