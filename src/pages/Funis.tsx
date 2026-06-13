@@ -121,6 +121,10 @@ export default function Funis() {
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [resizingIdx, setResizingIdx] = useState<number | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
 
 
 
