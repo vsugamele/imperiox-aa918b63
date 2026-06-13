@@ -21,6 +21,7 @@ const KanbanPage = lazy(() => import("./pages/KanbanPage"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Leads = lazy(() => import("./pages/Leads"));
+const Lead360 = lazy(() => import("./pages/Lead360"));
 const Financas = lazy(() => import("./pages/Financas"));
 const MarketIntel = lazy(() => import("./pages/MarketIntel"));
 const Mentes = lazy(() => import("./pages/Mentes"));
@@ -119,6 +120,7 @@ const App = () => (
                 <Route path="tarefas" element={<Tarefas />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="leads" element={<Leads />} />
+                <Route path="leads/:id" element={<Lead360 />} />
                 <Route path="campanhas" element={<Campanhas />} />
                 
                 <Route path="financas" element={<Financas />} />
