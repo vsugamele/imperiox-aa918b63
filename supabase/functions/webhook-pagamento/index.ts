@@ -415,7 +415,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     // Allow overriding event type via query param (e.g. ?event=Lead)
     const queryEvent = url.searchParams.get("event");
 
-    body = await req.json();
+    // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
     let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId } = parseWebhookBody(body, hotmartToken);
