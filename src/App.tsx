@@ -122,6 +122,7 @@ const App = () => (
                 <Route path="chat" element={<Chat />} />
                 <Route path="leads" element={<Leads />} />
                 <Route path="leads/:id" element={<Lead360 />} />
+                <Route path="copy-engine" element={<CopyEngine />} />
                 <Route path="campanhas" element={<Campanhas />} />
                 
                 <Route path="financas" element={<Financas />} />
