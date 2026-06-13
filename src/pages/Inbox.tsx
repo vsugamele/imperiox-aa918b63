@@ -175,8 +175,8 @@ function InboxKpiStrip() {
         supabase.from("imphq_wa_conversations")
           .select("id", { count: "exact", head: true })
           .neq("status", "closed")
-          .lt("last_inbound_at", thirtyMinAgo)
-          .gt("last_inbound_at", new Date(now - 6 * 3600_000).toISOString()),
+          .lt("last_message_at", thirtyMinAgo)
+          .gt("last_message_at", new Date(now - 6 * 3600_000).toISOString()),
         supabase.from("imphq_leads")
           .select("id", { count: "exact", head: true })
           .gt("score", 80)
