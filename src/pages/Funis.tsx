@@ -19,6 +19,7 @@ interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
   url?: string; image_url?: string; pos_x?: number; pos_y?: number;
   descricao?: string; connects_to?: number[];
+  width?: number; height?: number;
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
@@ -83,6 +84,9 @@ const CANVAS_H = 3000;
 const MINIMAP_W = 160;
 const MINIMAP_H = 120;
 const CONNECT_DOT_SIZE = 12;
+const IMG_DEFAULT_W = 260;
+const IMG_DEFAULT_H = 180;
+const IMG_MIN = 80;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
@@ -117,6 +121,10 @@ export default function Funis() {
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [resizingIdx, setResizingIdx] = useState<number | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -440,6 +448,91 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
 
+  const uploadImageFile = async (file: File): Promise<string | null> => {
+    if (!selectedFunil) return null;
+    if (!file.type.startsWith("image/")) {
+      toast.error(`${file.name} não é uma imagem`);
+      return null;
+    }
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `funis/${selectedFunil.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("project-media").upload(path, file, { upsert: false });
+    if (error) {
+      toast.error(`Upload falhou: ${error.message}`);
+      return null;
+    }
+    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const addImageNodesFromFiles = async (files: FileList | File[], originCanvasX?: number, originCanvasY?: number) => {
+    if (!selectedFunil) return;
+    const arr = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (arr.length === 0) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const baseX = originCanvasX ?? (rect ? (-pan.x + rect.width / 2) / zoom - IMG_DEFAULT_W / 2 : 200);
+    const baseY = originCanvasY ?? (rect ? (-pan.y + rect.height / 2) / zoom - IMG_DEFAULT_H / 2 : 200);
+
+    const uploaded: { url: string; name: string }[] = [];
+    for (const f of arr) {
+      const url = await uploadImageFile(f);
+      if (url) uploaded.push({ url, name: f.name.replace(/\.[^.]+$/, "") });
+    }
+    if (uploaded.length === 0) return;
+
+    const cols = Math.ceil(Math.sqrt(uploaded.length));
+    const gap = 20;
+    const newEtapas: Etapa[] = uploaded.map((u, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      return {
+        nome: u.name.slice(0, 60),
+        tipo: "imagem",
+        visitantes: 0, conversoes: 0,
+        image_url: u.url,
+        pos_x: Math.round(baseX + col * (IMG_DEFAULT_W + gap)),
+        pos_y: Math.round(baseY + row * (IMG_DEFAULT_H + gap)),
+        width: IMG_DEFAULT_W,
+        height: IMG_DEFAULT_H,
+      };
+    });
+
+    const updated = [...(selectedFunil.data.etapas || []), ...newEtapas];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    triggerAutoSave();
+    toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
+  };
+
+  const handleCanvasPaste = useCallback(async (e: ClipboardEvent) => {
+    if (!selectedFunil) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f && f.type.startsWith("image/")) files.push(f);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    await addImageNodesFromFiles(files);
+  }, [selectedFunil, pan, zoom]);
+
+  useEffect(() => {
+    if (!selectedFunil) return;
+    const handler = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      handleCanvasPaste(e);
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [selectedFunil, handleCanvasPaste]);
+
+
+
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
     const etapas = (selectedFunil.data.etapas || []).filter((_, i) => i !== idx);
@@ -543,6 +636,20 @@ export default function Funis() {
   }, [selectedFunil, zoom]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Resize image node
+    if (resizingIdx !== null && selectedFunil) {
+      const dx = (e.clientX - resizeStart.x) / zoom;
+      const dy = (e.clientY - resizeStart.y) / zoom;
+      const etapas = [...(selectedFunil.data.etapas || [])];
+      etapas[resizingIdx] = {
+        ...etapas[resizingIdx],
+        width: Math.max(IMG_MIN, Math.round(resizeStart.w + dx)),
+        height: Math.max(IMG_MIN, Math.round(resizeStart.h + dy)),
+      };
+      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+      return;
+    }
+
     // Connection line preview
     if (connectingFrom !== null && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -568,7 +675,7 @@ export default function Funis() {
       });
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
+  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart, resizingIdx, resizeStart]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     // Finish connection: check if mouse is over a card
@@ -582,8 +689,11 @@ export default function Funis() {
         const ex = etapas[i].pos_x ?? 0;
         const ey = etapas[i].pos_y ?? 0;
         const ts = TIPO_STYLES[etapas[i].tipo || "outro"] || TIPO_STYLES.outro;
-        const eh = ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
-        if (mx >= ex && mx <= ex + CARD_W && my >= ey && my <= ey + eh) {
+        const ew = etapas[i].tipo === "imagem" ? (etapas[i].width ?? IMG_DEFAULT_W) : CARD_W;
+        const eh = etapas[i].tipo === "imagem"
+          ? (etapas[i].height ?? IMG_DEFAULT_H)
+          : (ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE);
+        if (mx >= ex && mx <= ex + ew && my >= ey && my <= ey + eh) {
           addConnection(connectingFrom, i);
           break;
         }
@@ -593,12 +703,18 @@ export default function Funis() {
       return;
     }
 
+    if (resizingIdx !== null) {
+      triggerAutoSave();
+      setResizingIdx(null);
+      return;
+    }
+
     if (draggingIdx !== null) {
       triggerAutoSave();
     }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom]);
+  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom, resizingIdx]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
@@ -707,13 +823,32 @@ export default function Funis() {
         {/* 2D Canvas */}
         <div
           ref={canvasRef}
-          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
+          className={`relative rounded-xl border ${isDraggingFile ? "border-primary border-dashed ring-2 ring-primary/40" : "border-border"} bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none`}
           style={{ height: "75vh", cursor: connectingFrom !== null ? "crosshair" : isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp({} as any); }}
           onWheel={handleWheel}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.types || []).includes("Files")) {
+              e.preventDefault();
+              if (!isDraggingFile) setIsDraggingFile(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget === e.target) setIsDraggingFile(false);
+          }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            setIsDraggingFile(false);
+            const files = e.dataTransfer.files;
+            if (!files || files.length === 0) return;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            const cx = rect ? (e.clientX - rect.left - pan.x) / zoom : undefined;
+            const cy = rect ? (e.clientY - rect.top - pan.y) / zoom : undefined;
+            await addImageNodesFromFiles(files, cx, cy);
+          }}
         >
           <div style={{
             width: CANVAS_W, height: CANVAS_H,
@@ -823,6 +958,61 @@ export default function Funis() {
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
               const cardH = isTextType ? CARD_H_SIMPLE : (isSimple ? CARD_H_SIMPLE : CARD_H_METRICS);
+              // ── Image node (free-form) ──
+              if (etapa.tipo === "imagem" && etapa.image_url) {
+                const iw = etapa.width ?? IMG_DEFAULT_W;
+                const ih = etapa.height ?? IMG_DEFAULT_H;
+                return (
+                  <div
+                    key={i}
+                    className="etapa-card group absolute rounded-lg overflow-hidden border-2 border-transparent hover:border-primary/50 shadow-lg transition-colors"
+                    style={{ left: x, top: y, width: iw, height: ih, zIndex: draggingIdx === i || resizingIdx === i ? 50 : 1 }}
+                    onMouseDown={(e) => handleCardMouseDown(e, i)}
+                  >
+                    {/* Connection dots */}
+                    <div
+                      className="connect-dot absolute rounded-full bg-primary/60 hover:bg-primary hover:scale-150 transition-all cursor-crosshair border-2 border-background z-20"
+                      style={{ right: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                      title="Conectar"
+                      onMouseDown={(e) => { e.stopPropagation(); setConnectingFrom(i); }}
+                    />
+                    <div
+                      className="absolute rounded-full bg-muted-foreground/30 border-2 border-background z-20"
+                      style={{ left: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                    />
+
+                    <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover pointer-events-none" draggable={false} />
+
+                    {/* Caption + delete (hover) */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <span className="text-[10px] font-mono text-white/60 shrink-0">#{i}</span>
+                      <Input
+                        defaultValue={etapa.nome}
+                        onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                        className="h-6 text-[11px] bg-black/40 border-white/10 text-white p-1 flex-1"
+                        placeholder="Legenda..."
+                      />
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 hover:bg-destructive/20" onClick={(e) => { e.stopPropagation(); removeEtapa(i); }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+
+                    {/* Resize handle */}
+                    <div
+                      className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize bg-primary/60 hover:bg-primary opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setResizingIdx(i);
+                        setResizeStart({ x: e.clientX, y: e.clientY, w: iw, h: ih });
+                      }}
+                      title="Redimensionar"
+                    />
+                  </div>
+                );
+              }
+
               const IconComp = tipoStyle.icon;
 
               return (
@@ -1111,7 +1301,24 @@ export default function Funis() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <input
+            ref={imageFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = e.target.files;
+              if (files && files.length > 0) await addImageNodesFromFiles(files);
+              if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+            }}
+          />
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => imageFileInputRef.current?.click()}>
+            <Image className="h-3 w-3" /> Imagem
+          </Button>
+
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
+          
           
           {selectedFunil.project_id && projectProductsFull.length > 0 && (
             <DropdownMenu>
@@ -1140,7 +1347,7 @@ export default function Funis() {
           </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Pontos laterais conectam • Cole (Ctrl+V) ou arraste imagens direto no canvas</span>
         </div>
 
         {/* AI Generate Funnel Dialog */}
