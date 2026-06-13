@@ -1347,7 +1347,7 @@ export default function Funis() {
           </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Pontos laterais conectam • Cole (Ctrl+V) ou arraste imagens direto no canvas</span>
         </div>
 
         {/* AI Generate Funnel Dialog */}
