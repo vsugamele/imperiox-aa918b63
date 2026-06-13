@@ -227,6 +227,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
     const [showIntelPanel, setShowIntelPanel] = useState(true);
+    const [lastIntent, setLastIntent] = useState<string | null>(null);
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
@@ -356,13 +357,21 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       };
     }, []);
 
-    // 🔥 Live temperature score based on last 5 messages
+    // 🔥 Live temperature — combina intent real (triage) + heurística de keywords
     const BUY_KEYWORDS = [
       "quanto custa", "qual o valor", "como pago", "aceita pix", "tem parcela",
       "quero comprar", "me manda o link", "tem garantia", "quero fechar", "vou entrar",
       "link", "preco", "valor", "pagar", "compro", "assinar", "inscricao",
     ];
     const temperature = (() => {
+      // 1) Intent real do classificador (mais confiável)
+      const intent = (lastIntent || "").toLowerCase();
+      if (intent) {
+        if (/(comprar|fechar|pagar|checkout|pix|boleto|cartao|cartão|finalizar)/.test(intent)) return "hot";
+        if (/(duvida|dúvida|preco|preço|interesse|garantia|prazo|funciona|como)/.test(intent)) return "warm";
+        if (/(spam|cancel|recusa|nao|não)/.test(intent)) return "cold";
+      }
+      // 2) Fallback: keywords nas últimas 5 mensagens
       const last5 = messages.filter(m => m.direction === "incoming").slice(-5);
       if (last5.length === 0) return "cold";
       const combined = last5.map(m => (m.content || "").toLowerCase()).join(" ");
@@ -791,6 +800,27 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .eq("id", conversationId)
         .maybeSingle()
         .then(({ data }) => { if (data != null) setIaAtiva((data as any).ia_ativa ?? true); });
+    }, [conversationId]);
+
+    // Carrega o último intent real desta conversa (classificador de triagem)
+    useEffect(() => {
+      if (!conversationId) { setLastIntent(null); return; }
+      let stop = false;
+      const load = async () => {
+        const { data } = await supabase
+          .from("imphq_wa_triage")
+          .select("intent, created_at")
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!stop) setLastIntent((data as any)?.intent ?? null);
+      };
+      load();
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") load();
+      }, 45000);
+      return () => { stop = true; clearInterval(t); };
     }, [conversationId]);
 
     const toggleIa = async () => {
