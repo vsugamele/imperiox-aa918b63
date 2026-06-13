@@ -402,13 +402,8 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  let body: any = null;
-  let projectId: string | null = null;
+async function processWebhook(req: Request, body: any, projectIdInit: string | null) {
+  let projectId: string | null = projectIdInit;
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
