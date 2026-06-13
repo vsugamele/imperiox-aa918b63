@@ -84,6 +84,9 @@ const CANVAS_H = 3000;
 const MINIMAP_W = 160;
 const MINIMAP_H = 120;
 const CONNECT_DOT_SIZE = 12;
+const IMG_DEFAULT_W = 260;
+const IMG_DEFAULT_H = 180;
+const IMG_MIN = 80;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
