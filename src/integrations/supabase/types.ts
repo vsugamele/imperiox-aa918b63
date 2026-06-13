@@ -18249,6 +18249,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          intent: string
           messages: Json
           project_id: string | null
           title: string
@@ -18258,6 +18259,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
@@ -18267,11 +18269,57 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_copy_engine_prompts: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          intent: string
+          label: string
+          model: string
+          notes: string | null
+          output_format: string
+          reasoning: string
+          system_prompt: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent: string
+          label: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent?: string
+          label?: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -42050,6 +42098,7 @@ export type Database = {
           ultima_data: string
         }[]
       }
+      get_lead_360: { Args: { p_lead_id: string }; Returns: Json }
       get_lead_tag_counts: {
         Args: { p_limit?: number; p_project_id?: string }
         Returns: {
