@@ -3,7 +3,7 @@ import { useLead360, type Lead360Event } from "@/hooks/useLead360";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MousePointerClick, Eye, FileText, MessageCircle, DollarSign, Bot, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, MousePointerClick, Eye, FileText, MessageCircle, DollarSign, Bot, Sparkles, Loader2, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
@@ -106,6 +106,8 @@ export default function Lead360Page() {
         </div>
       </div>
 
+      <KpiStrip timeline={timeline} />
+
       <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr,360px] gap-6">
         {/* Identidade */}
         <Card>
@@ -159,7 +161,12 @@ export default function Lead360Page() {
               Gerar mensagem WA
             </Button>
             {aiOut && (
-              <div className="rounded-md bg-secondary/40 p-3 text-sm leading-7 whitespace-pre-wrap">{aiOut}</div>
+              <div className="space-y-2">
+                <div className="rounded-md bg-secondary/40 p-3 text-sm leading-7 whitespace-pre-wrap">{aiOut}</div>
+                <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => { navigator.clipboard.writeText(aiOut); toast.success("Copiado"); }}>
+                  <Copy className="h-3.5 w-3.5" /> Copiar mensagem
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -174,6 +181,38 @@ function Field({ label, value }: { label: string; value: any }) {
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{String(value)}</p>
+    </div>
+  );
+}
+
+function KpiStrip({ timeline }: { timeline: Lead360Event[] }) {
+  const vendas = timeline.filter((e) => e.kind === "venda");
+  const totalReceita = vendas.reduce((s, e) => s + Number(e.data?.valor || 0), 0);
+  const vendasOk = vendas.filter((e) => ["aprovado", "approved", "paid"].includes(String(e.data?.status || "").toLowerCase()));
+  const msgs = timeline.filter((e) => e.kind === "wa_message").length;
+  const cliques = timeline.filter((e) => e.kind === "click").length;
+  const ultimo = timeline[0];
+  const origem = timeline.slice().reverse().find((e) => e.kind === "click");
+  const utmSrc = origem?.data?.utm_source || "—";
+  const utmCamp = origem?.data?.utm_campaign || "";
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <Kpi label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} sub={`${vendasOk.length}/${vendas.length} aprovadas`} />
+      <Kpi label="Mensagens WA" value={String(msgs)} />
+      <Kpi label="Cliques" value={String(cliques)} />
+      <Kpi label="Origem" value={String(utmSrc)} sub={String(utmCamp).slice(0, 40)} />
+      <Kpi label="Última atividade" value={ultimo ? format(new Date(ultimo.at), "dd/MM HH:mm", { locale: ptBR }) : "—"} sub={ultimo?.kind || ""} />
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-md border border-border/40 bg-secondary/30 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-base font-semibold mt-0.5 truncate">{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
     </div>
   );
 }
