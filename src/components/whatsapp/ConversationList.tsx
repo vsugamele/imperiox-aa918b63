@@ -8,7 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCompactTime } from "@/lib/formatCompactTime";
+import { formatMessageTime } from "@/lib/formatCompactTime";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -86,7 +86,7 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
-const formatMessageTime = (dateStr: string | undefined) => formatCompactTime(dateStr);
+
 
 function getInitials(name: string | null, phone: string): string {
   if (name) {
