@@ -92,6 +92,24 @@ export default function Funil() {
       const vendasGeradas = (attrs || []).filter((a: any) => a.venda_id).length;
       const vendasAprovadas = (attrs || []).filter((a: any) => a.venda_status === "aprovado").length;
 
+      // Receita real via venda_ids atribuídos a esse funil
+      const vendaIds = Array.from(new Set((attrs || []).filter((a: any) => a.venda_id).map((a: any) => a.venda_id)));
+      let totalRev = 0; let countRev = 0;
+      if (vendaIds.length > 0) {
+        const { data: vendas } = await supabase
+          .from("imphq_vendas")
+          .select("id, valor, valor_liquido, status")
+          .in("id", vendaIds);
+        for (const v of (vendas || []) as any[]) {
+          if ((v.status || "").toLowerCase() === "aprovado") {
+            totalRev += Number(v.valor_liquido ?? v.valor) || 0;
+            countRev++;
+          }
+        }
+      }
+      setRevenue({ total: totalRev, ticket: countRev > 0 ? totalRev / countRev : 0, count: countRev });
+
+
       setStages([
         { label: "Leads capturados", count: leadsCount || 0, icon: Users, color: "blue", description: "Entraram no sistema" },
         { label: "Engajados", count: engajadosCount || 0, icon: MessageSquare, color: "cyan", description: "Responderam ao menos 1 vez" },
