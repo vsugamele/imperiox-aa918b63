@@ -823,13 +823,32 @@ export default function Funis() {
         {/* 2D Canvas */}
         <div
           ref={canvasRef}
-          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
+          className={`relative rounded-xl border ${isDraggingFile ? "border-primary border-dashed ring-2 ring-primary/40" : "border-border"} bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none`}
           style={{ height: "75vh", cursor: connectingFrom !== null ? "crosshair" : isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp({} as any); }}
           onWheel={handleWheel}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.types || []).includes("Files")) {
+              e.preventDefault();
+              if (!isDraggingFile) setIsDraggingFile(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget === e.target) setIsDraggingFile(false);
+          }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            setIsDraggingFile(false);
+            const files = e.dataTransfer.files;
+            if (!files || files.length === 0) return;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            const cx = rect ? (e.clientX - rect.left - pan.x) / zoom : undefined;
+            const cy = rect ? (e.clientY - rect.top - pan.y) / zoom : undefined;
+            await addImageNodesFromFiles(files, cx, cy);
+          }}
         >
           <div style={{
             width: CANVAS_W, height: CANVAS_H,
