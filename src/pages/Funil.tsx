@@ -52,6 +52,8 @@ export default function Funil() {
   const [sourceBreakdown, setSourceBreakdown] = useState<SourceBreakdown[]>([]);
   const [recentMatches, setRecentMatches] = useState<AttributionRow[]>([]);
   const [topTemplates, setTopTemplates] = useState<{ template: string; sent: number; sales: number; rate: number }[]>([]);
+  const [revenue, setRevenue] = useState<{ total: number; ticket: number; count: number }>({ total: 0, ticket: 0, count: 0 });
+
 
   useEffect(() => {
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
