@@ -116,6 +116,9 @@ export default function Funis() {
   const [aiGenPrompt, setAiGenPrompt] = useState("");
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
+
+
 
   const AI_MODELS = [
     { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
