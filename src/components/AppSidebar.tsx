@@ -32,9 +32,15 @@ const venderItems = [
   { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Funis",                url: "/funis",      icon: Target },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-  { title: "Webinar",              url: "/webinar",    icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
+];
+
+const planejarItems = [
+  { title: "Docs / KB",    url: "/docs",      icon: FileText },
+  { title: "Rascunhos IA", url: "/rascunhos", icon: Pencil },
+  { title: "Nutrição",     url: "/nutricao",  icon: Mail },
+  { title: "Webinar",      url: "/webinar",   icon: Radio },
 ];
 
 const inteligenciaItems = [
