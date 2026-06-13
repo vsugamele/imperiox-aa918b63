@@ -1456,9 +1456,32 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       console.error("[webhook-pagamento] Erro ao logar falha:", logErr);
     }
 
+  }
+}
+
+// Wrapper: responde 200 imediato e processa em background para não estourar
+// o timeout de 150s das plataformas (Hotmart, Kiwify, Eduzz, etc.)
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  try {
+    const body = await req.json();
+    const url = new URL(req.url);
+    const projectIdInit = url.searchParams.get("project");
+    // dispara em background (não bloqueia o response)
+    // @ts-ignore — EdgeRuntime existe no runtime do Supabase
+    EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
+    return new Response(
+      JSON.stringify({ ok: true, queued: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("[webhook-pagamento] erro ao parsear body:", err);
     return new Response(
       JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
