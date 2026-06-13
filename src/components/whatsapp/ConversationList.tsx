@@ -112,6 +112,17 @@ function providerLabel(prov: Provider | undefined): string | null {
   return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
 }
 
+// Chip de canal fixo por tipo de provider
+function channelChip(prov: Provider | undefined): { label: string; icon: string; cls: string } | null {
+  if (!prov) return null;
+  const p = (prov.provider || "").toLowerCase();
+  if (p.includes("instagram") || p === "ig" || p === "meta_ig") {
+    return { label: "Instagram", icon: "📷", cls: "bg-pink-500/15 border-pink-500/50 text-pink-300" };
+  }
+  // evolution, twilio, wppconnect, etc → WhatsApp
+  return { label: "WhatsApp", icon: "💬", cls: "bg-emerald-500/15 border-emerald-500/50 text-emerald-300" };
+}
+
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
