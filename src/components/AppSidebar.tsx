@@ -56,11 +56,6 @@ const inteligenciaItems = [
   { title: "Orquestrador Infoproduto", url: "/infoproduto-copilot", icon: Sparkles },
 ];
 
-const planejarItems = [
-  { title: "Docs / KB",    url: "/docs",      icon: FileText },
-  { title: "Rascunhos IA", url: "/rascunhos", icon: Pencil },
-  { title: "Nutrição",     url: "/nutricao",  icon: Mail },
-];
 
 const configurarItems = [
   { title: "Empresa", url: "/empresa",       icon: Building2 },
