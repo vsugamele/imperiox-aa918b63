@@ -217,16 +217,30 @@ export default function Funil() {
 
       {/* KPI principal */}
       <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent">
-        <CardContent className="p-4 flex flex-col md:flex-row md:items-end gap-4 justify-between">
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
-            <p className="text-4xl font-bold text-emerald-400">{conversionRate}%</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads em {days} dias</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
+            <p className="text-3xl font-bold text-emerald-400">{conversionRate}%</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita atribuída</p>
+            <p className="text-3xl font-bold text-primary">
+              R$ {revenue.total >= 1000 ? `${(revenue.total / 1000).toFixed(1)}k` : revenue.total.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">{revenue.count} vendas aprovadas em {days}d</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket médio</p>
+            <p className="text-3xl font-bold text-foreground">
+              R$ {revenue.ticket >= 1000 ? `${(revenue.ticket / 1000).toFixed(1)}k` : revenue.ticket.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">por venda aprovada</p>
           </div>
           {stages.length > 0 && (
-            <div className="text-right space-y-1">
-              <p className="text-[10px] text-muted-foreground uppercase">Maior gargalo</p>
-              <p className="text-sm font-semibold text-amber-400">
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maior gargalo</p>
+              <p className="text-sm font-semibold text-amber-400 mt-2">
                 {(() => {
                   let maxDrop = 0; let maxIdx = 0;
                   for (let i = 1; i < stages.length; i++) {
@@ -243,6 +257,7 @@ export default function Funil() {
           )}
         </CardContent>
       </Card>
+
 
       {/* Funil visual */}
       <Card>
