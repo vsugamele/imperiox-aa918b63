@@ -290,9 +290,38 @@ export default function Funis() {
       return { ...p, briefing: d.briefing || d };
     });
     setProjects(projRows);
+    loadKpis();
+  };
+
+  const loadKpis = async () => {
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const [leadsRes, vendasRes] = await Promise.all([
+      supabase.from("imphq_leads").select("project_id").gte("created_at", since),
+      supabase.from("imphq_vendas").select("project_id, status, valor, valor_liquido").gte("created_at", since),
+    ]);
+    const map: Record<string, { leads: number; vendas: number; receita: number; conv: number }> = {};
+    for (const l of (leadsRes.data || []) as any[]) {
+      if (!l.project_id) continue;
+      if (!map[l.project_id]) map[l.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      map[l.project_id].leads++;
+    }
+    for (const v of (vendasRes.data || []) as any[]) {
+      if (!v.project_id) continue;
+      if (!map[v.project_id]) map[v.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      if ((v.status || "").toLowerCase() === "aprovado") {
+        map[v.project_id].vendas++;
+        map[v.project_id].receita += Number(v.valor_liquido ?? v.valor) || 0;
+      }
+    }
+    for (const k of Object.keys(map)) {
+      const m = map[k];
+      m.conv = m.leads > 0 ? (m.vendas / m.leads) * 100 : 0;
+    }
+    setKpisByProject(map);
   };
 
   useEffect(() => { load(); }, []);
+
 
   // Load project products when a funnel with project_id is selected
   useEffect(() => {
