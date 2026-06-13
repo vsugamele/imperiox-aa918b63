@@ -34,7 +34,7 @@ const venderItems = [
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
   { title: "Webinar",              url: "/webinar",    icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
-  
+  { title: "Tracker",              url: "/tracker",    icon: Link2 },
 ];
 
 const inteligenciaItems = [
