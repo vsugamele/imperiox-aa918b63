@@ -402,13 +402,8 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  let body: any = null;
-  let projectId: string | null = null;
+async function processWebhook(req: Request, body: any, projectIdInit: string | null) {
+  let projectId: string | null = projectIdInit;
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -420,7 +415,7 @@ Deno.serve(async (req) => {
     // Allow overriding event type via query param (e.g. ?event=Lead)
     const queryEvent = url.searchParams.get("event");
 
-    body = await req.json();
+    // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
     let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId } = parseWebhookBody(body, hotmartToken);
@@ -1461,9 +1456,32 @@ Deno.serve(async (req) => {
       console.error("[webhook-pagamento] Erro ao logar falha:", logErr);
     }
 
+  }
+}
+
+// Wrapper: responde 200 imediato e processa em background para não estourar
+// o timeout de 150s das plataformas (Hotmart, Kiwify, Eduzz, etc.)
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  try {
+    const body = await req.json();
+    const url = new URL(req.url);
+    const projectIdInit = url.searchParams.get("project");
+    // dispara em background (não bloqueia o response)
+    // @ts-ignore — EdgeRuntime existe no runtime do Supabase
+    EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
+    return new Response(
+      JSON.stringify({ ok: true, queued: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("[webhook-pagamento] erro ao parsear body:", err);
     return new Response(
       JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
+
