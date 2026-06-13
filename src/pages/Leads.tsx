@@ -190,7 +190,13 @@ export default function Leads() {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<"recent" | "score">("recent");
+  const [sortBy, setSortBy] = useState<"recent" | "updated" | "score">("recent");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("leads.sidebar.collapsed") === "1"; } catch { return false; }
+  });
+  const toggleSidebar = () => setSidebarCollapsed((v) => {
+    const nv = !v; try { localStorage.setItem("leads.sidebar.collapsed", nv ? "1" : "0"); } catch {} return nv;
+  });
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
