@@ -1226,6 +1226,7 @@ export default function Funis() {
             {filtered.map((f, idx) => {
               const etapas = f.data?.etapas || [];
               const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
+              const kpi = f.project_id ? kpisByProject[f.project_id] : null;
               return (
                 <Card key={f.id}
                   className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
@@ -1238,6 +1239,31 @@ export default function Funis() {
                     </div>
                     <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
                     {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
+
+                    {kpi && (
+                      <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-border/30">
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Leads</p>
+                          <p className="text-xs font-bold text-foreground">{kpi.leads.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Vendas</p>
+                          <p className="text-xs font-bold text-emerald-400">{kpi.vendas.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Conv.</p>
+                          <p className={`text-xs font-bold ${getConversionColor(kpi.conv).text}`}>{kpi.conv.toFixed(1)}%</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Receita</p>
+                          <p className="text-xs font-bold text-primary">R$ {kpi.receita >= 1000 ? `${(kpi.receita / 1000).toFixed(1)}k` : kpi.receita.toFixed(0)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {f.project_id && !kpi && (
+                      <p className="text-[9px] text-muted-foreground/60 mt-3 pt-3 border-t border-border/30 text-center">Sem dados nos últimos 30d</p>
+                    )}
+
                     {etapas.length > 0 && (
                       <div className="flex items-center gap-1 mt-2 overflow-hidden">
                         {etapas.slice(0, 5).map((e, i) => {
@@ -1258,6 +1284,7 @@ export default function Funis() {
             })}
             {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
           </div>
+
         </>
       ) : (
         <EcossistemaView projects={projects} />
