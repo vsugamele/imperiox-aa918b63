@@ -135,16 +135,29 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
           size="sm"
           variant="outline"
           className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-          onClick={() => { setOpen(true); loadAccounts(); }}
-          title={lastSync ? `Último sync Zernio: ${new Date(lastSync).toLocaleString("pt-BR")}${lastError ? `\nErro: ${lastError}` : ""}` : "Sync via Zernio"}
+          disabled={syncing || loading}
+          onClick={handleSmartSync}
+          title={
+            !savedAcc
+              ? "Detecta automaticamente a conta Zernio e sincroniza"
+              : lastSync
+                ? `Último sync: ${new Date(lastSync).toLocaleString("pt-BR")}${lastError ? `\nErro: ${lastError}` : ""}`
+                : "Sync via Zernio"
+          }
         >
-          <Zap className="h-3.5 w-3.5 mr-1" /> Sync Zernio
-          {lastStatus === "success" && lastSync && (
+          {(syncing || loading) ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
+          Sync Zernio
+          {!savedAcc && !syncing && !loading && (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-amber-400">
+              <AlertTriangle className="h-3 w-3" /> configurar
+            </span>
+          )}
+          {savedAcc && lastStatus === "success" && lastSync && (
             <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-green-400">
               <CheckCircle2 className="h-3 w-3" /> {relTime(lastSync)}
             </span>
           )}
-          {lastStatus === "error" && lastSync && (
+          {savedAcc && lastStatus === "error" && lastSync && (
             <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-red-400">
               <AlertTriangle className="h-3 w-3" /> {relTime(lastSync)}
             </span>
@@ -156,10 +169,10 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
             variant="ghost"
             className="text-purple-400 hover:bg-purple-500/10 h-7 px-2"
             disabled={syncing}
-            onClick={() => runSync(savedAcc)}
-            title="Sincronizar conta padrão"
+            onClick={() => { setOpen(true); loadAccounts(); }}
+            title="Trocar Ad Account"
           >
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            <RefreshCw className="h-3 w-3" />
           </Button>
         )}
       </div>
