@@ -636,6 +636,20 @@ export default function Funis() {
   }, [selectedFunil, zoom]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Resize image node
+    if (resizingIdx !== null && selectedFunil) {
+      const dx = (e.clientX - resizeStart.x) / zoom;
+      const dy = (e.clientY - resizeStart.y) / zoom;
+      const etapas = [...(selectedFunil.data.etapas || [])];
+      etapas[resizingIdx] = {
+        ...etapas[resizingIdx],
+        width: Math.max(IMG_MIN, Math.round(resizeStart.w + dx)),
+        height: Math.max(IMG_MIN, Math.round(resizeStart.h + dy)),
+      };
+      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+      return;
+    }
+
     // Connection line preview
     if (connectingFrom !== null && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -661,7 +675,7 @@ export default function Funis() {
       });
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
+  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart, resizingIdx, resizeStart]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     // Finish connection: check if mouse is over a card
@@ -675,8 +689,11 @@ export default function Funis() {
         const ex = etapas[i].pos_x ?? 0;
         const ey = etapas[i].pos_y ?? 0;
         const ts = TIPO_STYLES[etapas[i].tipo || "outro"] || TIPO_STYLES.outro;
-        const eh = ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
-        if (mx >= ex && mx <= ex + CARD_W && my >= ey && my <= ey + eh) {
+        const ew = etapas[i].tipo === "imagem" ? (etapas[i].width ?? IMG_DEFAULT_W) : CARD_W;
+        const eh = etapas[i].tipo === "imagem"
+          ? (etapas[i].height ?? IMG_DEFAULT_H)
+          : (ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE);
+        if (mx >= ex && mx <= ex + ew && my >= ey && my <= ey + eh) {
           addConnection(connectingFrom, i);
           break;
         }
@@ -686,12 +703,18 @@ export default function Funis() {
       return;
     }
 
+    if (resizingIdx !== null) {
+      triggerAutoSave();
+      setResizingIdx(null);
+      return;
+    }
+
     if (draggingIdx !== null) {
       triggerAutoSave();
     }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom]);
+  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom, resizingIdx]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
