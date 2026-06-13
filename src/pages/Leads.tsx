@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -190,7 +190,13 @@ export default function Leads() {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<"recent" | "score">("recent");
+  const [sortBy, setSortBy] = useState<"recent" | "updated" | "score">("recent");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("leads.sidebar.collapsed") === "1"; } catch { return false; }
+  });
+  const toggleSidebar = () => setSidebarCollapsed((v) => {
+    const nv = !v; try { localStorage.setItem("leads.sidebar.collapsed", nv ? "1" : "0"); } catch {} return nv;
+  });
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -225,8 +231,11 @@ export default function Leads() {
     const to = from + PAGE_SIZE - 1;
     if (sortBy === "score") {
       leadsQuery = leadsQuery.order("score", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
-    } else {
+    } else if (sortBy === "updated") {
       leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    } else {
+      // "recent" = mais novos por data de criação (dia atual no topo)
+      leadsQuery = leadsQuery.order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
     }
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
@@ -579,13 +588,22 @@ export default function Leads() {
 
   return (
     <div className="flex gap-6">
-      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
+      {!sidebarCollapsed && (
+        <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
+      )}
       <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />
 
 
       <div className="flex-1 space-y-4 min-w-0">
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={toggleSidebar}
+              title={sidebarCollapsed ? "Mostrar sidebar (S)" : "Esconder sidebar (S)"}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground transition"
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
             <TabsList>
               <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
                 <Flame className="h-3 w-3" /> Quentes
@@ -641,7 +659,7 @@ export default function Leads() {
               <div className="relative max-w-xs flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" /></div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Plataforma" /></SelectTrigger><SelectContent><SelectItem value="all">Plataforma</SelectItem>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
-              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "score"); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">Recentes</SelectItem><SelectItem value="score">Score (ML)</SelectItem></SelectContent></Select>
+              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "updated" | "score"); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">Mais recentes (data)</SelectItem><SelectItem value="updated">Atualizados há pouco</SelectItem><SelectItem value="score">Score (ML)</SelectItem></SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
               {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select>)}
               {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>{tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
