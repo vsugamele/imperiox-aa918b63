@@ -1301,7 +1301,24 @@ export default function Funis() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <input
+            ref={imageFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = e.target.files;
+              if (files && files.length > 0) await addImageNodesFromFiles(files);
+              if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+            }}
+          />
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => imageFileInputRef.current?.click()}>
+            <Image className="h-3 w-3" /> Imagem
+          </Button>
+
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
+          
           
           {selectedFunil.project_id && projectProductsFull.length > 0 && (
             <DropdownMenu>
