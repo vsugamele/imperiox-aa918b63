@@ -116,6 +116,9 @@ export default function Funis() {
   const [aiGenPrompt, setAiGenPrompt] = useState("");
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
+
+
 
   const AI_MODELS = [
     { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
@@ -287,9 +290,38 @@ export default function Funis() {
       return { ...p, briefing: d.briefing || d };
     });
     setProjects(projRows);
+    loadKpis();
+  };
+
+  const loadKpis = async () => {
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const [leadsRes, vendasRes] = await Promise.all([
+      supabase.from("imphq_leads").select("project_id").gte("created_at", since),
+      supabase.from("imphq_vendas").select("project_id, status, valor, valor_liquido").gte("created_at", since),
+    ]);
+    const map: Record<string, { leads: number; vendas: number; receita: number; conv: number }> = {};
+    for (const l of (leadsRes.data || []) as any[]) {
+      if (!l.project_id) continue;
+      if (!map[l.project_id]) map[l.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      map[l.project_id].leads++;
+    }
+    for (const v of (vendasRes.data || []) as any[]) {
+      if (!v.project_id) continue;
+      if (!map[v.project_id]) map[v.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      if ((v.status || "").toLowerCase() === "aprovado") {
+        map[v.project_id].vendas++;
+        map[v.project_id].receita += Number(v.valor_liquido ?? v.valor) || 0;
+      }
+    }
+    for (const k of Object.keys(map)) {
+      const m = map[k];
+      m.conv = m.leads > 0 ? (m.vendas / m.leads) * 100 : 0;
+    }
+    setKpisByProject(map);
   };
 
   useEffect(() => { load(); }, []);
+
 
   // Load project products when a funnel with project_id is selected
   useEffect(() => {
@@ -1194,6 +1226,7 @@ export default function Funis() {
             {filtered.map((f, idx) => {
               const etapas = f.data?.etapas || [];
               const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
+              const kpi = f.project_id ? kpisByProject[f.project_id] : null;
               return (
                 <Card key={f.id}
                   className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
@@ -1206,6 +1239,31 @@ export default function Funis() {
                     </div>
                     <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
                     {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
+
+                    {kpi && (
+                      <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-border/30">
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Leads</p>
+                          <p className="text-xs font-bold text-foreground">{kpi.leads.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Vendas</p>
+                          <p className="text-xs font-bold text-emerald-400">{kpi.vendas.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Conv.</p>
+                          <p className={`text-xs font-bold ${getConversionColor(kpi.conv).text}`}>{kpi.conv.toFixed(1)}%</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Receita</p>
+                          <p className="text-xs font-bold text-primary">R$ {kpi.receita >= 1000 ? `${(kpi.receita / 1000).toFixed(1)}k` : kpi.receita.toFixed(0)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {f.project_id && !kpi && (
+                      <p className="text-[9px] text-muted-foreground/60 mt-3 pt-3 border-t border-border/30 text-center">Sem dados nos últimos 30d</p>
+                    )}
+
                     {etapas.length > 0 && (
                       <div className="flex items-center gap-1 mt-2 overflow-hidden">
                         {etapas.slice(0, 5).map((e, i) => {
@@ -1226,6 +1284,7 @@ export default function Funis() {
             })}
             {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
           </div>
+
         </>
       ) : (
         <EcossistemaView projects={projects} />
