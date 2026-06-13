@@ -353,6 +353,15 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             >
               <ExternalLink className="h-3 w-3" /> Abrir no CRM
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 justify-start text-[11px] gap-1.5"
+              disabled={!resolvedLeadIdState}
+              onClick={() => { window.open(`/lead/${resolvedLeadIdState}`, "_blank"); }}
+            >
+              <Activity className="h-3 w-3" /> Lead 360°
+            </Button>
           </div>
         </div>
       </div>
