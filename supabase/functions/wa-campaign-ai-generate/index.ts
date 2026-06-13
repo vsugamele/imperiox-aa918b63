@@ -1,3 +1,4 @@
+// Gera passos de campanha WhatsApp delegando a copy ao Motor de Copy unificado (intent: wa_campaign_steps).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -5,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -17,33 +21,9 @@ serve(async (req) => {
       });
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY not set" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Fetch optional context (branding, avatar) from project
-    let projectCtx = "";
-    if (project_id) {
-      const { data: proj } = await supabase
-        .from("imphq_projects")
-        .select("name, data")
-        .eq("id", project_id)
-        .maybeSingle();
-      if (proj) {
-        const d: any = proj.data || {};
-        projectCtx = `\nProjeto: ${proj.name}\nBranding/tom de voz: ${JSON.stringify(d.branding || {}).slice(0, 600)}\nAvatar: ${JSON.stringify(d.avatar || {}).slice(0, 600)}`;
-      }
-    }
-
-    // Fetch top-rated references (swipes) for inspiration
+    // Buscar referências top-rated (swipes) e steps existentes
     let refsCtx = "";
     if (project_id) {
       const { data: refs } = await supabase
@@ -54,86 +34,56 @@ serve(async (req) => {
         .order("rating", { ascending: false })
         .limit(5);
       if (refs && refs.length) {
-        refsCtx = "\n\nReferências de alta performance (inspire-se em estrutura/gatilhos, NÃO copie literal):\n" +
+        refsCtx = "\n\nReferências de alta performance (inspire-se, NÃO copie):\n" +
           refs.map((r: any, i: number) => `[${i + 1}] ${r.title} (rating ${r.rating}) — gatilhos: ${(r.gatilhos || []).join(", ")} — mecanismo: ${r.mecanismo || "—"}\nTrecho: ${String(r.raw_text || "").slice(0, 300)}`).join("\n");
       }
     }
 
-
-    // Fetch existing steps to provide context and prevent narrative overlap
     const { data: existingSteps } = await supabase
       .from("imphq_wa_campaign_steps")
-      .select("step_order, content, media_type, days_offset, send_time")
+      .select("step_order, content, days_offset, send_time")
       .eq("campaign_id", campaign_id)
       .order("step_order", { ascending: true });
 
     let existingStepsCtx = "";
     let lastDaysOffset = 0;
     if (existingSteps && existingSteps.length > 0) {
-      existingStepsCtx = "\n\n## MENSAGENS JÁ EXISTENTES NA SEQUÊNCIA (Obrigatório respeitar):\n" +
-        "Esta campanha já possui as seguintes mensagens. As novas mensagens que você vai gerar devem ser uma CONTINUAÇÃO lógica desta sequência, sem repetir ganchos, saudações iniciais ou explicações já contidas nelas. Comece o fluxo narrativo a partir de onde a última parou:\n" +
+      existingStepsCtx = "\n\n## MENSAGENS JÁ EXISTENTES (continue a sequência, NÃO repita ganchos):\n" +
         existingSteps.map((s: any) => `Passo #${s.step_order + 1} (Dia ${s.days_offset} às ${s.send_time || "09:00"}): "${s.content || "(vazia)"}"`).join("\n\n");
-      
-      const maxOffset = Math.max(...existingSteps.map((s: any) => Number(s.days_offset) || 0));
-      lastDaysOffset = maxOffset + 1; // start new steps after the last one
+      lastDaysOffset = Math.max(...existingSteps.map((s: any) => Number(s.days_offset) || 0)) + 1;
     }
 
     const N = Math.max(1, Math.min(60, Number(count) || 7));
 
-    const systemPrompt = `Você é Imperius, estrategista de copy WhatsApp para grupos. Escreva em pt-BR.
-
-REGRAS DE FORMATAÇÃO (CRÍTICO — siga sempre):
-- Formate como mensagem real do WhatsApp, com RESPIROS visuais.
-- SEPARE parágrafos com UMA LINHA EM BRANCO (use "\\n\\n" no JSON).
-- Saudação em linha própria. Corpo em 2-3 parágrafos curtos (1-3 linhas cada). CTA em linha própria no final.
-- Use *negrito* para destaques (1-2 por mensagem, no máximo).
-- Listas com "•" ou emoji + linha quando fizer sentido.
-- Emojis sutis, no início de blocos ou no CTA. Nunca em excesso.
-- Use {nome}, {produto}, {grupo_nome} quando fizer sentido.
-
-Exemplo de estrutura correta (note os \\n\\n entre blocos):
-"Fala, {nome}! 👊\\n\\nAmanhã às 20h rola nossa aula ao vivo sobre *{produto}*.\\n\\nVou te mostrar o método exato que uso pra fechar 3x mais clientes.\\n\\n👉 Confirma sua presença respondendo EU VOU."`;
-
-    const userPrompt = `Gere uma sequência de ${N} mensagens WhatsApp para grupos.
+    const userPrompt = `Gere exatamente ${N} mensagens WhatsApp para grupos.
 Produto: ${produto || "(não informado)"}
 Tom: ${tom}
-Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferência de copy (imite tom/estrutura, NÃO copie literal):\n${String(reference).slice(0, 4000)}` : ""}${projectCtx}${refsCtx}
+Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferência (imite estrutura, NÃO copie):\n${String(reference).slice(0, 4000)}` : ""}${refsCtx}`;
 
-Estrutura de cada mensagem:
-- day_offset (0 = dia da entrada, 1 = dia seguinte, etc.) — distribua de forma natural ao longo de ${N} dias (será somado ao offset de mensagens anteriores automaticamente)
-- send_time (HH:MM, 24h, entre 09:00 e 20:00)
-- content (texto da mensagem COM \\n\\n entre parágrafos, conforme regras de formatação)
-
-Retorne APENAS JSON válido no formato:
-{ "steps": [ { "day_offset": 0, "send_time": "09:00", "content": "Fala, {nome}!\\n\\nCorpo da mensagem aqui.\\n\\n👉 CTA final." }, ... ] }`;
-
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const ceResp = await fetch(`${SUPABASE_URL}/functions/v1/copy-engine`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat-v3.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
+        intent: "wa_campaign_steps",
+        input: userPrompt,
+        context: { project_id, product_slug: produto },
       }),
     });
 
-    if (!res.ok) {
-      const t = await res.text();
-      if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tente em 1 min." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos esgotados. Adicione na workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!ceResp.ok) {
+      const t = await ceResp.text();
+      if (ceResp.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tente em 1 min." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (ceResp.status === 402) return new Response(JSON.stringify({ error: "Créditos esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       return new Response(JSON.stringify({ error: t.slice(0, 400) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const data = await res.json();
-    const raw = data?.choices?.[0]?.message?.content || "{}";
+    const ceData = await ceResp.json();
     let parsed: any = {};
-    try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+    try { parsed = JSON.parse(ceData?.content || "{}"); } catch { parsed = {}; }
     const steps: any[] = Array.isArray(parsed.steps) ? parsed.steps : [];
 
     if (steps.length === 0) {
@@ -142,7 +92,6 @@ Retorne APENAS JSON válido no formato:
       });
     }
 
-    // Find current max step_order
     const { data: existing } = await supabase
       .from("imphq_wa_campaign_steps")
       .select("step_order")
