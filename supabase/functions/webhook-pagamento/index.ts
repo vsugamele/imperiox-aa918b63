@@ -378,7 +378,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = (rawPhone && rawPhone !== "Não informado") ? String(rawPhone).replace(/\D/g, "") : "";
     produto = body.name_prod || body.name_offer || "";
     valor = 0;
-    data_compra = body.created_at || null;
+    // Ticto envia created_at em formato BR (DD/MM/YYYY HH:mm:ss) que o Postgres parseia errado.
+    // Tenta DD/MM primeiro; se inválido ou data futura > +1 dia, usa hora do webhook.
+    data_compra = parseTictoDate(body.created_at);
   }
   // ── Generic fallback ──
   else {
