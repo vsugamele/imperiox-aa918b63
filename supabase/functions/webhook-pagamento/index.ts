@@ -231,6 +231,40 @@ async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmC
   }
 }
 
+/**
+ * Ticto envia created_at em formato BR (DD/MM/YYYY HH:mm:ss) que o Postgres interpreta como MM/DD,
+ * gerando datas no futuro (ex: 13/06 vira 06/13 e dia>12 quebra; 06/12 vira Dec/06).
+ * Estratégia: tenta ISO → tenta DD/MM/YYYY → se inválido ou > now+1d, usa hora do webhook.
+ */
+function parseTictoDate(raw: any): string {
+  const now = new Date();
+  const fallback = now.toISOString();
+  if (!raw || typeof raw !== "string") return fallback;
+  const trimmed = raw.trim();
+
+  // 1) Tenta ISO direto
+  const isoTry = new Date(trimmed);
+  if (!isNaN(isoTry.getTime())) {
+    // Se for futuro além de 1 dia, descarta (provavelmente foi parseado errado)
+    if (isoTry.getTime() <= now.getTime() + 86400000) {
+      return isoTry.toISOString();
+    }
+  }
+
+  // 2) Tenta DD/MM/YYYY [HH:mm[:ss]]
+  const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m) {
+    const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = m;
+    const d = new Date(Date.UTC(+yyyy, +mm - 1, +dd, +hh + 3, +mi, +ss)); // BRT (-03) → UTC
+    if (!isNaN(d.getTime()) && d.getTime() <= now.getTime() + 86400000) {
+      return d.toISOString();
+    }
+  }
+
+  // 3) Fallback: hora do webhook
+  return fallback;
+}
+
 function parseWebhookBody(body: any, hotmartToken: string | null) {
   let plataforma = "desconhecido";
   let evento = "desconhecido";
@@ -378,7 +412,9 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     phone = (rawPhone && rawPhone !== "Não informado") ? String(rawPhone).replace(/\D/g, "") : "";
     produto = body.name_prod || body.name_offer || "";
     valor = 0;
-    data_compra = body.created_at || null;
+    // Ticto envia created_at em formato BR (DD/MM/YYYY HH:mm:ss) que o Postgres parseia errado.
+    // Tenta DD/MM primeiro; se inválido ou data futura > +1 dia, usa hora do webhook.
+    data_compra = parseTictoDate(body.created_at);
   }
   // ── Generic fallback ──
   else {
