@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -6,9 +7,34 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src: string } | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // YouTube
+    const ytId = u.hostname.includes("youtu.be")
+      ? u.pathname.slice(1)
+      : u.searchParams.get("v");
+    if ((u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) && ytId) {
+      return { type: "yt", src: `https://www.youtube.com/embed/${ytId}` };
+    }
+    // Vimeo
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean).pop();
+      if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+    }
+    if (/\.(mp4|webm|mov)$/i.test(u.pathname)) {
+      return { type: "mp4", src: url };
+    }
+    return { type: "other", src: url };
+  } catch {
+    return null;
+  }
+}
 
 const BLOCK_KEYS = [
   { key: "gancho", label: "🎯 Gancho" },
@@ -32,8 +58,24 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   const [generating, setGenerating] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
+  const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
 
   useEffect(() => setData(swipe), [swipe?.id]);
+
+  const isVsl = data?.formato === "vsl";
+  const videoUrl = data?.media_urls?.[0];
+  const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
+
+  // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
+  useEffect(() => {
+    if (!data?.id || data?.__new) return;
+    supabase
+      .from("imphq_creative_batches")
+      .select("id, nome, status, total_gerado, created_at")
+      .contains("source_swipe_ids", [data.id])
+      .order("created_at", { ascending: false })
+      .then(({ data: rows }) => setLinkedBatches(rows || []));
+  }, [data?.id]);
 
   const updateBlock = (k: string, v: string) => setData({ ...data, blocks: { ...(data.blocks || {}), [k]: v } });
 
