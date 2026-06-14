@@ -201,6 +201,37 @@ export default function VslLab() {
     toast.success("Salvo!");
   };
 
+  const [savingSwipe, setSavingSwipe] = useState(false);
+  const handleSaveToSwipeBank = async () => {
+    if (!result.trim()) return toast.error("Gere algo primeiro");
+    setSavingSwipe(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const tool = VSL_TOOLS.find((t) => t.id === activeTool);
+      const proj = projects.find((p) => p.id === selectedProjectId);
+      const title = `[VSL Lab] ${tool?.title || activeTool} — ${proj?.name || "manual"} · ${new Date().toLocaleDateString()}`;
+      const { error } = await supabase.from("imphq_swipes" as any).insert({
+        user_id: u.user?.id,
+        project_id: selectedProjectId || null,
+        title,
+        formato: "vsl",
+        plataforma: "VSL Lab",
+        criador: proj?.name || null,
+        rating: 5,
+        raw_text: result,
+        blocks: { narrativa: result },
+        tags: ["vsl-lab", tool?.id || ""].filter(Boolean),
+        reverse_engineering: { origem: "vsl-lab", ferramenta: tool?.id },
+      } as any);
+      if (error) throw error;
+      toast.success("Salvo no Banco de VSLs! Veja em /swipe");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingSwipe(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-100">
       <div className="space-y-2">
@@ -221,7 +252,19 @@ export default function VslLab() {
         <div className="lg:col-span-8 space-y-4">
           {result && (
             <Card className="border-slate-800 bg-slate-900/60">
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button size="sm" variant="outline" onClick={handleCopyToClipboard} className="gap-1">
+                    <Copy className="h-3 w-3" /> Copiar
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleSaveToDocs} className="gap-1">
+                    <FileDown className="h-3 w-3" /> Salvar em Docs
+                  </Button>
+                  <Button size="sm" onClick={handleSaveToSwipeBank} disabled={savingSwipe} className="gap-1 bg-amber-500 hover:bg-amber-600 text-black">
+                    {savingSwipe ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+                    Salvar no Banco de VSLs
+                  </Button>
+                </div>
                 <ScrollArea className="h-[60vh]">
                   <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed select-all">
                     {result}
