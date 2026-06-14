@@ -355,9 +355,31 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     email = buyer.email || "";
     nome = buyer.name || "";
     phone = buyer.checkout_phone || "";
-    valor = body.data?.purchase?.price?.value || 0;
     produto = body.data?.product?.name || "";
     const purchase = body.data?.purchase || {};
+    // Normaliza valor para BRL — Hotmart envia price na moeda do comprador (pode ser USD, PYG, COP, etc.)
+    const _priceObj = purchase.price || {};
+    const _fullPrice = purchase.full_price || {};
+    const _origPrice = purchase.original_offer_price || {};
+    const _commissions = Array.isArray(body.data?.commissions) ? body.data.commissions : [];
+    const _brlConv = _commissions
+      .map((c: any) => c?.currency_conversion)
+      .find((cc: any) => cc?.converted_to_currency === "BRL" && cc?.conversion_rate);
+    const _isBRL = (cv?: string) => !cv || cv === "BRL";
+    if (_isBRL(_priceObj.currency_value)) {
+      valor = Number(_priceObj.value) || 0;
+    } else if (_isBRL(_fullPrice.currency_value) && _fullPrice.value) {
+      valor = Number(_fullPrice.value) || 0;
+    } else if (_origPrice.value && _brlConv?.conversion_rate && _origPrice.currency_value && _origPrice.currency_value !== "BRL") {
+      // Converte original_offer_price (geralmente USD) → BRL usando rate disponível
+      valor = +(Number(_origPrice.value) * Number(_brlConv.conversion_rate)).toFixed(2);
+    } else if (_brlConv) {
+      // Último recurso: usa converted_value da comissão do PRODUCER (= líquido em BRL)
+      const _producer = _commissions.find((c: any) => c?.source === "PRODUCER");
+      valor = Number(_producer?.currency_conversion?.converted_value) || 0;
+    } else {
+      valor = Number(_priceObj.value) || 0;
+    }
     const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
     if (rawDate) {
       data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
