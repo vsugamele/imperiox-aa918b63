@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
 
         const insightsData = await insightsRes.json();
         const rows = insightsData.data || [];
+        console.log(`[FB Sync] ${proj.name} act=${actId} range=${dfrom}..${dto} rows=${rows.length}`);
 
         // Fetch campaigns metadata (status + daily_budget) — keyed by campaign_id
         const campaignMeta = new Map<string, { status: string; daily_budget: number | null }>();
