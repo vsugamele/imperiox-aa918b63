@@ -408,6 +408,18 @@ export default function CriativoNovo() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
+      {sourceSwipe && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3">
+          <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+          <div className="text-xs flex-1">
+            <p className="text-amber-300 font-semibold">Inspirado em VSL</p>
+            <p className="text-muted-foreground">{sourceSwipe.title}</p>
+          </div>
+          <Button asChild size="sm" variant="ghost" className="text-amber-400 hover:text-amber-300">
+            <a href="/swipe">Ver VSL</a>
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl text-primary flex items-center gap-2">
