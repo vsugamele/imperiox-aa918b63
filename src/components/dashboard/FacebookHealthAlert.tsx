@@ -13,6 +13,8 @@ interface FailedProject {
   message: string;
   at: string;
   last_sync: string | null;
+  kind: "error" | "empty";
+  account_id?: string | null;
 }
 
 export default function FacebookHealthAlert() {
