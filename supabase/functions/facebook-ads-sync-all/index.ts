@@ -45,8 +45,9 @@ Deno.serve(async (req) => {
     const brtDateStr = (d: Date = new Date()) =>
       d.toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" }).split(",")[0];
     const todayBRT = brtDateStr();
-    const yesterdayBRT = brtDateStr(new Date(Date.now() - 24 * 60 * 60 * 1000));
-    const dfrom = yesterdayBRT;
+    // Janela de 7 dias: a Meta ainda ajusta spend de D-3/D-2 por atribuição.
+    const sevenDaysAgoBRT = brtDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const dfrom = sevenDaysAgoBRT;
     const dto = todayBRT;
 
     const results: { project_id: string; name: string; imported: number; errors: number; creatives: number }[] = [];
@@ -108,6 +109,7 @@ Deno.serve(async (req) => {
 
         const insightsData = await insightsRes.json();
         const rows = insightsData.data || [];
+        console.log(`[FB Sync] ${proj.name} act=${actId} range=${dfrom}..${dto} rows=${rows.length}`);
 
         // Fetch campaigns metadata (status + daily_budget) — keyed by campaign_id
         const campaignMeta = new Map<string, { status: string; daily_budget: number | null }>();
@@ -228,19 +230,34 @@ Deno.serve(async (req) => {
           }
         } catch (_) { /* creatives optional */ }
 
-        // Update last sync even if no creatives
+        const summary = { range: { from: dfrom, to: dto }, rows: rows.length, imported, errors, account_id: actId };
+        console.log(`[FB Sync] ${proj.name} summary`, JSON.stringify(summary));
+
+        // Status: "empty" se Meta não retornou nenhuma linha — sinaliza conta errada/sem gasto
+        const syncStatus = rows.length === 0 ? "empty" : "ok";
+        const syncError = rows.length === 0
+          ? { reason: "no_insights", account_id: actId, range: { from: dfrom, to: dto }, at: new Date().toISOString() }
+          : null;
+
+        const baseUpdate = {
+          ...proj.data,
+          facebook_last_sync: new Date().toISOString(),
+          facebook_sync_status: syncStatus,
+          facebook_sync_error: syncError,
+          facebook_last_sync_summary: summary,
+        };
+
         if (creativesCount === 0) {
-          const newData = { ...proj.data, facebook_last_sync: new Date().toISOString(), facebook_sync_status: "ok", facebook_sync_error: null };
-          await supabase.from("imphq_projects").update({ data: newData }).eq("id", proj.id);
+          await supabase.from("imphq_projects").update({ data: baseUpdate }).eq("id", proj.id);
         } else {
-          // Mark sync as ok (creatives branch already updated data, but ensure status fields)
           await supabase.from("imphq_projects").update({
-            data: { ...proj.data, facebook_last_sync: new Date().toISOString(), facebook_sync_status: "ok", facebook_sync_error: null, facebook_creatives: proj.data?.facebook_creatives },
+            data: { ...baseUpdate, facebook_creatives: proj.data?.facebook_creatives },
           }).eq("id", proj.id);
         }
 
         results.push({ project_id: proj.id, name: proj.name, imported, errors, creatives: creativesCount });
       } catch (e) {
+        console.error(`[FB Sync] ${proj.name} exception`, e);
         results.push({ project_id: proj.id, name: proj.name, imported: 0, errors: 1, creatives: 0 });
       }
     }
