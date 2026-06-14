@@ -137,7 +137,7 @@ export default function MobileCockpit() {
     try {
       const { data, error } = await supabase
         .from("imphq_leads")
-        .select("id, nome, telefone, email, score, status, created_at")
+        .select("id, nome, phone, email, score, status, created_at")
         .eq("project_id", selectedProjectId)
         .order("created_at", { ascending: false })
         .limit(150);
