@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileJson, Type, Link as LinkIcon } from "lucide-react";
+import { Loader2, Upload, FileJson, Type, Link as LinkIcon, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,6 +22,20 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [url, setUrl] = useState("");
   const [nicho, setNicho] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // VSL form
+  const [vsl, setVsl] = useState({
+    title: "",
+    url: "",
+    transcricao: "",
+    criador: "",
+    plataforma: "YouTube",
+    duracao: "",
+    rating: 4,
+    hook: "",
+    oferta: "",
+    cta: "",
+  });
 
   const cleanJson = (raw: string) => {
     // Remove markdown fences (```json ... ```)
