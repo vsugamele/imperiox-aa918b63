@@ -9,6 +9,8 @@ import { Link } from "react-router-dom";
 import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap, Clock, MessageCircle, RefreshCw } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { toast } from "sonner";
+import { countryFlag, countryName } from "@/lib/countryFlag";
+
 
 export type DrillMetric =
   | "revenue"
@@ -374,10 +376,16 @@ export default function DashboardDrillSheet({
                     <div key={v.id} className="rounded-lg border border-border p-3 bg-secondary/30">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{v.produto_nome || "—"}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(v.data_venda).toLocaleString("pt-BR")} · {v.plataforma || "—"}
+                          <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {v.pais && v.pais !== "BR" && (
+                              <span title={countryName(v.pais)} className="text-base leading-none">{countryFlag(v.pais)}</span>
+                            )}
+                            <span className="truncate">{v.produto_nome || "—"}</span>
                           </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(v.data_venda).toLocaleString("pt-BR")} · {v.plataforma || "—"}{v.pais && v.pais !== "BR" ? ` · ${countryName(v.pais)}` : ""}
+                          </p>
+
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-mono font-bold text-emerald-400">{fmtBRL(parseFloat(v.valor) || 0)}</p>
