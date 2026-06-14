@@ -56,25 +56,52 @@ function isVideoUrl(url?: string | null): boolean {
   return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
+const LS_KEY = "referencias.filters.v1";
+const loadLS = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; } };
+
 export default function Referencias() {
+  const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterTipo, setFilterTipo] = useState("all");
-  const [filterPlat, setFilterPlat] = useState("all");
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterPasta, setFilterPasta] = useState("all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [searchInput, setSearchInput] = useState(_ls.search ?? "");
+  const [search, setSearch] = useState(_ls.search ?? "");
+  const [filterTipo, setFilterTipo] = useState(_ls.filterTipo ?? "all");
+  const [filterPlat, setFilterPlat] = useState(_ls.filterPlat ?? "all");
+  const [filterProject, setFilterProject] = useState(_ls.filterProject ?? "all");
+  const [filterPasta, setFilterPasta] = useState(_ls.filterPasta ?? "all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">(_ls.filterOrigem ?? "all");
+  const [filterCategory, setFilterCategory] = useState(_ls.filterCategory ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(_ls.viewMode ?? "grid");
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
   const [syncing, setSyncing] = useState(false);
+
+  // Debounce search input -> search (250ms)
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Persist filters
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      search: searchInput, filterTipo, filterPlat, filterProject,
+      filterPasta, filterOrigem, filterCategory, viewMode,
+    }));
+  }, [searchInput, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, viewMode]);
+
+  const hasActiveFilters = !!(search || filterTipo !== "all" || filterPlat !== "all" || filterProject !== "all" || filterPasta !== "all" || filterOrigem !== "all" || filterCategory !== "all");
+  const clearFilters = () => {
+    setSearchInput(""); setSearch("");
+    setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
+    setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
+    setCurrentFolder([]);
+  };
 
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
@@ -711,10 +738,10 @@ export default function Referencias() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-2 -mx-1 px-1 border-b border-border/40">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
+          <Input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
         </div>
         <Select value={filterPlat} onValueChange={setFilterPlat}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
@@ -751,6 +778,11 @@ export default function Referencias() {
           </button>
         </div>
         <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        )}
       </div>
 
       {/* Breadcrumb navigation */}
