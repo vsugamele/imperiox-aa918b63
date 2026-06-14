@@ -22795,6 +22795,7 @@ export type Database = {
           funil_id: string | null
           id: string
           lead_id: string | null
+          pais: string | null
           plataforma: string
           produto_id_ext: string | null
           produto_nome: string | null
@@ -22818,6 +22819,7 @@ export type Database = {
           funil_id?: string | null
           id: string
           lead_id?: string | null
+          pais?: string | null
           plataforma: string
           produto_id_ext?: string | null
           produto_nome?: string | null
@@ -22841,6 +22843,7 @@ export type Database = {
           funil_id?: string | null
           id?: string
           lead_id?: string | null
+          pais?: string | null
           plataforma?: string
           produto_id_ext?: string | null
           produto_nome?: string | null
