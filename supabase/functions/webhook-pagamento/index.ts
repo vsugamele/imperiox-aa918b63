@@ -480,7 +480,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   // Extract external transaction id (codigo_pedido) for cross-platform deduplication
   const externalTxId = financeiro?.codigo_pedido || null;
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId, pais, moedaOriginal, valorOriginal };
 }
 
 async function processWebhook(req: Request, body: any, projectIdInit: string | null) {
@@ -499,7 +499,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId } = parseWebhookBody(body, hotmartToken);
+    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId, pais, moedaOriginal, valorOriginal } = parseWebhookBody(body, hotmartToken);
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
