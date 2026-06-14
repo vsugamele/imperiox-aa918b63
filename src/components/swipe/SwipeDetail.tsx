@@ -163,14 +163,38 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     <Sheet open={true} onOpenChange={onClose}>
       <SheetContent className="bg-background w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-primary">{data.__new ? "Nova copy" : data.title}</SheetTitle>
+          <SheetTitle className="text-primary flex items-center gap-2">
+            {isVsl && <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">VSL</Badge>}
+            {data.__new ? "Nova copy" : data.title}
+          </SheetTitle>
         </SheetHeader>
 
+        {/* Player VSL */}
+        {isVsl && embed && (
+          <div className="mt-3 rounded-lg overflow-hidden bg-black/60 border border-border/40">
+            {embed.type === "mp4" ? (
+              <video src={embed.src} controls className="w-full aspect-video" />
+            ) : embed.type === "yt" || embed.type === "vimeo" ? (
+              <iframe
+                src={embed.src}
+                className="w-full aspect-video"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a href={embed.src} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 text-xs text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" /> Abrir vídeo: {embed.src}
+              </a>
+            )}
+          </div>
+        )}
+
         <Tabs defaultValue="anatomia" className="mt-4">
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className={`grid w-full ${isVsl ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="anatomia" className="text-xs">Anatomia</TabsTrigger>
             <TabsTrigger value="reverse" className="text-xs gap-1"><FlaskConical className="h-3 w-3" /> Eng. Reversa</TabsTrigger>
             <TabsTrigger value="motor" className="text-xs gap-1"><Wand2 className="h-3 w-3" /> Motor</TabsTrigger>
+            {isVsl && <TabsTrigger value="criativos" className="text-xs gap-1"><ImageIcon className="h-3 w-3" /> Criativos</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="anatomia" className="space-y-3 mt-3">
