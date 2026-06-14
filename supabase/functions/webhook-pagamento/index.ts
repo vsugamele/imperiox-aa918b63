@@ -275,6 +275,10 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   let produto = "";
   let data_compra: string | null = null;
   let tipo_venda: string = "principal";
+  let pais: string | null = null;
+  let moedaOriginal: string | null = null;
+  let valorOriginal: number | null = null;
+
 
   // ── Ticto v2 detection (version field or token in body) ──
   if (body?.version === "2.0" || (body?.token && body?.item && body?.customer)) {
@@ -380,6 +384,24 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     } else {
       valor = Number(_priceObj.value) || 0;
     }
+
+    // País do comprador (Hotmart): tenta address.country, checkout_country, buyer.country
+    const _addr = buyer.address || {};
+    const _paisHot = (
+      _addr.country_iso || _addr.country ||
+      buyer.country_iso || buyer.country ||
+      purchase.checkout_country?.iso || purchase.checkout_country ||
+      purchase.business_model_country || ""
+    ).toString().toUpperCase().slice(0, 2);
+    const _moedaOrig = (_priceObj.currency_value || _fullPrice.currency_value || _origPrice.currency_value || "BRL").toUpperCase();
+    const _currencyToCountry: Record<string, string> = {
+      BRL: "BR", PYG: "PY", USD: "US", EUR: "EU", ARS: "AR", CLP: "CL",
+      COP: "CO", MXN: "MX", PEN: "PE", UYU: "UY", GBP: "GB",
+    };
+    pais = _paisHot && _paisHot.length === 2 ? _paisHot : (_currencyToCountry[_moedaOrig] || "BR");
+    moedaOriginal = _moedaOrig;
+    valorOriginal = Number(_priceObj.value || _fullPrice.value || _origPrice.value) || null;
+
     const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
     if (rawDate) {
       data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
@@ -389,6 +411,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     if (purchase.is_order_bump === true) tipo_venda = "orderbump";
     else if (body.data?.product?.has_co_production === true) tipo_venda = "upsell";
   }
+
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
     plataforma = "Kiwify";
@@ -457,7 +480,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
   // Extract external transaction id (codigo_pedido) for cross-platform deduplication
   const externalTxId = financeiro?.codigo_pedido || null;
 
-  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId };
+  return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId, pais, moedaOriginal, valorOriginal };
 }
 
 async function processWebhook(req: Request, body: any, projectIdInit: string | null) {
@@ -476,7 +499,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId } = parseWebhookBody(body, hotmartToken);
+    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId, pais, moedaOriginal, valorOriginal } = parseWebhookBody(body, hotmartToken);
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
@@ -676,6 +699,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           status: vendaStatus,
           tipo_venda: tipo_venda || "principal",
           external_transaction_id: externalTxId,
+          pais: pais || null,
           utm_source: webhookUtms?.utm_source || null,
           utm_medium: webhookUtms?.utm_medium || null,
           utm_campaign: webhookUtms?.utm_campaign || null,
@@ -684,10 +708,14 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           data: {
             ...(webhookUtms ? { utms: webhookUtms } : {}),
             ...(matchedCampaignId ? { matched_campaign_id: matchedCampaignId } : {}),
+            ...(pais ? { pais_comprador: pais } : {}),
+            ...(moedaOriginal ? { moeda_original: moedaOriginal } : {}),
+            ...(valorOriginal ? { valor_original: valorOriginal } : {}),
             last_intent_at: new Date().toISOString(),
             last_intent_event: evento,
           },
         };
+
         if (data_compra) {
           vendaInsert.created_at = data_compra;
           vendaInsert.data_venda = data_compra;
@@ -921,6 +949,9 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         if (financeiro) Object.assign(vendaData, financeiro);
         if (webhookUtms) vendaData.utms = webhookUtms;
         if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
+        if (pais) vendaData.pais_comprador = pais;
+        if (moedaOriginal) vendaData.moeda_original = moedaOriginal;
+        if (valorOriginal) vendaData.valor_original = valorOriginal;
 
         // Reverse-match campaign_id from utm_campaign
         const matchedCampaignId = webhookUtms?.utm_campaign
@@ -938,6 +969,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           status: "aprovado",
           tipo_venda,
           external_transaction_id: externalTxId,
+          pais: pais || null,
           utm_source: webhookUtms?.utm_source || null,
           utm_medium: webhookUtms?.utm_medium || null,
           utm_campaign: webhookUtms?.utm_campaign || null,
@@ -950,6 +982,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           vendaInsert.data_venda = data_compra;
         }
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
+
         if (vendaErr) {
           // 23505 = unique_violation: another concurrent webhook already inserted this transaction. Treat as success.
           if (vendaErr.code === "23505") {
