@@ -167,6 +167,27 @@ export default function Swipe() {
       </div>
 
       {/* CHIPS */}
+      {/* BUSCA + FILTRO VSL */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar título, criador, transcrição, tag..."
+          className="flex-1 min-w-[220px] h-9 px-3 text-xs rounded-md bg-secondary/30 border border-border/40 focus:border-[hsl(var(--gold))]/50 outline-none"
+        />
+        <button
+          onClick={() => setVslOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            vslOnly
+              ? "bg-amber-500/15 border-amber-500/50 text-amber-400"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          🎬 Só VSL ({swipes.filter((s) => s.formato === "vsl").length})
+        </button>
+      </div>
+
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5 items-center">
           <button
