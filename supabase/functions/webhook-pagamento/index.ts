@@ -699,6 +699,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           status: vendaStatus,
           tipo_venda: tipo_venda || "principal",
           external_transaction_id: externalTxId,
+          pais: pais || null,
           utm_source: webhookUtms?.utm_source || null,
           utm_medium: webhookUtms?.utm_medium || null,
           utm_campaign: webhookUtms?.utm_campaign || null,
@@ -707,10 +708,14 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           data: {
             ...(webhookUtms ? { utms: webhookUtms } : {}),
             ...(matchedCampaignId ? { matched_campaign_id: matchedCampaignId } : {}),
+            ...(pais ? { pais_comprador: pais } : {}),
+            ...(moedaOriginal ? { moeda_original: moedaOriginal } : {}),
+            ...(valorOriginal ? { valor_original: valorOriginal } : {}),
             last_intent_at: new Date().toISOString(),
             last_intent_event: evento,
           },
         };
+
         if (data_compra) {
           vendaInsert.created_at = data_compra;
           vendaInsert.data_venda = data_compra;
