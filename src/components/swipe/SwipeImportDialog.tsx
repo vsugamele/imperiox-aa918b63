@@ -95,9 +95,40 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
       } else if (tab === "text") {
         if (!text.trim()) throw new Error("Cole o texto");
         payload = text;
-      } else {
+      } else if (tab === "url") {
         if (!url.trim()) throw new Error("Informe a URL");
         payload = url;
+      } else if (tab === "vsl") {
+        if (!vsl.title.trim()) throw new Error("Dê um título à VSL");
+        if (!vsl.url.trim() && !vsl.transcricao.trim()) throw new Error("Cole pelo menos a URL ou a transcrição");
+        const { data: u } = await supabase.auth.getUser();
+        const row: any = {
+          user_id: u.user?.id,
+          title: vsl.title,
+          formato: "vsl",
+          plataforma: vsl.plataforma || "YouTube",
+          criador: vsl.criador || null,
+          nicho: nicho || null,
+          rating: vsl.rating || null,
+          media_urls: vsl.url ? [vsl.url] : [],
+          raw_text: vsl.transcricao || null,
+          blocks: {
+            gancho: vsl.hook || "",
+            cta_venda: vsl.cta || "",
+            narrativa: vsl.transcricao || "",
+          },
+          tags: vsl.duracao ? [`${vsl.duracao}min`] : [],
+          gatilhos: [],
+          reverse_engineering: vsl.oferta ? { oferta: vsl.oferta } : {},
+        };
+        const { error: insErr } = await supabase.from("imphq_swipes" as any).insert(row);
+        if (insErr) throw insErr;
+        toast.success("VSL adicionada ao banco!");
+        onImported();
+        onOpenChange(false);
+        setVsl({ title: "", url: "", transcricao: "", criador: "", plataforma: "YouTube", duracao: "", rating: 4, hook: "", oferta: "", cta: "" });
+        setLoading(false);
+        return;
       }
       const { data, error } = await supabase.functions.invoke("swipe-import", {
         body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null },
