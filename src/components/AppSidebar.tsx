@@ -37,10 +37,11 @@ const venderItems = [
 ];
 
 const planejarItems = [
-  { title: "Docs / KB",    url: "/docs",      icon: FileText },
-  { title: "Rascunhos IA", url: "/rascunhos", icon: Pencil },
-  { title: "Nutrição",     url: "/nutricao",  icon: Mail },
-  { title: "Webinar",      url: "/webinar",   icon: Radio },
+  { title: "Docs / KB",    url: "/docs",        icon: FileText },
+  { title: "Rascunhos IA", url: "/rascunhos",   icon: Pencil },
+  { title: "Referências",  url: "/referencias", icon: Library },
+  { title: "Nutrição",     url: "/nutricao",    icon: Mail },
+  { title: "Webinar",      url: "/webinar",     icon: Radio },
 ];
 
 const inteligenciaItems = [
