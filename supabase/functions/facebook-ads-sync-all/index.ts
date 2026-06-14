@@ -45,8 +45,9 @@ Deno.serve(async (req) => {
     const brtDateStr = (d: Date = new Date()) =>
       d.toLocaleString("en-CA", { timeZone: "America/Sao_Paulo" }).split(",")[0];
     const todayBRT = brtDateStr();
-    const yesterdayBRT = brtDateStr(new Date(Date.now() - 24 * 60 * 60 * 1000));
-    const dfrom = yesterdayBRT;
+    // Janela de 7 dias: a Meta ainda ajusta spend de D-3/D-2 por atribuição.
+    const sevenDaysAgoBRT = brtDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const dfrom = sevenDaysAgoBRT;
     const dto = todayBRT;
 
     const results: { project_id: string; name: string; imported: number; errors: number; creatives: number }[] = [];
