@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -6,9 +7,34 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src: string } | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // YouTube
+    const ytId = u.hostname.includes("youtu.be")
+      ? u.pathname.slice(1)
+      : u.searchParams.get("v");
+    if ((u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) && ytId) {
+      return { type: "yt", src: `https://www.youtube.com/embed/${ytId}` };
+    }
+    // Vimeo
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean).pop();
+      if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+    }
+    if (/\.(mp4|webm|mov)$/i.test(u.pathname)) {
+      return { type: "mp4", src: url };
+    }
+    return { type: "other", src: url };
+  } catch {
+    return null;
+  }
+}
 
 const BLOCK_KEYS = [
   { key: "gancho", label: "🎯 Gancho" },
@@ -32,8 +58,24 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   const [generating, setGenerating] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
+  const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
 
   useEffect(() => setData(swipe), [swipe?.id]);
+
+  const isVsl = data?.formato === "vsl";
+  const videoUrl = data?.media_urls?.[0];
+  const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
+
+  // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
+  useEffect(() => {
+    if (!data?.id || data?.__new) return;
+    supabase
+      .from("imphq_creative_batches")
+      .select("id, nome, status, total_gerado, created_at")
+      .contains("source_swipe_ids", [data.id])
+      .order("created_at", { ascending: false })
+      .then(({ data: rows }) => setLinkedBatches(rows || []));
+  }, [data?.id]);
 
   const updateBlock = (k: string, v: string) => setData({ ...data, blocks: { ...(data.blocks || {}), [k]: v } });
 
@@ -121,14 +163,38 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     <Sheet open={true} onOpenChange={onClose}>
       <SheetContent className="bg-background w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-primary">{data.__new ? "Nova copy" : data.title}</SheetTitle>
+          <SheetTitle className="text-primary flex items-center gap-2">
+            {isVsl && <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">VSL</Badge>}
+            {data.__new ? "Nova copy" : data.title}
+          </SheetTitle>
         </SheetHeader>
 
+        {/* Player VSL */}
+        {isVsl && embed && (
+          <div className="mt-3 rounded-lg overflow-hidden bg-black/60 border border-border/40">
+            {embed.type === "mp4" ? (
+              <video src={embed.src} controls className="w-full aspect-video" />
+            ) : embed.type === "yt" || embed.type === "vimeo" ? (
+              <iframe
+                src={embed.src}
+                className="w-full aspect-video"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a href={embed.src} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 text-xs text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" /> Abrir vídeo: {embed.src}
+              </a>
+            )}
+          </div>
+        )}
+
         <Tabs defaultValue="anatomia" className="mt-4">
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className={`grid w-full ${isVsl ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="anatomia" className="text-xs">Anatomia</TabsTrigger>
             <TabsTrigger value="reverse" className="text-xs gap-1"><FlaskConical className="h-3 w-3" /> Eng. Reversa</TabsTrigger>
             <TabsTrigger value="motor" className="text-xs gap-1"><Wand2 className="h-3 w-3" /> Motor</TabsTrigger>
+            {isVsl && <TabsTrigger value="criativos" className="text-xs gap-1"><ImageIcon className="h-3 w-3" /> Criativos</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="anatomia" className="space-y-3 mt-3">
@@ -259,6 +325,40 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
               <strong>Extrair fórmula</strong>: salva o esqueleto numa biblioteca de templates.
             </p>
           </TabsContent>
+
+          {isVsl && (
+            <TabsContent value="criativos" className="space-y-3 mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {linkedBatches.length} lote(s) de criativos inspirados nesta VSL
+                </p>
+                <Button asChild size="sm" className="gap-1">
+                  <Link to={`/criativos/novo?source_swipe=${data.id}`}>
+                    <Sparkles className="h-3 w-3" /> Gerar criativos desta VSL
+                  </Link>
+                </Button>
+              </div>
+              {linkedBatches.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground py-6 text-center">
+                  Nenhum criativo atrelado ainda. Clique acima para gerar o primeiro lote.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {linkedBatches.map((b) => (
+                    <Link key={b.id} to={`/criativos/${b.id}`} className="block p-2 rounded border border-border/40 hover:bg-secondary/40 transition">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{b.nome}</span>
+                        <Badge variant="outline" className="text-[9px]">{b.status}</Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {b.total_gerado} criativos · {new Date(b.created_at).toLocaleDateString()}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>

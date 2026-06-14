@@ -17,6 +17,7 @@ interface Batch {
   total_gerado: number;
   total_planejado: number;
   error_message: string | null;
+  source_swipe_ids?: string[] | null;
 }
 
 interface Asset {
@@ -42,6 +43,7 @@ const providerLabel = (p?: string | null) =>
 export default function CriativoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const [batch, setBatch] = useState<Batch | null>(null);
+  const [sourceSwipes, setSourceSwipes] = useState<Array<{ id: string; title: string }>>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [editTarget, setEditTarget] = useState<Asset | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
@@ -63,7 +65,19 @@ export default function CriativoDetalhe() {
         .neq("image_url", "pending")
         .order("created_at", { ascending: true }),
     ]);
-    if (bRes.data) setBatch(bRes.data as any);
+    if (bRes.data) {
+      setBatch(bRes.data as any);
+      const ids: string[] = (bRes.data as any)?.source_swipe_ids || [];
+      if (ids.length) {
+        const { data: sws } = await supabase
+          .from("imphq_swipes" as any)
+          .select("id, title")
+          .in("id", ids);
+        setSourceSwipes((sws as any) || []);
+      } else {
+        setSourceSwipes([]);
+      }
+    }
     if (aRes.data) setAssets(aRes.data as any);
   }
 
@@ -221,12 +235,17 @@ export default function CriativoDetalhe() {
           </Button>
           <div>
             <h1 className="font-serif text-2xl text-primary">{batch?.nome || "..."}</h1>
-            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
+            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
               <Badge variant={batch?.status === "completed" ? "default" : "secondary"}>
                 {batch?.status === "processing" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 {batch?.status || "..."}
               </Badge>
               <span>{batch?.total_gerado || 0}/{batch?.total_planejado || 0} ({pct}%)</span>
+              {sourceSwipes.map((s) => (
+                <Badge key={s.id} variant="outline" className="text-[10px] border-amber-500/40 text-amber-400 gap-1">
+                  <Sparkles className="h-3 w-3" /> Inspirado em VSL: {s.title}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>

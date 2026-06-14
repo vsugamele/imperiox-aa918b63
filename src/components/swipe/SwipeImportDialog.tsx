@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileJson, Type, Link as LinkIcon } from "lucide-react";
+import { Loader2, Upload, FileJson, Type, Link as LinkIcon, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,6 +22,20 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [url, setUrl] = useState("");
   const [nicho, setNicho] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // VSL form
+  const [vsl, setVsl] = useState({
+    title: "",
+    url: "",
+    transcricao: "",
+    criador: "",
+    plataforma: "YouTube",
+    duracao: "",
+    rating: 4,
+    hook: "",
+    oferta: "",
+    cta: "",
+  });
 
   const cleanJson = (raw: string) => {
     // Remove markdown fences (```json ... ```)
@@ -81,9 +95,40 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
       } else if (tab === "text") {
         if (!text.trim()) throw new Error("Cole o texto");
         payload = text;
-      } else {
+      } else if (tab === "url") {
         if (!url.trim()) throw new Error("Informe a URL");
         payload = url;
+      } else if (tab === "vsl") {
+        if (!vsl.title.trim()) throw new Error("Dê um título à VSL");
+        if (!vsl.url.trim() && !vsl.transcricao.trim()) throw new Error("Cole pelo menos a URL ou a transcrição");
+        const { data: u } = await supabase.auth.getUser();
+        const row: any = {
+          user_id: u.user?.id,
+          title: vsl.title,
+          formato: "vsl",
+          plataforma: vsl.plataforma || "YouTube",
+          criador: vsl.criador || null,
+          nicho: nicho || null,
+          rating: vsl.rating || null,
+          media_urls: vsl.url ? [vsl.url] : [],
+          raw_text: vsl.transcricao || null,
+          blocks: {
+            gancho: vsl.hook || "",
+            cta_venda: vsl.cta || "",
+            narrativa: vsl.transcricao || "",
+          },
+          tags: vsl.duracao ? [`${vsl.duracao}min`] : [],
+          gatilhos: [],
+          reverse_engineering: vsl.oferta ? { oferta: vsl.oferta } : {},
+        };
+        const { error: insErr } = await supabase.from("imphq_swipes" as any).insert(row);
+        if (insErr) throw insErr;
+        toast.success("VSL adicionada ao banco!");
+        onImported();
+        onOpenChange(false);
+        setVsl({ title: "", url: "", transcricao: "", criador: "", plataforma: "YouTube", duracao: "", rating: 4, hook: "", oferta: "", cta: "" });
+        setLoading(false);
+        return;
       }
       const { data, error } = await supabase.functions.invoke("swipe-import", {
         body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null },
@@ -128,10 +173,11 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-3 w-full">
+            <TabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="json" className="text-xs gap-1"><FileJson className="h-3 w-3" /> JSON</TabsTrigger>
-              <TabsTrigger value="text" className="text-xs gap-1"><Type className="h-3 w-3" /> Texto bruto</TabsTrigger>
+              <TabsTrigger value="text" className="text-xs gap-1"><Type className="h-3 w-3" /> Texto</TabsTrigger>
               <TabsTrigger value="url" className="text-xs gap-1"><LinkIcon className="h-3 w-3" /> URL</TabsTrigger>
+              <TabsTrigger value="vsl" className="text-xs gap-1"><Video className="h-3 w-3" /> VSL</TabsTrigger>
             </TabsList>
 
             <TabsContent value="json" className="space-y-2">
@@ -167,6 +213,50 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
               />
               <p className="text-[10px] text-muted-foreground">
                 Funciona melhor com Landing Pages, páginas de venda e posts públicos. Para Reels/TikTok, o conteúdo extraído é a legenda + comentários.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="vsl" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <Label className="text-xs">Título da VSL *</Label>
+                  <Input value={vsl.title} onChange={(e) => setVsl({ ...vsl, title: e.target.value })} placeholder="Ex: VSL Soulmate — Hook 'Carta a um Estranho'" className="bg-background h-8 text-sm" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">URL do vídeo (YouTube / Vimeo / MP4)</Label>
+                  <Input value={vsl.url} onChange={(e) => setVsl({ ...vsl, url: e.target.value })} placeholder="https://youtube.com/watch?v=..." className="bg-background h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Criador</Label>
+                  <Input value={vsl.criador} onChange={(e) => setVsl({ ...vsl, criador: e.target.value })} placeholder="@gstalves" className="bg-background h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Plataforma</Label>
+                  <Input value={vsl.plataforma} onChange={(e) => setVsl({ ...vsl, plataforma: e.target.value })} className="bg-background h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Duração (min)</Label>
+                  <Input value={vsl.duracao} onChange={(e) => setVsl({ ...vsl, duracao: e.target.value })} placeholder="22" className="bg-background h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Nota (1-5)</Label>
+                  <Input type="number" min={1} max={5} value={vsl.rating} onChange={(e) => setVsl({ ...vsl, rating: parseInt(e.target.value) || 0 })} className="bg-background h-8 text-sm" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Hook (1ª frase)</Label>
+                  <Input value={vsl.hook} onChange={(e) => setVsl({ ...vsl, hook: e.target.value })} placeholder="Há 3 anos descobri um segredo que..." className="bg-background h-8 text-sm" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Oferta / CTA principal</Label>
+                  <Input value={vsl.cta} onChange={(e) => setVsl({ ...vsl, cta: e.target.value })} placeholder="Clique abaixo e leve por R$ 27..." className="bg-background h-8 text-sm" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Transcrição (recomendado)</Label>
+                  <Textarea value={vsl.transcricao} onChange={(e) => setVsl({ ...vsl, transcricao: e.target.value })} placeholder="Cole a transcrição completa. A IA usa isso na engenharia reversa." className="bg-background text-sm min-h-[160px] leading-7" />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Vai ser salvo como swipe com <code>formato="vsl"</code>. O player aparece no detalhe e você pode rodar engenharia reversa e gerar criativos atrelados.
               </p>
             </TabsContent>
           </Tabs>
