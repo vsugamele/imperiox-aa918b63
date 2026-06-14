@@ -49,6 +49,9 @@ interface Concorrente {
 
 export default function CriativoNovo() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sourceSwipeId = searchParams.get("source_swipe");
+  const [sourceSwipe, setSourceSwipe] = useState<any>(null);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -348,9 +351,16 @@ export default function CriativoNovo() {
           angulos,
           formato,
           auto_briefing: autoMode,
+          source_swipe_ids: sourceSwipeId ? [sourceSwipeId] : [],
         },
       });
       if (error) throw error;
+      if (sourceSwipeId && (data as any)?.batch_id) {
+        await supabase
+          .from("imphq_creative_batches")
+          .update({ source_swipe_ids: [sourceSwipeId] } as any)
+          .eq("id", (data as any).batch_id);
+      }
       toast.success("Geração iniciada! Acompanhe em tempo real.");
       navigate(`/criativos/${(data as any).batch_id}`);
     } catch (e: any) {
