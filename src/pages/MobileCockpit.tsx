@@ -137,7 +137,7 @@ export default function MobileCockpit() {
     try {
       const { data, error } = await supabase
         .from("imphq_leads")
-        .select("id, nome, telefone, email, score, status, ultimo_produto, ultimo_evento, created_at")
+        .select("id, nome, telefone, email, score, status, created_at")
         .eq("project_id", selectedProjectId)
         .order("created_at", { ascending: false })
         .limit(150);
@@ -523,7 +523,7 @@ function LeadsTab({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h4 className="text-sm font-bold text-white truncate">{lead.nome || "Sem nome"}</h4>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{lead.telefone || lead.email || "—"}</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{lead.phone || lead.email || "—"}</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {typeof lead.score === "number" && lead.score > 0 && (
@@ -541,17 +541,17 @@ function LeadsTab({
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span className="truncate max-w-[60%]">
-                    {lead.ultimo_produto || lead.ultimo_evento || lead.status || "Lead"}
+                    {lead.status || "Lead"}
                   </span>
                   <span className="shrink-0">
                     {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: ptBR })}
                   </span>
                 </div>
-                {lead.telefone && (
+                {lead.phone && (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => { e.stopPropagation(); onWhats(lead.telefone!); }}
+                    onClick={(e) => { e.stopPropagation(); onWhats(lead.phone!); }}
                     className="w-full text-xs h-9 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
                   >
                     <ExternalLink className="h-3.5 w-3.5" /> WhatsApp
