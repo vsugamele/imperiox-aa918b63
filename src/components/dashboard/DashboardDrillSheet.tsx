@@ -108,7 +108,7 @@ export default function DashboardDrillSheet({
         if (metric === "revenue" || metric === "sales") {
           let q: any = supabase
             .from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from)
             .lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"])
@@ -302,7 +302,7 @@ export default function DashboardDrillSheet({
             };
             const statuses = stageStatusMap[funnelStage] || [];
             let q: any = supabase.from("imphq_vendas")
-              .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+              .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
               .gte("data_venda", from).lte("data_venda", to)
               .in("status", statuses)
               .order("data_venda", { ascending: false }).limit(200);
@@ -313,7 +313,7 @@ export default function DashboardDrillSheet({
           }
         } else if ((metric === "product" || metric === "project_revenue") && (productName || projectId)) {
           let q: any = supabase.from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from).lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"])
             .order("data_venda", { ascending: false }).limit(200);
@@ -326,7 +326,7 @@ export default function DashboardDrillSheet({
           const dayStart = `${dayKey}T00:00:00`;
           const dayEnd = `${dayKey}T23:59:59`;
           let q: any = supabase.from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", dayStart).lte("data_venda", dayEnd)
             .in("status", ["aprovado", "approved", "paid", "completed"])
             .order("data_venda", { ascending: false }).limit(200);
