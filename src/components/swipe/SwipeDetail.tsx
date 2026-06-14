@@ -325,6 +325,40 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
               <strong>Extrair fórmula</strong>: salva o esqueleto numa biblioteca de templates.
             </p>
           </TabsContent>
+
+          {isVsl && (
+            <TabsContent value="criativos" className="space-y-3 mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {linkedBatches.length} lote(s) de criativos inspirados nesta VSL
+                </p>
+                <Button asChild size="sm" className="gap-1">
+                  <Link to={`/criativos/novo?source_swipe=${data.id}`}>
+                    <Sparkles className="h-3 w-3" /> Gerar criativos desta VSL
+                  </Link>
+                </Button>
+              </div>
+              {linkedBatches.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground py-6 text-center">
+                  Nenhum criativo atrelado ainda. Clique acima para gerar o primeiro lote.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {linkedBatches.map((b) => (
+                    <Link key={b.id} to={`/criativos/${b.id}`} className="block p-2 rounded border border-border/40 hover:bg-secondary/40 transition">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{b.nome}</span>
+                        <Badge variant="outline" className="text-[9px]">{b.status}</Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {b.total_gerado} criativos · {new Date(b.created_at).toLocaleDateString()}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>
