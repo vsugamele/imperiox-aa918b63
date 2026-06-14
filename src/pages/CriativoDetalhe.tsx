@@ -17,6 +17,7 @@ interface Batch {
   total_gerado: number;
   total_planejado: number;
   error_message: string | null;
+  source_swipe_ids?: string[] | null;
 }
 
 interface Asset {
@@ -42,6 +43,7 @@ const providerLabel = (p?: string | null) =>
 export default function CriativoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const [batch, setBatch] = useState<Batch | null>(null);
+  const [sourceSwipes, setSourceSwipes] = useState<Array<{ id: string; title: string }>>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [editTarget, setEditTarget] = useState<Asset | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
