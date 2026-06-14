@@ -56,25 +56,52 @@ function isVideoUrl(url?: string | null): boolean {
   return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
+const LS_KEY = "referencias.filters.v1";
+const loadLS = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; } };
+
 export default function Referencias() {
+  const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterTipo, setFilterTipo] = useState("all");
-  const [filterPlat, setFilterPlat] = useState("all");
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterPasta, setFilterPasta] = useState("all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [searchInput, setSearchInput] = useState(_ls.search ?? "");
+  const [search, setSearch] = useState(_ls.search ?? "");
+  const [filterTipo, setFilterTipo] = useState(_ls.filterTipo ?? "all");
+  const [filterPlat, setFilterPlat] = useState(_ls.filterPlat ?? "all");
+  const [filterProject, setFilterProject] = useState(_ls.filterProject ?? "all");
+  const [filterPasta, setFilterPasta] = useState(_ls.filterPasta ?? "all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">(_ls.filterOrigem ?? "all");
+  const [filterCategory, setFilterCategory] = useState(_ls.filterCategory ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(_ls.viewMode ?? "grid");
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
   const [syncing, setSyncing] = useState(false);
+
+  // Debounce search input -> search (250ms)
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Persist filters
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      search: searchInput, filterTipo, filterPlat, filterProject,
+      filterPasta, filterOrigem, filterCategory, viewMode,
+    }));
+  }, [searchInput, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, viewMode]);
+
+  const hasActiveFilters = !!(search || filterTipo !== "all" || filterPlat !== "all" || filterProject !== "all" || filterPasta !== "all" || filterOrigem !== "all" || filterCategory !== "all");
+  const clearFilters = () => {
+    setSearchInput(""); setSearch("");
+    setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
+    setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
+    setCurrentFolder([]);
+  };
 
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
