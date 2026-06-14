@@ -380,6 +380,24 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     } else {
       valor = Number(_priceObj.value) || 0;
     }
+
+    // País do comprador (Hotmart): tenta address.country, checkout_country, buyer.country
+    const _addr = buyer.address || {};
+    const _paisHot = (
+      _addr.country_iso || _addr.country ||
+      buyer.country_iso || buyer.country ||
+      purchase.checkout_country?.iso || purchase.checkout_country ||
+      purchase.business_model_country || ""
+    ).toString().toUpperCase().slice(0, 2);
+    const _moedaOrig = (_priceObj.currency_value || _fullPrice.currency_value || _origPrice.currency_value || "BRL").toUpperCase();
+    const _currencyToCountry: Record<string, string> = {
+      BRL: "BR", PYG: "PY", USD: "US", EUR: "EU", ARS: "AR", CLP: "CL",
+      COP: "CO", MXN: "MX", PEN: "PE", UYU: "UY", GBP: "GB",
+    };
+    pais = _paisHot && _paisHot.length === 2 ? _paisHot : (_currencyToCountry[_moedaOrig] || "BR");
+    moedaOriginal = _moedaOrig;
+    valorOriginal = Number(_priceObj.value || _fullPrice.value || _origPrice.value) || null;
+
     const rawDate = purchase.approved_date || purchase.order_date || purchase.date || null;
     if (rawDate) {
       data_compra = typeof rawDate === "number" ? new Date(rawDate).toISOString() : rawDate;
@@ -389,6 +407,7 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     if (purchase.is_order_bump === true) tipo_venda = "orderbump";
     else if (body.data?.product?.has_co_production === true) tipo_venda = "upsell";
   }
+
   // ── Kiwify ──
   else if (body?.webhook_event_type || body?.order_status) {
     plataforma = "Kiwify";
