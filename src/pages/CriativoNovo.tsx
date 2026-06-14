@@ -75,6 +75,26 @@ export default function CriativoNovo() {
   const [expertFotos, setExpertFotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // Pré-carrega VSL de origem se ?source_swipe=ID
+  useEffect(() => {
+    if (!sourceSwipeId) return;
+    supabase
+      .from("imphq_swipes" as any)
+      .select("id, title, raw_text, media_urls, project_id, blocks, criador")
+      .eq("id", sourceSwipeId)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (!data) return;
+        setSourceSwipe(data);
+        if (data.project_id) setProjectId(data.project_id);
+        setNome((n) => n || `Inspirado em: ${data.title}`);
+        setExtras((x) => x || `Inspiração (VSL): ${data.title}\n${data.blocks?.gancho ? "Hook: " + data.blocks.gancho + "\n" : ""}${(data.raw_text || "").slice(0, 800)}`);
+        if (data.media_urls?.[0]) {
+          setReferenciasText((r) => (r ? r + "\n" : "") + data.media_urls[0]);
+        }
+      });
+  }, [sourceSwipeId]);
+
   // Project context
   const [expertLibrary, setExpertLibrary] = useState<ExpertFoto[]>([]);
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
