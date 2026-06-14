@@ -738,10 +738,10 @@ export default function Referencias() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-2 -mx-1 px-1 border-b border-border/40">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
+          <Input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
         </div>
         <Select value={filterPlat} onValueChange={setFilterPlat}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
@@ -778,6 +778,11 @@ export default function Referencias() {
           </button>
         </div>
         <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        )}
       </div>
 
       {/* Breadcrumb navigation */}
