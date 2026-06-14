@@ -949,6 +949,9 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         if (financeiro) Object.assign(vendaData, financeiro);
         if (webhookUtms) vendaData.utms = webhookUtms;
         if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
+        if (pais) vendaData.pais_comprador = pais;
+        if (moedaOriginal) vendaData.moeda_original = moedaOriginal;
+        if (valorOriginal) vendaData.valor_original = valorOriginal;
 
         // Reverse-match campaign_id from utm_campaign
         const matchedCampaignId = webhookUtms?.utm_campaign
@@ -966,6 +969,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           status: "aprovado",
           tipo_venda,
           external_transaction_id: externalTxId,
+          pais: pais || null,
           utm_source: webhookUtms?.utm_source || null,
           utm_medium: webhookUtms?.utm_medium || null,
           utm_campaign: webhookUtms?.utm_campaign || null,
@@ -978,6 +982,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           vendaInsert.data_venda = data_compra;
         }
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
+
         if (vendaErr) {
           // 23505 = unique_violation: another concurrent webhook already inserted this transaction. Treat as success.
           if (vendaErr.code === "23505") {
