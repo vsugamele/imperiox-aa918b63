@@ -22,6 +22,8 @@ export default function Swipe() {
   const [swipes, setSwipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [vslOnly, setVslOnly] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -56,16 +58,26 @@ export default function Swipe() {
   }, [swipes]);
 
   const filtered = useMemo(() => {
-    if (activeChips.size === 0) return swipes;
-    return swipes.filter((s) => {
-      const hay = new Set<string>();
-      if (s.mecanismo) hay.add(s.mecanismo);
-      if (s.nicho) hay.add(s.nicho);
-      (s.tags || []).forEach((t: string) => hay.add(t));
-      for (const c of activeChips) if (hay.has(c)) return true;
-      return false;
-    });
-  }, [swipes, activeChips]);
+    let arr = swipes;
+    if (vslOnly) arr = arr.filter((s) => s.formato === "vsl");
+    if (search.trim()) {
+      const k = search.toLowerCase();
+      arr = arr.filter((s) =>
+        `${s.title || ""} ${s.raw_text || ""} ${s.criador || ""} ${(s.tags || []).join(" ")}`.toLowerCase().includes(k),
+      );
+    }
+    if (activeChips.size > 0) {
+      arr = arr.filter((s) => {
+        const hay = new Set<string>();
+        if (s.mecanismo) hay.add(s.mecanismo);
+        if (s.nicho) hay.add(s.nicho);
+        (s.tags || []).forEach((t: string) => hay.add(t));
+        for (const c of activeChips) if (hay.has(c)) return true;
+        return false;
+      });
+    }
+    return arr;
+  }, [swipes, activeChips, search, vslOnly]);
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
