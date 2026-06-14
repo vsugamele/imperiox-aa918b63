@@ -234,7 +234,7 @@ export default function MobileCockpit() {
     return leads.filter(l => {
       if (leadStatus !== "all" && l.status !== leadStatus) return false;
       if (q) {
-        const hay = `${l.nome || ""} ${l.telefone || ""} ${l.email || ""} ${l.ultimo_produto || ""}`.toLowerCase();
+        const hay = `${l.nome || ""} ${l.phone || ""} ${l.email || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
