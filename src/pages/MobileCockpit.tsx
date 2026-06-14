@@ -32,13 +32,11 @@ interface Conversation {
 interface Lead {
   id: string;
   nome: string | null;
-  telefone: string | null;
+  phone: string | null;
   email: string | null;
   score: number | null;
   status: string | null;
-  ultimo_produto: string | null;
-  ultimo_evento: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 type Tab = "cockpit" | "inbox" | "leads" | "mais";
