@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Activity, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, Activity, RefreshCw, AlertTriangle, CheckCircle2, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -21,6 +21,7 @@ export default function ZernioHealthCard({ projectId }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [reprocessing, setReprocessing] = useState(false);
+  const [pollingComments, setPollingComments] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -107,12 +108,38 @@ export default function ZernioHealthCard({ projectId }: Props) {
             <Button
               size="sm"
               variant="outline"
-              className="w-full text-xs h-7 gap-1.5"
+              className="w-full text-xs h-7 gap-1.5 mb-2"
               onClick={handleReprocess}
               disabled={reprocessing || (stats?.pending ?? 0) === 0}
             >
               {reprocessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               Reprocessar pendentes
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full text-xs h-7 gap-1.5"
+              onClick={async () => {
+                setPollingComments(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("ig-comments-poller", {
+                    body: { project_id: projectId || undefined },
+                  });
+                  if (error) throw error;
+                  toast({
+                    title: "Comentários sincronizados",
+                    description: `${data?.comments_upserted ?? 0} comentários em ${data?.posts_scanned ?? 0} posts.`,
+                  });
+                } catch (e: any) {
+                  toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" });
+                } finally {
+                  setPollingComments(false);
+                }
+              }}
+              disabled={pollingComments}
+            >
+              {pollingComments ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+              Sincronizar comentários agora
             </Button>
           </>
         )}
