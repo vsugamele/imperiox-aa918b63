@@ -1,0 +1,2 @@
+ALTER TABLE public.imphq_wa_conversations ADD COLUMN IF NOT EXISTS ai_pending_since TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_wa_conv_ai_pending ON public.imphq_wa_conversations (ai_pending_since) WHERE ai_pending_since IS NOT NULL;

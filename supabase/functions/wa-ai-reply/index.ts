@@ -465,12 +465,25 @@ Deno.serve(async (req) => {
         const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
         const [eh, em] = (aiConfig.business_hours_end || "22:00").split(":").map(Number);
         if (now < sh * 100 + sm || now > eh * 100 + em) {
-          console.log(`[wa-ai-reply] Fora do horário comercial (${h}:${m})`);
+          console.log(`[wa-ai-reply] Fora do horário comercial (${h}:${m}) — enfileirando`);
+          await supabase
+            .from("imphq_wa_conversations")
+            .update({ ai_pending_since: new Date().toISOString(), ai_lock_until: null })
+            .eq("id", conversation_id)
+            .is("ai_pending_since", null);
           await clearLock();
-          return new Response(JSON.stringify({ skipped: "business_hours" }), {
+          return new Response(JSON.stringify({ skipped: "business_hours", queued: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+        // Dentro do horário: limpa pending se houver
+        if (conv.ai_pending_since) {
+          await supabase
+            .from("imphq_wa_conversations")
+            .update({ ai_pending_since: null })
+            .eq("id", conversation_id);
+        }
+
       }
 
       // 5. Keyword de escalação
