@@ -29,11 +29,14 @@ const hojeitems = [
 const venderItems = [
   { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
-  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Funis",                url: "/funis",      icon: Target },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-  { title: "Finanças",             url: "/financas",   icon: DollarSign },
+];
+
+const adsFinancasItems = [
+  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
+  { title: "Finanças",             url: "/financas",   icon: DollarSign },
 ];
 
 const planejarItems = [
@@ -191,7 +194,7 @@ export function AppSidebar() {
   // All items pool for favourites lookup
   const allItems: NavItem[] = [
     ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...planejarItems, ...configurarItems,
+    ...planejarItems, ...adsFinancasItems, ...configurarItems,
   ];
 
   const favItems = favorites
@@ -243,6 +246,7 @@ export function AppSidebar() {
         <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
         <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
         <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
+        <NavGroup label="Ads / Finanças" items={adsFinancasItems} {...sharedProps} />
         <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
       </SidebarContent>
 
