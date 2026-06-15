@@ -220,9 +220,10 @@ export function TagRoutingRulesTab() {
           <div className="col-span-2">
             <label className="text-xs text-muted-foreground">Projeto</label>
             <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger className="bg-background"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <SelectTrigger id="tag-rule-project-trigger" className="bg-background"><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
-                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                {projects.length === 0 && <div className="px-2 py-2 text-xs text-muted-foreground">Nenhum projeto ativo.</div>}
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
