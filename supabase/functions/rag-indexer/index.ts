@@ -2,7 +2,7 @@
 // gera embeddings com cache e faz upsert em imphq_rag_chunks.
 //
 // USO:
-//   POST /rag-indexer { projectId?: string, sources?: ("project"|"swipe"|"skill")[] }
+//   POST /rag-indexer { projectId?: string, sources?: ("project"|"swipe"|"skill"|"transcript"|"sale_winning")[] }
 //   Sem projectId: indexa skills globais + todos os projetos do usuário.
 //   Idempotente via content_hash: só re-embedda quando o texto mudou.
 
