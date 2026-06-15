@@ -40506,6 +40506,7 @@ export type Database = {
           created_at: string | null
           custom_background_url: string | null
           description: string | null
+          disable_qa: boolean | null
           display_name: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
@@ -40565,6 +40566,7 @@ export type Database = {
           created_at?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
@@ -40624,6 +40626,7 @@ export type Database = {
           created_at?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
