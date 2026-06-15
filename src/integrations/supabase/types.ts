@@ -23058,6 +23058,7 @@ export type Database = {
           auto_scoring_enabled: boolean | null
           auto_tune_apply: boolean | null
           auto_tune_enabled: boolean | null
+          back_to_hours_prefix: string | null
           banned_phrases: string[] | null
           business_hours_end: string | null
           business_hours_only: boolean | null
@@ -23088,6 +23089,7 @@ export type Database = {
           last_tune_at: string | null
           learning_mode: boolean
           max_tokens: number | null
+          out_of_hours_message: string | null
           payment_link: string | null
           personality: string | null
           pix_key: string | null
@@ -23119,6 +23121,7 @@ export type Database = {
           auto_scoring_enabled?: boolean | null
           auto_tune_apply?: boolean | null
           auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
           banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
@@ -23149,6 +23152,7 @@ export type Database = {
           last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
           pix_key?: string | null
@@ -23180,6 +23184,7 @@ export type Database = {
           auto_scoring_enabled?: boolean | null
           auto_tune_apply?: boolean | null
           auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
           banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
@@ -23210,6 +23215,7 @@ export type Database = {
           last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
           pix_key?: string | null
@@ -23826,15 +23832,19 @@ export type Database = {
       }
       imphq_wa_conversations: {
         Row: {
+          ai_debounce_until: string | null
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
           ai_pending_since: string | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
           assigned_to: string | null
           audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
           contact_name: string | null
+          conv_status: string | null
           conversation_summary: string | null
           created_at: string
           escalation_confidence: number | null
@@ -23842,7 +23852,9 @@ export type Database = {
           escalation_reason: string | null
           ia_ativa: boolean | null
           id: string
+          intent_tags: string[] | null
           jid_suffix: string
+          last_incoming_at: string | null
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
@@ -23865,15 +23877,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
           ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conv_status?: string | null
           conversation_summary?: string | null
           created_at?: string
           escalation_confidence?: number | null
@@ -23881,7 +23897,9 @@ export type Database = {
           escalation_reason?: string | null
           ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
           jid_suffix?: string
+          last_incoming_at?: string | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
@@ -23904,15 +23922,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
           ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conv_status?: string | null
           conversation_summary?: string | null
           created_at?: string
           escalation_confidence?: number | null
@@ -23920,7 +23942,9 @@ export type Database = {
           escalation_reason?: string | null
           ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
           jid_suffix?: string
+          last_incoming_at?: string | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
@@ -24398,6 +24422,7 @@ export type Database = {
           status: string | null
           tokens_used: number | null
           transcript: string | null
+          transcription: string | null
         }
         Insert: {
           attribution_id?: string | null
@@ -24422,6 +24447,7 @@ export type Database = {
           status?: string | null
           tokens_used?: number | null
           transcript?: string | null
+          transcription?: string | null
         }
         Update: {
           attribution_id?: string | null
@@ -24446,6 +24472,7 @@ export type Database = {
           status?: string | null
           tokens_used?: number | null
           transcript?: string | null
+          transcription?: string | null
         }
         Relationships: [
           {
