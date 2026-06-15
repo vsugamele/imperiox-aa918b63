@@ -24,6 +24,7 @@ interface WaSession {
   last_message_direction?: string | null;
   jid_suffix?: string | null;
   snoozed_until?: string | null;
+  assigned_to?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
