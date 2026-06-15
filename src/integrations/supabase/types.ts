@@ -40518,6 +40518,7 @@ export type Database = {
           form_fields: Json | null
           has_quiz: boolean | null
           id: string
+          is_evergreen: boolean | null
           is_panic_active: boolean | null
           landing_button_text: string | null
           landing_headline: string | null
@@ -40578,6 +40579,7 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
@@ -40638,6 +40640,7 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
@@ -42656,6 +42659,7 @@ export type Database = {
         | "progress_milestone"
         | "upsell"
         | "weekly_digest"
+        | "lessons_completed_count"
       areamembrojp_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       areamembrojp_upsell_trigger:
         | "lesson_preview_complete"
@@ -42837,6 +42841,7 @@ export const Constants = {
         "progress_milestone",
         "upsell",
         "weekly_digest",
+        "lessons_completed_count",
       ],
       areamembrojp_upsell_event_type: ["view", "click", "dismiss", "convert"],
       areamembrojp_upsell_trigger: [
