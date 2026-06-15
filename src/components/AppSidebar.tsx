@@ -38,23 +38,18 @@ const venderItems = [
 
 const planejarItems = [
   { title: "Docs / KB",    url: "/docs",        icon: FileText },
-  { title: "Rascunhos IA", url: "/rascunhos",   icon: Pencil },
+  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
   { title: "Referências",  url: "/referencias", icon: Library },
-  { title: "Nutrição",     url: "/nutricao",    icon: Mail },
-  { title: "Webinar",      url: "/webinar",     icon: Radio },
 ];
 
 const inteligenciaItems = [
   { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
   { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
-  
   { title: "Skills",               url: "/skills",         icon: Zap },
-  { title: "Studio",               url: "/studio",         icon: Clapperboard },
+  { title: "Estúdio de Produto",   url: "/studio",         icon: Clapperboard },
   { title: "Swipe File",           url: "/swipe",          icon: Library },
   { title: "Market Intel",         url: "/market-intel",   icon: Search },
-  { title: "Copilot de Produtos",  url: "/product-copilot",icon: Sparkles },
-  { title: "Orquestrador Infoproduto", url: "/infoproduto-copilot", icon: Sparkles },
 ];
 
 
