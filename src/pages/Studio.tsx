@@ -17,6 +17,7 @@ export default function Studio() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <ProdutoTabs />
       <div className="flex items-center gap-3">
         <Clapperboard className="h-7 w-7 text-primary" />
         <div>
