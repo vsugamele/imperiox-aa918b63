@@ -9,7 +9,23 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+function normalizePhone(v: string | null | undefined): string {
+  if (!v) return "";
+  const d = String(v).replace(/\D/g, "");
+  return d.startsWith("55") ? d : "55" + d;
+}
+
+function getChatLink(action: any): string | null {
+  const p = action.payload || {};
+  const phone = p.phone || p.lead_phone || p.lead?.phone || "";
+  const project = p.project_id || action.projeto_id || "";
+  const digits = normalizePhone(phone);
+  if (!digits) return null;
+  return `/inbox?tab=whatsapp&phone=${digits}${project ? `&project=${project}` : ""}`;
+}
+
 export default function Imperius() {
+  const navigate = useNavigate();
   const [actions, setActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [scouting, setScouting] = useState(false);
