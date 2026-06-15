@@ -2,7 +2,7 @@
 // gera embeddings com cache e faz upsert em imphq_rag_chunks.
 //
 // USO:
-//   POST /rag-indexer { projectId?: string, sources?: ("project"|"swipe"|"skill")[] }
+//   POST /rag-indexer { projectId?: string, sources?: ("project"|"swipe"|"skill"|"transcript"|"sale_winning")[] }
 //   Sem projectId: indexa skills globais + todos os projetos do usuário.
 //   Idempotente via content_hash: só re-embedda quando o texto mudou.
 
@@ -170,7 +170,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const projectId: string | null = body.projectId || null;
-    const sources: string[] = body.sources || ["project", "swipe", "skill"];
+    const sources: string[] = body.sources || ["project", "swipe", "skill", "transcript", "sale_winning"];
 
     const allChunks: Chunk[] = [];
 
@@ -215,6 +215,52 @@ serve(async (req) => {
           source_field: "main",
           content: `Skill "${sk.nome}" (${sk.categoria || "—"}):\n${txt.slice(0, 1500)}`,
           metadata: { slug: sk.slug, categoria: sk.categoria },
+        });
+      }
+    }
+
+    // NEW: transcripts (aulas/vídeos ingeridos via transcript-ingest) — espelha
+    // imphq_wa_knowledge[source LIKE 'transcript:%'] em imphq_rag_chunks para
+    // que mentes/copilot encontrem trechos de aulas no RAG geral.
+    if (sources.includes("transcript")) {
+      const q = supabase
+        .from("imphq_wa_knowledge")
+        .select("id, project_id, pergunta, resposta, source")
+        .like("source", "transcript:%")
+        .limit(2000);
+      const { data: trs } = projectId ? await q.eq("project_id", projectId) : await q;
+      for (const t of trs || []) {
+        const txt = (t.resposta || "").trim();
+        if (!txt) continue;
+        allChunks.push({
+          project_id: t.project_id || null,
+          source_type: "transcript",
+          source_id: t.id,
+          source_field: t.source || "transcript",
+          content: `📚 ${t.pergunta || "Aula"}:\n${txt}`,
+          metadata: { aula: t.pergunta, tag: t.source },
+        });
+      }
+    }
+
+    // NEW: padrões de vendas vencedoras (item: aprendizado de vendas fechadas)
+    if (sources.includes("sale_winning")) {
+      const q = supabase
+        .from("imphq_wa_knowledge")
+        .select("id, project_id, pergunta, resposta, source")
+        .in("source", ["sale_winning", "sale_winning_full"])
+        .limit(1000);
+      const { data: sws } = projectId ? await q.eq("project_id", projectId) : await q;
+      for (const s of sws || []) {
+        const txt = (s.resposta || "").trim();
+        if (!txt) continue;
+        allChunks.push({
+          project_id: s.project_id || null,
+          source_type: "sale_winning",
+          source_id: s.id,
+          source_field: s.source || "sale_winning",
+          content: `💰 Padrão de venda fechada — ${s.pergunta?.slice(0, 80) || ""}\n${txt}`,
+          metadata: { kind: s.source },
         });
       }
     }
