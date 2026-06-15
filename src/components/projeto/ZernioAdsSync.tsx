@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle, Settings } from "lucide-react";
+import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle, Settings, Bug } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,9 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastStats, setLastStats] = useState<any>(null);
+  const [lastDebug, setLastDebug] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Load saved Zernio config
   useEffect(() => {
@@ -50,6 +53,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setLastSync(c.zernio_ads_last_sync || null);
       setLastStatus(c.zernio_ads_last_sync_status || null);
       setLastError(c.zernio_ads_last_sync_error || null);
+      setLastStats(c.zernio_ads_last_sync_stats || null);
+      setLastDebug(c.zernio_ads_last_sync_debug || null);
     })();
   }, [projectId]);
 
@@ -98,10 +103,19 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       }
       const { data, error } = await supabase.functions.invoke("zernio-ads-sync", { body });
       if (error || data?.error) throw new Error(data?.error || error?.message);
-      toast.success(`✅ Zernio: ${data.imported} registros, ${data.ads} ads, ${data.campaigns} campanhas`);
+      const importedN = data.imported ?? 0;
+      const adsN = data.ads ?? 0;
+      const campN = data.campaigns ?? 0;
+      if (importedN === 0 && adsN === 0 && campN === 0) {
+        toast.warning(`⚠️ Zernio retornou 0 campanhas. Veja o diagnóstico para entender por quê.`);
+      } else {
+        toast.success(`✅ Zernio: ${importedN} registros, ${adsN} ads, ${campN} campanhas`);
+      }
       setLastSync(new Date().toISOString());
       setLastStatus("success");
       setLastError(null);
+      setLastStats({ imported: importedN, ads: adsN, campaigns: campN });
+      setLastDebug(data.debug || null);
       setOpen(false);
       onAfterSync?.();
     } catch (e: any) {
