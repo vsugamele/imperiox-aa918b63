@@ -12,6 +12,7 @@ interface Note { id: string; content: string; author_id: string | null; author_n
 export default function AssignAndNotesBar({ conversationId }: { conversationId: string }) {
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
+  const [aiPausedUntil, setAiPausedUntil] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
