@@ -26,7 +26,8 @@ const PLATFORMS = ["Meta", "Google", "TikTok", "Hotmart", "Kiwify", "Ticto", "Or
 
 export function TagRoutingRulesTab() {
   const [rules, setRules] = useState<Rule[]>([]);
-  const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [orphanTags, setOrphanTags] = useState<OrphanTag[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [tagsAll, setTagsAll] = useState<string[]>([]);
   const [origem, setOrigem] = useState("");
@@ -41,12 +42,22 @@ export function TagRoutingRulesTab() {
   const { tags: leadTags } = useLeadTags();
 
   const load = async () => {
-    const [{ data: r }, { data: p }] = await Promise.all([
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const [{ data: r }, { data: p }, { data: leads }] = await Promise.all([
       supabase.from("imphq_tag_project_rules").select("*").order("priority", { ascending: true }),
-      supabase.from("imphq_projects").select("id,nome").order("nome"),
+      supabase.from("imphq_projects").select("id,name").eq("is_archived", false).order("name"),
+      supabase.from("imphq_leads").select("tags").is("project_id", null).not("tags", "is", null).gte("created_at", since).limit(1000),
     ] as PromiseLike<any>[]);
     setRules((r || []) as any);
     setProjects((p || []) as any);
+    const counts = new Map<string, number>();
+    (leads || []).forEach((l: any) => {
+      (l.tags || []).forEach((t: string) => {
+        if (!t) return;
+        counts.set(t, (counts.get(t) || 0) + 1);
+      });
+    });
+    setOrphanTags(Array.from(counts.entries()).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 20));
   };
   useEffect(() => { load(); }, []);
 
