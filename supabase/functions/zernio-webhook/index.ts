@@ -54,6 +54,73 @@ Deno.serve(async (req) => {
       processed: false,
     }).select("id").maybeSingle();
 
+    // === COMMENT EVENTS (comment.received etc) ===
+    if (typeof payload.event === "string" && payload.event.startsWith("comment.")) {
+      const d = payload.data || payload;
+      const c = d.comment || d;
+      const commentId = c.id || c.commentId || d.commentId;
+      const mediaId = c.mediaId || c.media?.id || d.mediaId;
+      const text = c.text || c.message || "";
+      const fromUserId = c.from?.id || c.userId || null;
+      const fromUsername = c.from?.username || c.username || null;
+      const parentId = c.parentId || c.parent_id || null;
+      const zernioAccountId = d.account?.id || d.accountId || d.account_id;
+      const ts = c.createdAt || c.timestamp || payload.timestamp || new Date().toISOString();
+
+      // dedup por event_id
+      const evtId = payload.id || payload.eventId || `${commentId}-${payload.event}`;
+      if (evtId) {
+        const { data: dupEvt } = await supa.from("imphq_zernio_webhook_events").select("event_id").eq("event_id", evtId).maybeSingle();
+        if (dupEvt) {
+          console.log(`[zernio-webhook] duplicate comment event ${evtId}`);
+          if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+          return new Response("OK (dup)", { status: 200 });
+        }
+        await supa.from("imphq_zernio_webhook_events").insert({
+          event_id: evtId, event_type: payload.event, project_id: projectId, payload,
+        });
+      }
+
+      // resolve account
+      let accId: string | null = null;
+      if (zernioAccountId) {
+        const { data: acc } = await supa.from("imphq_ig_accounts").select("id")
+          .eq("project_id", projectId).eq("page_id", zernioAccountId).maybeSingle();
+        if (acc) accId = acc.id;
+      }
+      if (!accId) {
+        const { data: acc } = await supa.from("imphq_ig_accounts").select("id")
+          .eq("project_id", projectId).limit(1).maybeSingle();
+        if (acc) accId = acc.id;
+      }
+
+      if (!commentId || !accId) {
+        console.error("[zernio-webhook] comment: campos ausentes", { commentId, accId });
+        if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ processed: true, error: "missing fields" }).eq("id", logEntry.id);
+        return new Response("OK (skipped)", { status: 200 });
+      }
+
+      const { error: upErr } = await supa.from("imphq_ig_comments").upsert({
+        account_id: accId,
+        media_id: mediaId,
+        comment_id: commentId,
+        parent_comment_id: parentId,
+        from_user_id: fromUserId,
+        from_username: fromUsername,
+        text,
+        created_at: ts,
+        ad_context: c.adContext || d.adContext || null,
+      }, { onConflict: "comment_id" });
+
+      if (upErr) {
+        console.error("[zernio-webhook] comment upsert error", upErr);
+        if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: upErr.message }).eq("id", logEntry.id);
+      } else if (logEntry) {
+        await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      }
+      return new Response("OK", { status: 200 });
+    }
+
     // Processamos inbound (cliente -> nós) e outbound (nós -> cliente, vindo do app nativo do IG)
     if (payload.event !== "message.received" && payload.event !== "message.sent") {
       console.log(`[zernio-webhook] Ignoring event type: ${payload.event}`);
