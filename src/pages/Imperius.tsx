@@ -186,9 +186,23 @@ export default function Imperius() {
                     {a.reason && <p className="text-xs text-muted-foreground ml-6">{a.reason}</p>}
                     {a.error && <p className="text-xs text-red-400 ml-6 mt-1">{a.error}</p>}
                   </div>
-                  <div className="text-right text-[11px] text-muted-foreground shrink-0">
-                    <p>{formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}</p>
-                    <p className="font-mono mt-0.5">{Math.round(a.confidence * 100)}%</p>
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                    <p className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}</p>
+                    <p className="font-mono text-[11px] text-muted-foreground">{Math.round(a.confidence * 100)}%</p>
+                    {(() => {
+                      const link = getChatLink(a);
+                      return link ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[10px] text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={() => navigate(link)}
+                        >
+                          <MessageSquare className="h-3 w-3 mr-1" />
+                          Abrir chat
+                        </Button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>
