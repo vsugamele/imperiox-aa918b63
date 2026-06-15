@@ -194,7 +194,7 @@ export function AppSidebar() {
   // All items pool for favourites lookup
   const allItems: NavItem[] = [
     ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...planejarItems, ...configurarItems,
+    ...planejarItems, ...adsFinancasItems, ...configurarItems,
   ];
 
   const favItems = favorites
