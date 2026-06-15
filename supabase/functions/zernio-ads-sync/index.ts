@@ -133,8 +133,23 @@ Deno.serve(async (req) => {
     let imported = 0;
     let errors = 0;
     let insightsFailures = 0;
+    let insightsEmpty = 0;
 
-    // 3. For each ad, fetch insights with time_increment=1
+    const buildInsightsVariants = (adId: string) => {
+      const enc = encodeURIComponent;
+      const adIdEnc = enc(String(adId));
+      const baseParams = `adId=${adIdEnc}&since=${dfrom}&until=${dto}`;
+      return [
+        { name: "qBase+timeIncrement", path: `/ads/insights?${qBase}&${baseParams}&timeIncrement=1` },
+        { name: "qBase", path: `/ads/insights?${qBase}&${baseParams}` },
+        { name: "onlyAdAccount+adId", path: `/ads/insights?adAccountId=${enc(adAccountId)}&${baseParams}&timeIncrement=1` },
+        { name: "zernioAcc+adId", path: `/ads/insights?accountId=${enc(zernioAccountId)}&${baseParams}&timeIncrement=1` },
+        { name: "onlyAdId", path: `/ads/insights?${baseParams}&timeIncrement=1` },
+      ];
+    };
+    let chosenInsightsVariant: string | null = null;
+
+    // 3. For each ad, fetch insights with fallback variants
     for (const ad of ads) {
       const adId = ad?.id ?? ad?.adId ?? ad?.ad_id;
       if (!adId) continue;
@@ -148,13 +163,39 @@ Deno.serve(async (req) => {
       const creativeTitle = ad?.creative?.title ?? null;
       const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.status ?? null;
 
-      const insightsPath = `/ads/insights?accountId=${encodeURIComponent(zernioAccountId)}&adId=${encodeURIComponent(adId)}&since=${dfrom}&until=${dto}&timeIncrement=1`;
-      const ins = await zFetch(insightsPath, apiKey);
-      if (!ins.ok) {
-        insightsFailures++;
+      let rows: any[] = [];
+      let lastStatus: number | null = null;
+      let lastBodyKeys: string[] = [];
+      const variantsToTry = chosenInsightsVariant
+        ? buildInsightsVariants(String(adId)).filter((v) => v.name === chosenInsightsVariant)
+        : buildInsightsVariants(String(adId));
+
+      for (const v of variantsToTry) {
+        const ins = await zFetch(v.path, apiKey);
+        lastStatus = ins.status;
+        lastBodyKeys = Object.keys(ins.body || {});
+        if (!ins.ok) continue;
+        const r = ins.body?.insights || ins.body?.data || [];
+        if (r.length > 0) {
+          rows = r;
+          if (!chosenInsightsVariant) {
+            chosenInsightsVariant = v.name;
+            debug.chosen_insights_variant = v.name;
+            debug.sample_insight_raw = ins.body;
+            console.log(`[zernio-ads-sync] chosen insights variant: ${v.name}`);
+          }
+          break;
+        }
+      }
+
+      if (rows.length === 0) {
+        if (lastStatus && lastStatus >= 400) insightsFailures++;
+        else insightsEmpty++;
+        if (!debug.sample_empty_insight) {
+          debug.sample_empty_insight = { adId: String(adId), status: lastStatus, keys: lastBodyKeys };
+        }
         continue;
       }
-      const rows = ins.body?.insights || ins.body?.data || [];
       for (const row of rows) {
         const dateRef = row?.date_start || row?.date || row?.dateStart;
         if (!dateRef) continue;
