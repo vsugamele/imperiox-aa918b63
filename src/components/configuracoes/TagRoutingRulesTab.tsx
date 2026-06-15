@@ -165,7 +165,12 @@ export function TagRoutingRulesTab() {
     setBackfilling(false);
   };
 
-  const projectName = (id: string) => projects.find(p => p.id === id)?.nome || id;
+  const projectName = (id: string) => projects.find(p => p.id === id)?.name || id;
+
+  const useOrphanTag = (t: string) => {
+    if (!tagsAll.includes(t)) setTagsAll([...tagsAll, t]);
+    setTimeout(() => document.getElementById("tag-rule-project-trigger")?.focus(), 50);
+  };
 
   return (
     <Card className="bg-secondary/40">
