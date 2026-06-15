@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserCircle2, StickyNote, Trash2, Plus, BellOff } from "lucide-react";
+import { UserCircle2, StickyNote, Trash2, Plus, BellOff, Bot, BotOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member { id: string; user_id: string | null; name: string | null; email: string | null; avatar_url: string | null; }
@@ -12,6 +12,7 @@ interface Note { id: string; content: string; author_id: string | null; author_n
 export default function AssignAndNotesBar({ conversationId }: { conversationId: string }) {
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
+  const [aiPausedUntil, setAiPausedUntil] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -39,10 +40,11 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until").eq("id", conversationId).maybeSingle()
+    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until").eq("id", conversationId).maybeSingle()
       .then(({ data }) => {
         setAssignedTo((data as any)?.assigned_to || null);
         setSnoozedUntil((data as any)?.snoozed_until || null);
+        setAiPausedUntil((data as any)?.ai_paused_until || null);
       });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
@@ -92,6 +94,15 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     toast.success(until ? `Silenciada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "Silêncio removido");
   };
 
+  const pauseAi = async (mins: number | null) => {
+    const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
+    setAiPausedUntil(until);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: until } as any).eq("id", conversationId);
+    if (error) { toast.error("Falha ao pausar IA"); return; }
+    toast.success(until ? `IA pausada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "IA reativada");
+  };
+
+  const isAiPaused = aiPausedUntil && new Date(aiPausedUntil).getTime() > Date.now();
   const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
   const owner = members.find(m => m.user_id === assignedTo);
 
@@ -179,7 +190,41 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
       <div className="w-px h-4 bg-border" />
 
-      {/* Snooze */}
+      {/* Pausar IA */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isAiPaused ? "text-orange-300" : ""}`}>
+            {isAiPaused ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+            {isAiPaused ? (
+              <span>IA pausada até {new Date(aiPausedUntil!).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
+            ) : (
+              <span>Pausar IA</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-44 p-1 bg-popover" align="start">
+          {[
+            { label: "1 hora", min: 60 },
+            { label: "4 horas", min: 240 },
+            { label: "Até amanhã 8h", min: -1 },
+            { label: "24 horas", min: 1440 },
+          ].map(o => (
+            <button key={o.label} className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
+              onClick={() => {
+                if (o.min === -1) {
+                  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0);
+                  pauseAi(Math.round((d.getTime() - Date.now()) / 60000));
+                } else pauseAi(o.min);
+              }}>{o.label}</button>
+          ))}
+          {isAiPaused && (
+            <button className="w-full text-left px-2 py-1.5 rounded hover:bg-emerald-500/20 text-xs text-emerald-400 border-t border-border mt-1"
+              onClick={() => pauseAi(null)}>Reativar IA agora</button>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      <div className="w-px h-4 bg-border" />
       <Popover>
         <PopoverTrigger asChild>
           <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isSnoozed ? "text-purple-300" : ""}`}>

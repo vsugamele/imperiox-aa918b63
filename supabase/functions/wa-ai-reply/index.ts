@@ -1222,6 +1222,15 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
       cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 
       let finalAiReply = cleaned.trim();
+
+      // Prefixo "Bom dia" quando flush invoca esta função (lead mandou fora do horário)
+      if (body.from_flush === true && finalAiReply) {
+        const prefix = (aiConfig.back_to_hours_prefix || "Bom dia! Voltamos ao atendimento 👋\n\n").trim();
+        if (!finalAiReply.toLowerCase().startsWith(prefix.slice(0, 10).toLowerCase())) {
+          finalAiReply = `${prefix}\n\n${finalAiReply}`;
+          console.log(`[wa-ai-reply] FROM_FLUSH: prefixo de retorno adicionado`);
+        }
+      }
       let shouldAdvanceFlow = false;
       let matchedRoute: any = null;
       let jumpSteps = 0;

@@ -1277,6 +1277,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         if (data?.failover) {
           toast.warning(`Chip "${data.original_provider}" caiu — enviado via "${data.sent_via}".`);
         }
+        // Auto-pausa IA por 4h quando humano responde (handoff implícito)
+        supabase.from("imphq_wa_conversations")
+          .update({ ai_paused_until: new Date(Date.now() + 4 * 3600_000).toISOString() } as any)
+          .eq("id", conversationId)
+          .then(() => {});
         setTimeout(() => pollNew(), 500);
       } catch (err: any) {
         toast.error("Erro ao enviar: " + err.message);
