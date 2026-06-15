@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Radio, Plus, Calendar, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 export default function Webinar() {
   const { user } = useAuth();
@@ -52,6 +53,7 @@ export default function Webinar() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConteudoTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-serif flex items-center gap-3">

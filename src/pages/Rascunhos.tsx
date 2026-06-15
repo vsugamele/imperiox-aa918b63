@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 interface AiDraft {
   id: string;
@@ -248,6 +249,7 @@ export default function Rascunhos() {
 
   return (
     <div className="container mx-auto p-4 space-y-6 max-w-7xl font-sans">
+      <ConteudoTabs />
       
       {/* ─── HEADER COM TÍTULO E ÍCONE ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-5">
