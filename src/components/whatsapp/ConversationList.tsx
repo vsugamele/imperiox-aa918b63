@@ -307,6 +307,7 @@ export default function ConversationList({
             </div>
           );
         })()}
+        <MergeDuplicatesButton projectId={filterProject} />
       </div>
 
       {/* List */}
