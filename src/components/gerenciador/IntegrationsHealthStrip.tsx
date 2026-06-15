@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, AlertTriangle, XCircle, Loader2, Facebook, MessageCircle, Webhook } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Loader2, Facebook, MessageCircle, Webhook, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 type Health = {
