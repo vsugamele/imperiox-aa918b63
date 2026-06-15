@@ -13,6 +13,7 @@ import { Mail, Plus, Play, Pause, Users, TrendingUp, UserPlus } from "lucide-rea
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 
 interface Sequence {
