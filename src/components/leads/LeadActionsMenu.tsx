@@ -101,11 +101,17 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
       >
         <DropdownMenuLabel className="text-[11px]">Ações no lead</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {internalChatUrl ? (
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); navigate(internalChatUrl); }} className="cursor-pointer">
+            <MessageSquare className="h-3.5 w-3.5 mr-2 text-primary" />
+            Abrir chat interno
+          </DropdownMenuItem>
+        ) : null}
         {waUrl ? (
           <DropdownMenuItem asChild>
             <a href={waUrl} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
               <ExternalLink className="h-3.5 w-3.5 mr-2 text-emerald-400" />
-              Abrir WhatsApp
+              Abrir wa.me
             </a>
           </DropdownMenuItem>
         ) : (
