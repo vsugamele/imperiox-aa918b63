@@ -22,10 +22,19 @@ async function zFetch(path: string, apiKey: string) {
   return { ok: r.ok, status: r.status, body };
 }
 
-function pickAction(actions: any[], type: string): number {
-  if (!Array.isArray(actions)) return 0;
-  const a = actions.find((x) => x?.action_type === type);
-  return a ? parseInt(a.value || "0", 10) : 0;
+function pickAction(actions: any, type: string): number {
+  if (!actions) return 0;
+  // Zernio's /ads endpoint returns actions as a map: {purchase: 7, lead: 9, ...}
+  if (!Array.isArray(actions) && typeof actions === "object") {
+    const v = actions[type];
+    return v ? parseInt(String(v), 10) || 0 : 0;
+  }
+  // /insights returns an array: [{action_type, value}, ...]
+  if (Array.isArray(actions)) {
+    const a = actions.find((x) => x?.action_type === type);
+    return a ? parseInt(a.value || "0", 10) : 0;
+  }
+  return 0;
 }
 
 Deno.serve(async (req) => {
@@ -134,6 +143,7 @@ Deno.serve(async (req) => {
     let errors = 0;
     let insightsFailures = 0;
     let insightsEmpty = 0;
+    let usedInlineMetrics = 0;
 
     const buildInsightsVariants = (adId: string) => {
       const enc = encodeURIComponent;
@@ -149,7 +159,8 @@ Deno.serve(async (req) => {
     };
     let chosenInsightsVariant: string | null = null;
 
-    // 3. For each ad, fetch insights with fallback variants
+    // 3. For each ad: prefer inline metrics from /ads (already has spend, impressions, actions, etc.).
+    //    Fall back to /insights only if inline metrics are absent.
     for (const ad of ads) {
       const adId = ad?.id ?? ad?.adId ?? ad?.ad_id;
       if (!adId) continue;
@@ -158,11 +169,83 @@ Deno.serve(async (req) => {
       const campaignName = ad?.campaignName ?? ad?.campaign_name ?? (campaignId && campaignsByZId.get(String(campaignId))?.name) ?? null;
       const adsetName = ad?.adsetName ?? ad?.adset_name ?? null;
       const adName = ad?.name ?? ad?.adName ?? null;
-      const thumb = ad?.creative?.thumbnail_url ?? ad?.creative?.image_url ?? ad?.thumbnail_url ?? null;
+      const thumb = ad?.creative?.thumbnailUrl ?? ad?.creative?.thumbnail_url ?? ad?.creative?.imageUrl ?? ad?.creative?.image_url ?? ad?.thumbnail_url ?? null;
       const creativeBody = ad?.creative?.body ?? null;
       const creativeTitle = ad?.creative?.title ?? null;
-      const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.status ?? null;
+      const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.platformStatus ?? ad?.status ?? null;
+      const platformAdId = ad?.platformAdId ?? null;
 
+      // === Path A: inline metrics already in /ads response ===
+      const m = ad?.metrics;
+      if (m && (m.spend != null || m.impressions != null || m.actions)) {
+        const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
+        const spend = parseFloat(m.spend ?? "0") || 0;
+        const impressoes = parseInt(m.impressions ?? "0", 10) || 0;
+        const alcance = parseInt(m.reach ?? "0", 10) || 0;
+        const cliques = parseInt(m.clicks ?? "0", 10) || 0;
+        const ctr = parseFloat(m.ctr ?? "0") || 0;
+        const frequencia = parseFloat(m.frequency ?? "0") || 0;
+        const linkClicks = parseInt(m.linkClicks ?? m.inline_link_clicks ?? (m.actions?.link_click ?? "0"), 10) || 0;
+        const actions = m.actions || {};
+        const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
+        const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
+        const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
+        const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
+        const lpViews = pickAction(actions, "landing_page_view");
+        const v3 = pickAction(actions, "video_view");
+        const vTru = pickAction(actions, "video_thruplay_watched_actions");
+
+        const record: Record<string, unknown> = {
+          project_id,
+          plataforma: "Facebook",
+          source: "zernio",
+          campanha: campaignName,
+          conjunto_anuncios: adsetName,
+          anuncio: adName,
+          campaign_id: campaignId ? String(campaignId) : null,
+          adset_id: adsetId ? String(adsetId) : null,
+          ad_id: platformAdId ? String(platformAdId) : String(adId),
+          data_ref: dateRef,
+          valor: spend,
+          impressoes,
+          alcance,
+          cliques,
+          leads,
+          compras,
+          init_checkout: initCheckout,
+          add_to_cart: addToCart,
+          landing_page_views: lpViews,
+          video_3s_views: v3,
+          video_thruplay: vTru,
+          link_clicks: linkClicks,
+          custo_por_compra: compras > 0 ? spend / compras : null,
+          ctr,
+          frequencia,
+          moeda: m.currency || ad?.currency || "BRL",
+          thumbnail_url: thumb,
+          creative_body: creativeBody,
+          creative_title: creativeTitle,
+          effective_status: effectiveStatus,
+        };
+
+        const adIdKey = platformAdId ? String(platformAdId) : String(adId);
+        const { data: existing } = await supabase
+          .from("imphq_ads_spend")
+          .select("id")
+          .eq("project_id", project_id)
+          .eq("source", "zernio")
+          .eq("ad_id", adIdKey)
+          .eq("data_ref", dateRef)
+          .maybeSingle();
+
+        const { error } = existing
+          ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
+          : await supabase.from("imphq_ads_spend").insert(record);
+        if (error) errors++; else { imported++; usedInlineMetrics++; }
+        continue;
+      }
+
+      // === Path B: fallback to /insights endpoint ===
       let rows: any[] = [];
       let lastStatus: number | null = null;
       let lastBodyKeys: string[] = [];
@@ -182,7 +265,6 @@ Deno.serve(async (req) => {
             chosenInsightsVariant = v.name;
             debug.chosen_insights_variant = v.name;
             debug.sample_insight_raw = ins.body;
-            console.log(`[zernio-ads-sync] chosen insights variant: ${v.name}`);
           }
           break;
         }
@@ -248,7 +330,6 @@ Deno.serve(async (req) => {
           effective_status: effectiveStatus,
         };
 
-        // Upsert keyed by (project_id, source, ad_id, data_ref)
         const { data: existing } = await supabase
           .from("imphq_ads_spend")
           .select("id")
@@ -264,6 +345,7 @@ Deno.serve(async (req) => {
         if (error) errors++; else imported++;
       }
     }
+    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
     // Persist last sync timestamp + status + debug
     await supabase
@@ -275,7 +357,7 @@ Deno.serve(async (req) => {
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, insights_failures: insightsFailures, insights_empty: insightsEmpty, chosen_insights_variant: chosenInsightsVariant },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, insights_failures: insightsFailures, insights_empty: insightsEmpty, chosen_insights_variant: chosenInsightsVariant },
           zernio_ads_last_sync_debug: debug,
         },
       })
