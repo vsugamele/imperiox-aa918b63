@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bot, Zap, CheckCircle2, AlertCircle, Loader2, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bot, Zap, CheckCircle2, AlertCircle, Loader2, Play, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
