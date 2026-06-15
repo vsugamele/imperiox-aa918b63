@@ -49,6 +49,7 @@ interface WaSession {
   unread_count?: number;
   last_message_direction?: string | null;
   ai_paused_until?: string | null;
+  assigned_to?: string | null;
 }
 
 let waRefCache: {
