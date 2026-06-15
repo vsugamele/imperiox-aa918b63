@@ -238,6 +238,23 @@ export function TagRoutingRulesTab() {
           </div>
         </div>
 
+        {orphanTags.length > 0 && (
+          <div className="rounded border border-border bg-background/40 p-3 space-y-2">
+            <div className="text-xs text-muted-foreground">
+              Tags de leads sem projeto (últimos 90 dias) — clique para preencher e crie a regra:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {orphanTags.map(o => (
+                <button key={o.tag} onClick={() => useOrphanTag(o.tag)}>
+                  <Badge variant="outline" className="text-[10px] hover:bg-primary/10 cursor-pointer">
+                    {o.tag} <span className="text-muted-foreground ml-1">({o.count})</span>
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {rules.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">Nenhuma regra ainda.</p>
         ) : (
