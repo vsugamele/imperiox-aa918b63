@@ -246,6 +246,7 @@ export function AppSidebar() {
         <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
         <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
         <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
+        <NavGroup label="Ads / Finanças" items={adsFinancasItems} {...sharedProps} />
         <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
       </SidebarContent>
 
