@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
 import { LeadIntelPanel } from "./LeadIntelPanel";
+import ConversationIntelCard from "./ConversationIntelCard";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
