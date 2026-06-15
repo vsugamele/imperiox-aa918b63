@@ -8,6 +8,7 @@ import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
 import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
+import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 
 export default function Studio() {
   const [tab, setTab] = useState("generator");
