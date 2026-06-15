@@ -9,6 +9,7 @@ import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMessageTime } from "@/lib/formatCompactTime";
+import MergeDuplicatesButton from "./MergeDuplicatesButton";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
