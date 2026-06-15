@@ -134,10 +134,24 @@ export default function ConversationList({
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
     () => (typeof window !== "undefined" ? (localStorage.getItem("wa-snooze-mode") as any) : null) || "hide"
   );
+  const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
+  );
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+  }, []);
+
   const cycleSnoozeMode = () => {
     const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
     setSnoozeMode(next);
     try { localStorage.setItem("wa-snooze-mode", next); } catch {}
+  };
+  const cycleAssignFilter = () => {
+    const next = assignFilter === "all" ? "mine" : assignFilter === "mine" ? "unassigned" : "all";
+    setAssignFilter(next);
+    try { localStorage.setItem("wa-assign-filter", next); } catch {}
   };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
@@ -155,7 +169,11 @@ export default function ConversationList({
     const matchUnread = !onlyUnread || isUnreadSession(s);
     const snoozed = isSnoozed(s);
     const matchSnooze = snoozeMode === "show" ? true : snoozeMode === "only" ? snoozed : !snoozed;
-    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze;
+    const matchAssign =
+      assignFilter === "all" ? true :
+      assignFilter === "mine" ? s.assigned_to === myUserId :
+      !s.assigned_to;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
