@@ -170,7 +170,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const projectId: string | null = body.projectId || null;
-    const sources: string[] = body.sources || ["project", "swipe", "skill"];
+    const sources: string[] = body.sources || ["project", "swipe", "skill", "transcript", "sale_winning"];
 
     const allChunks: Chunk[] = [];
 
