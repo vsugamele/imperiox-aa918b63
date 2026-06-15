@@ -22,10 +22,19 @@ async function zFetch(path: string, apiKey: string) {
   return { ok: r.ok, status: r.status, body };
 }
 
-function pickAction(actions: any[], type: string): number {
-  if (!Array.isArray(actions)) return 0;
-  const a = actions.find((x) => x?.action_type === type);
-  return a ? parseInt(a.value || "0", 10) : 0;
+function pickAction(actions: any, type: string): number {
+  if (!actions) return 0;
+  // Zernio's /ads endpoint returns actions as a map: {purchase: 7, lead: 9, ...}
+  if (!Array.isArray(actions) && typeof actions === "object") {
+    const v = actions[type];
+    return v ? parseInt(String(v), 10) || 0 : 0;
+  }
+  // /insights returns an array: [{action_type, value}, ...]
+  if (Array.isArray(actions)) {
+    const a = actions.find((x) => x?.action_type === type);
+    return a ? parseInt(a.value || "0", 10) : 0;
+  }
+  return 0;
 }
 
 Deno.serve(async (req) => {
