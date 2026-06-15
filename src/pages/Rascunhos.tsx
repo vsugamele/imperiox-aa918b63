@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 interface AiDraft {
   id: string;
