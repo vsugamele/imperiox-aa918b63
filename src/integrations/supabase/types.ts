@@ -3900,6 +3900,141 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_apps: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_modules: {
         Row: {
           author_id: string | null
@@ -41950,6 +42085,10 @@ export type Database = {
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
+      areamembrojp_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
       areamembrojp_has_role: {
         Args: {
           _role: Database["public"]["Enums"]["areamembrojp_app_role"]
