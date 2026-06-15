@@ -486,6 +486,7 @@ ${dossier.ad_angles}
 
   return (
     <div className="space-y-6 animate-fade-in max-w-[1600px] mx-auto text-slate-100">
+      <ProdutoTabs />
       
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
