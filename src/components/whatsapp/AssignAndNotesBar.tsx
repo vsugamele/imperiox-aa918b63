@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UserCircle2, StickyNote, Trash2, Plus, BellOff } from "lucide-react";
+import { UserCircle2, StickyNote, Trash2, Plus, BellOff, Bot, BotOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Member { id: string; user_id: string | null; name: string | null; email: string | null; avatar_url: string | null; }
