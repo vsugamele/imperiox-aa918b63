@@ -271,6 +271,12 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
             <div>
               <p className="text-muted-foreground">Último sync: <strong className="text-foreground">{lastSync ? new Date(lastSync).toLocaleString("pt-BR") : "—"}</strong></p>
               <p className="text-muted-foreground">Resultado: <strong className="text-foreground">{lastStats ? `${lastStats.imported} reg · ${lastStats.ads} ads · ${lastStats.campaigns} camp` : "—"}</strong></p>
+              {lastStats && (
+                <p className="text-muted-foreground">
+                  Insights: <strong className="text-foreground">{lastStats.insights_empty ?? 0} vazias</strong> · <strong className="text-foreground">{lastStats.insights_failures ?? 0} falhas</strong>
+                  {lastStats.chosen_insights_variant && <> · variante: <code className="text-emerald-400">{lastStats.chosen_insights_variant}</code></>}
+                </p>
+              )}
               <p className="text-muted-foreground">Ad Account: <code className="text-foreground">{savedAcc || "—"}</code></p>
             </div>
             {lastDebug?.variants_tried && (
@@ -292,6 +298,19 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {lastStats && lastStats.ads > 0 && lastStats.imported === 0 && (
+              <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-300/90 leading-6">
+                <strong>Ads encontrados mas insights vazios.</strong> Causas comuns:
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>Sem gastos/impressões no período selecionado (últimos 30 dias).</li>
+                  <li>Endpoint de insights da Zernio espera outro formato de parâmetro — verifique a amostra abaixo.</li>
+                  <li>A Ad Account ainda não terminou de processar dados no Zernio.</li>
+                </ul>
+                {lastDebug?.sample_empty_insight && (
+                  <p className="mt-1 text-[10px] font-mono">amostra: adId={lastDebug.sample_empty_insight.adId} · HTTP {lastDebug.sample_empty_insight.status} · keys=[{(lastDebug.sample_empty_insight.keys || []).join(", ")}]</p>
+                )}
               </div>
             )}
             {lastStats && lastStats.imported === 0 && lastStats.ads === 0 && (
