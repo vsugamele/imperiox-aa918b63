@@ -7,6 +7,7 @@ type Health = {
   meta: { ok: number; total: number; loading: boolean };
   wa: { active: number; stale: number; total: number; loading: boolean };
   webhooks: { errors24h: number; loading: boolean };
+  zernio: { configured: boolean; loading: boolean };
 };
 
 export function IntegrationsHealthStrip() {
