@@ -31,16 +31,19 @@ interface Props {
 
 export default function LeadActionsMenu({ lead, automations }: Props) {
   const [running, setRunning] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const projectAutomations = (automations || []).filter(
     (a) => a.ativo && (!a.project_id || a.project_id === lead.project_id),
   );
 
-  const waUrl = lead.phone
-    ? `https://wa.me/${(() => {
-        const d = String(lead.phone).replace(/\D/g, "");
-        return d.startsWith("55") ? d : "55" + d;
-      })()}`
+  const phoneDigits = lead.phone ? String(lead.phone).replace(/\D/g, "") : "";
+  const normalizedPhone = phoneDigits
+    ? (phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits)
+    : "";
+  const waUrl = normalizedPhone ? `https://wa.me/${normalizedPhone}` : null;
+  const internalChatUrl = normalizedPhone
+    ? `/inbox?tab=whatsapp&phone=${normalizedPhone}${lead.project_id ? `&project=${lead.project_id}` : ""}`
     : null;
 
   const runAutomation = async (auto: Automation) => {
