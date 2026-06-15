@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Tag, Loader2, Eye, X } from "lucide-react";
 import { useLeadTags } from "@/hooks/useLeadTags";
 
+interface OrphanTag { tag: string; count: number; }
 interface Rule {
   id: string;
   tag: string | null;
