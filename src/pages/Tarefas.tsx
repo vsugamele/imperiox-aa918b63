@@ -845,6 +845,49 @@ export default function Tarefas() {
             </CardContent>
           </Card>
 
+          {/* Kanban por projeto */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Kanban className="h-4 w-4" /> Rotinas por Projeto
+                <Badge variant="outline" className="text-[10px]">{projects.length}</Badge>
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => openNewRoutine("team")} className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Nova Rotina
+              </Button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1">
+              {[...projects.map(p => ({ id: p.id, name: p.name })), { id: "__none__", name: "Sem projeto" }].map(proj => {
+                const projRoutines = routines.filter(r =>
+                  proj.id === "__none__" ? !r.project_id : r.project_id === proj.id
+                );
+                if (projRoutines.length === 0 && proj.id === "__none__") return null;
+                const doneInCol = projRoutines.filter(r => checkedRoutineIds.has(r.id)).length;
+                return (
+                  <div key={proj.id} className="shrink-0 w-72 bg-secondary/30 border border-border/40 rounded-lg p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold truncate">{proj.name}</div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{doneInCol}/{projRoutines.length}</Badge>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <AnimatePresence>
+                        {projRoutines.map(r => <RoutineCard key={r.id} routine={r} />)}
+                      </AnimatePresence>
+                      {projRoutines.length === 0 && (
+                        <button
+                          onClick={() => { setEditingRoutine(null); setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: proj.id }); setShowRoutineDialog(true); }}
+                          className="text-[11px] text-muted-foreground border border-dashed border-border/40 rounded p-3 hover:bg-secondary/40 transition"
+                        >
+                          + Adicionar rotina para {proj.name}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Team routines */}
           <div>
             <div className="flex items-center justify-between mb-3">
