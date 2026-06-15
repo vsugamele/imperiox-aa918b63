@@ -23829,6 +23829,7 @@ export type Database = {
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
+          ai_pending_since: string | null
           assigned_to: string | null
           audited_at: string | null
           avatar_url: string | null
@@ -23867,6 +23868,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
           assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
@@ -23905,6 +23907,7 @@ export type Database = {
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
           assigned_to?: string | null
           audited_at?: string | null
           avatar_url?: string | null
