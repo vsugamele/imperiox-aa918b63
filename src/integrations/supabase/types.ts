@@ -42077,6 +42077,18 @@ export type Database = {
       }
       diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
+      find_wa_phone_duplicates: {
+        Args: { p_project_id: string }
+        Returns: {
+          canonical_phone: string
+          drop_id: string
+          drop_msg_count: number
+          drop_phone: string
+          keep_id: string
+          keep_msg_count: number
+          keep_phone: string
+        }[]
+      }
       flow_roi_by_automation: {
         Args: { p_project_id: string; p_since?: string }
         Returns: {
@@ -42379,6 +42391,11 @@ export type Database = {
           similarity: number
         }[]
       }
+      merge_wa_conversations: {
+        Args: { p_drop_id: string; p_keep_id: string }
+        Returns: Json
+      }
+      normalize_br_phone: { Args: { p_phone: string }; Returns: string }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
