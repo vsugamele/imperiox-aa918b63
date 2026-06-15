@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Radio, Plus, Calendar, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 export default function Webinar() {
   const { user } = useAuth();
