@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +115,33 @@ export default function WhatsApp() {
   }, []);
 
   useEffect(() => { load(); loadReference(); }, [load, loadReference]);
+
+  // Deep-link: ?phone=XXX auto-seleciona a conversa correspondente
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const phoneParam = searchParams.get("phone");
+    if (!phoneParam || sessions.length === 0) return;
+    const digits = phoneParam.replace(/\D/g, "");
+    const normalized = digits.startsWith("55") || digits.length < 10 ? digits : "55" + digits;
+    const match = sessions.find(s => {
+      const sd = (s.phone || "").replace(/\D/g, "");
+      return sd === digits || sd === normalized || sd.endsWith(digits.slice(-10));
+    });
+    if (match) {
+      setSelectedSession(match);
+      setActiveTab("sessoes");
+      // limpa o param pra não re-disparar
+      const next = new URLSearchParams(searchParams);
+      next.delete("phone");
+      next.delete("project");
+      setSearchParams(next, { replace: true });
+    } else {
+      toast.info(`Sem conversa aberta para ${phoneParam}. Use "Nova conversa" para iniciar.`);
+      const next = new URLSearchParams(searchParams);
+      next.delete("phone");
+      setSearchParams(next, { replace: true });
+    }
+  }, [sessions, searchParams, setSearchParams]);
 
   // Realtime: nova mensagem → atualiza preview + incrementa unread localmente e move pro topo
   useEffect(() => {
