@@ -23,14 +23,17 @@ export function IntegrationsHealthStrip() {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const staleAt = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-      const [ad, wa, errs] = await Promise.all([
+      const [ad, wa, errs, zernioRes] = await Promise.all([
         supabase.from("imphq_ad_accounts").select("id, status").eq("plataforma", "meta"),
         supabase.from("imphq_wa_providers").select("id, is_active, last_seen_at"),
         supabase.from("imphq_webhook_errors").select("id", { count: "exact", head: true }).eq("reprocessado", false).gte("created_at", since),
+        supabase.from("imphq_integration_credentials").select("credentials").eq("provider", "instagram").limit(1),
       ] as PromiseLike<any>[]);
 
       const adRows = (ad.data || []) as any[];
       const waRows = (wa.data || []) as any[];
+      const zernioRows = (zernioRes.data || []) as any[];
+      const hasZernioToken = zernioRows.some((r: any) => r.credentials?.zernio_api_key);
 
       setH({
         meta: {
@@ -45,12 +48,13 @@ export function IntegrationsHealthStrip() {
           loading: false,
         },
         webhooks: { errors24h: errs.count || 0, loading: false },
+        zernio: { configured: hasZernioToken, loading: false },
       });
     })();
   }, []);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
       <HealthCell
         icon={<Facebook className="h-3.5 w-3.5" />}
         label="Meta Ads"
@@ -58,6 +62,15 @@ export function IntegrationsHealthStrip() {
         ok={h.meta.total > 0 && h.meta.ok === h.meta.total}
         warn={h.meta.total > 0 && h.meta.ok > 0 && h.meta.ok < h.meta.total}
         message={h.meta.total === 0 ? "Nenhuma conta conectada" : `${h.meta.ok}/${h.meta.total} contas ativas`}
+        href="/empresa"
+      />
+      <HealthCell
+        icon={<Zap className="h-3.5 w-3.5" />}
+        label="Zernio"
+        loading={h.zernio.loading}
+        ok={h.zernio.configured}
+        warn={false}
+        message={h.zernio.configured ? "Token configurado" : "Token Zernio não configurado"}
         href="/empresa"
       />
       <HealthCell
