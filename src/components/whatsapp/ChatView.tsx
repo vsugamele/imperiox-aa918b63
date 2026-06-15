@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
 import { LeadIntelPanel } from "./LeadIntelPanel";
+import ConversationIntelCard from "./ConversationIntelCard";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -1311,6 +1312,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
           <ContactTagsPanel projectId={projectId} phone={phone} />
           <AssignAndNotesBar conversationId={conversationId} />
+          {conversationId && (
+            <div className="px-3 pt-2">
+              <ConversationIntelCard conversationId={conversationId} />
+            </div>
+          )}
           {(() => {
             const last = messages[messages.length - 1];
             if (!last || last.direction !== "incoming") return null;
