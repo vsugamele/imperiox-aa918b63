@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -126,7 +127,20 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   };
 
 
-  if (!hasZernio) return null;
+  if (!hasZernio) {
+    return (
+      <Link to="/empresa" title="Configurar token Zernio em Empresa > Integrações">
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+          Configurar Zernio
+        </Button>
+      </Link>
+    );
+  }
 
   return (
     <>
