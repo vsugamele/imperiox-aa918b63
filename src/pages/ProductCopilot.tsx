@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 import { 
   Brain, Send, Sparkles, FolderOpen, Save, FileDown, 
   RefreshCw, ChevronRight, PenTool, Award, Lightbulb, 
