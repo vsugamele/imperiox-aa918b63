@@ -205,6 +205,17 @@ export default function ConversationList({
           </h2>
           <div className="flex items-center gap-1">
             <button
+              onClick={cycleAssignFilter}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
+                assignFilter === "mine" ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                : assignFilter === "unassigned" ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+              title="Filtro de atribuição: clique para alternar"
+            >
+              {assignFilter === "all" ? "👥 Todas" : assignFilter === "mine" ? "👤 Minhas" : "❓ Sem dono"}
+            </button>
+            <button
               onClick={() => setOnlyUnread(v => !v)}
               className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
               title="Mostrar apenas não lidas"
