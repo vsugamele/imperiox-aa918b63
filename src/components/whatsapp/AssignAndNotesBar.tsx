@@ -94,6 +94,15 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     toast.success(until ? `Silenciada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "Silêncio removido");
   };
 
+  const pauseAi = async (mins: number | null) => {
+    const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
+    setAiPausedUntil(until);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: until } as any).eq("id", conversationId);
+    if (error) { toast.error("Falha ao pausar IA"); return; }
+    toast.success(until ? `IA pausada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "IA reativada");
+  };
+
+  const isAiPaused = aiPausedUntil && new Date(aiPausedUntil).getTime() > Date.now();
   const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
   const owner = members.find(m => m.user_id === assignedTo);
 
