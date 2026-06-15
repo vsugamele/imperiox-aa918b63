@@ -1411,6 +1411,19 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     };
     const triggerVariants = triggerAliases[evento] || [evento];
 
+    // EVENT-SPECIFIC TRIGGERS by tipo_venda — fires alongside the generic event.
+    // Allows flows like "Pós-orderbump", "Upsell recusado: nutrir", "Refund: empatia".
+    if (evento === "compra_aprovada") {
+      if (tipo_venda === "orderbump") triggerVariants.push("orderbump_aprovado");
+      else if (tipo_venda === "upsell") triggerVariants.push("upsell_aprovado");
+      else if (tipo_venda === "downsell") triggerVariants.push("downsell_aprovado");
+      else if (tipo_venda === "principal") triggerVariants.push("venda_principal_aprovada");
+    } else if (evento === "pagamento_recusado" || evento === "refused" || evento === "pagamento_expirado" || evento === "expired") {
+      if (tipo_venda === "upsell") triggerVariants.push("upsell_recusado");
+      else if (tipo_venda === "orderbump") triggerVariants.push("orderbump_recusado");
+      else if (tipo_venda === "downsell") triggerVariants.push("downsell_recusado");
+    }
+
     if (triggerVariants.length > 0) {
       const { data: automacoes } = await supabase
         .from("imphq_automacoes")
