@@ -29,11 +29,14 @@ const hojeitems = [
 const venderItems = [
   { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
-  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Funis",                url: "/funis",      icon: Target },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-  { title: "Finanças",             url: "/financas",   icon: DollarSign },
+];
+
+const adsFinancasItems = [
+  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
+  { title: "Finanças",             url: "/financas",   icon: DollarSign },
 ];
 
 const planejarItems = [
