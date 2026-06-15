@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,6 +24,7 @@ interface WaSession {
   last_message_direction?: string | null;
   jid_suffix?: string | null;
   snoozed_until?: string | null;
+  assigned_to?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
@@ -133,10 +134,24 @@ export default function ConversationList({
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
     () => (typeof window !== "undefined" ? (localStorage.getItem("wa-snooze-mode") as any) : null) || "hide"
   );
+  const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
+  );
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+  }, []);
+
   const cycleSnoozeMode = () => {
     const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
     setSnoozeMode(next);
     try { localStorage.setItem("wa-snooze-mode", next); } catch {}
+  };
+  const cycleAssignFilter = () => {
+    const next = assignFilter === "all" ? "mine" : assignFilter === "mine" ? "unassigned" : "all";
+    setAssignFilter(next);
+    try { localStorage.setItem("wa-assign-filter", next); } catch {}
   };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
@@ -154,7 +169,11 @@ export default function ConversationList({
     const matchUnread = !onlyUnread || isUnreadSession(s);
     const snoozed = isSnoozed(s);
     const matchSnooze = snoozeMode === "show" ? true : snoozeMode === "only" ? snoozed : !snoozed;
-    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze;
+    const matchAssign =
+      assignFilter === "all" ? true :
+      assignFilter === "mine" ? s.assigned_to === myUserId :
+      !s.assigned_to;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
@@ -185,6 +204,17 @@ export default function ConversationList({
             )}
           </h2>
           <div className="flex items-center gap-1">
+            <button
+              onClick={cycleAssignFilter}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
+                assignFilter === "mine" ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                : assignFilter === "unassigned" ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+              title="Filtro de atribuição: clique para alternar"
+            >
+              {assignFilter === "all" ? "👥 Todas" : assignFilter === "mine" ? "👤 Minhas" : "❓ Sem dono"}
+            </button>
             <button
               onClick={() => setOnlyUnread(v => !v)}
               className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}

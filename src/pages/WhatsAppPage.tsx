@@ -49,6 +49,7 @@ interface WaSession {
   unread_count?: number;
   last_message_direction?: string | null;
   ai_paused_until?: string | null;
+  assigned_to?: string | null;
 }
 
 let waRefCache: {
@@ -83,7 +84,7 @@ export default function WhatsApp() {
     setLoading(true);
     const sRes = await supabase
       .from("imphq_wa_conversations")
-      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until")
+      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
     setSessions(sRes.data as any[] || []);
@@ -183,6 +184,43 @@ export default function WhatsApp() {
     setSelectedSession(null);
     toast.success("Conversa marcada como não lida");
   }, [sessions]);
+
+  // ── Atalhos de teclado (J/K navegar, R focar resposta, U marcar não lida, Esc fechar) ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable;
+      if (isTyping) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const list = sessions.filter(s => filterProject === "all" || s.project_id === filterProject);
+      const idx = selectedSession ? list.findIndex(s => s.id === selectedSession.id) : -1;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = list[Math.min(idx + 1, list.length - 1)];
+        if (next) { setSelectedSession(next); setChatTab("chat"); markRead(next.id); }
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = list[Math.max(idx - 1, 0)];
+        if (prev) { setSelectedSession(prev); setChatTab("chat"); markRead(prev.id); }
+      } else if (e.key === "r") {
+        e.preventDefault();
+        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-wa-composer]") ||
+                   document.querySelector<HTMLTextAreaElement>(".chat-view textarea") ||
+                   document.querySelector<HTMLTextAreaElement>("textarea");
+        ta?.focus();
+      } else if (e.key === "u" && selectedSession) {
+        e.preventDefault();
+        markUnread(selectedSession.id);
+      } else if (e.key === "Escape" && selectedSession) {
+        setSelectedSession(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sessions, selectedSession, filterProject, markRead, markUnread]);
 
   // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
   useEffect(() => {
