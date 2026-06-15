@@ -15,6 +15,7 @@ export function IntegrationsHealthStrip() {
     meta: { ok: 0, total: 0, loading: true },
     wa: { active: 0, stale: 0, total: 0, loading: true },
     webhooks: { errors24h: 0, loading: true },
+    zernio: { configured: false, loading: true },
   });
 
   useEffect(() => {
