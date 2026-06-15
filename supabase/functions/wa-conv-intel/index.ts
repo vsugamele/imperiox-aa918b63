@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!conv) {
-      return new Response(JSON.stringify({ error: "conversation not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ summary: "", intent_tags: [], not_found: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
