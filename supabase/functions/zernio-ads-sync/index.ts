@@ -287,6 +287,8 @@ Deno.serve(async (req) => {
       imported,
       errors,
       insights_failures: insightsFailures,
+      insights_empty: insightsEmpty,
+      chosen_insights_variant: chosenInsightsVariant,
       campaigns: campaignsByZId.size,
       ads: ads.length,
       period: { from: dfrom, to: dto },
