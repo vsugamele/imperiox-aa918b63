@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle, Settings } from "lucide-react";
+import { Loader2, Zap, RefreshCw, CheckCircle2, AlertTriangle, Settings, Bug } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,9 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastStats, setLastStats] = useState<any>(null);
+  const [lastDebug, setLastDebug] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Load saved Zernio config
   useEffect(() => {
@@ -50,6 +53,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setLastSync(c.zernio_ads_last_sync || null);
       setLastStatus(c.zernio_ads_last_sync_status || null);
       setLastError(c.zernio_ads_last_sync_error || null);
+      setLastStats(c.zernio_ads_last_sync_stats || null);
+      setLastDebug(c.zernio_ads_last_sync_debug || null);
     })();
   }, [projectId]);
 
@@ -98,10 +103,19 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       }
       const { data, error } = await supabase.functions.invoke("zernio-ads-sync", { body });
       if (error || data?.error) throw new Error(data?.error || error?.message);
-      toast.success(`✅ Zernio: ${data.imported} registros, ${data.ads} ads, ${data.campaigns} campanhas`);
+      const importedN = data.imported ?? 0;
+      const adsN = data.ads ?? 0;
+      const campN = data.campaigns ?? 0;
+      if (importedN === 0 && adsN === 0 && campN === 0) {
+        toast.warning(`⚠️ Zernio retornou 0 campanhas. Veja o diagnóstico para entender por quê.`);
+      } else {
+        toast.success(`✅ Zernio: ${importedN} registros, ${adsN} ads, ${campN} campanhas`);
+      }
       setLastSync(new Date().toISOString());
       setLastStatus("success");
       setLastError(null);
+      setLastStats({ imported: importedN, ads: adsN, campaigns: campN });
+      setLastDebug(data.debug || null);
       setOpen(false);
       onAfterSync?.();
     } catch (e: any) {
@@ -189,6 +203,17 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
             <RefreshCw className="h-3 w-3" />
           </Button>
         )}
+        {(lastStats && (lastStats.imported === 0 && lastStats.ads === 0)) || lastDebug ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-amber-400 hover:bg-amber-500/10 h-7 px-2"
+            onClick={() => setShowDebug(true)}
+            title="Ver diagnóstico do último sync"
+          >
+            <Bug className="h-3 w-3" />
+          </Button>
+        ) : null}
       </div>
 
 
@@ -231,6 +256,62 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
             >
               {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Sincronizando...</> : "Sincronizar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDebug} onOpenChange={setShowDebug}>
+        <DialogContent className="bg-secondary/40 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <Bug className="h-4 w-4" /> Diagnóstico Zernio
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-xs leading-7">
+            <div>
+              <p className="text-muted-foreground">Último sync: <strong className="text-foreground">{lastSync ? new Date(lastSync).toLocaleString("pt-BR") : "—"}</strong></p>
+              <p className="text-muted-foreground">Resultado: <strong className="text-foreground">{lastStats ? `${lastStats.imported} reg · ${lastStats.ads} ads · ${lastStats.campaigns} camp` : "—"}</strong></p>
+              <p className="text-muted-foreground">Ad Account: <code className="text-foreground">{savedAcc || "—"}</code></p>
+            </div>
+            {lastDebug?.variants_tried && (
+              <div>
+                <p className="font-semibold mb-1 text-foreground">Variantes de parâmetro testadas:</p>
+                <div className="rounded border border-border/40 divide-y divide-border/40 overflow-hidden">
+                  {lastDebug.variants_tried.map((v: any, i: number) => (
+                    <div key={i} className={`px-2 py-1.5 ${v.name === lastDebug.chosen_variant ? "bg-emerald-500/10" : ""}`}>
+                      <div className="flex items-center justify-between">
+                        <code className="text-[11px]">{v.name}</code>
+                        {v.name === lastDebug.chosen_variant && <span className="text-[10px] text-emerald-400">✓ usada</span>}
+                      </div>
+                      <p className="text-muted-foreground text-[10px]">
+                        campaigns: {v.campaigns_count} (HTTP {v.campaigns_status}) · ads: {v.ads_count} (HTTP {v.ads_status})
+                      </p>
+                      <p className="text-muted-foreground text-[10px] truncate">
+                        keys campaigns: [{(v.campaigns_keys || []).join(", ")}] · keys ads: [{(v.ads_keys || []).join(", ")}]
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {lastStats && lastStats.imported === 0 && lastStats.ads === 0 && (
+              <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-300/90 leading-6">
+                <strong>Zero resultados em todas as variantes.</strong> Causas comuns:
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>A Ad Account precisa ser <strong>habilitada/sincronizada</strong> no painel Zernio (zernio.com → Ads).</li>
+                  <li>Sem campanhas ativas no período (sync busca últimos 30 dias por padrão).</li>
+                  <li>O token Zernio não tem permissão para essa Ad Account.</li>
+                </ul>
+              </div>
+            )}
+            {lastError && (
+              <div className="rounded border border-red-500/30 bg-red-500/5 p-2 text-red-300 text-[11px] font-mono whitespace-pre-wrap">
+                {lastError}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDebug(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -65,16 +65,50 @@ Deno.serve(async (req) => {
     const dfrom = date_from || brtDateStr(new Date(Date.now() - 30 * 86400000));
     const dto = date_to || today;
 
-    const qBase = `accountId=${encodeURIComponent(zernioAccountId)}&adAccountId=${encodeURIComponent(adAccountId)}`;
+    const debug: any = { variants_tried: [], chosen_variant: null, sample_campaign: null, sample_ad: null };
+
+    // Try different param variants for campaigns until we find one that returns data.
+    // Some Zernio tenants expect ad_account_id (snake_case) or accountId pointing to the ad account directly.
+    const variants = [
+      { name: "camelCase+zernioAcc", qs: `accountId=${encodeURIComponent(zernioAccountId)}&adAccountId=${encodeURIComponent(adAccountId)}` },
+      { name: "snake_case+zernioAcc", qs: `accountId=${encodeURIComponent(zernioAccountId)}&ad_account_id=${encodeURIComponent(adAccountId)}` },
+      { name: "adAccountAsAccountId", qs: `accountId=${encodeURIComponent(adAccountId)}` },
+      { name: "onlyAdAccount", qs: `adAccountId=${encodeURIComponent(adAccountId)}` },
+    ];
+
+    const campaignsByZId = new Map<string, any>();
+    let ads: any[] = [];
+    let qBase = variants[0].qs;
+    let chosen = variants[0].name;
+
+    for (const v of variants) {
+      const c = await zFetch(`/ads/campaigns?${v.qs}&page=1&limit=50`, apiKey);
+      const a = await zFetch(`/ads?${v.qs}&page=1&limit=50`, apiKey);
+      const cCount = (c.body?.campaigns || []).length;
+      const aCount = (a.body?.ads || []).length;
+      debug.variants_tried.push({
+        name: v.name,
+        campaigns_status: c.status, campaigns_count: cCount, campaigns_keys: Object.keys(c.body || {}),
+        ads_status: a.status, ads_count: aCount, ads_keys: Object.keys(a.body || {}),
+      });
+      console.log(`[zernio-ads-sync] variant=${v.name} campaigns=${cCount} ads=${aCount} status=${c.status}/${a.status}`);
+      if (c.ok && a.ok && (cCount > 0 || aCount > 0)) {
+        qBase = v.qs;
+        chosen = v.name;
+        break;
+      }
+    }
+    debug.chosen_variant = chosen;
+    console.log(`[zernio-ads-sync] chosen variant: ${chosen}`);
 
     // 1. Campaigns (paginated)
-    const campaignsByZId = new Map<string, any>();
     {
       let page = 1;
       while (true) {
         const { ok, status, body } = await zFetch(`/ads/campaigns?${qBase}&page=${page}&limit=50`, apiKey);
-        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar campanhas Zernio", status, details: body }), { status: 502, headers: jsonHeaders });
+        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar campanhas Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
         for (const c of (body.campaigns || [])) campaignsByZId.set(String(c.id), c);
+        if (!debug.sample_campaign && (body.campaigns || []).length > 0) debug.sample_campaign = body.campaigns[0];
         const pages = body?.pagination?.pages || 1;
         if (page >= pages) break;
         page++;
@@ -82,18 +116,19 @@ Deno.serve(async (req) => {
     }
 
     // 2. Ads (paginated)
-    const ads: any[] = [];
     {
       let page = 1;
       while (true) {
         const { ok, status, body } = await zFetch(`/ads?${qBase}&page=${page}&limit=50`, apiKey);
-        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar anúncios Zernio", status, details: body }), { status: 502, headers: jsonHeaders });
+        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar anúncios Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
         ads.push(...(body.ads || []));
+        if (!debug.sample_ad && (body.ads || []).length > 0) debug.sample_ad = body.ads[0];
         const pages = body?.pagination?.pages || 1;
         if (page >= pages) break;
         page++;
       }
     }
+    console.log(`[zernio-ads-sync] total campaigns=${campaignsByZId.size} ads=${ads.length}`);
 
     let imported = 0;
     let errors = 0;
@@ -189,7 +224,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist last sync timestamp + status
+    // Persist last sync timestamp + status + debug
     await supabase
       .from("imphq_integration_credentials")
       .update({
@@ -199,7 +234,8 @@ Deno.serve(async (req) => {
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, insights_failures: insightsFailures },
+          zernio_ads_last_sync_debug: debug,
         },
       })
       .eq("project_id", project_id)
@@ -214,6 +250,7 @@ Deno.serve(async (req) => {
       ads: ads.length,
       period: { from: dfrom, to: dto },
       ad_account_id: adAccountId,
+      debug,
     }), { headers: jsonHeaders });
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
