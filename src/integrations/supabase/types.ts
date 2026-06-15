@@ -19540,6 +19540,7 @@ export type Database = {
       imphq_ig_comments: {
         Row: {
           account_id: string
+          ad_context: Json | null
           comment_id: string
           created_at: string
           from_user_id: string | null
@@ -19554,6 +19555,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          ad_context?: Json | null
           comment_id: string
           created_at?: string
           from_user_id?: string | null
@@ -19568,6 +19570,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          ad_context?: Json | null
           comment_id?: string
           created_at?: string
           from_user_id?: string | null
@@ -25214,6 +25217,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_zernio_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          payload: Json | null
+          project_id: string | null
+          received_at: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Relationships: []
       }
       integrated_analysis: {
         Row: {
