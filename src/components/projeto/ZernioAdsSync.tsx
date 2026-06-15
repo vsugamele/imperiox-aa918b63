@@ -271,6 +271,12 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
             <div>
               <p className="text-muted-foreground">Último sync: <strong className="text-foreground">{lastSync ? new Date(lastSync).toLocaleString("pt-BR") : "—"}</strong></p>
               <p className="text-muted-foreground">Resultado: <strong className="text-foreground">{lastStats ? `${lastStats.imported} reg · ${lastStats.ads} ads · ${lastStats.campaigns} camp` : "—"}</strong></p>
+              {lastStats && (
+                <p className="text-muted-foreground">
+                  Insights: <strong className="text-foreground">{lastStats.insights_empty ?? 0} vazias</strong> · <strong className="text-foreground">{lastStats.insights_failures ?? 0} falhas</strong>
+                  {lastStats.chosen_insights_variant && <> · variante: <code className="text-emerald-400">{lastStats.chosen_insights_variant}</code></>}
+                </p>
+              )}
               <p className="text-muted-foreground">Ad Account: <code className="text-foreground">{savedAcc || "—"}</code></p>
             </div>
             {lastDebug?.variants_tried && (
