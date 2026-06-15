@@ -53,6 +53,7 @@ export default function Webinar() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConteudoTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-serif flex items-center gap-3">
