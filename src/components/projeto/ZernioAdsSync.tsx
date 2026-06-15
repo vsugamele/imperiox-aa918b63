@@ -127,7 +127,20 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   };
 
 
-  if (!hasZernio) return null;
+  if (!hasZernio) {
+    return (
+      <Link to="/empresa" title="Configurar token Zernio em Empresa > Integrações">
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1"
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+          Configurar Zernio
+        </Button>
+      </Link>
+    );
+  }
 
   return (
     <>
