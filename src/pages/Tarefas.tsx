@@ -870,9 +870,18 @@ export default function Tarefas() {
                 const doneInCol = projRoutines.filter(r => checkedRoutineIds.has(r.id)).length;
                 return (
                   <div key={proj.id} className="shrink-0 w-72 bg-secondary/30 border border-border/40 rounded-lg p-3 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold truncate">{proj.name}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold truncate flex-1">{proj.name}</div>
                       <Badge variant="outline" className="text-[10px] shrink-0">{doneInCol}/{projRoutines.length}</Badge>
+                      {proj.id !== "__none__" && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          title={`Nova rotina para ${proj.name}`}
+                          className="shrink-0 h-6 w-6 rounded-md bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <AnimatePresence>
@@ -880,7 +889,7 @@ export default function Tarefas() {
                       </AnimatePresence>
                       {projRoutines.length === 0 && (
                         <button
-                          onClick={() => { setEditingRoutine(null); setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: proj.id }); setShowRoutineDialog(true); }}
+                          onClick={() => openNewRoutine("team", proj.id)}
                           className="text-[11px] text-muted-foreground border border-dashed border-border/40 rounded p-3 hover:bg-secondary/40 transition"
                         >
                           + Adicionar rotina para {proj.name}
