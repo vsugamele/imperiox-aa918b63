@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink } from "lucide-react";
+import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
+import { brPhoneVariants } from "@/lib/phoneVariants";
 
 interface LeadIntelPanelProps {
   leadId?: string | null;
@@ -11,46 +12,99 @@ interface LeadIntelPanelProps {
   projectId?: string | null;
 }
 
+interface ProjectPresence {
+  leadId: string;
+  projectId: string | null;
+  projectName: string;
+  score: number;
+  salesCount: number;
+  totalSpent: number;
+}
 
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
   const [intel, setIntel] = useState<any>(null);
   const [activeFlow, setActiveFlow] = useState<any>(null);
   const [sales, setSales] = useState<any[]>([]);
+  const [presence, setPresence] = useState<ProjectPresence[]>([]);
   const [resolvedLeadIdState, setResolvedLeadIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-
     if (!leadId && !phone) return;
     const load = async () => {
       setLoading(true);
       try {
-        let lead: any = null;
-        let resolvedLeadId = leadId;
-
-        // Try searching lead by leadId first, fallback to phone
-        if (resolvedLeadId) {
-          const { data } = await supabase
-            .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, name")
-            .eq("id", resolvedLeadId)
-            .maybeSingle();
-          lead = data;
-        } else if (phone) {
-          const { data } = await supabase
-            .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, name")
-            .eq("phone", phone)
-            .maybeSingle();
-          lead = data;
-          if (lead) {
-            resolvedLeadId = lead.id;
+        // 1) Resolve TODOS os leads desse contato (cross-projeto) por variantes de telefone
+        let allLeads: any[] = [];
+        if (phone) {
+          const { variants } = brPhoneVariants(phone);
+          if (variants.length) {
+            const { data } = await supabase
+              .from("imphq_leads")
+              .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+              .in("phone", variants);
+            allLeads = (data as any[]) || [];
           }
         }
+        if (leadId && !allLeads.some((l) => l.id === leadId)) {
+          const { data } = await supabase
+            .from("imphq_leads")
+            .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+            .eq("id", leadId)
+            .maybeSingle();
+          if (data) allLeads.push(data);
+        }
 
-        setIntel(lead);
+        const leadIds = allLeads.map((l) => l.id);
+        const projectIds = [...new Set(allLeads.map((l) => l.project_id).filter(Boolean))];
 
-        // Load active flow execution using resolvedLeadId
+        // 2) Nomes dos projetos
+        let projectMap: Record<string, string> = {};
+        if (projectIds.length) {
+          const { data: projs } = await supabase
+            .from("imphq_projects")
+            .select("id, name")
+            .in("id", projectIds);
+          projectMap = Object.fromEntries(((projs as any[]) || []).map((p) => [p.id, p.name]));
+        }
+
+        // 3) Vendas agregadas (todos os lead_ids)
+        let allSales: any[] = [];
+        if (leadIds.length) {
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, produto_nome, valor, status, data_venda, tipo_venda, project_id, lead_id")
+            .in("lead_id", leadIds)
+            .order("data_venda", { ascending: false })
+            .limit(20);
+          allSales = (vendas as any[]) || [];
+        }
+        setSales(allSales);
+
+        // 4) Monta presença por projeto
+        const presenceList: ProjectPresence[] = allLeads.map((l) => {
+          const leadSales = allSales.filter((s) => s.lead_id === l.id);
+          return {
+            leadId: l.id,
+            projectId: l.project_id,
+            projectName: projectMap[l.project_id] || "Sem projeto",
+            score: l.score || 0,
+            salesCount: leadSales.length,
+            totalSpent: leadSales.reduce((acc, s) => acc + Number(s.valor || 0), 0),
+          };
+        }).sort((a, b) => (b.salesCount - a.salesCount) || (b.score - a.score));
+        setPresence(presenceList);
+
+        // 5) Escolhe lead "principal": do projeto atual, senão o de maior presença
+        const primary =
+          allLeads.find((l) => l.project_id === projectId) ||
+          (presenceList[0] ? allLeads.find((l) => l.id === presenceList[0].leadId) : null);
+
+        setIntel(primary || null);
+        const resolvedLeadId = primary?.id || null;
+        setResolvedLeadIdState(resolvedLeadId);
+
+        // 6) Fluxo ativo + intent do lead principal
         if (resolvedLeadId) {
           const { data: exec } = await supabase
             .from("imphq_flow_executions")
@@ -76,7 +130,6 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             setActiveFlow(null);
           }
 
-          // Load last triage intent
           const { data: triage } = await supabase
             .from("imphq_wa_triage")
             .select("intent, created_at")
@@ -90,19 +143,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               prev ? { ...prev, lastIntent: (triage as any).intent } : prev
             );
           }
-
-          setResolvedLeadIdState(resolvedLeadId);
-
-          // Últimas vendas do lead
-          const { data: vendas } = await supabase
-            .from("imphq_vendas")
-            .select("id, produto_nome, valor, status, data_venda, tipo_venda")
-            .eq("lead_id", resolvedLeadId)
-            .order("data_venda", { ascending: false })
-            .limit(3);
-          setSales((vendas as any[]) || []);
         }
-
       } catch (e) {
         console.error("LeadIntelPanel load error:", e);
       } finally {
@@ -110,7 +151,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       }
     };
     load();
-  }, [leadId, phone]);
+  }, [leadId, phone, projectId]);
 
   if (!leadId && !phone) return null;
   if (loading) {
@@ -130,6 +171,9 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       </div>
     );
   }
+
+  const projectNameById = (id: string | null) =>
+    presence.find((p) => p.projectId === id)?.projectName || null;
 
   const score = intel.score || 0;
   const awarenessLevel = intel.awareness_level || 0;
