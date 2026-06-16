@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag, Package } from "lucide-react";
 import { toast } from "sonner";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -18,6 +18,7 @@ import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStat
 import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
 import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
+import { ProductRoutingRulesTab } from "@/components/configuracoes/ProductRoutingRulesTab";
 
 
 export default function Configuracoes() {
@@ -60,6 +61,9 @@ export default function Configuracoes() {
           <TabsTrigger value="tag-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Tag className="h-3.5 w-3.5 mr-2" /> Tag → Projeto
           </TabsTrigger>
+          <TabsTrigger value="product-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Package className="h-3.5 w-3.5 mr-2" /> Produto → Projeto
+          </TabsTrigger>
         </TabsList>
 
 
@@ -73,6 +77,7 @@ export default function Configuracoes() {
           <TabsContent value="integracoes"><IntegrationStatusTab /></TabsContent>
           <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
           <TabsContent value="tag-routing"><TagRoutingRulesTab /></TabsContent>
+          <TabsContent value="product-routing"><ProductRoutingRulesTab /></TabsContent>
         </div>
 
       </Tabs>
