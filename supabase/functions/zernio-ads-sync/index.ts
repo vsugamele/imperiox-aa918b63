@@ -181,9 +181,12 @@ Deno.serve(async (req) => {
       const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.platformStatus ?? ad?.status ?? null;
       const platformAdId = ad?.platformAdId ?? null;
 
-      // === Path A: inline metrics already in /ads response ===
+      if (campaignId) campaignAdCount.set(String(campaignId), (campaignAdCount.get(String(campaignId)) || 0) + 1);
+
+      // === Path A: inline metrics already in /ads response — only when há gasto/impressão REAL ===
       const m = ad?.metrics;
-      if (m && (m.spend != null || m.impressions != null || m.actions)) {
+      const hasRealInline = !!m && ((Number(m?.spend) > 0) || (Number(m?.impressions) > 0));
+      if (hasRealInline) {
         const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
         const spend = parseFloat(m.spend ?? "0") || 0;
         const impressoes = parseInt(m.impressions ?? "0", 10) || 0;
