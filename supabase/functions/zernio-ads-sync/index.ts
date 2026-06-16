@@ -416,10 +416,11 @@ Deno.serve(async (req) => {
           ...(creds?.credentials || {}),
           zernio_ad_account_id: adAccountId,
           zernio_ads_chosen_variant: chosen,
+          zernio_ads_chosen_insights_variant: chosenInsightsVariant,
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, ads_zero_forcing_insights: adsZeroForcingInsights, days_imported: daysImported, campaign_placeholders: campaignPlaceholdersUpserted, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, ads_using_insights: adsUsingInsights, ads_fallback_inline: adsFallbackInline, inline_metrics_used: usedInlineMetrics, days_imported: daysImported, campaign_placeholders: campaignPlaceholdersUpserted, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant, period: { from: dfrom, to: dto } },
           zernio_ads_last_sync_debug: debug,
         },
       })
