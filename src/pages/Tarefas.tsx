@@ -1452,6 +1452,15 @@ export default function Tarefas() {
               <Input value={routineForm.title} onChange={e => setRoutineForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Verificar Comunidade do Clube" onKeyDown={e => e.key === "Enter" && saveRoutine()} />
             </div>
             <div>
+              <label className="text-sm font-medium mb-1 block">Descrição <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Textarea
+                value={routineForm.description}
+                onChange={e => setRoutineForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="O que precisa ser feito, critério de conclusão, links úteis..."
+                className="bg-secondary min-h-[70px] text-sm leading-6"
+              />
+            </div>
+            <div>
               <label className="text-sm font-medium mb-1 block">Ícone</label>
               <div className="flex flex-wrap gap-1.5">
                 {EMOJI_OPTIONS.map(emoji => (
