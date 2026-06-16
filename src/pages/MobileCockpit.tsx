@@ -374,7 +374,7 @@ function CockpitTab({
       </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <h3 className="text-base font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />
           Conversas Quentes
         </h3>
