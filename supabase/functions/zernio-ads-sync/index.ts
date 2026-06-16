@@ -254,6 +254,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Reached here = sem inline real → vamos forçar /insights para pegar breakdown diário
+      adsZeroForcingInsights++;
       // === Path B: fallback to /insights endpoint ===
       let rows: any[] = [];
       let lastStatus: number | null = null;
