@@ -286,9 +286,11 @@ export default function Tarefas() {
 
   const saveRoutine = async () => {
     if (!user || !routineForm.title.trim()) return;
+    const desc = routineForm.description.trim() || null;
     if (editingRoutine) {
       const { error } = await supabase.from("imphq_daily_routines").update({
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
@@ -296,7 +298,7 @@ export default function Tarefas() {
       } as any).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
-          ...r, title: routineForm.title.trim(), icon: routineForm.icon, category: routineForm.category,
+          ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
           member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
           project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         } : r));
@@ -306,6 +308,7 @@ export default function Tarefas() {
       const { data, error } = await supabase.from("imphq_daily_routines").insert({
         user_id: user.id,
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
@@ -319,7 +322,7 @@ export default function Tarefas() {
     }
     setShowRoutineDialog(false);
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
   };
 
   const deleteRoutine = async (id: string) => {
@@ -339,6 +342,7 @@ export default function Tarefas() {
     setEditingRoutine(routine);
     setRoutineForm({
       title: routine.title,
+      description: routine.description || "",
       icon: routine.icon,
       category: routine.category,
       member_id: routine.member_id || "none",
@@ -347,9 +351,9 @@ export default function Tarefas() {
     setShowRoutineDialog(true);
   };
 
-  const openNewRoutine = (category: string = "team") => {
+  const openNewRoutine = (category: string = "team", projectId?: string) => {
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none" });
     setShowRoutineDialog(true);
   };
 
