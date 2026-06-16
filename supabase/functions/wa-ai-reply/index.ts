@@ -46,6 +46,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Payment Confirmation Detection (bypass business hours + boas-vindas prioritárias)
+    const PAYMENT_CONFIRM_PATTERNS = [
+      /\bj[áa]\s+paguei\b/i,
+      /\bpaguei\b/i,
+      /\bj[áa]\s+(est[áa]\s+)?pago\b/i,
+      /\bj[áa]\s+foi\s+pago\b/i,
+      /\bj[áa]\s+(fiz|enviei|mandei)\s+(o\s+)?pix\b/i,
+      /\bpix\s+(feito|enviado|pago|realizado)\b/i,
+      /\bpagamento\s+(feito|enviado|realizado|confirmado|aprovado)\b/i,
+      /\bcomprei\b/i,
+      /\bfinalizei\b/i,
+      /\b(j[áa]\s+)?fechei\b/i,
+      /\bcomprovante\b/i,
+      /\bacabei\s+de\s+pagar\b/i,
+    ];
+    let isPaymentConfirmation = false;
+    let recentVendaContext: any = null;
+    if (leadRow?.id && message) {
+      isPaymentConfirmation = PAYMENT_CONFIRM_PATTERNS.some((re) => re.test(message));
+      if (isPaymentConfirmation) {
+        try {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, status, produto_nome, valor, created_at")
+            .eq("lead_id", leadRow.id)
+            .gte("created_at", sevenDaysAgo)
+            .order("created_at", { ascending: false })
+            .limit(3);
+          recentVendaContext = vendas?.[0] || null;
+          console.log(`[wa-ai-reply] 💸 Payment confirmation detected. Recent venda: ${recentVendaContext?.id || "none"} (${recentVendaContext?.status || "n/a"})`);
+        } catch (e: any) {
+          console.warn("[wa-ai-reply] Error loading recent venda:", e?.message);
+        }
+      }
+    }
+
     let activeStepInstruction = "";
     let activeStep: any = null;
     let activeExecutionId = null;
@@ -455,7 +492,7 @@ Deno.serve(async (req) => {
 
     try {
       // 4. Horário comercial
-      if (aiConfig.business_hours_only) {
+      if (aiConfig.business_hours_only && !isPaymentConfirmation) {
         const parts = new Intl.DateTimeFormat("en-US", {
           timeZone: "America/Sao_Paulo", hour: "numeric", minute: "numeric", hour12: false,
         }).formatToParts(new Date());
@@ -967,7 +1004,21 @@ ESPELHO DE TAMANHO (CRÍTICO):
 - REGRA DE OURO: nunca responda com mais que o DOBRO de palavras que o lead acabou de mandar, exceto em (B) descoberta ou (C) objeção.
 `;
 
-      const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const paymentConfirmationBlock = isPaymentConfirmation ? `
+
+💸 LEAD CONFIRMOU PAGAMENTO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE TUDO ABAIXO):
+O lead acabou de avisar que pagou${recentVendaContext?.produto_nome ? ` o produto "${recentVendaContext.produto_nome}"` : ""}${recentVendaContext?.status ? ` (status atual no sistema: ${recentVendaContext.status})` : ""}.
+Sua ÚNICA missão NESTA resposta:
+1. Comemorar em 1 frase curta e calorosa o passo dado (ex: "Que ótimo! Seja muito bem-vindo(a) 🎉").
+2. Explicar brevemente que o sistema confirma automaticamente (Pix: minutos; cartão: imediato; boleto: até 2 dias úteis) e que o acesso/email de boas-vindas chega logo em seguida.
+${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pendente"].includes(recentVendaContext.status) ? `3. Como o pagamento ainda consta como pendente aqui, peça gentilmente o comprovante OU o email usado na compra para conferir.\n` : `3. Se ele tiver alguma dúvida sobre o acesso, peça o email usado na compra.\n`}REGRAS RÍGIDAS:
+- NÃO mande link de checkout novamente.
+- NÃO tente vender mais nada agora.
+- NÃO faça pergunta de qualificação ou triagem.
+- Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
+` : "";
+
+      const systemPrompt = `${paymentConfirmationBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
