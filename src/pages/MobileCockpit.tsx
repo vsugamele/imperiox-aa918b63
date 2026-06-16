@@ -433,7 +433,7 @@ function InboxTab({
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={cn(
-              "px-3 h-9 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors",
+              "px-3.5 h-10 rounded-full text-sm font-semibold whitespace-nowrap border transition-colors",
               filter === f.id
                 ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
                 : "bg-slate-900 border-border/50 text-muted-foreground hover:text-white"
@@ -448,7 +448,7 @@ function InboxTab({
           </Button>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {conversations.length} de {total} conversa{total === 1 ? "" : "s"}
       </p>
 
