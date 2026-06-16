@@ -1172,41 +1172,64 @@ export default function Tarefas() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {eventsOnDate.length === 0 && (!calDate || cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).length === 0) ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento ou tarefa nesta data</p>
-                ) : (
-                  <>
-                    {eventsOnDate.map((ev: any) => {
-                      const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
-                      const proj = ev.imphq_projects;
-                      return (
-                        <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
-                          <span className="text-lg">{typeInfo.emoji}</span>
+                {(() => {
+                  const dayCards = calDate ? cards.filter(c => toDateOnly(c.due_date) === selectedDateStr) : [];
+                  const dayRoutines = calDate ? routines.filter(r => routineOccursOn(r, calDate)) : [];
+                  if (eventsOnDate.length === 0 && dayCards.length === 0 && dayRoutines.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento, tarefa ou rotina nesta data</p>;
+                  }
+                  return (
+                    <>
+                      {eventsOnDate.map((ev: any) => {
+                        const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                        const proj = ev.imphq_projects;
+                        return (
+                          <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
+                            <span className="text-lg">{typeInfo.emoji}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{ev.title}</p>
+                              {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayRoutines.map(r => {
+                        const proj = projects.find(p => p.id === r.project_id);
+                        return (
+                          <div key={`r-${r.id}`} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5 border border-violet-500/20 cursor-pointer hover:bg-violet-500/10" onClick={() => openEditRoutine(r)}>
+                            <span className="text-lg">{r.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{r.title}</p>
+                              {r.description && <p className="text-[10px] text-muted-foreground line-clamp-2">{r.description}</p>}
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-400/30">Rotina</Badge>
+                                {r.time_of_day && <Badge variant="outline" className="text-[10px] font-mono">{r.time_of_day.slice(0,5)}</Badge>}
+                                {r.recurrence === "weekdays" && <Badge variant="outline" className="text-[10px]">Dias úteis</Badge>}
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayCards.map(card => (
+                        <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
+                          <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{ev.title}</p>
-                            {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
-                            <div className="flex items-center gap-1 mt-1">
-                              <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
-                              {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                            <p className="text-sm font-medium">{card.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
+                              {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                    {calDate && cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).map(card => (
-                      <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
-                        <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{card.title}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
-                            {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+                      ))}
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
 
