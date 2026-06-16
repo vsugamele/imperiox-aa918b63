@@ -395,7 +395,13 @@ Deno.serve(async (req) => {
         : await supabase.from("imphq_ads_spend").insert(record);
       if (!error) campaignPlaceholdersUpserted++;
     }
-    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
+    debug.campaigns_detected = Array.from(campaignsByZId.values()).map((c: any) => ({
+      id: c?.platformCampaignId || c?.id,
+      name: c?.name,
+      status: c?.effective_status ?? c?.effectiveStatus ?? c?.status ?? null,
+      ads_count: campaignAdCount.get(String(c?.id)) || 0,
+    }));
+    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} forceInsights=${adsZeroForcingInsights} days=${daysImported} campPH=${campaignPlaceholdersUpserted} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
     // Persist last sync timestamp + status + debug
     await supabase
