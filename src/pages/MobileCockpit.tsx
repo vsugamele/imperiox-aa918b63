@@ -503,7 +503,7 @@ function LeadsTab({
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {leads.length} de {total} lead{total === 1 ? "" : "s"} — ordenado por mais recente
       </p>
 
