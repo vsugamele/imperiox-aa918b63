@@ -1127,6 +1127,7 @@ export default function Tarefas() {
                     const dateStr = format(date, "yyyy-MM-dd");
                     const dayEvents = filteredCalEvents.filter(e => toDateOnly(e.event_date) === dateStr);
                     const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.includes(c.column_id));
+                    const dayRoutines = routines.filter(r => routineOccursOn(r, date));
                     return (
                       <div className="flex flex-col items-center gap-0.5 w-full">
                         <span className="text-sm">{date.getDate()}</span>
@@ -1141,11 +1142,15 @@ export default function Tarefas() {
                           {dayTasks.slice(0, 2).map((_, i) => (
                             <div key={`t${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                           ))}
+                          {dayRoutines.slice(0, 2).map((r, i) => (
+                            <div key={`r${i}`} className="h-1.5 w-1.5 rounded-full bg-violet-400" title={r.title} />
+                          ))}
                         </div>
-                        {(dayEvents.length + dayTasks.length) > 0 && (
+                        {(dayEvents.length + dayTasks.length + dayRoutines.length) > 0 && (
                           <span className="text-[9px] text-muted-foreground leading-none">
                             {dayEvents.length > 0 && `${dayEvents.length}ev`}
                             {dayTasks.length > 0 && ` ${dayTasks.length}t`}
+                            {dayRoutines.length > 0 && ` ${dayRoutines.length}r`}
                           </span>
                         )}
                       </div>
