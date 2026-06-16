@@ -18670,8 +18670,12 @@ export type Database = {
           member_id: string | null
           position: number | null
           project_id: string | null
+          recurrence: string
+          start_date: string | null
+          time_of_day: string | null
           title: string
           user_id: string
+          weekdays: number[]
         }
         Insert: {
           category?: string | null
@@ -18683,8 +18687,12 @@ export type Database = {
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title: string
           user_id: string
+          weekdays?: number[]
         }
         Update: {
           category?: string | null
@@ -18696,8 +18704,12 @@ export type Database = {
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title?: string
           user_id?: string
+          weekdays?: number[]
         }
         Relationships: [
           {
