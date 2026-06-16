@@ -376,9 +376,14 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
                       R${Number(v.valor || 0).toFixed(0)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                    <span>{v.data_venda ? new Date(v.data_venda).toLocaleDateString("pt-BR") : ""}</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase">
+                  <div className="flex items-center justify-between gap-1 text-[9px] text-muted-foreground">
+                    <span className="truncate">
+                      {v.data_venda ? new Date(v.data_venda).toLocaleDateString("pt-BR") : ""}
+                      {projectNameById(v.project_id) && (
+                        <span className="text-violet-300/80"> · {projectNameById(v.project_id)}</span>
+                      )}
+                    </span>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase shrink-0">
                       {v.tipo_venda || v.status || "venda"}
                     </Badge>
                   </div>
