@@ -586,7 +586,7 @@ function MaisTab({ onDesktop, navigate }: any) {
           >
             <span className="flex items-center gap-3">
               <Icon className="h-5 w-5 text-amber-400" />
-              <span className="text-sm font-semibold text-white">{i.label}</span>
+              <span className="text-base font-semibold text-white">{i.label}</span>
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -594,7 +594,7 @@ function MaisTab({ onDesktop, navigate }: any) {
       })}
       <button
         onClick={onDesktop}
-        className="w-full mt-4 p-4 rounded-lg border border-dashed border-border/50 text-sm text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
+        className="w-full mt-4 p-4 rounded-lg border border-dashed border-border/50 text-base text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
       >
         Ver versão desktop →
       </button>
