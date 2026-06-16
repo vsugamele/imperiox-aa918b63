@@ -181,6 +181,20 @@ Deno.serve(async (req) => {
           ...formMeta,
         },
       });
+
+      // Push notification — novo lead capturado
+      try {
+        const recipients = await resolveProjectRecipients(supabase, projectId);
+        await pushNotifyByPref({
+          supabase,
+          prefKey: "novo_lead",
+          title: "🎯 Novo lead capturado",
+          message: `${name || email} — ${source || "captação"}`,
+          user_ids: recipients.length > 0 ? recipients : undefined,
+        });
+      } catch (e) {
+        console.error("[capture-lead] push novo_lead error:", e);
+      }
     }
 
 
