@@ -618,26 +618,26 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
       <CardContent className={cn("space-y-3", compact ? "p-3" : "p-3.5")}>
         <div className="flex justify-between items-start gap-2">
           <div className="space-y-0.5 min-w-0 flex-1">
-            <h4 className="text-sm font-bold text-white truncate">{conv.contact_name || "Sem Nome"}</h4>
-            <p className="text-xs text-muted-foreground font-mono truncate">{conv.phone}</p>
+            <h4 className="text-base font-bold text-white truncate">{conv.contact_name || "Sem Nome"}</h4>
+            <p className="text-sm text-muted-foreground font-mono truncate">{conv.phone}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {isHot && <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] font-bold px-1.5 py-0">QUENTE</Badge>}
-            {isPaused && <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] font-bold px-1.5 py-0">IA OFF</Badge>}
+            {isHot && <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-xs font-bold px-2 py-0.5">QUENTE</Badge>}
+            {isPaused && <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-xs font-bold px-2 py-0.5">IA OFF</Badge>}
           </div>
         </div>
 
         {conv.last_message && (
           <div className={cn(
-            "bg-slate-950/40 p-2.5 rounded-lg border border-border/20 text-sm italic text-slate-300 leading-relaxed",
+            "bg-slate-950/40 p-3 rounded-lg border border-border/20 text-sm italic text-slate-200 leading-relaxed",
             compact ? "line-clamp-2" : "line-clamp-3"
           )}>
             "{conv.last_message}"
           </div>
         )}
 
-        <div className="flex justify-between items-center text-xs text-muted-foreground">
-          <span>Status: <strong className="capitalize">{conv.status || "Lead"}</strong></span>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>Status: <strong className="capitalize text-foreground/80">{conv.status || "Lead"}</strong></span>
           {conv.last_message_at && (
             <span>{formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ptBR })}</span>
           )}
@@ -648,9 +648,9 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
             size="sm"
             variant="outline"
             onClick={() => onOpenWa(conv.phone)}
-            className="text-xs min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+            className="text-sm min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           >
-            <ExternalLink className="h-3.5 w-3.5" /> Chat
+            <ExternalLink className="h-4 w-4" /> Chat
           </Button>
           {full && (
             <Button
@@ -658,13 +658,13 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
               variant="outline"
               onClick={() => onToggleCloser(conv)}
               className={cn(
-                "text-xs min-h-11 gap-1 font-semibold",
+                "text-sm min-h-11 gap-1 font-semibold",
                 conv.buy_intent_detected
                   ? "border-orange-500 bg-orange-500/20 text-orange-300"
                   : "border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
               )}
             >
-              <UserCheck className="h-3.5 w-3.5" /> Closer
+              <UserCheck className="h-4 w-4" /> Closer
             </Button>
           )}
           <Button
@@ -672,18 +672,18 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
             variant="outline"
             onClick={() => onTogglePause(conv)}
             className={cn(
-              "text-xs min-h-11 gap-1 font-semibold",
+              "text-sm min-h-11 gap-1 font-semibold",
               isPaused
                 ? "border-blue-500 bg-blue-500/20 text-blue-300"
                 : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
             )}
           >
-            {isPaused ? <Play className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+            {isPaused ? <Play className="h-4 w-4" /> : <Square className="h-4 w-4" />}
             {isPaused ? "Retomar" : "Pausar IA"}
           </Button>
         </div>
         {isPaused && (
-          <p className="text-[11px] text-blue-400 text-center font-semibold">
+          <p className="text-xs text-blue-400 text-center font-semibold">
             Pausado por mais {remaining} min.
           </p>
         )}
