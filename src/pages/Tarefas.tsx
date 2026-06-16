@@ -155,7 +155,7 @@ export default function Tarefas() {
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
-  const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+  const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [] as number[], time_of_day: "" });
 
   // Calendar state
   const [calEvents, setCalEvents] = useState<any[]>([]);
