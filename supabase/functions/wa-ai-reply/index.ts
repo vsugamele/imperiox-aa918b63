@@ -1004,7 +1004,21 @@ ESPELHO DE TAMANHO (CRÍTICO):
 - REGRA DE OURO: nunca responda com mais que o DOBRO de palavras que o lead acabou de mandar, exceto em (B) descoberta ou (C) objeção.
 `;
 
-      const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const paymentConfirmationBlock = isPaymentConfirmation ? `
+
+💸 LEAD CONFIRMOU PAGAMENTO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE TUDO ABAIXO):
+O lead acabou de avisar que pagou${recentVendaContext?.produto_nome ? ` o produto "${recentVendaContext.produto_nome}"` : ""}${recentVendaContext?.status ? ` (status atual no sistema: ${recentVendaContext.status})` : ""}.
+Sua ÚNICA missão NESTA resposta:
+1. Comemorar em 1 frase curta e calorosa o passo dado (ex: "Que ótimo! Seja muito bem-vindo(a) 🎉").
+2. Explicar brevemente que o sistema confirma automaticamente (Pix: minutos; cartão: imediato; boleto: até 2 dias úteis) e que o acesso/email de boas-vindas chega logo em seguida.
+${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pendente"].includes(recentVendaContext.status) ? `3. Como o pagamento ainda consta como pendente aqui, peça gentilmente o comprovante OU o email usado na compra para conferir.\n` : `3. Se ele tiver alguma dúvida sobre o acesso, peça o email usado na compra.\n`}REGRAS RÍGIDAS:
+- NÃO mande link de checkout novamente.
+- NÃO tente vender mais nada agora.
+- NÃO faça pergunta de qualificação ou triagem.
+- Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
+` : "";
+
+      const systemPrompt = `${paymentConfirmationBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
