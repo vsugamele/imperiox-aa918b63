@@ -406,7 +406,7 @@ Deno.serve(async (req) => {
       status: c?.effective_status ?? c?.effectiveStatus ?? c?.status ?? null,
       ads_count: campaignAdCount.get(String(c?.id)) || 0,
     }));
-    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} forceInsights=${adsZeroForcingInsights} days=${daysImported} campPH=${campaignPlaceholdersUpserted} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
+    console.log(`[zernio-ads-sync] imported=${imported} viaInsights=${adsUsingInsights} fallbackInline=${adsFallbackInline} days=${daysImported} campPH=${campaignPlaceholdersUpserted} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
     // Persist last sync timestamp + status + debug
     await supabase
