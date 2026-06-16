@@ -696,7 +696,7 @@ function Loader({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
       <Loader2 className="h-7 w-7 animate-spin" />
-      <p className="text-xs">{text}</p>
+      <p className="text-sm">{text}</p>
     </div>
   );
 }
