@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, Users, Send, Wifi, Bot, CheckCircle2, AlertTriangle, Smartphone, ExternalLink } from "lucide-react";
+import { Bell, BellOff, Users, Send, Wifi, Bot, CheckCircle2, AlertTriangle, Smartphone, ExternalLink, DollarSign, Flame, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 const VAPID_PUBLIC_KEY = "BLSx5jJeDYyBAq6dIN18oTfD0sv8JjSWGeQ0N8z0P74SJLrRcO_DMDFh9oPP5Yf0t0F-ZlciudxgCigyLQ3Toyo";
