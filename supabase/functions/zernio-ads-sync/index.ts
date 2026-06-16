@@ -161,9 +161,11 @@ Deno.serve(async (req) => {
 
     // 3. For each ad: prefer inline metrics from /ads (already has spend, impressions, actions, etc.).
     //    Fall back to /insights only if inline metrics are absent.
+    let skippedNoId = 0;
     for (const ad of ads) {
-      const adId = ad?.id ?? ad?.adId ?? ad?.ad_id;
-      if (!adId) continue;
+      const adId = ad?.id ?? ad?._id ?? ad?.adId ?? ad?.ad_id ?? ad?.platformAdId;
+      if (!adId) { skippedNoId++; continue; }
+
       const campaignId = ad?.campaignId ?? ad?.campaign_id ?? null;
       const adsetId = ad?.adsetId ?? ad?.adset_id ?? null;
       const campaignName = ad?.campaignName ?? ad?.campaign_name ?? (campaignId && campaignsByZId.get(String(campaignId))?.name) ?? null;
