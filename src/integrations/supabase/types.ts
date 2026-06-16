@@ -21110,6 +21110,33 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_product_project_rules: {
+        Row: {
+          created_at: string
+          id: string
+          override_existing: boolean
+          produto_nome: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_project_costs: {
         Row: {
           beneficiario: string | null
@@ -42156,6 +42183,10 @@ export type Database = {
       areamembrojp_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
+      }
+      backfill_product_project_rule: {
+        Args: { p_override?: boolean; p_produto: string; p_project: string }
+        Returns: number
       }
       backup_deposits: { Args: { deposit_ids: string[] }; Returns: undefined }
       calculate_adherence_streaks: {
