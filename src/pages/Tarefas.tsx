@@ -1209,7 +1209,7 @@ export default function Tarefas() {
                                 <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-400/30">Rotina</Badge>
                                 {r.time_of_day && <Badge variant="outline" className="text-[10px] font-mono">{r.time_of_day.slice(0,5)}</Badge>}
                                 {r.recurrence === "weekdays" && <Badge variant="outline" className="text-[10px]">Dias úteis</Badge>}
-                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                                {proj && <Badge variant="secondary" className="text-[10px]">{(proj as any).icon || "📁"} {proj.name}</Badge>}
                               </div>
                             </div>
                           </div>
