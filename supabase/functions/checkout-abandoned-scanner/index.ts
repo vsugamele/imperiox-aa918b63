@@ -43,7 +43,8 @@ Deno.serve(async (req) => {
       .from("imphq_notifications")
       .select("id")
       .eq("type", "checkout_abandonado")
-      .eq("ref_id", v.id)
+      .eq("entity_type", "venda")
+      .eq("entity_id", v.id)
       .limit(1)
       .maybeSingle();
     if (existing) continue;
@@ -74,11 +75,10 @@ Deno.serve(async (req) => {
 
     await supabase.from("imphq_notifications").insert({
       type: "checkout_abandonado",
-      ref_id: v.id,
-      project_id: v.project_id,
+      entity_type: "venda",
+      entity_id: v.id,
       title,
       message,
-      data: { venda_id: v.id, lead_id: v.lead_id, status: v.status },
     });
     notified++;
   }
