@@ -272,13 +272,32 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
               <p className="text-muted-foreground">Último sync: <strong className="text-foreground">{lastSync ? new Date(lastSync).toLocaleString("pt-BR") : "—"}</strong></p>
               <p className="text-muted-foreground">Resultado: <strong className="text-foreground">{lastStats ? `${lastStats.imported} reg · ${lastStats.ads} ads · ${lastStats.campaigns} camp` : "—"}</strong></p>
               {lastStats && (
-                <p className="text-muted-foreground">
-                  Insights: <strong className="text-foreground">{lastStats.insights_empty ?? 0} vazias</strong> · <strong className="text-foreground">{lastStats.insights_failures ?? 0} falhas</strong>
-                  {lastStats.chosen_insights_variant && <> · variante: <code className="text-emerald-400">{lastStats.chosen_insights_variant}</code></>}
-                </p>
+                <>
+                  <p className="text-muted-foreground">
+                    Insights: <strong className="text-foreground">{lastStats.insights_empty ?? 0} vazias</strong> · <strong className="text-foreground">{lastStats.insights_failures ?? 0} falhas</strong>
+                    {lastStats.chosen_insights_variant && <> · variante: <code className="text-emerald-400">{lastStats.chosen_insights_variant}</code></>}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Inline real: <strong className="text-emerald-400">{lastStats.inline_metrics_used ?? 0}</strong> · Forçando /insights: <strong className="text-amber-400">{lastStats.ads_zero_forcing_insights ?? 0}</strong> · Dias importados: <strong className="text-foreground">{lastStats.days_imported ?? 0}</strong> · Campanhas placeholder: <strong className="text-foreground">{lastStats.campaign_placeholders ?? 0}</strong>
+                  </p>
+                </>
               )}
               <p className="text-muted-foreground">Ad Account: <code className="text-foreground">{savedAcc || "—"}</code></p>
             </div>
+            {lastDebug?.campaigns_detected && lastDebug.campaigns_detected.length > 0 && (
+              <div>
+                <p className="font-semibold mb-1 text-foreground">Campanhas detectadas ({lastDebug.campaigns_detected.length}):</p>
+                <div className="rounded border border-border/40 max-h-48 overflow-auto divide-y divide-border/40">
+                  {lastDebug.campaigns_detected.map((c: any, i: number) => (
+                    <div key={i} className="px-2 py-1.5 flex items-center justify-between text-[11px]">
+                      <span className="truncate flex-1 mr-2">{c.name || "—"}</span>
+                      <span className="text-muted-foreground">{c.ads_count} ads</span>
+                      <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${c.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-400" : c.status === "PAUSED" ? "bg-amber-500/15 text-amber-400" : "bg-muted text-muted-foreground"}`}>{c.status || "?"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {lastDebug?.variants_tried && (
               <div>
                 <p className="font-semibold mb-1 text-foreground">Variantes de parâmetro testadas:</p>
