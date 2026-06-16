@@ -160,7 +160,8 @@ Deno.serve(async (req) => {
     let insightsFailures = 0;
     let insightsEmpty = 0;
     let usedInlineMetrics = 0;
-    let adsZeroForcingInsights = 0;
+    let adsUsingInsights = 0;
+    let adsFallbackInline = 0;
     let daysImported = 0;
     let campaignPlaceholdersUpserted = 0;
     const campaignAdCount = new Map<string, number>();
@@ -171,16 +172,26 @@ Deno.serve(async (req) => {
       const baseParams = `adId=${adIdEnc}&since=${dfrom}&until=${dto}`;
       return [
         { name: "qBase+timeIncrement", path: `/ads/insights?${qBase}&${baseParams}&timeIncrement=1` },
-        { name: "qBase", path: `/ads/insights?${qBase}&${baseParams}` },
         { name: "onlyAdAccount+adId", path: `/ads/insights?adAccountId=${enc(adAccountId)}&${baseParams}&timeIncrement=1` },
         { name: "zernioAcc+adId", path: `/ads/insights?accountId=${enc(zernioAccountId)}&${baseParams}&timeIncrement=1` },
         { name: "onlyAdId", path: `/ads/insights?${baseParams}&timeIncrement=1` },
+        { name: "qBase", path: `/ads/insights?${qBase}&${baseParams}` },
       ];
     };
-    let chosenInsightsVariant: string | null = null;
+    let chosenInsightsVariant: string | null = (creds?.credentials?.zernio_ads_chosen_insights_variant as string | null) || null;
 
-    // 3. For each ad: prefer inline metrics from /ads (already has spend, impressions, actions, etc.).
-    //    Fall back to /insights only if inline metrics are absent.
+    // === Limpar dados antigos no range para evitar duplicações com data_ref errado ===
+    await supabase
+      .from("imphq_ads_spend")
+      .delete()
+      .eq("project_id", project_id)
+      .eq("source", "zernio")
+      .gte("data_ref", dfrom)
+      .lte("data_ref", dto)
+      .not("ad_id", "ilike", "CAMP:%");
+
+    // 3. Para cada ad: SEMPRE tentar /insights primeiro (breakdown diário no range).
+    //    Fallback: inline metrics se /insights vier vazio mas houver spend.
     let skippedNoId = 0;
     for (const ad of ads) {
       const adId = ad?.id ?? ad?._id ?? ad?.adId ?? ad?.ad_id ?? ad?.platformAdId;
@@ -196,83 +207,11 @@ Deno.serve(async (req) => {
       const creativeTitle = ad?.creative?.title ?? null;
       const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.platformStatus ?? ad?.status ?? null;
       const platformAdId = ad?.platformAdId ?? null;
+      const adIdKey = platformAdId ? String(platformAdId) : String(adId);
 
       if (campaignId) campaignAdCount.set(String(campaignId), (campaignAdCount.get(String(campaignId)) || 0) + 1);
 
-      // === Path A: inline metrics already in /ads response — only when há gasto/impressão REAL ===
-      const m = ad?.metrics;
-      const hasRealInline = !!m && ((Number(m?.spend) > 0) || (Number(m?.impressions) > 0));
-      if (hasRealInline) {
-        const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
-        const spend = parseFloat(m.spend ?? "0") || 0;
-        const impressoes = parseInt(m.impressions ?? "0", 10) || 0;
-        const alcance = parseInt(m.reach ?? "0", 10) || 0;
-        const cliques = parseInt(m.clicks ?? "0", 10) || 0;
-        const ctr = parseFloat(m.ctr ?? "0") || 0;
-        const frequencia = parseFloat(m.frequency ?? "0") || 0;
-        const linkClicks = parseInt(m.linkClicks ?? m.inline_link_clicks ?? (m.actions?.link_click ?? "0"), 10) || 0;
-        const actions = m.actions || {};
-        const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
-        const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
-        const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
-        const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
-        const lpViews = pickAction(actions, "landing_page_view");
-        const v3 = pickAction(actions, "video_view");
-        const vTru = pickAction(actions, "video_thruplay_watched_actions");
-
-        const record: Record<string, unknown> = {
-          project_id,
-          plataforma: "Facebook",
-          source: "zernio",
-          campanha: campaignName,
-          conjunto_anuncios: adsetName,
-          anuncio: adName,
-          campaign_id: campaignId ? String(campaignId) : null,
-          adset_id: adsetId ? String(adsetId) : null,
-          ad_id: platformAdId ? String(platformAdId) : String(adId),
-          data_ref: dateRef,
-          valor: spend,
-          impressoes,
-          alcance,
-          cliques,
-          leads,
-          compras,
-          init_checkout: initCheckout,
-          add_to_cart: addToCart,
-          landing_page_views: lpViews,
-          video_3s_views: v3,
-          video_thruplay: vTru,
-          link_clicks: linkClicks,
-          custo_por_compra: compras > 0 ? spend / compras : null,
-          ctr,
-          frequencia,
-          moeda: m.currency || ad?.currency || "BRL",
-          thumbnail_url: thumb,
-          creative_body: creativeBody,
-          creative_title: creativeTitle,
-          effective_status: effectiveStatus,
-        };
-
-        const adIdKey = platformAdId ? String(platformAdId) : String(adId);
-        const { data: existing } = await supabase
-          .from("imphq_ads_spend")
-          .select("id")
-          .eq("project_id", project_id)
-          .eq("source", "zernio")
-          .eq("ad_id", adIdKey)
-          .eq("data_ref", dateRef)
-          .maybeSingle();
-
-        const { error } = existing
-          ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
-          : await supabase.from("imphq_ads_spend").insert(record);
-        if (error) errors++; else { imported++; usedInlineMetrics++; }
-        continue;
-      }
-
-      // Reached here = sem inline real → vamos forçar /insights para pegar breakdown diário
-      adsZeroForcingInsights++;
-      // === Path B: fallback to /insights endpoint ===
+      // === Path A: /insights (preferido — breakdown diário) ===
       let rows: any[] = [];
       let lastStatus: number | null = null;
       let lastBodyKeys: string[] = [];
@@ -296,81 +235,131 @@ Deno.serve(async (req) => {
           break;
         }
       }
+      await new Promise((r) => setTimeout(r, 150));
 
-      if (rows.length === 0) {
-        if (lastStatus && lastStatus >= 400) insightsFailures++;
-        else insightsEmpty++;
-        if (!debug.sample_empty_insight) {
-          debug.sample_empty_insight = { adId: String(adId), status: lastStatus, keys: lastBodyKeys };
+      if (rows.length > 0) {
+        adsUsingInsights++;
+        for (const row of rows) {
+          const dateRef = row?.date_start || row?.date || row?.dateStart;
+          if (!dateRef) continue;
+          const spend = parseFloat(row?.spend ?? "0");
+          const impressoes = parseInt(row?.impressions ?? "0", 10);
+          const alcance = parseInt(row?.reach ?? "0", 10);
+          const cliques = parseInt(row?.clicks ?? "0", 10);
+          const ctr = parseFloat(row?.ctr ?? "0");
+          const frequencia = parseFloat(row?.frequency ?? "0");
+          const linkClicks = parseInt(row?.inline_link_clicks ?? row?.linkClicks ?? "0", 10);
+          const actions = row?.actions || [];
+          const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
+          const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
+          const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
+          const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
+          const lpViews = pickAction(actions, "landing_page_view");
+          const v3 = Array.isArray(row?.video_play_actions) && row.video_play_actions[0] ? parseInt(row.video_play_actions[0].value, 10) : 0;
+          const vTru = Array.isArray(row?.video_thruplay_watched_actions) && row.video_thruplay_watched_actions[0] ? parseInt(row.video_thruplay_watched_actions[0].value, 10) : 0;
+
+          const record: Record<string, unknown> = {
+            project_id,
+            plataforma: "Facebook",
+            source: "zernio",
+            campanha: campaignName,
+            conjunto_anuncios: adsetName,
+            anuncio: adName,
+            campaign_id: campaignId ? String(campaignId) : null,
+            adset_id: adsetId ? String(adsetId) : null,
+            ad_id: adIdKey,
+            data_ref: dateRef,
+            valor: spend,
+            impressoes,
+            alcance,
+            cliques,
+            leads,
+            compras,
+            init_checkout: initCheckout,
+            add_to_cart: addToCart,
+            landing_page_views: lpViews,
+            video_3s_views: v3,
+            video_thruplay: vTru,
+            link_clicks: linkClicks,
+            custo_por_compra: compras > 0 ? spend / compras : null,
+            ctr,
+            frequencia,
+            moeda: row?.currency || "BRL",
+            thumbnail_url: thumb,
+            creative_body: creativeBody,
+            creative_title: creativeTitle,
+            effective_status: effectiveStatus,
+          };
+
+          const { error } = await supabase.from("imphq_ads_spend").insert(record);
+          if (error) errors++; else { imported++; daysImported++; }
         }
         continue;
       }
-      for (const row of rows) {
-        const dateRef = row?.date_start || row?.date || row?.dateStart;
-        if (!dateRef) continue;
-        const spend = parseFloat(row?.spend ?? "0");
-        const impressoes = parseInt(row?.impressions ?? "0", 10);
-        const alcance = parseInt(row?.reach ?? "0", 10);
-        const cliques = parseInt(row?.clicks ?? "0", 10);
-        const ctr = parseFloat(row?.ctr ?? "0");
-        const frequencia = parseFloat(row?.frequency ?? "0");
-        const linkClicks = parseInt(row?.inline_link_clicks ?? row?.linkClicks ?? "0", 10);
-        const actions = row?.actions || [];
-        const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
-        const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
-        const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
-        const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
-        const lpViews = pickAction(actions, "landing_page_view");
-        const v3 = Array.isArray(row?.video_play_actions) && row.video_play_actions[0] ? parseInt(row.video_play_actions[0].value, 10) : 0;
-        const vTru = Array.isArray(row?.video_thruplay_watched_actions) && row.video_thruplay_watched_actions[0] ? parseInt(row.video_thruplay_watched_actions[0].value, 10) : 0;
 
-        const record: Record<string, unknown> = {
-          project_id,
-          plataforma: "Facebook",
-          source: "zernio",
-          campanha: campaignName,
-          conjunto_anuncios: adsetName,
-          anuncio: adName,
-          campaign_id: campaignId ? String(campaignId) : null,
-          adset_id: adsetId ? String(adsetId) : null,
-          ad_id: String(adId),
-          data_ref: dateRef,
-          valor: spend,
-          impressoes,
-          alcance,
-          cliques,
-          leads,
-          compras,
-          init_checkout: initCheckout,
-          add_to_cart: addToCart,
-          landing_page_views: lpViews,
-          video_3s_views: v3,
-          video_thruplay: vTru,
-          link_clicks: linkClicks,
-          custo_por_compra: compras > 0 ? spend / compras : null,
-          ctr,
-          frequencia,
-          moeda: row?.currency || "BRL",
-          thumbnail_url: thumb,
-          creative_body: creativeBody,
-          creative_title: creativeTitle,
-          effective_status: effectiveStatus,
-        };
-
-        const { data: existing } = await supabase
-          .from("imphq_ads_spend")
-          .select("id")
-          .eq("project_id", project_id)
-          .eq("source", "zernio")
-          .eq("ad_id", String(adId))
-          .eq("data_ref", dateRef)
-          .maybeSingle();
-
-        const { error } = existing
-          ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
-          : await supabase.from("imphq_ads_spend").insert(record);
-        if (error) errors++; else { imported++; daysImported++; }
+      // === Path B: fallback inline metrics quando /insights vier vazio ===
+      if (lastStatus && lastStatus >= 400) insightsFailures++;
+      else insightsEmpty++;
+      if (!debug.sample_empty_insight) {
+        debug.sample_empty_insight = { adId: String(adId), status: lastStatus, keys: lastBodyKeys };
       }
+
+      const m = ad?.metrics;
+      const hasInline = !!m && ((Number(m?.spend) > 0) || (Number(m?.impressions) > 0));
+      if (!hasInline) continue;
+
+      adsFallbackInline++;
+      const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
+      const spend = parseFloat(m.spend ?? "0") || 0;
+      const impressoes = parseInt(m.impressions ?? "0", 10) || 0;
+      const alcance = parseInt(m.reach ?? "0", 10) || 0;
+      const cliques = parseInt(m.clicks ?? "0", 10) || 0;
+      const ctr = parseFloat(m.ctr ?? "0") || 0;
+      const frequencia = parseFloat(m.frequency ?? "0") || 0;
+      const linkClicks = parseInt(m.linkClicks ?? m.inline_link_clicks ?? (m.actions?.link_click ?? "0"), 10) || 0;
+      const actions = m.actions || {};
+      const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
+      const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
+      const initCheckout = pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout");
+      const addToCart = pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart");
+      const lpViews = pickAction(actions, "landing_page_view");
+      const v3 = pickAction(actions, "video_view");
+      const vTru = pickAction(actions, "video_thruplay_watched_actions");
+
+      const record: Record<string, unknown> = {
+        project_id,
+        plataforma: "Facebook",
+        source: "zernio",
+        campanha: campaignName,
+        conjunto_anuncios: adsetName,
+        anuncio: adName,
+        campaign_id: campaignId ? String(campaignId) : null,
+        adset_id: adsetId ? String(adsetId) : null,
+        ad_id: adIdKey,
+        data_ref: dateRef,
+        valor: spend,
+        impressoes,
+        alcance,
+        cliques,
+        leads,
+        compras,
+        init_checkout: initCheckout,
+        add_to_cart: addToCart,
+        landing_page_views: lpViews,
+        video_3s_views: v3,
+        video_thruplay: vTru,
+        link_clicks: linkClicks,
+        custo_por_compra: compras > 0 ? spend / compras : null,
+        ctr,
+        frequencia,
+        moeda: m.currency || ad?.currency || "BRL",
+        thumbnail_url: thumb,
+        creative_body: creativeBody,
+        creative_title: creativeTitle,
+        effective_status: effectiveStatus,
+      };
+      const { error } = await supabase.from("imphq_ads_spend").insert(record);
+      if (error) errors++; else { imported++; usedInlineMetrics++; }
     }
 
     // === Placeholders de campanha: garante que TODAS as 16 campanhas apareçam no Gerenciador ===
