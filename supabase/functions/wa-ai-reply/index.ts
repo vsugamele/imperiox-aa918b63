@@ -46,6 +46,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Payment Confirmation Detection (bypass business hours + boas-vindas prioritárias)
+    const PAYMENT_CONFIRM_PATTERNS = [
+      /\bj[áa]\s+paguei\b/i,
+      /\bpaguei\b/i,
+      /\bj[áa]\s+(est[áa]\s+)?pago\b/i,
+      /\bj[áa]\s+foi\s+pago\b/i,
+      /\bj[áa]\s+(fiz|enviei|mandei)\s+(o\s+)?pix\b/i,
+      /\bpix\s+(feito|enviado|pago|realizado)\b/i,
+      /\bpagamento\s+(feito|enviado|realizado|confirmado|aprovado)\b/i,
+      /\bcomprei\b/i,
+      /\bfinalizei\b/i,
+      /\b(j[áa]\s+)?fechei\b/i,
+      /\bcomprovante\b/i,
+      /\bacabei\s+de\s+pagar\b/i,
+    ];
+    let isPaymentConfirmation = false;
+    let recentVendaContext: any = null;
+    if (leadRow?.id && message) {
+      isPaymentConfirmation = PAYMENT_CONFIRM_PATTERNS.some((re) => re.test(message));
+      if (isPaymentConfirmation) {
+        try {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, status, produto_nome, valor, created_at")
+            .eq("lead_id", leadRow.id)
+            .gte("created_at", sevenDaysAgo)
+            .order("created_at", { ascending: false })
+            .limit(3);
+          recentVendaContext = vendas?.[0] || null;
+          console.log(`[wa-ai-reply] 💸 Payment confirmation detected. Recent venda: ${recentVendaContext?.id || "none"} (${recentVendaContext?.status || "n/a"})`);
+        } catch (e: any) {
+          console.warn("[wa-ai-reply] Error loading recent venda:", e?.message);
+        }
+      }
+    }
+
     let activeStepInstruction = "";
     let activeStep: any = null;
     let activeExecutionId = null;
