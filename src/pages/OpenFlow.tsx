@@ -422,6 +422,8 @@ export default function OpenFlow() {
                   automacaoId={editing.id} 
                   flowObjective={editing.flow_objective || ""}
                   onUpdateObjective={v => setEditing({ ...editing, flow_objective: v })}
+                  onGenerateAI={handleGenerateAI}
+                  isGenerating={isGeneratingAI}
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
