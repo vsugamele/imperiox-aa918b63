@@ -363,10 +363,10 @@ function CockpitTab({
           { label: "7 Dias", val: salesStats.sevenDays, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="bg-slate-900 border-border/50 text-center shadow-md">
-            <CardContent className="p-3 space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{s.label}</p>
-              <p className={cn("text-base font-bold font-mono", s.color)}>
-                {loadingStats ? <RefreshCw className="h-3.5 w-3.5 animate-spin mx-auto" /> : `R$ ${s.val.toFixed(0)}`}
+            <CardContent className="p-3 space-y-1.5">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{s.label}</p>
+              <p className={cn("text-xl font-bold font-mono", s.color)}>
+                {loadingStats ? <RefreshCw className="h-4 w-4 animate-spin mx-auto" /> : `R$ ${s.val.toFixed(0)}`}
               </p>
             </CardContent>
           </Card>
