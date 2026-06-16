@@ -1567,6 +1567,55 @@ export default function Tarefas() {
                 </Select>
               </div>
             </div>
+
+            {/* Agendamento / Recorrência */}
+            <div className="border-t border-border pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">📅 Agendamento (opcional)</p>
+              <p className="text-[11px] text-muted-foreground -mt-2">Defina uma data para projetar essa rotina no calendário. Sem data, ela só aparece na lista diária.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Data inicial</label>
+                  <Input type="date" value={routineForm.start_date} onChange={e => setRoutineForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Horário</label>
+                  <Input type="time" value={routineForm.time_of_day} onChange={e => setRoutineForm(f => ({ ...f, time_of_day: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Recorrência</label>
+                <Select value={routineForm.recurrence} onValueChange={v => setRoutineForm(f => ({ ...f, recurrence: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Todo dia</SelectItem>
+                    <SelectItem value="weekdays">Dias da semana específicos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {routineForm.recurrence === "weekdays" && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Dias</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((label, idx) => {
+                      const active = routineForm.weekdays.includes(idx);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRoutineForm(f => ({
+                            ...f,
+                            weekdays: active ? f.weekdays.filter(w => w !== idx) : [...f.weekdays, idx].sort(),
+                          }))}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80 text-muted-foreground"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRoutineDialog(false)}>Cancelar</Button>
