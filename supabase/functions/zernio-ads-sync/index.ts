@@ -144,6 +144,10 @@ Deno.serve(async (req) => {
     let insightsFailures = 0;
     let insightsEmpty = 0;
     let usedInlineMetrics = 0;
+    let adsZeroForcingInsights = 0;
+    let daysImported = 0;
+    let campaignPlaceholdersUpserted = 0;
+    const campaignAdCount = new Map<string, number>();
 
     const buildInsightsVariants = (adId: string) => {
       const enc = encodeURIComponent;
