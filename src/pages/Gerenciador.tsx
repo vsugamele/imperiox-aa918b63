@@ -58,7 +58,7 @@ export default function Gerenciador() {
       const toPrev = localDaysAgo(span + 1);
 
       const baseAds = (gte: string, lte: string) => {
-        let q = supabase.from("imphq_ads_spend").select("*").gte("data_ref", gte).lte("data_ref", lte).limit(2000);
+        let q = supabase.from("imphq_ads_spend").select("*").gte("data_ref", gte).lte("data_ref", lte).not("ad_id", "ilike", "CAMP:%").limit(2000);
         if (projectId !== "__all__") q = q.eq("project_id", projectId);
         return q;
       };

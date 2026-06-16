@@ -144,6 +144,10 @@ Deno.serve(async (req) => {
     let insightsFailures = 0;
     let insightsEmpty = 0;
     let usedInlineMetrics = 0;
+    let adsZeroForcingInsights = 0;
+    let daysImported = 0;
+    let campaignPlaceholdersUpserted = 0;
+    const campaignAdCount = new Map<string, number>();
 
     const buildInsightsVariants = (adId: string) => {
       const enc = encodeURIComponent;
@@ -177,9 +181,12 @@ Deno.serve(async (req) => {
       const effectiveStatus = ad?.effective_status ?? ad?.effectiveStatus ?? ad?.platformStatus ?? ad?.status ?? null;
       const platformAdId = ad?.platformAdId ?? null;
 
-      // === Path A: inline metrics already in /ads response ===
+      if (campaignId) campaignAdCount.set(String(campaignId), (campaignAdCount.get(String(campaignId)) || 0) + 1);
+
+      // === Path A: inline metrics already in /ads response — only when há gasto/impressão REAL ===
       const m = ad?.metrics;
-      if (m && (m.spend != null || m.impressions != null || m.actions)) {
+      const hasRealInline = !!m && ((Number(m?.spend) > 0) || (Number(m?.impressions) > 0));
+      if (hasRealInline) {
         const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
         const spend = parseFloat(m.spend ?? "0") || 0;
         const impressoes = parseInt(m.impressions ?? "0", 10) || 0;
@@ -247,6 +254,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Reached here = sem inline real → vamos forçar /insights para pegar breakdown diário
+      adsZeroForcingInsights++;
       // === Path B: fallback to /insights endpoint ===
       let rows: any[] = [];
       let lastStatus: number | null = null;
@@ -344,10 +353,55 @@ Deno.serve(async (req) => {
         const { error } = existing
           ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
           : await supabase.from("imphq_ads_spend").insert(record);
-        if (error) errors++; else imported++;
+        if (error) errors++; else { imported++; daysImported++; }
       }
     }
-    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
+
+    // === Placeholders de campanha: garante que TODAS as 16 campanhas apareçam no Gerenciador ===
+    const todayStr = today;
+    for (const [zid, camp] of campaignsByZId.entries()) {
+      const platformCampId = camp?.platformCampaignId || camp?.platform_campaign_id || camp?.id || zid;
+      const placeholderAdId = `CAMP:${platformCampId}`;
+      const record: Record<string, unknown> = {
+        project_id,
+        plataforma: "Facebook",
+        source: "zernio",
+        campanha: camp?.name || null,
+        conjunto_anuncios: null,
+        anuncio: null,
+        campaign_id: String(platformCampId),
+        adset_id: null,
+        ad_id: placeholderAdId,
+        data_ref: todayStr,
+        valor: 0,
+        impressoes: 0,
+        alcance: 0,
+        cliques: 0,
+        leads: 0,
+        compras: 0,
+        moeda: camp?.currency || "BRL",
+        effective_status: camp?.effective_status ?? camp?.effectiveStatus ?? camp?.status ?? null,
+      };
+      const { data: existing } = await supabase
+        .from("imphq_ads_spend")
+        .select("id")
+        .eq("project_id", project_id)
+        .eq("source", "zernio")
+        .eq("ad_id", placeholderAdId)
+        .eq("data_ref", todayStr)
+        .maybeSingle();
+      const { error } = existing
+        ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
+        : await supabase.from("imphq_ads_spend").insert(record);
+      if (!error) campaignPlaceholdersUpserted++;
+    }
+    debug.campaigns_detected = Array.from(campaignsByZId.values()).map((c: any) => ({
+      id: c?.platformCampaignId || c?.id,
+      name: c?.name,
+      status: c?.effective_status ?? c?.effectiveStatus ?? c?.status ?? null,
+      ads_count: campaignAdCount.get(String(c?.id)) || 0,
+    }));
+    console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} forceInsights=${adsZeroForcingInsights} days=${daysImported} campPH=${campaignPlaceholdersUpserted} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
     // Persist last sync timestamp + status + debug
     await supabase
@@ -359,7 +413,7 @@ Deno.serve(async (req) => {
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, ads_zero_forcing_insights: adsZeroForcingInsights, days_imported: daysImported, campaign_placeholders: campaignPlaceholdersUpserted, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
           zernio_ads_last_sync_debug: debug,
         },
       })
