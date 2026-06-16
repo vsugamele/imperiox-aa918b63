@@ -335,7 +335,7 @@ export default function MobileCockpit() {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors min-h-11",
+                "flex-1 flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors min-h-11",
                 active ? "text-amber-400" : "text-muted-foreground hover:text-white"
               )}
             >
