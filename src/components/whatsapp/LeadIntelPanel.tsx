@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink } from "lucide-react";
+import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
+import { brPhoneVariants } from "@/lib/phoneVariants";
 
 interface LeadIntelPanelProps {
   leadId?: string | null;
@@ -11,46 +12,99 @@ interface LeadIntelPanelProps {
   projectId?: string | null;
 }
 
+interface ProjectPresence {
+  leadId: string;
+  projectId: string | null;
+  projectName: string;
+  score: number;
+  salesCount: number;
+  totalSpent: number;
+}
 
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
   const [intel, setIntel] = useState<any>(null);
   const [activeFlow, setActiveFlow] = useState<any>(null);
   const [sales, setSales] = useState<any[]>([]);
+  const [presence, setPresence] = useState<ProjectPresence[]>([]);
   const [resolvedLeadIdState, setResolvedLeadIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-
     if (!leadId && !phone) return;
     const load = async () => {
       setLoading(true);
       try {
-        let lead: any = null;
-        let resolvedLeadId = leadId;
-
-        // Try searching lead by leadId first, fallback to phone
-        if (resolvedLeadId) {
-          const { data } = await supabase
-            .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, name")
-            .eq("id", resolvedLeadId)
-            .maybeSingle();
-          lead = data;
-        } else if (phone) {
-          const { data } = await supabase
-            .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, name")
-            .eq("phone", phone)
-            .maybeSingle();
-          lead = data;
-          if (lead) {
-            resolvedLeadId = lead.id;
+        // 1) Resolve TODOS os leads desse contato (cross-projeto) por variantes de telefone
+        let allLeads: any[] = [];
+        if (phone) {
+          const { variants } = brPhoneVariants(phone);
+          if (variants.length) {
+            const { data } = await supabase
+              .from("imphq_leads")
+              .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+              .in("phone", variants);
+            allLeads = (data as any[]) || [];
           }
         }
+        if (leadId && !allLeads.some((l) => l.id === leadId)) {
+          const { data } = await supabase
+            .from("imphq_leads")
+            .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+            .eq("id", leadId)
+            .maybeSingle();
+          if (data) allLeads.push(data);
+        }
 
-        setIntel(lead);
+        const leadIds = allLeads.map((l) => l.id);
+        const projectIds = [...new Set(allLeads.map((l) => l.project_id).filter(Boolean))];
 
-        // Load active flow execution using resolvedLeadId
+        // 2) Nomes dos projetos
+        let projectMap: Record<string, string> = {};
+        if (projectIds.length) {
+          const { data: projs } = await supabase
+            .from("imphq_projects")
+            .select("id, name")
+            .in("id", projectIds);
+          projectMap = Object.fromEntries(((projs as any[]) || []).map((p) => [p.id, p.name]));
+        }
+
+        // 3) Vendas agregadas (todos os lead_ids)
+        let allSales: any[] = [];
+        if (leadIds.length) {
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, produto_nome, valor, status, data_venda, tipo_venda, project_id, lead_id")
+            .in("lead_id", leadIds)
+            .order("data_venda", { ascending: false })
+            .limit(20);
+          allSales = (vendas as any[]) || [];
+        }
+        setSales(allSales);
+
+        // 4) Monta presença por projeto
+        const presenceList: ProjectPresence[] = allLeads.map((l) => {
+          const leadSales = allSales.filter((s) => s.lead_id === l.id);
+          return {
+            leadId: l.id,
+            projectId: l.project_id,
+            projectName: projectMap[l.project_id] || "Sem projeto",
+            score: l.score || 0,
+            salesCount: leadSales.length,
+            totalSpent: leadSales.reduce((acc, s) => acc + Number(s.valor || 0), 0),
+          };
+        }).sort((a, b) => (b.salesCount - a.salesCount) || (b.score - a.score));
+        setPresence(presenceList);
+
+        // 5) Escolhe lead "principal": do projeto atual, senão o de maior presença
+        const primary =
+          allLeads.find((l) => l.project_id === projectId) ||
+          (presenceList[0] ? allLeads.find((l) => l.id === presenceList[0].leadId) : null);
+
+        setIntel(primary || null);
+        const resolvedLeadId = primary?.id || null;
+        setResolvedLeadIdState(resolvedLeadId);
+
+        // 6) Fluxo ativo + intent do lead principal
         if (resolvedLeadId) {
           const { data: exec } = await supabase
             .from("imphq_flow_executions")
@@ -76,7 +130,6 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             setActiveFlow(null);
           }
 
-          // Load last triage intent
           const { data: triage } = await supabase
             .from("imphq_wa_triage")
             .select("intent, created_at")
@@ -90,19 +143,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               prev ? { ...prev, lastIntent: (triage as any).intent } : prev
             );
           }
-
-          setResolvedLeadIdState(resolvedLeadId);
-
-          // Últimas vendas do lead
-          const { data: vendas } = await supabase
-            .from("imphq_vendas")
-            .select("id, produto_nome, valor, status, data_venda, tipo_venda")
-            .eq("lead_id", resolvedLeadId)
-            .order("data_venda", { ascending: false })
-            .limit(3);
-          setSales((vendas as any[]) || []);
         }
-
       } catch (e) {
         console.error("LeadIntelPanel load error:", e);
       } finally {
@@ -110,7 +151,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       }
     };
     load();
-  }, [leadId, phone]);
+  }, [leadId, phone, projectId]);
 
   if (!leadId && !phone) return null;
   if (loading) {
@@ -130,6 +171,9 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       </div>
     );
   }
+
+  const projectNameById = (id: string | null) =>
+    presence.find((p) => p.projectId === id)?.projectName || null;
 
   const score = intel.score || 0;
   const awarenessLevel = intel.awareness_level || 0;
@@ -169,7 +213,50 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       </div>
 
       <div className="flex-1 divide-y divide-border/40">
+        {/* Presença em Projetos (cross-funil) */}
+        {presence.length > 0 && (
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <FolderKanban className="h-3.5 w-3.5 text-violet-400" />
+              <span className="text-muted-foreground font-medium">
+                Presença em Projetos {presence.length > 1 && <span className="text-violet-400">({presence.length})</span>}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {presence.map((p) => (
+                <button
+                  key={p.leadId}
+                  onClick={() => window.open(`/leads/${p.leadId}`, "_blank")}
+                  className={`w-full text-left rounded-lg p-2 border transition-colors ${
+                    p.projectId === projectId
+                      ? "bg-violet-500/10 border-violet-500/30"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-foreground font-semibold truncate text-[11px]" title={p.projectName}>
+                      {p.projectName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      {p.score}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                    <span>{p.salesCount} {p.salesCount === 1 ? "compra" : "compras"}</span>
+                    {p.totalSpent > 0 && (
+                      <span className="text-emerald-400 font-mono">
+                        R${p.totalSpent.toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Lead Score */}
+
         <div className="p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground font-medium">Pontuação (Score)</span>
@@ -289,9 +376,14 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
                       R${Number(v.valor || 0).toFixed(0)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                    <span>{v.data_venda ? new Date(v.data_venda).toLocaleDateString("pt-BR") : ""}</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase">
+                  <div className="flex items-center justify-between gap-1 text-[9px] text-muted-foreground">
+                    <span className="truncate">
+                      {v.data_venda ? new Date(v.data_venda).toLocaleDateString("pt-BR") : ""}
+                      {projectNameById(v.project_id) && (
+                        <span className="text-violet-300/80"> · {projectNameById(v.project_id)}</span>
+                      )}
+                    </span>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 uppercase shrink-0">
                       {v.tipo_venda || v.status || "venda"}
                     </Badge>
                   </div>
