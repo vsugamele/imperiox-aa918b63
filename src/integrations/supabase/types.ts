@@ -20749,6 +20749,7 @@ export type Database = {
       }
       imphq_notification_preferences: {
         Row: {
+          checkout_abandonado: boolean
           created_at: string | null
           disparo_concluido: boolean | null
           erro_conexao: boolean | null
@@ -20769,6 +20770,7 @@ export type Database = {
           venda_recusada: boolean
         }
         Insert: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
@@ -20789,6 +20791,7 @@ export type Database = {
           venda_recusada?: boolean
         }
         Update: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
