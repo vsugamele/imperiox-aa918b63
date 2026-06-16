@@ -161,9 +161,11 @@ Deno.serve(async (req) => {
 
     // 3. For each ad: prefer inline metrics from /ads (already has spend, impressions, actions, etc.).
     //    Fall back to /insights only if inline metrics are absent.
+    let skippedNoId = 0;
     for (const ad of ads) {
-      const adId = ad?.id ?? ad?.adId ?? ad?.ad_id;
-      if (!adId) continue;
+      const adId = ad?.id ?? ad?._id ?? ad?.adId ?? ad?.ad_id ?? ad?.platformAdId;
+      if (!adId) { skippedNoId++; continue; }
+
       const campaignId = ad?.campaignId ?? ad?.campaign_id ?? null;
       const adsetId = ad?.adsetId ?? ad?.adset_id ?? null;
       const campaignName = ad?.campaignName ?? ad?.campaign_name ?? (campaignId && campaignsByZId.get(String(campaignId))?.name) ?? null;
@@ -357,7 +359,7 @@ Deno.serve(async (req) => {
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, insights_failures: insightsFailures, insights_empty: insightsEmpty, chosen_insights_variant: chosenInsightsVariant },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
           zernio_ads_last_sync_debug: debug,
         },
       })
