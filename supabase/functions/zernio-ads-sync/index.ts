@@ -426,6 +426,7 @@ Deno.serve(async (req) => {
         credentials: {
           ...(creds?.credentials || {}),
           zernio_ad_account_id: adAccountId,
+          zernio_ads_chosen_variant: chosen,
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
