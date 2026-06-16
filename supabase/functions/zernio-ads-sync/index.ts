@@ -77,22 +77,31 @@ Deno.serve(async (req) => {
     const debug: any = { variants_tried: [], chosen_variant: null, sample_campaign: null, sample_ad: null };
 
     // Try different param variants for campaigns until we find one that returns data.
-    // Some Zernio tenants expect ad_account_id (snake_case) or accountId pointing to the ad account directly.
-    const variants = [
+    // Reordered: onlyAdAccount first (known to work for this tenant).
+    const allVariants = [
+      { name: "onlyAdAccount", qs: `adAccountId=${encodeURIComponent(adAccountId)}` },
       { name: "camelCase+zernioAcc", qs: `accountId=${encodeURIComponent(zernioAccountId)}&adAccountId=${encodeURIComponent(adAccountId)}` },
       { name: "snake_case+zernioAcc", qs: `accountId=${encodeURIComponent(zernioAccountId)}&ad_account_id=${encodeURIComponent(adAccountId)}` },
       { name: "adAccountAsAccountId", qs: `accountId=${encodeURIComponent(adAccountId)}` },
-      { name: "onlyAdAccount", qs: `adAccountId=${encodeURIComponent(adAccountId)}` },
     ];
 
+    // Cache: reuse last successful variant to skip detection and avoid 429s.
+    const cachedVariantName: string | null = creds?.credentials?.zernio_ads_chosen_variant || null;
+    const variants = cachedVariantName
+      ? allVariants.filter((v) => v.name === cachedVariantName).concat(allVariants.filter((v) => v.name !== cachedVariantName))
+      : allVariants;
+
     const campaignsByZId = new Map<string, any>();
-    let ads: any[] = [];
+    const ads: any[] = [];
     let qBase = variants[0].qs;
     let chosen = variants[0].name;
+    let foundVariant = false;
 
     for (const v of variants) {
       const c = await zFetch(`/ads/campaigns?${v.qs}&page=1&limit=50`, apiKey);
+      await new Promise((r) => setTimeout(r, 400));
       const a = await zFetch(`/ads?${v.qs}&page=1&limit=50`, apiKey);
+      await new Promise((r) => setTimeout(r, 400));
       const cCount = (c.body?.campaigns || []).length;
       const aCount = (a.body?.ads || []).length;
       debug.variants_tried.push({
@@ -101,14 +110,21 @@ Deno.serve(async (req) => {
         ads_status: a.status, ads_count: aCount, ads_keys: Object.keys(a.body || {}),
       });
       console.log(`[zernio-ads-sync] variant=${v.name} campaigns=${cCount} ads=${aCount} status=${c.status}/${a.status}`);
+      if (c.status === 429 || a.status === 429) continue; // rate-limited; try next
       if (c.ok && a.ok && (cCount > 0 || aCount > 0)) {
         qBase = v.qs;
         chosen = v.name;
+        foundVariant = true;
         break;
       }
     }
     debug.chosen_variant = chosen;
-    console.log(`[zernio-ads-sync] chosen variant: ${chosen}`);
+    debug.cached_variant_used = cachedVariantName === chosen;
+    console.log(`[zernio-ads-sync] chosen variant: ${chosen} (cached=${cachedVariantName === chosen})`);
+
+    if (!foundVariant) {
+      return new Response(JSON.stringify({ error: "Não foi possível detectar variante Zernio válida (todas vazias ou rate-limited). Tente novamente em 30s.", debug }), { status: 502, headers: jsonHeaders });
+    }
 
     // 1. Campaigns (paginated)
     {
@@ -410,6 +426,7 @@ Deno.serve(async (req) => {
         credentials: {
           ...(creds?.credentials || {}),
           zernio_ad_account_id: adAccountId,
+          zernio_ads_chosen_variant: chosen,
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
