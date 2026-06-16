@@ -29,6 +29,7 @@ interface Prefs {
   reembolso_solicitado: boolean;
   meta_diaria_atingida: boolean;
   hot_lead: boolean;
+  checkout_abandonado: boolean;
   lead_inativo_voltou: boolean;
   expert_marcou_done: boolean;
   expert_subiu_video: boolean;
@@ -38,7 +39,7 @@ interface Prefs {
 const DEFAULT_PREFS: Prefs = {
   novo_lead: true, grupo_capacidade: true, disparo_concluido: true, erro_conexao: true, resposta_ia: false,
   venda_aprovada: true, venda_recusada: true, reembolso_solicitado: true, meta_diaria_atingida: true,
-  hot_lead: true, lead_inativo_voltou: false, expert_marcou_done: true, expert_subiu_video: true, expert_mensagem: true,
+  hot_lead: true, checkout_abandonado: true, lead_inativo_voltou: false, expert_marcou_done: true, expert_subiu_video: true, expert_mensagem: true,
 };
 
 export function NotificationPreferencesTab() {
