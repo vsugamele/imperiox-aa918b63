@@ -335,7 +335,7 @@ export default function MobileCockpit() {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors min-h-11",
+                "flex-1 flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors min-h-11",
                 active ? "text-amber-400" : "text-muted-foreground hover:text-white"
               )}
             >
@@ -363,10 +363,10 @@ function CockpitTab({
           { label: "7 Dias", val: salesStats.sevenDays, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="bg-slate-900 border-border/50 text-center shadow-md">
-            <CardContent className="p-3 space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{s.label}</p>
-              <p className={cn("text-base font-bold font-mono", s.color)}>
-                {loadingStats ? <RefreshCw className="h-3.5 w-3.5 animate-spin mx-auto" /> : `R$ ${s.val.toFixed(0)}`}
+            <CardContent className="p-3 space-y-1.5">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{s.label}</p>
+              <p className={cn("text-xl font-bold font-mono", s.color)}>
+                {loadingStats ? <RefreshCw className="h-4 w-4 animate-spin mx-auto" /> : `R$ ${s.val.toFixed(0)}`}
               </p>
             </CardContent>
           </Card>
@@ -374,7 +374,7 @@ function CockpitTab({
       </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <h3 className="text-base font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />
           Conversas Quentes
         </h3>
@@ -433,7 +433,7 @@ function InboxTab({
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={cn(
-              "px-3 h-9 rounded-full text-xs font-semibold whitespace-nowrap border transition-colors",
+              "px-3.5 h-10 rounded-full text-sm font-semibold whitespace-nowrap border transition-colors",
               filter === f.id
                 ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
                 : "bg-slate-900 border-border/50 text-muted-foreground hover:text-white"
@@ -448,7 +448,7 @@ function InboxTab({
           </Button>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {conversations.length} de {total} conversa{total === 1 ? "" : "s"}
       </p>
 
@@ -503,7 +503,7 @@ function LeadsTab({
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {leads.length} de {total} lead{total === 1 ? "" : "s"} — ordenado por mais recente
       </p>
 
@@ -519,16 +519,16 @@ function LeadsTab({
               onClick={() => onOpen(lead.id)}
               className="bg-slate-900 border-border/40 shadow-md active:scale-[0.99] cursor-pointer"
             >
-              <CardContent className="p-3.5 space-y-2">
+              <CardContent className="p-3.5 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h4 className="text-sm font-bold text-white truncate">{lead.nome || "Sem nome"}</h4>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{lead.phone || lead.email || "—"}</p>
+                    <h4 className="text-base font-bold text-white truncate">{lead.nome || "Sem nome"}</h4>
+                    <p className="text-sm text-muted-foreground font-mono truncate">{lead.phone || lead.email || "—"}</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {typeof lead.score === "number" && lead.score > 0 && (
                       <Badge className={cn(
-                        "text-[10px] font-bold px-1.5 py-0",
+                        "text-xs font-bold px-2 py-0.5",
                         lead.score >= 70 ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
                         : lead.score >= 40 ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
                         : "bg-slate-700/40 text-slate-300 border-slate-600/40"
@@ -539,7 +539,7 @@ function LeadsTab({
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span className="truncate max-w-[60%]">
                     {lead.status || "Lead"}
                   </span>
@@ -552,9 +552,9 @@ function LeadsTab({
                     size="sm"
                     variant="outline"
                     onClick={(e) => { e.stopPropagation(); onWhats(lead.phone!); }}
-                    className="w-full text-xs h-9 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    className="w-full text-sm h-10 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" /> WhatsApp
+                    <ExternalLink className="h-4 w-4" /> WhatsApp
                   </Button>
                 )}
               </CardContent>
@@ -586,7 +586,7 @@ function MaisTab({ onDesktop, navigate }: any) {
           >
             <span className="flex items-center gap-3">
               <Icon className="h-5 w-5 text-amber-400" />
-              <span className="text-sm font-semibold text-white">{i.label}</span>
+              <span className="text-base font-semibold text-white">{i.label}</span>
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -594,7 +594,7 @@ function MaisTab({ onDesktop, navigate }: any) {
       })}
       <button
         onClick={onDesktop}
-        className="w-full mt-4 p-4 rounded-lg border border-dashed border-border/50 text-sm text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
+        className="w-full mt-4 p-4 rounded-lg border border-dashed border-border/50 text-base text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
       >
         Ver versão desktop →
       </button>
@@ -618,26 +618,26 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
       <CardContent className={cn("space-y-3", compact ? "p-3" : "p-3.5")}>
         <div className="flex justify-between items-start gap-2">
           <div className="space-y-0.5 min-w-0 flex-1">
-            <h4 className="text-sm font-bold text-white truncate">{conv.contact_name || "Sem Nome"}</h4>
-            <p className="text-xs text-muted-foreground font-mono truncate">{conv.phone}</p>
+            <h4 className="text-base font-bold text-white truncate">{conv.contact_name || "Sem Nome"}</h4>
+            <p className="text-sm text-muted-foreground font-mono truncate">{conv.phone}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {isHot && <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] font-bold px-1.5 py-0">QUENTE</Badge>}
-            {isPaused && <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] font-bold px-1.5 py-0">IA OFF</Badge>}
+            {isHot && <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-xs font-bold px-2 py-0.5">QUENTE</Badge>}
+            {isPaused && <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-xs font-bold px-2 py-0.5">IA OFF</Badge>}
           </div>
         </div>
 
         {conv.last_message && (
           <div className={cn(
-            "bg-slate-950/40 p-2.5 rounded-lg border border-border/20 text-sm italic text-slate-300 leading-relaxed",
+            "bg-slate-950/40 p-3 rounded-lg border border-border/20 text-sm italic text-slate-200 leading-relaxed",
             compact ? "line-clamp-2" : "line-clamp-3"
           )}>
             "{conv.last_message}"
           </div>
         )}
 
-        <div className="flex justify-between items-center text-xs text-muted-foreground">
-          <span>Status: <strong className="capitalize">{conv.status || "Lead"}</strong></span>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>Status: <strong className="capitalize text-foreground/80">{conv.status || "Lead"}</strong></span>
           {conv.last_message_at && (
             <span>{formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: ptBR })}</span>
           )}
@@ -648,9 +648,9 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
             size="sm"
             variant="outline"
             onClick={() => onOpenWa(conv.phone)}
-            className="text-xs min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+            className="text-sm min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           >
-            <ExternalLink className="h-3.5 w-3.5" /> Chat
+            <ExternalLink className="h-4 w-4" /> Chat
           </Button>
           {full && (
             <Button
@@ -658,13 +658,13 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
               variant="outline"
               onClick={() => onToggleCloser(conv)}
               className={cn(
-                "text-xs min-h-11 gap-1 font-semibold",
+                "text-sm min-h-11 gap-1 font-semibold",
                 conv.buy_intent_detected
                   ? "border-orange-500 bg-orange-500/20 text-orange-300"
                   : "border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
               )}
             >
-              <UserCheck className="h-3.5 w-3.5" /> Closer
+              <UserCheck className="h-4 w-4" /> Closer
             </Button>
           )}
           <Button
@@ -672,18 +672,18 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
             variant="outline"
             onClick={() => onTogglePause(conv)}
             className={cn(
-              "text-xs min-h-11 gap-1 font-semibold",
+              "text-sm min-h-11 gap-1 font-semibold",
               isPaused
                 ? "border-blue-500 bg-blue-500/20 text-blue-300"
                 : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
             )}
           >
-            {isPaused ? <Play className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+            {isPaused ? <Play className="h-4 w-4" /> : <Square className="h-4 w-4" />}
             {isPaused ? "Retomar" : "Pausar IA"}
           </Button>
         </div>
         {isPaused && (
-          <p className="text-[11px] text-blue-400 text-center font-semibold">
+          <p className="text-xs text-blue-400 text-center font-semibold">
             Pausado por mais {remaining} min.
           </p>
         )}
@@ -696,7 +696,7 @@ function Loader({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
       <Loader2 className="h-7 w-7 animate-spin" />
-      <p className="text-xs">{text}</p>
+      <p className="text-sm">{text}</p>
     </div>
   );
 }
