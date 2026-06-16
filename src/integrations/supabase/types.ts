@@ -40181,6 +40181,7 @@ export type Database = {
           id: string
           is_broadcast: boolean | null
           is_simulated: boolean | null
+          run_id: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -40192,6 +40193,7 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -40203,12 +40205,20 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id?: string
           text?: string
           timestamp_video?: number
           webinar_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_live_chat_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_live_chat_webinar_id_fkey"
             columns: ["webinar_id"]
@@ -40430,6 +40440,7 @@ export type Database = {
           lead_id: string | null
           metadata: Json | null
           project_id: string
+          run_id: string | null
           session_id: string
           timestamp_video: number | null
           webinar_id: string
@@ -40441,6 +40452,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id: string
+          run_id?: string | null
           session_id: string
           timestamp_video?: number | null
           webinar_id: string
@@ -40452,6 +40464,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id?: string
+          run_id?: string | null
           session_id?: string
           timestamp_video?: number | null
           webinar_id?: string
@@ -40469,6 +40482,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_session_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
             referencedColumns: ["id"]
           },
           {
@@ -40527,6 +40547,60 @@ export type Database = {
           },
         ]
       }
+      webi_webinar_runs: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          metadata: Json
+          project_id: string
+          started_at: string
+          status: string
+          title: string | null
+          updated_at: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webinar_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_webinar_runs_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_webinars: {
         Row: {
           ai_enabled: boolean | null
@@ -40546,6 +40620,7 @@ export type Database = {
           chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
+          current_run_id: string | null
           custom_background_url: string | null
           description: string | null
           disable_qa: boolean | null
@@ -40607,6 +40682,7 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
           disable_qa?: boolean | null
@@ -40668,6 +40744,7 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
           disable_qa?: boolean | null
@@ -40712,6 +40789,13 @@ export type Database = {
           whatsapp_welcome_message?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_webinars_current_run_id_fkey"
+            columns: ["current_run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_webinars_project_id_fkey"
             columns: ["project_id"]
