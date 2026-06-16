@@ -353,8 +353,47 @@ Deno.serve(async (req) => {
         const { error } = existing
           ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
           : await supabase.from("imphq_ads_spend").insert(record);
-        if (error) errors++; else imported++;
+        if (error) errors++; else { imported++; daysImported++; }
       }
+    }
+
+    // === Placeholders de campanha: garante que TODAS as 16 campanhas apareçam no Gerenciador ===
+    const todayStr = today;
+    for (const [zid, camp] of campaignsByZId.entries()) {
+      const platformCampId = camp?.platformCampaignId || camp?.platform_campaign_id || camp?.id || zid;
+      const placeholderAdId = `CAMP:${platformCampId}`;
+      const record: Record<string, unknown> = {
+        project_id,
+        plataforma: "Facebook",
+        source: "zernio",
+        campanha: camp?.name || null,
+        conjunto_anuncios: null,
+        anuncio: null,
+        campaign_id: String(platformCampId),
+        adset_id: null,
+        ad_id: placeholderAdId,
+        data_ref: todayStr,
+        valor: 0,
+        impressoes: 0,
+        alcance: 0,
+        cliques: 0,
+        leads: 0,
+        compras: 0,
+        moeda: camp?.currency || "BRL",
+        effective_status: camp?.effective_status ?? camp?.effectiveStatus ?? camp?.status ?? null,
+      };
+      const { data: existing } = await supabase
+        .from("imphq_ads_spend")
+        .select("id")
+        .eq("project_id", project_id)
+        .eq("source", "zernio")
+        .eq("ad_id", placeholderAdId)
+        .eq("data_ref", todayStr)
+        .maybeSingle();
+      const { error } = existing
+        ? await supabase.from("imphq_ads_spend").update(record).eq("id", existing.id)
+        : await supabase.from("imphq_ads_spend").insert(record);
+      if (!error) campaignPlaceholdersUpserted++;
     }
     console.log(`[zernio-ads-sync] imported=${imported} inline=${usedInlineMetrics} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
