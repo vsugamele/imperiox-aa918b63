@@ -208,6 +208,34 @@ export default function OpenFlow() {
     else { toast.success("Salvo!"); setEditing(null); load(); }
   };
 
+  const handleGenerateAI = async () => {
+    if (!editing) return;
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+        body: {
+          project_id: editing.project_id,
+          trigger_tipo: editing.trigger_tipo,
+          num_etapas: 5,
+          produto: editing.produto || undefined,
+        },
+      });
+      if (error) throw error;
+      const acoesGeradas: Acao[] = (data?.acoes || []).map((a: any) => ({
+        id: crypto.randomUUID(),
+        tipo: a.tipo || "email",
+        template: a.template || "",
+        delay_min: typeof a.delay_min === "number" ? a.delay_min : 60,
+      }));
+      setEditing({ ...editing, acoes: [...editing.acoes, ...acoesGeradas] });
+      toast.success(`${acoesGeradas.length} etapas geradas com IA!`);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar com IA");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const deleteAutomacao = async (id: string) => {
     if (!confirm("Excluir?")) return;
     const { error } = await supabase.from("imphq_automacoes").delete().eq("id", id);
