@@ -291,6 +291,12 @@ export default function Tarefas() {
   const saveRoutine = async () => {
     if (!user || !routineForm.title.trim()) return;
     const desc = routineForm.description.trim() || null;
+    const scheduleFields = {
+      start_date: routineForm.start_date || null,
+      recurrence: routineForm.recurrence || "daily",
+      weekdays: routineForm.recurrence === "weekdays" ? routineForm.weekdays : [],
+      time_of_day: routineForm.time_of_day || null,
+    };
     if (editingRoutine) {
       const { error } = await supabase.from("imphq_daily_routines").update({
         title: routineForm.title.trim(),
@@ -299,12 +305,14 @@ export default function Tarefas() {
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+        ...scheduleFields,
       } as any).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
           ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
           member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
           project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+          ...scheduleFields,
         } : r));
         toast.success("Rotina atualizada");
       }
@@ -318,6 +326,7 @@ export default function Tarefas() {
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         position: routines.length,
+        ...scheduleFields,
       } as any).select().single();
       if (!error && data) {
         setRoutines(prev => [...prev, data as any]);
@@ -326,7 +335,7 @@ export default function Tarefas() {
     }
     setShowRoutineDialog(false);
     setEditingRoutine(null);
-    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
   };
 
   const deleteRoutine = async (id: string) => {
@@ -351,15 +360,34 @@ export default function Tarefas() {
       category: routine.category,
       member_id: routine.member_id || "none",
       project_id: routine.project_id || "none",
+      start_date: routine.start_date || "",
+      recurrence: routine.recurrence || "daily",
+      weekdays: routine.weekdays || [],
+      time_of_day: routine.time_of_day || "",
     });
     setShowRoutineDialog(true);
   };
 
   const openNewRoutine = (category: string = "team", projectId?: string) => {
     setEditingRoutine(null);
-    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
     setShowRoutineDialog(true);
   };
+
+  // Projeta rotinas no calendário: só rotinas com start_date aparecem
+  const routineOccursOn = (r: Routine, date: Date): boolean => {
+    if (!r.is_active || !r.start_date) return false;
+    const start = parseISO(r.start_date);
+    const d0 = new Date(date); d0.setHours(0, 0, 0, 0);
+    const s0 = new Date(start); s0.setHours(0, 0, 0, 0);
+    if (d0 < s0) return false;
+    if (r.recurrence === "weekdays") {
+      const wds = r.weekdays || [];
+      return wds.length > 0 && wds.includes(d0.getDay());
+    }
+    return true; // daily (default)
+  };
+
 
   // === PROCESSES LOGIC ===
   const filteredProcesses = processes.filter(p => {
