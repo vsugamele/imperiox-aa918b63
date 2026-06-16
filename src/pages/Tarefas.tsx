@@ -90,6 +90,10 @@ interface Routine {
   position: number;
   is_active: boolean;
   created_at: string;
+  start_date?: string | null;
+  recurrence?: string | null; // 'daily' | 'weekdays'
+  weekdays?: number[] | null;
+  time_of_day?: string | null;
 }
 
 interface RoutineCheck {
