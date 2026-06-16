@@ -492,7 +492,7 @@ Deno.serve(async (req) => {
 
     try {
       // 4. Horário comercial
-      if (aiConfig.business_hours_only) {
+      if (aiConfig.business_hours_only && !isPaymentConfirmation) {
         const parts = new Intl.DateTimeFormat("en-US", {
           timeZone: "America/Sao_Paulo", hour: "numeric", minute: "numeric", hour12: false,
         }).formatToParts(new Date());
