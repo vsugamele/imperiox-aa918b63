@@ -12,6 +12,7 @@ export type NotificationKey =
   | "reembolso_solicitado"
   | "meta_diaria_atingida"
   | "hot_lead"
+  | "checkout_abandonado"
   | "lead_inativo_voltou"
   | "expert_marcou_done"
   | "expert_subiu_video"
