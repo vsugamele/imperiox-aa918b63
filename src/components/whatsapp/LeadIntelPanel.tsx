@@ -213,7 +213,50 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       </div>
 
       <div className="flex-1 divide-y divide-border/40">
+        {/* Presença em Projetos (cross-funil) */}
+        {presence.length > 0 && (
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <FolderKanban className="h-3.5 w-3.5 text-violet-400" />
+              <span className="text-muted-foreground font-medium">
+                Presença em Projetos {presence.length > 1 && <span className="text-violet-400">({presence.length})</span>}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {presence.map((p) => (
+                <button
+                  key={p.leadId}
+                  onClick={() => window.open(`/leads/${p.leadId}`, "_blank")}
+                  className={`w-full text-left rounded-lg p-2 border transition-colors ${
+                    p.projectId === projectId
+                      ? "bg-violet-500/10 border-violet-500/30"
+                      : "bg-secondary/20 border-border/40 hover:bg-secondary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-foreground font-semibold truncate text-[11px]" title={p.projectName}>
+                      {p.projectName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      {p.score}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                    <span>{p.salesCount} {p.salesCount === 1 ? "compra" : "compras"}</span>
+                    {p.totalSpent > 0 && (
+                      <span className="text-emerald-400 font-mono">
+                        R${p.totalSpent.toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Lead Score */}
+
         <div className="p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground font-medium">Pontuação (Score)</span>
