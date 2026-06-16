@@ -82,6 +82,7 @@ interface Routine {
   id: string;
   user_id: string;
   title: string;
+  description?: string | null;
   category: string;
   member_id?: string | null;
   project_id?: string | null;
@@ -150,7 +151,7 @@ export default function Tarefas() {
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
-  const [routineForm, setRoutineForm] = useState({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+  const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
 
   // Calendar state
   const [calEvents, setCalEvents] = useState<any[]>([]);
@@ -285,9 +286,11 @@ export default function Tarefas() {
 
   const saveRoutine = async () => {
     if (!user || !routineForm.title.trim()) return;
+    const desc = routineForm.description.trim() || null;
     if (editingRoutine) {
       const { error } = await supabase.from("imphq_daily_routines").update({
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
@@ -295,7 +298,7 @@ export default function Tarefas() {
       } as any).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
-          ...r, title: routineForm.title.trim(), icon: routineForm.icon, category: routineForm.category,
+          ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
           member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
           project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         } : r));
@@ -305,6 +308,7 @@ export default function Tarefas() {
       const { data, error } = await supabase.from("imphq_daily_routines").insert({
         user_id: user.id,
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
@@ -318,7 +322,7 @@ export default function Tarefas() {
     }
     setShowRoutineDialog(false);
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
   };
 
   const deleteRoutine = async (id: string) => {
@@ -338,6 +342,7 @@ export default function Tarefas() {
     setEditingRoutine(routine);
     setRoutineForm({
       title: routine.title,
+      description: routine.description || "",
       icon: routine.icon,
       category: routine.category,
       member_id: routine.member_id || "none",
@@ -346,9 +351,9 @@ export default function Tarefas() {
     setShowRoutineDialog(true);
   };
 
-  const openNewRoutine = (category: string = "team") => {
+  const openNewRoutine = (category: string = "team", projectId?: string) => {
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none" });
     setShowRoutineDialog(true);
   };
 
@@ -596,6 +601,11 @@ export default function Tarefas() {
           <span className={`text-sm font-medium block ${isChecked ? "line-through text-muted-foreground" : ""}`}>
             {routine.title}
           </span>
+          {routine.description && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug" title={routine.description}>
+              {routine.description}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {projName && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>}
             {member && (
@@ -865,9 +875,18 @@ export default function Tarefas() {
                 const doneInCol = projRoutines.filter(r => checkedRoutineIds.has(r.id)).length;
                 return (
                   <div key={proj.id} className="shrink-0 w-72 bg-secondary/30 border border-border/40 rounded-lg p-3 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold truncate">{proj.name}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold truncate flex-1">{proj.name}</div>
                       <Badge variant="outline" className="text-[10px] shrink-0">{doneInCol}/{projRoutines.length}</Badge>
+                      {proj.id !== "__none__" && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          title={`Nova rotina para ${proj.name}`}
+                          className="shrink-0 h-6 w-6 rounded-md bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <AnimatePresence>
@@ -875,7 +894,7 @@ export default function Tarefas() {
                       </AnimatePresence>
                       {projRoutines.length === 0 && (
                         <button
-                          onClick={() => { setEditingRoutine(null); setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: proj.id }); setShowRoutineDialog(true); }}
+                          onClick={() => openNewRoutine("team", proj.id)}
                           className="text-[11px] text-muted-foreground border border-dashed border-border/40 rounded p-3 hover:bg-secondary/40 transition"
                         >
                           + Adicionar rotina para {proj.name}
@@ -1436,6 +1455,15 @@ export default function Tarefas() {
             <div>
               <label className="text-sm font-medium mb-1 block">Título</label>
               <Input value={routineForm.title} onChange={e => setRoutineForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Verificar Comunidade do Clube" onKeyDown={e => e.key === "Enter" && saveRoutine()} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Descrição <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Textarea
+                value={routineForm.description}
+                onChange={e => setRoutineForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="O que precisa ser feito, critério de conclusão, links úteis..."
+                className="bg-secondary min-h-[70px] text-sm leading-6"
+              />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Ícone</label>
