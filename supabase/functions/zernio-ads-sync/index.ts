@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
           zernio_ads_last_sync: new Date().toISOString(),
           zernio_ads_last_sync_status: "success",
           zernio_ads_last_sync_error: null,
-          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
+          zernio_ads_last_sync_stats: { imported, errors, ads: ads.length, campaigns: campaignsByZId.size, inline_metrics_used: usedInlineMetrics, ads_zero_forcing_insights: adsZeroForcingInsights, days_imported: daysImported, campaign_placeholders: campaignPlaceholdersUpserted, insights_failures: insightsFailures, insights_empty: insightsEmpty, skipped_no_id: skippedNoId, chosen_insights_variant: chosenInsightsVariant },
           zernio_ads_last_sync_debug: debug,
         },
       })
