@@ -158,7 +158,10 @@ export function NotificationPreferencesTab() {
   };
 
   const items = [
-    { key: "novo_lead" as const, label: "Novo lead detectado", desc: "Receba alerta quando um novo lead chegar", icon: Users, color: "text-emerald-400" },
+    { key: "venda_aprovada" as const, label: "Venda aprovada 💰", desc: "Toda venda confirmada (Pix/Cartão/Boleto) vira push", icon: DollarSign, color: "text-emerald-400" },
+    { key: "hot_lead" as const, label: "Pix/Boleto gerado (hot lead) 🔥", desc: "Lead com intenção de compra — carrinho quente", icon: Flame, color: "text-orange-400" },
+    { key: "checkout_abandonado" as const, label: "Checkout abandonado 🛒", desc: "Pix/Boleto gerado há +30min sem pagamento", icon: ShoppingCart, color: "text-amber-400" },
+    { key: "novo_lead" as const, label: "Novo lead capturado 🎯", desc: "Alerta instantâneo quando um lead preenche um form", icon: Users, color: "text-emerald-400" },
     { key: "grupo_capacidade" as const, label: "Grupo atingiu capacidade", desc: "Alerta quando grupo WhatsApp está cheio", icon: Users, color: "text-amber-400" },
     { key: "disparo_concluido" as const, label: "Disparo concluído", desc: "Notificação após envio de campanha", icon: Send, color: "text-blue-400" },
     { key: "erro_conexao" as const, label: "Erro de conexão", desc: "Alerta quando o WhatsApp desconectar", icon: Wifi, color: "text-destructive" },
