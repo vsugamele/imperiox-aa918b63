@@ -207,6 +207,8 @@ export interface Acao {
   conteudo?: string;
   position_x?: number;
   position_y?: number;
+  // media attachment (WhatsApp node)
+  media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
 }
 
 export interface WaProvider {
