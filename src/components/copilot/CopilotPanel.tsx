@@ -316,7 +316,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
                   </div>
                 )}
                 {messages.map((m, i) => (
-                  <CopilotMessage key={i} role={m.role} content={m.content} />
+                  <CopilotMessage key={i} role={m.role} content={m.content} tools={m.tools} />
                 ))}
                 {loading && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -337,10 +337,16 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
                       if (loading) { stop(); } else { send(); }
                     }
                   }}
-                  placeholder="Pergunta ao Imperius… (Enter envia, Shift+Enter quebra linha)"
+                  placeholder="Pergunta ao Imperius… (Enter envia, Shift+Enter, 🎤 áudio)"
                   className="min-h-[60px] resize-none text-sm"
                   disabled={loading}
                 />
+                {!loading && (
+                  <AudioRecorder
+                    disabled={loading}
+                    onTranscript={(t) => setInput((cur) => (cur ? cur + " " + t : t))}
+                  />
+                )}
                 {loading ? (
                   <Button
                     onClick={stop}
