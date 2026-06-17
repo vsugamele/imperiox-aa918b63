@@ -71,6 +71,8 @@ interface Automacao {
   exit_trigger_payload?: any;
   exit_cascade?: boolean;
   flow_objective?: string | null;
+  prioridade?: number | null;
+  exclusivo?: boolean | null;
 }
 
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
@@ -203,6 +205,7 @@ export default function OpenFlow() {
       follow_up_hours: a.follow_up_hours, follow_up_template: a.follow_up_template,
       exit_trigger_tipo: a.exit_trigger_tipo, exit_cascade: a.exit_cascade,
       flow_objective: a.flow_objective,
+      prioridade: a.prioridade ?? 5, exclusivo: !!a.exclusivo,
     } as any).eq("id", a.id);
     if (error) toast.error(error.message);
     else { toast.success("Salvo!"); setEditing(null); load(); }
@@ -226,6 +229,13 @@ export default function OpenFlow() {
         tipo: a.tipo || "email",
         template: a.template || "",
         delay_min: typeof a.delay_min === "number" ? a.delay_min : 60,
+        ...(a.ia_vision !== undefined ? { ia_vision: !!a.ia_vision } : {}),
+        ...(a.ia_voice_response !== undefined ? { ia_voice_response: !!a.ia_voice_response } : {}),
+        ...(a.ia_search_web !== undefined ? { ia_search_web: !!a.ia_search_web } : {}),
+        ...(a.questioning_strategy ? { questioning_strategy: a.questioning_strategy } : {}),
+        ...(a.timeout_min !== undefined ? { timeout_min: a.timeout_min } : {}),
+        ...(a.tag ? { tag: a.tag } : {}),
+        ...(a.stop_event_type ? { stop_event_type: a.stop_event_type } : {}),
       }));
       setEditing({ ...editing, acoes: [...editing.acoes, ...acoesGeradas] });
       toast.success(`${acoesGeradas.length} etapas geradas com IA!`);
@@ -415,6 +425,7 @@ export default function OpenFlow() {
                   triggerTipo={editing.trigger_tipo} 
                   acoes={editing.acoes} 
                   onChange={v => setEditing({ ...editing, acoes: v })} 
+                  onTriggerChange={v => setEditing({ ...editing, trigger_tipo: v })}
                   projectId={editing.project_id} 
                   providers={providers} 
                   templates={projectTemplates} 
@@ -439,6 +450,35 @@ export default function OpenFlow() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Dedupe (h)</Label><Input type="number" min={0} value={editing.dedupe_hours ?? 0} onChange={e => setEditing({ ...editing, dedupe_hours: Number(e.target.value) || 0 })} className="h-9 bg-background/50 border-white/10" /></div>
                       <div className="flex items-center justify-between gap-2 h-16 pt-4"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Ativo</Label><Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                        <Activity className="h-3.5 w-3.5" /> Conflito entre Fluxos
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        Quando o mesmo lead entra em mais de um fluxo, prioridade decide quem vence. Exclusivo bloqueia outros até este terminar.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Prioridade (1-10)</Label>
+                      <Input
+                        type="number" min={1} max={10}
+                        value={editing.prioridade ?? 5}
+                        onChange={e => setEditing({ ...editing, prioridade: Math.max(1, Math.min(10, Number(e.target.value) || 5)) })}
+                        className="h-9 bg-background/50 border-white/10"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 ml-1">Maior número = ganha em conflito</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 h-16 pt-4">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Exclusivo</Label>
+                      <Switch checked={!!editing.exclusivo} onCheckedChange={v => setEditing({ ...editing, exclusivo: v })} />
                     </div>
                   </div>
                 </div>

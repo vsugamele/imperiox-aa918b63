@@ -17346,6 +17346,7 @@ export type Database = {
           campanha_id: string | null
           created_at: string | null
           dedupe_hours: number | null
+          exclusivo: boolean
           exit_cascade: boolean
           exit_conditions: Json | null
           exit_trigger_payload: Json | null
@@ -17356,6 +17357,7 @@ export type Database = {
           id: string
           link_checkout: string | null
           nome: string
+          prioridade: number
           produto: string | null
           project_id: string | null
           provider_id: string | null
@@ -17374,6 +17376,7 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
           exit_cascade?: boolean
           exit_conditions?: Json | null
           exit_trigger_payload?: Json | null
@@ -17384,6 +17387,7 @@ export type Database = {
           id: string
           link_checkout?: string | null
           nome: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
@@ -17402,6 +17406,7 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
           exit_cascade?: boolean
           exit_conditions?: Json | null
           exit_trigger_payload?: Json | null
@@ -17412,6 +17417,7 @@ export type Database = {
           id?: string
           link_checkout?: string | null
           nome?: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null

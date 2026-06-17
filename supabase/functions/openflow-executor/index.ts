@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
         if (!hasTag) return false;
       }
       return true;
-    });
+    }).sort((a: any, b: any) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
     if (matched.length === 0) {
       return new Response(JSON.stringify({ ok: true, executed: 0, message: "Nenhuma automação encontrada" }), {
@@ -264,38 +264,75 @@ Deno.serve(async (req) => {
 
     const results: any[] = [];
 
-    // ── Cross-flow lock: check if lead is already inside a DIFFERENT active flow
+    // ── Cross-flow lock: check if lead (or phone) is already inside a DIFFERENT active flow
     // Prevent a lead in Flow A from being pulled into conflicting Flow B simultaneously.
     // Exception: resume_from_step (re-entry from wa-ai-reply) and explicit automacao_id bypass.
     let activeFlowId: string | null = null;
     let activeFlowName: string | null = null;
-    if (lead_data?.lead_id && !resume_from_step && !automacao_id) {
-      const { data: activeExecs } = await supabase
-        .from("imphq_flow_executions")
-        .select("id, automacao_id")
-        .eq("lead_id", lead_data.lead_id)
-        .in("status", ["running", "waiting"])
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (activeExecs && activeExecs.length > 0) {
-        activeFlowId = activeExecs[0].automacao_id;
-        // Look up automation name for logging
-        const { data: activeAuto } = await supabase
-          .from("imphq_automacoes")
-          .select("nome")
-          .eq("id", activeFlowId)
-          .maybeSingle();
-        activeFlowName = activeAuto?.nome || activeFlowId;
-        console.log(`[openflow-executor] Lead ${lead_data.lead_id} already in flow "${activeFlowName}" (${activeFlowId})`);
+    let activeFlowExclusivo = false;
+    let activeFlowPrioridade = 5;
+    if (!resume_from_step && !automacao_id) {
+      // Resolve a set of lead_ids that share the same phone as the incoming lead (when available)
+      let relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
+      const phoneRaw = lead_data?.telefone || lead_data?.phone || lead_data?.whatsapp;
+      if (phoneRaw) {
+        const phoneDigits = String(phoneRaw).replace(/\D/g, "");
+        if (phoneDigits.length >= 8) {
+          const { data: sameLeads } = await supabase
+            .from("imphq_leads")
+            .select("id")
+            .ilike("telefone", `%${phoneDigits.slice(-8)}%`)
+            .limit(50);
+          for (const l of sameLeads || []) {
+            if (l.id && !relatedLeadIds.includes(l.id)) relatedLeadIds.push(l.id);
+          }
+        }
+      }
+
+      if (relatedLeadIds.length > 0) {
+        const { data: activeExecs } = await supabase
+          .from("imphq_flow_executions")
+          .select("id, automacao_id, lead_id")
+          .in("lead_id", relatedLeadIds)
+          .in("status", ["running", "waiting"])
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (activeExecs && activeExecs.length > 0) {
+          activeFlowId = activeExecs[0].automacao_id;
+          const { data: activeAuto } = await supabase
+            .from("imphq_automacoes")
+            .select("nome, prioridade, exclusivo")
+            .eq("id", activeFlowId)
+            .maybeSingle();
+          activeFlowName = activeAuto?.nome || activeFlowId;
+          activeFlowExclusivo = !!activeAuto?.exclusivo;
+          activeFlowPrioridade = Number(activeAuto?.prioridade ?? 5);
+          console.log(`[openflow-executor] Lead/phone já em fluxo "${activeFlowName}" (${activeFlowId}) — exclusivo=${activeFlowExclusivo} prioridade=${activeFlowPrioridade}`);
+        }
       }
     }
 
     for (const auto of matched) {
-      // ── Cross-flow lock: skip if lead is in a different active flow
+      // ── Cross-flow lock: skip / preempt based on prioridade + exclusivo
       if (activeFlowId && activeFlowId !== auto.id) {
-        console.log(`[openflow-executor] Skipping ${auto.id} (${auto.nome}): lead already in flow "${activeFlowName}"`);
-        results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "cross_flow_lock", active_flow: activeFlowName });
-        continue;
+        const myPrioridade = Number(auto.prioridade ?? 5);
+        const canPreempt = !activeFlowExclusivo && myPrioridade > activeFlowPrioridade;
+        if (canPreempt) {
+          // Cancel the previous active flow execution(s) for this lead
+          await supabase
+            .from("imphq_flow_executions")
+            .update({ status: "cancelled", error_message: `Preempted by higher-priority flow "${auto.nome}"`, updated_at: new Date().toISOString() })
+            .eq("automacao_id", activeFlowId)
+            .in("status", ["running", "waiting"]);
+          console.log(`[openflow-executor] Preempt: "${auto.nome}" (p=${myPrioridade}) > "${activeFlowName}" (p=${activeFlowPrioridade})`);
+          activeFlowId = null;
+          activeFlowName = null;
+          activeFlowExclusivo = false;
+        } else {
+          console.log(`[openflow-executor] Skip ${auto.id} (${auto.nome}): lead em "${activeFlowName}" (exclusivo=${activeFlowExclusivo}, p_other=${activeFlowPrioridade}, p_self=${myPrioridade})`);
+          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: activeFlowExclusivo ? "cross_flow_lock_exclusive" : "cross_flow_lock_priority", active_flow: activeFlowName });
+          continue;
+        }
       }
 
       // ── Dedupe: skip if same automation ran for same lead within N hours
