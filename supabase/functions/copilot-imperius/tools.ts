@@ -461,6 +461,63 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 8: Finanças & Atribuição =====
+  {
+    type: "function",
+    function: {
+      name: "lucroDoDia",
+      description: "Calcula lucro do dia: receita aprovada (líquida quando disponível) menos gasto em ads. Mostra ROAS e margem.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          data: { type: "string", description: "YYYY-MM-DD (default hoje)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "roasPorCriativo",
+      description: "ROAS por criativo (anúncio) nos últimos N dias. Cruza imphq_ads_spend.anuncio com imphq_vendas.utm_term. Ordena por receita.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+          limite: { type: "number", description: "default 15" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "projecaoLucroMes",
+      description: "Projeta lucro do mês corrente: extrapola receita e gasto pelos dias já decorridos vs total do mês.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "alertaQueimaOrcamento",
+      description: "Detecta adsets queimando dinheiro: gasto alto sem compras nas últimas 24-72h ou CPA muito acima da média.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 48" },
+          gasto_minimo: { type: "number", description: "default 50 (R$)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
