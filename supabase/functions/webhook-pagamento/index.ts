@@ -71,7 +71,7 @@ export async function buildCapiEventId(externalTxId: string | null | undefined, 
 }
 
 
-function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
+export function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
   try {
     if (plataforma === "Ticto") {
       const order = body?.order || {};
@@ -162,7 +162,7 @@ function extractFinanceiro(body: any, plataforma: string): Record<string, any> |
 }
 
 // Decode common encodings used by trackers (xcod often uses pipe encoded as %7C)
-function decodeXcod(raw: string): Record<string, string> {
+export function decodeXcod(raw: string): Record<string, string> {
   if (!raw) return {};
   const out: Record<string, string> = {};
   try {
@@ -185,7 +185,7 @@ function decodeXcod(raw: string): Record<string, string> {
   return out;
 }
 
-function extractUtms(body: any): Record<string, string> | null {
+export function extractUtms(body: any): Record<string, string> | null {
   // 1) Direct UTMs from common locations
   let src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source || body?.tracking?.source;
   let med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
@@ -266,7 +266,7 @@ async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmC
  * gerando datas no futuro (ex: 13/06 vira 06/13 e dia>12 quebra; 06/12 vira Dec/06).
  * Estratégia: tenta ISO → tenta DD/MM/YYYY → se inválido ou > now+1d, usa hora do webhook.
  */
-function parseTictoDate(raw: any): string {
+export function parseTictoDate(raw: any): string {
   const now = new Date();
   const fallback = now.toISOString();
   if (!raw || typeof raw !== "string") return fallback;
@@ -295,7 +295,7 @@ function parseTictoDate(raw: any): string {
   return fallback;
 }
 
-function parseWebhookBody(body: any, hotmartToken: string | null) {
+export function parseWebhookBody(body: any, hotmartToken: string | null) {
   let plataforma = "desconhecido";
   let evento = "desconhecido";
   let email = "";
