@@ -26,6 +26,12 @@ const TOOL_LABELS: Record<string, string> = {
   adsPerformance: "Performance de ads",
   buscarLead: "Buscou lead",
   criarTarefas: "Criou tarefas",
+  adicionarChecklistNaTarefa: "Adicionou checklist",
+  moverTarefa: "Moveu tarefa",
+  agendarLembrete: "Agendou lembrete",
+  anotarLead: "Anotou no lead",
+  enviarWhatsapp: "WhatsApp (aprovação)",
+  enviarWhatsappEmMassa: "WhatsApp em massa (aprovação)",
 };
 
 function toolSummary(t: ToolActivity): string {
@@ -41,6 +47,12 @@ function toolSummary(t: ToolActivity): string {
     case "buscarLead": return `${r.matches?.length ?? 0} lead(s)`;
     case "listarProjetos": return `${r.projetos?.length ?? 0} projetos`;
     case "criarTarefas": return `${r.criadas ?? 0} criada(s) em ${r.projeto || "?"}`;
+    case "adicionarChecklistNaTarefa": return `${r.adicionados ?? 0} item(s) em "${r.tarefa || "?"}"`;
+    case "moverTarefa": return `"${r.tarefa || "?"}" → ${r.novaColuna || "?"}`;
+    case "agendarLembrete": return `${r.lembrete || "?"} (${r.quando || ""})`;
+    case "anotarLead": return `nota em ${r.lead || "?"}`;
+    case "enviarWhatsapp": return r.status === "pending_approval" ? `pendente · ${r.lead || ""}` : "enviado";
+    case "enviarWhatsappEmMassa": return r.status === "pending_approval" ? `${r.total ?? 0} pendente(s)` : "enviado";
     default: return "ok";
   }
 }
