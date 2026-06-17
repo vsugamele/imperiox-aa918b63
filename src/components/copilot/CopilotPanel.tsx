@@ -187,6 +187,17 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
               if (json.threadId) setThreadId(json.threadId);
               continue;
             }
+            if (json.type === "tools") {
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === "assistant") {
+                  copy[copy.length - 1] = { ...last, tools: json.tools };
+                }
+                return copy;
+              });
+              continue;
+            }
             const delta = json.choices?.[0]?.delta?.content;
             if (delta) {
               accText += delta;
