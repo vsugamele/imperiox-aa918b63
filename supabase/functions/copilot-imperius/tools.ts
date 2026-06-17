@@ -1785,6 +1785,10 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "tarefasAtrasadas": return await tarefasAtrasadas(ctx, args);
       case "statusWebinar": return await statusWebinar(ctx, args);
       case "briefingDiario": return await briefingDiario(ctx, args);
+      case "listarBatchesCriativos": return await listarBatchesCriativos(ctx, args);
+      case "topCriativos": return await topCriativos(ctx, args);
+      case "oportunidadesMercado": return await oportunidadesMercado(ctx, args);
+      case "concorrentesAtivos": return await concorrentesAtivos(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
