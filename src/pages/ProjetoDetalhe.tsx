@@ -486,7 +486,9 @@ export default function ProjetoDetalhe() {
                   { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
                   { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
                   { label: "Kiwify", ok: !!project.data?.kiwify_token, icon: "🟪" },
-                  { label: "Ticto", ok: !!project.data?.ticto_token, icon: "🟩" },
+                  </parameter>
+                  <parameter name="ticto_token, icon: "🟩" },
+                  { label: "Perfect Pay", ok: !!project.data?.perfectpay_token, icon: "🟨" },
                 ].map(i => (
                   <div key={i.label} className="p-3 rounded bg-secondary/50 border border-border text-center">
                     <span className="text-lg">{i.icon}</span>
