@@ -209,12 +209,16 @@ Deno.serve(async (req) => {
 
         if (conv && messaging.message) {
           const content = messaging.message.text || null;
+          const remoteMedia = messaging.message.attachments?.[0]?.payload?.url || null;
+          const persistedMedia = remoteMedia
+            ? await persistIgMedia(supa, remoteMedia, account.project_id, `dm/${conv.id}/${messaging.message.mid || Date.now()}`)
+            : null;
           await supa.from("imphq_ig_messages").insert({
             conversation_id: conv.id,
             direction: isInbound ? "in" : "out",
             type: messaging.message.attachments?.[0]?.type || "text",
             content,
-            media_url: messaging.message.attachments?.[0]?.payload?.url || null,
+            media_url: persistedMedia || remoteMedia,
             mid: messaging.message.mid,
             status: "received",
           });
