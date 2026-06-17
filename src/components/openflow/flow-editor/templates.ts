@@ -5,7 +5,7 @@ export interface FlowTemplate {
   nome: string;
   descricao: string;
   trigger_tipo: string;
-  categoria: "recuperacao" | "boas-vindas" | "reativacao" | "nutricao" | "carrinho" | "onboarding";
+  categoria: "recuperacao" | "boas-vindas" | "reativacao" | "nutricao" | "carrinho" | "onboarding" | "aquisicao";
   emoji: string;
   acoes: Acao[];
 }
@@ -19,11 +19,12 @@ const wa = (template: string, delay_min = 0, extra: Partial<Acao> = {}): Acao =>
 
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
-const ia = (prompt: string, delay_min = 0): Acao => ({
+const ia = (prompt: string, delay_min = 0, extra: Partial<Acao> = {}): Acao => ({
   tipo: "ia_message",
   template: prompt,
   delay_min,
   ia_search_web: false,
+  ...extra,
 });
 
 const tag = (t: string, action: "adicionar_tag" | "remover_tag" = "adicionar_tag"): Acao => ({
@@ -38,6 +39,29 @@ const stop = (event: string): Acao => ({
   template: "",
   delay_min: 0,
   stop_event_type: event,
+});
+
+const waitReply = (timeout_min = 1440): Acao => ({
+  tipo: "wait_reply",
+  template: "",
+  delay_min: 0,
+  timeout_min,
+});
+
+const qualify = (score: number, tags = "", stage = ""): Acao => ({
+  tipo: "qualify_lead",
+  template: "",
+  delay_min: 0,
+  lead_score: score,
+  lead_tags: tags,
+  lead_stage: stage,
+});
+
+const notify = (operator = "comercial"): Acao => ({
+  tipo: "notify_operator",
+  template: "Lead quente pronto para fechamento — abordar agora.",
+  delay_min: 0,
+  operator_name: operator,
 });
 
 export const FLOW_TEMPLATES: FlowTemplate[] = [
@@ -81,12 +105,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
     emoji: "🔥",
     acoes: [
       wa("Oi {{nome}}, sumiu! Posso te mostrar o que mudou no {{produto}} nas últimas semanas?", 0),
-      {
-        tipo: "wait_reply",
-        template: "",
-        delay_min: 0,
-        timeout_min: 1440,
-      },
+      waitReply(1440),
       wa("Resumindo: temos uma condição nova só pra quem já conhece. Posso te enviar?", 60),
       tag("reativado"),
     ],
@@ -144,6 +163,92 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       aguardar(2880),
       wa("Dia 7: como tá indo? Me manda um print que te dou feedback."),
       tag("onboarded"),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // AQUISIÇÃO X1 (Ads → WhatsApp → Venda) — funis multimodais
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: "aquisicao-x1-completo",
+    nome: "Aquisição X1 — Ads → WhatsApp → Venda (multimodal)",
+    descricao: "Lead vem do ads, IA qualifica, manda áudio, vê foto, conduz à venda. Híbrido (template + IA).",
+    trigger_tipo: "lead_novo",
+    categoria: "aquisicao",
+    emoji: "🎯",
+    acoes: [
+      wa("Oi {{nome}}! 👋 Aqui é da equipe do {{produto}}. Vi que você acabou de demonstrar interesse — posso te fazer 2 perguntinhas rápidas pra entender se faz sentido pra você?", 1),
+      waitReply(60),
+      ia(
+        "Você é o vendedor consultivo do {{produto}}. Faça UMA pergunta de qualificação por vez (situação atual, principal dificuldade, urgência). Se o lead mandar áudio, ESCUTE e responda no contexto. Se mandar foto/print, ANALISE. Mantenha tom humano e curto.",
+        0,
+        { ia_voice_response: false, ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(120),
+      qualify(60, "qualificado", "qualificacao"),
+      wa("Show, {{nome}}! Pelo que você me contou, faz sentido. Deixa eu te mandar um áudio rapidinho explicando como o {{produto}} resolve isso 🎙️", 0),
+      { tipo: "audio", template: "Apresentação curta (60-90s) do {{produto}} focada na dor que o lead acabou de descrever. Tom consultivo, sem hype.", delay_min: 0 } as Acao,
+      aguardar(2),
+      wa("Olha aqui o resultado de um cliente que tava na mesma situação:", 0),
+      wa("{{print_resultado}}", 0),
+      waitReply(180),
+      ia(
+        "Lead já viu áudio + prova social. Agora identifique a objeção principal (preço, tempo, ceticismo, decisão de outro). Responda exatamente UMA objeção por mensagem. Se não houver objeção, ofereça o link de checkout: {{link}}",
+        0,
+        { ia_vision: true }
+      ),
+      waitReply(240),
+      qualify(85, "pronto-fechamento", "fechamento"),
+      notify("comercial"),
+      wa("{{nome}}, separei sua condição: {{link}}\nQualquer dúvida me chama aqui mesmo. 🚀", 0),
+      aguardar(720),
+      wa("Oi {{nome}}, ainda dá tempo de garantir a condição de hoje. Posso reservar?", 0),
+      stop("compra_aprovada"),
+    ],
+  },
+  {
+    id: "aquisicao-x1-template-dirigido",
+    nome: "Aquisição X1 — Script dirigido (alta previsibilidade)",
+    descricao: "Funil 100% scriptado: mensagens fixas, áudio, foto e CTA. Para times sem IA conversacional.",
+    trigger_tipo: "lead_novo",
+    categoria: "aquisicao",
+    emoji: "📜",
+    acoes: [
+      wa("Oi {{nome}}! Aqui é do {{produto}}. Bem-vindo(a)! Antes de te apresentar a solução, me conta: qual é o seu maior desafio hoje com isso? 🙏", 1),
+      waitReply(120),
+      wa("Entendi. Deixa eu te mandar um áudio curto que explica exatamente como a gente resolve isso 👇", 0),
+      { tipo: "audio", template: "Apresentação de 60s do {{produto}}: dor universal → método → resultado. Sem hype.", delay_min: 0 } as Acao,
+      aguardar(3),
+      wa("E olha um print real de quem aplicou:", 0),
+      wa("{{print_resultado}}", 0),
+      aguardar(2),
+      wa("Faz sentido pra você? Posso te mostrar o passo a passo de como começar?", 0),
+      waitReply(240),
+      wa("Aqui está sua condição especial: {{link}}\nÉ por tempo limitado.", 0),
+      aguardar(1440),
+      wa("{{nome}}, separei sua vaga até hoje à noite. Garante agora? 🚀 {{link}}", 0),
+      stop("compra_aprovada"),
+    ],
+  },
+  {
+    id: "aquisicao-x1-ia-livre",
+    nome: "Aquisição X1 — IA livre (consultiva)",
+    descricao: "IA conduz quase tudo: escuta áudio do lead, vê imagens, decide ritmo. Mínimo de mensagens fixas.",
+    trigger_tipo: "lead_novo",
+    categoria: "aquisicao",
+    emoji: "🤖",
+    acoes: [
+      wa("Oi {{nome}}! 👋 Tô aqui pra te ajudar a entender se o {{produto}} é o que você precisa. Posso te fazer umas perguntas?", 1),
+      waitReply(60),
+      ia(
+        "Você é vendedor consultivo do {{produto}}. Conduza TODA a venda: qualifique (situação, dor, urgência, decisão), responda objeções, escute áudios do lead, analise imagens/prints que ele mandar, mande áudio quando fizer sentido, peça print/foto quando precisar de contexto. Só envie o link {{link}} quando o lead estiver pronto. Use tom humano. Uma pergunta por vez. Nunca seja robótico.",
+        0,
+        { ia_vision: true, ia_voice_response: true, questioning_strategy: "consultivo_progressivo", ia_search_files: true }
+      ),
+      waitReply(1440),
+      qualify(70, "qualificado-ia", "qualificacao"),
+      notify("comercial"),
+      stop("compra_aprovada"),
     ],
   },
 ];
