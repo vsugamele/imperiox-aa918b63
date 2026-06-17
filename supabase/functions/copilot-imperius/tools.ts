@@ -296,7 +296,119 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== ONDA 2: WhatsApp Operacional =====
+  {
+    type: "function",
+    function: {
+      name: "agendarMensagemWhatsapp",
+      description: "Agenda envio de mensagem WhatsApp para um lead em data/hora futura. Auto-executa (insere em imphq_wa_scheduled).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          mensagem: { type: "string" },
+          quando: { type: "string", description: "ISO datetime YYYY-MM-DDTHH:mm" },
+        },
+        required: ["lead_id", "mensagem", "quando"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "listarAgendamentosWhatsapp",
+      description: "Lista mensagens WhatsApp agendadas (status pending) do projeto.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cancelarAgendamentoWhatsapp",
+      description: "Cancela um envio WhatsApp agendado. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: { scheduled_id: { type: "string" } },
+        required: ["scheduled_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "statusChipsWhatsapp",
+      description: "Saúde dos chips/providers WhatsApp do projeto (ativo, último visto, alertas).",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  // ===== ONDA 3: Diagnóstico & Previsão =====
+  {
+    type: "function",
+    function: {
+      name: "diagnosticoYoshitani",
+      description: "Diagnóstico Yoshitani 7/5/3 do projeto: CPA, Checkout rate, LP rate. Retorna pontuação e gargalo.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "previsaoReceita",
+      description: "Projeção de receita do mês via extrapolação linear sobre vendas diárias.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "leadsQuentes",
+      description: "Leads que geraram Pix/Boleto nas últimas N horas e ainda não pagaram. Use para campanhas de recuperação.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 2" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "funilPorEtapa",
+      description: "Conta eventos do funil por etapa (Aquisição→Conversão→Maximização→Retenção) no período.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
+
 
 
 // ===== Executors =====
