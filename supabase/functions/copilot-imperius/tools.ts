@@ -296,7 +296,119 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== ONDA 2: WhatsApp Operacional =====
+  {
+    type: "function",
+    function: {
+      name: "agendarMensagemWhatsapp",
+      description: "Agenda envio de mensagem WhatsApp para um lead em data/hora futura. Auto-executa (insere em imphq_wa_scheduled).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          mensagem: { type: "string" },
+          quando: { type: "string", description: "ISO datetime YYYY-MM-DDTHH:mm" },
+        },
+        required: ["lead_id", "mensagem", "quando"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "listarAgendamentosWhatsapp",
+      description: "Lista mensagens WhatsApp agendadas (status pending) do projeto.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cancelarAgendamentoWhatsapp",
+      description: "Cancela um envio WhatsApp agendado. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: { scheduled_id: { type: "string" } },
+        required: ["scheduled_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "statusChipsWhatsapp",
+      description: "Saúde dos chips/providers WhatsApp do projeto (ativo, último visto, alertas).",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  // ===== ONDA 3: Diagnóstico & Previsão =====
+  {
+    type: "function",
+    function: {
+      name: "diagnosticoYoshitani",
+      description: "Diagnóstico Yoshitani 7/5/3 do projeto: CPA, Checkout rate, LP rate. Retorna pontuação e gargalo.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "previsaoReceita",
+      description: "Projeção de receita do mês via extrapolação linear sobre vendas diárias.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "leadsQuentes",
+      description: "Leads que geraram Pix/Boleto nas últimas N horas e ainda não pagaram. Use para campanhas de recuperação.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 2" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "funilPorEtapa",
+      description: "Conta eventos do funil por etapa (Aquisição→Conversão→Maximização→Retenção) no período.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
+
 
 
 // ===== Executors =====
@@ -774,7 +886,232 @@ async function ajustarOrcamentoAdset(ctx: ToolCtx, args: { projeto_id: string; a
 }
 
 
+// ===== ONDA 2: WhatsApp =====
+
+async function agendarMensagemWhatsapp(ctx: ToolCtx, args: { lead_id: string; mensagem: string; quando: string }) {
+  const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
+  if (!lead) return { error: "lead não encontrado" };
+  if (!lead.phone) return { error: "lead sem telefone" };
+  const prov = await resolveProviderForProject(ctx, lead.project_id);
+  if (!prov) return { error: "nenhum provider WhatsApp ativo" };
+  const when = new Date(args.quando);
+  if (isNaN(when.getTime()) || when.getTime() < Date.now()) return { error: "quando inválido ou no passado" };
+  const { data, error } = await ctx.supabase.from("imphq_wa_scheduled").insert({
+    project_id: lead.project_id, provider_id: prov.id, phone: lead.phone,
+    content: args.mensagem, scheduled_at: when.toISOString(), status: "pending",
+    created_by: ctx.userId,
+  }).select("id").single();
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "sendWhatsApp", projeto_id: lead.project_id,
+    title: `Agendado WhatsApp para ${lead.nome || lead.phone} em ${when.toISOString()}`,
+    reason: args.mensagem.slice(0, 200),
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 0.95, source: "imperius_chat", created_by: ctx.userId,
+    payload: { scheduled_id: data.id, lead_id: lead.id, quando: when.toISOString() },
+  });
+  return { ok: true, scheduled_id: data.id, lead: lead.nome || lead.phone, quando: when.toISOString() };
+}
+
+async function listarAgendamentosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = Math.min(args.limite ?? 30, 100);
+  let q = ctx.supabase.from("imphq_wa_scheduled")
+    .select("id, phone, content, scheduled_at, status, project_id")
+    .eq("status", "pending").order("scheduled_at").limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return {
+    projeto_id: pid, total: data?.length || 0,
+    agendamentos: (data || []).map((s: any) => ({
+      id: s.id, phone: s.phone, mensagem: (s.content || "").slice(0, 120),
+      quando: s.scheduled_at,
+    })),
+  };
+}
+
+async function cancelarAgendamentoWhatsapp(ctx: ToolCtx, args: { scheduled_id: string }) {
+  const { data: sched } = await ctx.supabase.from("imphq_wa_scheduled")
+    .select("id, project_id, phone").eq("id", args.scheduled_id).maybeSingle();
+  if (!sched) return { error: "agendamento não encontrado" };
+  const { error } = await ctx.supabase.from("imphq_wa_scheduled")
+    .update({ status: "cancelled" }).eq("id", args.scheduled_id);
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "notify", projeto_id: sched.project_id,
+    title: `Agendamento WhatsApp cancelado (${sched.phone})`,
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 1.0, source: "imperius_chat", created_by: ctx.userId,
+    payload: { scheduled_id: args.scheduled_id },
+  });
+  return { ok: true, scheduled_id: args.scheduled_id };
+}
+
+async function statusChipsWhatsapp(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id obrigatório" };
+  const { data, error } = await ctx.supabase.from("imphq_wa_providers")
+    .select("id, instance_name, display_name, provider, is_active, last_seen_at, health_alerts_enabled, health_alerts_muted_until")
+    .eq("project_id", pid).order("is_active", { ascending: false });
+  if (error) return { error: error.message };
+  const now = Date.now();
+  return {
+    projeto_id: pid, total: data?.length || 0,
+    chips: (data || []).map((p: any) => {
+      const lastSeenMin = p.last_seen_at ? Math.round((now - new Date(p.last_seen_at).getTime()) / 60000) : null;
+      let saude = "desconhecida";
+      if (!p.is_active) saude = "inativo";
+      else if (lastSeenMin == null) saude = "sem_sinal";
+      else if (lastSeenMin < 15) saude = "ok";
+      else if (lastSeenMin < 60) saude = "atrasado";
+      else saude = "offline";
+      return {
+        id: p.id, nome: p.display_name || p.instance_name, provider: p.provider,
+        ativo: p.is_active, ultimo_sinal_min: lastSeenMin, saude,
+        alertas_mutados_ate: p.health_alerts_muted_until,
+      };
+    }),
+  };
+}
+
+// ===== ONDA 3: Diagnóstico & Previsão =====
+
+async function diagnosticoYoshitani(ctx: ToolCtx, args: { projeto_id?: string; dias?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id obrigatório" };
+  const dias = args.dias ?? 7;
+  const sinceDate = new Date(Date.now() - dias * 86400000);
+  const sinceISO = sinceDate.toISOString();
+  const sinceDay = sinceISO.slice(0, 10);
+
+  const [adsRes, vendasRes, eventsRes] = await Promise.all([
+    ctx.supabase.from("imphq_ads_spend").select("valor, custo_por_compra, compras, landing_page_views, link_clicks, checkouts_iniciados, impressoes")
+      .eq("project_id", pid).gte("data_ref", sinceDay).limit(2000),
+    ctx.supabase.from("imphq_vendas").select("valor").eq("project_id", pid).eq("status", "aprovado").gte("data_venda", sinceISO).limit(2000),
+    ctx.supabase.from("imphq_funnel_events").select("step").eq("project_id", pid).gte("created_at", sinceISO).limit(5000),
+  ]);
+
+  const ads = adsRes.data || [];
+  const gasto = ads.reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const compras = ads.reduce((s: number, a: any) => s + Number(a.compras || 0), 0);
+  const lpv = ads.reduce((s: number, a: any) => s + Number(a.landing_page_views || 0), 0);
+  const clicks = ads.reduce((s: number, a: any) => s + Number(a.link_clicks || 0), 0);
+  const checkouts = ads.reduce((s: number, a: any) => s + Number(a.checkouts_iniciados || 0), 0);
+
+  const vendasCount = vendasRes.data?.length || 0;
+  const cpa = (compras || vendasCount) > 0 ? gasto / (compras || vendasCount) : null;
+
+  // Yoshitani: meta CPA <= 7x ticket? Sem ticket alvo, usar regras CTR/LP/Checkout
+  const lpRate = clicks > 0 ? (lpv / clicks) * 100 : 0;     // alvo: >70%
+  const checkoutRate = lpv > 0 ? (checkouts / lpv) * 100 : 0; // alvo: >5%
+  const compraRate = checkouts > 0 ? (compras / checkouts) * 100 : 0; // alvo: >30%
+
+  const score = {
+    lp: lpRate >= 70 ? 7 : lpRate >= 50 ? 5 : 3,
+    checkout: checkoutRate >= 5 ? 7 : checkoutRate >= 3 ? 5 : 3,
+    compra: compraRate >= 30 ? 7 : compraRate >= 15 ? 5 : 3,
+  };
+  const gargalo = Object.entries(score).sort((a, b) => a[1] - b[1])[0][0];
+
+  return {
+    projeto_id: pid, dias,
+    gasto_total: gasto, vendas_aprovadas: vendasCount, cpa,
+    lp_rate_pct: Number(lpRate.toFixed(2)),
+    checkout_rate_pct: Number(checkoutRate.toFixed(2)),
+    compra_rate_pct: Number(compraRate.toFixed(2)),
+    score, gargalo,
+    eventos_funil: eventsRes.data?.length || 0,
+  };
+}
+
+async function previsaoReceita(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id obrigatório" };
+  const now = new Date();
+  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const diasPassados = Math.max(1, Math.ceil((now.getTime() - inicioMes.getTime()) / 86400000));
+  const diasTotal = fimMes.getDate();
+
+  const { data, error } = await ctx.supabase.from("imphq_vendas")
+    .select("valor").eq("project_id", pid).eq("status", "aprovado")
+    .gte("data_venda", inicioMes.toISOString()).limit(5000);
+  if (error) return { error: error.message };
+  const receitaAtual = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const mediaDiaria = receitaAtual / diasPassados;
+  const projecao = mediaDiaria * diasTotal;
+  return {
+    projeto_id: pid,
+    receita_atual: Number(receitaAtual.toFixed(2)),
+    media_diaria: Number(mediaDiaria.toFixed(2)),
+    dias_passados: diasPassados, dias_total: diasTotal,
+    projecao_mes: Number(projecao.toFixed(2)),
+    falta_para_projecao: Number((projecao - receitaAtual).toFixed(2)),
+  };
+}
+
+async function leadsQuentes(ctx: ToolCtx, args: { projeto_id?: string; horas?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const horas = args.horas ?? 2;
+  const limite = Math.min(args.limite ?? 30, 100);
+  const since = new Date(Date.now() - horas * 3600000).toISOString();
+
+  let q = ctx.supabase.from("imphq_vendas")
+    .select("id, lead_id, produto_nome, valor, status, data_venda, plataforma")
+    .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento"])
+    .gte("data_venda", since).order("data_venda", { ascending: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+
+  const leadIds = [...new Set((data || []).map((v: any) => v.lead_id).filter(Boolean))];
+  const leadsMap: Record<string, any> = {};
+  if (leadIds.length) {
+    const { data: leads } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, email").in("id", leadIds);
+    for (const l of leads || []) leadsMap[l.id] = l;
+  }
+  return {
+    projeto_id: pid, horas, total: data?.length || 0,
+    leads: (data || []).map((v: any) => ({
+      venda_id: v.id, lead_id: v.lead_id,
+      lead: v.lead_id ? leadsMap[v.lead_id] : null,
+      produto: v.produto_nome, valor: Number(v.valor || 0),
+      status: v.status, plataforma: v.plataforma, em: v.data_venda,
+    })),
+  };
+}
+
+async function funilPorEtapa(ctx: ToolCtx, args: { projeto_id?: string; dias?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id obrigatório" };
+  const dias = args.dias ?? 7;
+  const since = new Date(Date.now() - dias * 86400000).toISOString();
+  const { data, error } = await ctx.supabase.from("imphq_funnel_events")
+    .select("step").eq("project_id", pid).gte("created_at", since).limit(10000);
+  if (error) return { error: error.message };
+  const counts = new Map<string, number>();
+  for (const e of data || []) {
+    const s = e.step || "—";
+    counts.set(s, (counts.get(s) || 0) + 1);
+  }
+  // classificar em etapas macro
+  const macro = { aquisicao: 0, conversao: 0, maximizacao: 0, retencao: 0, outros: 0 };
+  for (const [step, n] of counts.entries()) {
+    const k = step.toLowerCase();
+    if (/(page_view|lp_view|click|impressao|view)/.test(k)) macro.aquisicao += n;
+    else if (/(checkout|pix|boleto|cart|lead|form)/.test(k)) macro.conversao += n;
+    else if (/(upsell|orderbump|downsell)/.test(k)) macro.maximizacao += n;
+    else if (/(login|return|retain|engage)/.test(k)) macro.retencao += n;
+    else macro.outros += n;
+  }
+  const detalhe = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15)
+    .map(([step, n]) => ({ step, eventos: n }));
+  return { projeto_id: pid, dias, total: data?.length || 0, macro, detalhe };
+}
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
+
   try {
     switch (name) {
       case "listarProjetos": return await listarProjetos(ctx);
@@ -796,7 +1133,16 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "pausarAnuncio": return await pausarAnuncio(ctx, args);
       case "ativarAnuncio": return await ativarAnuncio(ctx, args);
       case "ajustarOrcamentoAdset": return await ajustarOrcamentoAdset(ctx, args);
+      case "agendarMensagemWhatsapp": return await agendarMensagemWhatsapp(ctx, args);
+      case "listarAgendamentosWhatsapp": return await listarAgendamentosWhatsapp(ctx, args);
+      case "cancelarAgendamentoWhatsapp": return await cancelarAgendamentoWhatsapp(ctx, args);
+      case "statusChipsWhatsapp": return await statusChipsWhatsapp(ctx, args);
+      case "diagnosticoYoshitani": return await diagnosticoYoshitani(ctx, args);
+      case "previsaoReceita": return await previsaoReceita(ctx, args);
+      case "leadsQuentes": return await leadsQuentes(ctx, args);
+      case "funilPorEtapa": return await funilPorEtapa(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
+
 
     }
   } catch (e: any) {
