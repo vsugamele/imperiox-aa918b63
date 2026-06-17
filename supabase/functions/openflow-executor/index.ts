@@ -958,6 +958,11 @@ Deno.serve(async (req) => {
                 stepsFailed++;
                 failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
+                const mediaKindMap: Record<string, string> = { image: "image", video: "video", audio: "audio", doc: "document" };
+                const stepMedia = (step as any).media;
+                const mediaPayload = stepMedia?.url
+                  ? { media_url: stepMedia.url, media_type: mediaKindMap[stepMedia.kind] || "image" }
+                  : {};
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
                   headers: {
@@ -969,6 +974,7 @@ Deno.serve(async (req) => {
                     phone: normalizeBRPhone(phone),
                     content: msgText,
                     project_id,
+                    ...mediaPayload,
                   }),
                 });
                 const waData = await waRes.json();
