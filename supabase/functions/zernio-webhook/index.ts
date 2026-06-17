@@ -7,6 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+async function persistIgMedia(supa: any, remoteUrl: string | null | undefined, projectId: string, key: string): Promise<string | null> {
+  if (!remoteUrl || !projectId || !key) return null;
+  try {
+    const r = await fetch(remoteUrl);
+    if (!r.ok) return null;
+    const ct = (r.headers.get("content-type") || "image/jpeg").split(";")[0].trim().toLowerCase();
+    const extMap: Record<string, string> = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      "video/mp4": "mp4", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/ogg": "ogg",
+    };
+    const ext = extMap[ct] || ct.split("/")[1] || "bin";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const path = `${projectId}/${key}.${ext}`;
+    let { error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true });
+    if (error?.message?.includes("Bucket not found")) {
+      await supa.storage.createBucket("ig-media", { public: true }).catch(() => {});
+      ({ error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true }));
+    }
+    if (error) { console.warn("[ig-media] upload:", error.message); return null; }
+    const { data } = supa.storage.from("ig-media").getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e: any) {
+    console.warn("[ig-media] fetch err:", e?.message || e);
+    return null;
+  }
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
