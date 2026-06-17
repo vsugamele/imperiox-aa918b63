@@ -39,6 +39,17 @@ const PLATFORMS = [
     ],
     fields: ["transaction_id", "customer_name", "customer_email", "customer_phone", "product_name", "amount"],
   },
+  {
+    name: "Perfect Pay", icon: "🟨",
+    steps: [
+      "Acesse Ferramentas → Notificações (Postback) no painel Perfect Pay",
+      "Adicione a URL do webhook (com ?project=ID)",
+      "Selecione os status: Aprovado, Pendente, PIX gerado, Boleto, Reembolso, Chargeback",
+      "Opcional: defina um Token e cole o mesmo em data.perfectpay_token do projeto",
+      "Salve e dispare um teste",
+    ],
+    fields: ["code", "sale_status_enum", "payment_method_enum", "customer.email", "customer.full_name", "customer.phone_formated", "product.name", "sale_amount"],
+  },
 ];
 
 const FLOW_STEPS = [
