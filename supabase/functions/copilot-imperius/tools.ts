@@ -1514,6 +1514,10 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "recuperarVendaPix": return await recuperarVendaPix(ctx, args);
       case "listarTemplatesRecuperacao": return await listarTemplatesRecuperacao(ctx, args);
       case "pontuarLead": return await pontuarLead(ctx, args);
+      case "lucroDoDia": return await lucroDoDia(ctx, args);
+      case "roasPorCriativo": return await roasPorCriativo(ctx, args);
+      case "projecaoLucroMes": return await projecaoLucroMes(ctx, args);
+      case "alertaQueimaOrcamento": return await alertaQueimaOrcamento(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
