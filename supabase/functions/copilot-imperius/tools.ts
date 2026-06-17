@@ -572,6 +572,64 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 5: Criativos & Inteligência de Mercado =====
+  {
+    type: "function",
+    function: {
+      name: "listarBatchesCriativos",
+      description: "Lista batches recentes de criativos gerados (imphq_creative_batches) com status e contagem de assets.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 10" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "topCriativos",
+      description: "Top criativos por performance (CTR/compras) cruzando imphq_creative_assets com imphq_ads_spend nos últimos N dias.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 14" },
+          limite: { type: "number", description: "default 10" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "oportunidadesMercado",
+      description: "Lista oportunidades de mercado detectadas (imphq_mi_opportunities): ângulos, dores, gaps de concorrentes.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 15" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "concorrentesAtivos",
+      description: "Lista concorrentes monitorados (imphq_competitors) com criativos ativos e estimativa de atividade.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 10" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
