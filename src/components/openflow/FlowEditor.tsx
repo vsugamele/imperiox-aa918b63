@@ -21,6 +21,7 @@ import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { Undo2, Redo2 } from "lucide-react";
 
@@ -207,6 +208,8 @@ export interface Acao {
   conteudo?: string;
   position_x?: number;
   position_y?: number;
+  // media attachment (WhatsApp node)
+  media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
 }
 
 export interface WaProvider {
@@ -2303,6 +2306,20 @@ export function FlowEditor({
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {/* Media attachment for WhatsApp */}
+                {acao.tipo === "whatsapp" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                      📎 Mídia anexada <span className="text-muted-foreground/50 normal-case font-normal">(opcional — o template vira legenda)</span>
+                    </Label>
+                    <MediaPicker
+                      value={acao.media || null}
+                      projects={projectId ? [{ id: projectId, name: "Projeto atual" }] : []}
+                      onChange={(m) => updateAcao(selectedIdx, "media" as any, m)}
+                    />
                   </div>
                 )}
 

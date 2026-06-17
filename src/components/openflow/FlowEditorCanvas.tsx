@@ -365,6 +365,10 @@ function acoesToNodesEdges(
       label = `Parar se: ${acao.stop_event_type || "Compra Aprovada"}`;
     }
 
+    if (acao.tipo === "whatsapp" && acao.media?.url) {
+      label = `📎 ${acao.media.label || "mídia"}${label ? ` — ${label}` : ""}`;
+    }
+
     const posX = acao.position_x !== undefined ? acao.position_x : xCenter;
     const posY = acao.position_y !== undefined ? acao.position_y : (i + 1) * yGap;
 
