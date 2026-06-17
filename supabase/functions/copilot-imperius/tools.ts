@@ -139,6 +139,98 @@ export const TOOL_SPECS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "adicionarChecklistNaTarefa",
+      description: "Adiciona itens de checklist em uma tarefa Kanban existente. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string", description: "id da tarefa (kanban card)" },
+          itens: { type: "array", items: { type: "string" } },
+        },
+        required: ["tarefa_id", "itens"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moverTarefa",
+      description: "Move tarefa para outra coluna do Kanban. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string" },
+          coluna: { type: "string", description: "Nome da coluna destino (ex: 'A Fazer', 'Fazendo', 'Feito', 'Bloqueado')" },
+        },
+        required: ["tarefa_id", "coluna"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "agendarLembrete",
+      description: "Cria uma tarefa do tipo lembrete com prazo. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          titulo: { type: "string" },
+          quando: { type: "string", description: "ISO date YYYY-MM-DD" },
+          descricao: { type: "string" },
+        },
+        required: ["projeto_id", "titulo", "quando"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "anotarLead",
+      description: "Adiciona nota interna na conversa WhatsApp do lead. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          nota: { type: "string" },
+        },
+        required: ["lead_id", "nota"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "enviarWhatsapp",
+      description: "Envia mensagem WhatsApp para um lead. SEMPRE entra em fila de aprovação (caixa de ações).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          mensagem: { type: "string" },
+        },
+        required: ["lead_id", "mensagem"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "enviarWhatsappEmMassa",
+      description: "Envia mensagem WhatsApp para múltiplos leads. SEMPRE entra em fila de aprovação. Use com cautela.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_ids: { type: "array", items: { type: "string" } },
+          mensagem: { type: "string" },
+        },
+        required: ["lead_ids", "mensagem"], additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ===== Executors =====
