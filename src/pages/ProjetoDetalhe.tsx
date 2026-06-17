@@ -729,6 +729,7 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
     { key: "hotmart_token", label: "Hotmart", icon: "🟧", placeholder: "Hottok de validação", help: "Cole em Ferramentas > Webhooks na Hotmart. Use o header x-hotmart-hottok." },
     { key: "kiwify_token", label: "Kiwify", icon: "🟪", placeholder: "Secret de validação", help: "Configurações > Webhooks > Secret na Kiwify." },
     { key: "ticto_token", label: "Ticto (v2)", icon: "🟩", placeholder: "Token de validação", help: "Na Ticto, vá em Integrações > Webhooks > Adicione a URL acima. O token enviado no body será validado automaticamente. Valores (paid_amount) são convertidos de centavos." },
+    { key: "perfectpay_token", label: "Perfect Pay", icon: "🟨", placeholder: "Token de validação", help: "Ferramentas > Notificações (Postback) no Perfect Pay. Defina um Token e cole aqui — será validado contra o campo 'token' do postback." },
   ];
 
   return (
