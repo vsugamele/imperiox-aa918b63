@@ -461,6 +461,63 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 8: Finanças & Atribuição =====
+  {
+    type: "function",
+    function: {
+      name: "lucroDoDia",
+      description: "Calcula lucro do dia: receita aprovada (líquida quando disponível) menos gasto em ads. Mostra ROAS e margem.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          data: { type: "string", description: "YYYY-MM-DD (default hoje)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "roasPorCriativo",
+      description: "ROAS por criativo (anúncio) nos últimos N dias. Cruza imphq_ads_spend.anuncio com imphq_vendas.utm_term. Ordena por receita.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+          limite: { type: "number", description: "default 15" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "projecaoLucroMes",
+      description: "Projeta lucro do mês corrente: extrapola receita e gasto pelos dias já decorridos vs total do mês.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "alertaQueimaOrcamento",
+      description: "Detecta adsets queimando dinheiro: gasto alto sem compras nas últimas 24-72h ou CPA muito acima da média.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 48" },
+          gasto_minimo: { type: "number", description: "default 50 (R$)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
@@ -1192,6 +1249,187 @@ async function listarRecuperaveis(ctx: ToolCtx, args: { projeto_id?: string; hor
   };
 }
 
+// ===== Onda 8: Finanças & Atribuição =====
+
+async function lucroDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dia = args.data || new Date().toISOString().slice(0, 10);
+  const start = `${dia}T00:00:00`;
+  const end = `${dia}T23:59:59`;
+
+  let qv = ctx.supabase.from("imphq_vendas")
+    .select("valor, valor_liquido, status")
+    .eq("status", "aprovado")
+    .gte("data_venda", start).lte("data_venda", end).limit(2000);
+  if (pid) qv = qv.eq("project_id", pid);
+  const { data: vendas } = await qv;
+  const receita_bruta = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const receita_liquida = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor_liquido || v.valor || 0), 0);
+
+  let qa = ctx.supabase.from("imphq_ads_spend")
+    .select("valor").eq("data_ref", dia).limit(2000);
+  if (pid) qa = qa.eq("project_id", pid);
+  const { data: ads } = await qa;
+  const gasto_ads = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+
+  const lucro = receita_liquida - gasto_ads;
+  return {
+    projeto_id: pid, data: dia,
+    receita_bruta, receita_liquida, gasto_ads,
+    lucro_estimado: lucro,
+    roas: gasto_ads > 0 ? receita_bruta / gasto_ads : null,
+    margem_pct: receita_liquida > 0 ? (lucro / receita_liquida) * 100 : null,
+    vendas_count: vendas?.length || 0,
+  };
+}
+
+async function roasPorCriativo(ctx: ToolCtx, args: { projeto_id?: string; dias?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 7;
+  const limite = Math.min(args.limite ?? 15, 50);
+  const sinceDate = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+  const sinceTs = new Date(Date.now() - dias * 86400000).toISOString();
+
+  let qa = ctx.supabase.from("imphq_ads_spend")
+    .select("anuncio, ad_id, valor, compras").gte("data_ref", sinceDate).limit(5000);
+  if (pid) qa = qa.eq("project_id", pid);
+  const { data: ads } = await qa;
+
+  const adMap = new Map<string, { gasto: number; compras: number }>();
+  for (const a of ads || []) {
+    const k = (a.anuncio || a.ad_id || "—").toString().trim();
+    if (!k || k === "—") continue;
+    const cur = adMap.get(k) || { gasto: 0, compras: 0 };
+    cur.gasto += Number(a.valor || 0);
+    cur.compras += Number(a.compras || 0);
+    adMap.set(k, cur);
+  }
+
+  let qv = ctx.supabase.from("imphq_vendas")
+    .select("valor, utm_term").eq("status", "aprovado").gte("data_venda", sinceTs).limit(5000);
+  if (pid) qv = qv.eq("project_id", pid);
+  const { data: vendas } = await qv;
+
+  const revMap = new Map<string, { receita: number; vendas: number }>();
+  for (const v of vendas || []) {
+    const k = (v.utm_term || "").toString().trim();
+    if (!k) continue;
+    const cur = revMap.get(k) || { receita: 0, vendas: 0 };
+    cur.receita += Number(v.valor || 0);
+    cur.vendas += 1;
+    revMap.set(k, cur);
+  }
+
+  const rows = [...adMap.entries()].map(([anuncio, a]) => {
+    const r = revMap.get(anuncio) || { receita: 0, vendas: 0 };
+    return {
+      anuncio,
+      gasto: Number(a.gasto.toFixed(2)),
+      compras_pixel: a.compras,
+      vendas_atribuidas: r.vendas,
+      receita_atribuida: Number(r.receita.toFixed(2)),
+      roas: a.gasto > 0 ? Number((r.receita / a.gasto).toFixed(2)) : null,
+      cpa: a.compras > 0 ? Number((a.gasto / a.compras).toFixed(2)) : null,
+    };
+  }).sort((a, b) => (b.receita_atribuida || 0) - (a.receita_atribuida || 0));
+
+  return {
+    projeto_id: pid, dias,
+    total_criativos: rows.length,
+    top: rows.slice(0, limite),
+    sem_atribuicao_utm: rows.filter(r => r.vendas_atribuidas === 0 && r.gasto > 50).slice(0, 10),
+  };
+}
+
+async function projecaoLucroMes(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const now = new Date();
+  const ano = now.getUTCFullYear();
+  const mes = now.getUTCMonth();
+  const inicioMes = new Date(Date.UTC(ano, mes, 1)).toISOString();
+  const inicioMesDate = inicioMes.slice(0, 10);
+  const diasNoMes = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const diaAtual = now.getUTCDate();
+
+  let qv = ctx.supabase.from("imphq_vendas")
+    .select("valor, valor_liquido").eq("status", "aprovado").gte("data_venda", inicioMes).limit(10000);
+  if (pid) qv = qv.eq("project_id", pid);
+  const { data: vendas } = await qv;
+  const receita_bruta = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const receita_liquida = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor_liquido || v.valor || 0), 0);
+
+  let qa = ctx.supabase.from("imphq_ads_spend")
+    .select("valor").gte("data_ref", inicioMesDate).limit(10000);
+  if (pid) qa = qa.eq("project_id", pid);
+  const { data: ads } = await qa;
+  const gasto = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+
+  const fator = diaAtual > 0 ? diasNoMes / diaAtual : 1;
+  return {
+    projeto_id: pid,
+    dia_atual: diaAtual, dias_no_mes: diasNoMes,
+    realizado: {
+      receita_bruta, receita_liquida, gasto_ads: gasto,
+      lucro: receita_liquida - gasto,
+      roas: gasto > 0 ? receita_bruta / gasto : null,
+    },
+    projecao_fim_mes: {
+      receita_bruta: receita_bruta * fator,
+      receita_liquida: receita_liquida * fator,
+      gasto_ads: gasto * fator,
+      lucro: (receita_liquida - gasto) * fator,
+    },
+    vendas_count: vendas?.length || 0,
+  };
+}
+
+async function alertaQueimaOrcamento(ctx: ToolCtx, args: { projeto_id?: string; horas?: number; gasto_minimo?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const horas = args.horas ?? 48;
+  const gastoMin = args.gasto_minimo ?? 50;
+  const dias = Math.max(1, Math.ceil(horas / 24));
+  const since = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+
+  let qa = ctx.supabase.from("imphq_ads_spend")
+    .select("anuncio, conjunto_anuncios, adset_id, ad_id, valor, compras, custo_por_compra, data_ref, project_id")
+    .gte("data_ref", since).limit(5000);
+  if (pid) qa = qa.eq("project_id", pid);
+  const { data: ads } = await qa;
+
+  const adsetMap = new Map<string, { adset_id: string; nome: string; gasto: number; compras: number }>();
+  for (const a of ads || []) {
+    const key = a.adset_id || a.conjunto_anuncios || a.anuncio || a.ad_id;
+    if (!key) continue;
+    const cur = adsetMap.get(key) || { adset_id: a.adset_id, nome: a.conjunto_anuncios || a.anuncio || key, gasto: 0, compras: 0 };
+    cur.gasto += Number(a.valor || 0);
+    cur.compras += Number(a.compras || 0);
+    adsetMap.set(key, cur);
+  }
+
+  // CPA médio para referência
+  const cpas = [...adsetMap.values()].filter(a => a.compras > 0).map(a => a.gasto / a.compras);
+  const cpaMedio = cpas.length ? cpas.reduce((s, x) => s + x, 0) / cpas.length : 0;
+  const cpaAlvo = cpaMedio * 1.8; // 80% acima da média
+
+  const alertas = [...adsetMap.values()].map(a => {
+    const cpa = a.compras > 0 ? a.gasto / a.compras : null;
+    let motivo: string | null = null;
+    if (a.gasto >= gastoMin && a.compras === 0) motivo = "sem_compras";
+    else if (cpaAlvo > 0 && cpa && cpa > cpaAlvo) motivo = "cpa_alto";
+    return { adset: a.nome, adset_id: a.adset_id, gasto: Number(a.gasto.toFixed(2)), compras: a.compras, cpa: cpa ? Number(cpa.toFixed(2)) : null, motivo };
+  }).filter(a => a.motivo)
+    .sort((a, b) => b.gasto - a.gasto);
+
+  return {
+    projeto_id: pid, horas, gasto_minimo: gastoMin,
+    cpa_medio: Number(cpaMedio.toFixed(2)),
+    cpa_alvo_alerta: Number(cpaAlvo.toFixed(2)),
+    total_alertas: alertas.length,
+    queimando: alertas.slice(0, 15),
+  };
+}
+
+
 async function recuperarVendaPix(ctx: ToolCtx, args: { venda_id: string }) {
   if (!args.venda_id) return { error: "venda_id obrigatório" };
   const { data: venda, error: vErr } = await ctx.supabase
@@ -1276,6 +1514,10 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "recuperarVendaPix": return await recuperarVendaPix(ctx, args);
       case "listarTemplatesRecuperacao": return await listarTemplatesRecuperacao(ctx, args);
       case "pontuarLead": return await pontuarLead(ctx, args);
+      case "lucroDoDia": return await lucroDoDia(ctx, args);
+      case "roasPorCriativo": return await roasPorCriativo(ctx, args);
+      case "projecaoLucroMes": return await projecaoLucroMes(ctx, args);
+      case "alertaQueimaOrcamento": return await alertaQueimaOrcamento(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
