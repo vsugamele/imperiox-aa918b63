@@ -1133,7 +1133,16 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "pausarAnuncio": return await pausarAnuncio(ctx, args);
       case "ativarAnuncio": return await ativarAnuncio(ctx, args);
       case "ajustarOrcamentoAdset": return await ajustarOrcamentoAdset(ctx, args);
+      case "agendarMensagemWhatsapp": return await agendarMensagemWhatsapp(ctx, args);
+      case "listarAgendamentosWhatsapp": return await listarAgendamentosWhatsapp(ctx, args);
+      case "cancelarAgendamentoWhatsapp": return await cancelarAgendamentoWhatsapp(ctx, args);
+      case "statusChipsWhatsapp": return await statusChipsWhatsapp(ctx, args);
+      case "diagnosticoYoshitani": return await diagnosticoYoshitani(ctx, args);
+      case "previsaoReceita": return await previsaoReceita(ctx, args);
+      case "leadsQuentes": return await leadsQuentes(ctx, args);
+      case "funilPorEtapa": return await funilPorEtapa(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
+
 
     }
   } catch (e: any) {
