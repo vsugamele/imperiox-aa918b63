@@ -1654,8 +1654,9 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("[webhook-pagamento] erro ao parsear body:", err);
+    // Resposta genérica — não vazar detalhes internos para o caller.
     return new Response(
-      JSON.stringify({ error: String(err) }),
+      JSON.stringify({ ok: false, error: "Payload inválido." }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
