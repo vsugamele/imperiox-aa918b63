@@ -688,6 +688,17 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           );
         }
       }
+
+      // Validate Perfect Pay token against project config
+      if (plataforma === "PerfectPay" && body?.token && proj?.data?.perfectpay_token) {
+        if (body.token !== proj.data.perfectpay_token) {
+          console.warn("[webhook-pagamento] PerfectPay token mismatch for project", projectId);
+          return new Response(
+            JSON.stringify({ error: "Invalid perfectpay token" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     // Handle checkout intent (inicio_checkout, carrinho_abandonado, pix_gerado, boleto_gerado, aguardando_pagamento, pagamento_pendente, pagamento_recusado, pagamento_expirado)
