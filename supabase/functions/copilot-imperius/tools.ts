@@ -406,6 +406,61 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 4: Recuperação & Hot Leads =====
+  {
+    type: "function",
+    function: {
+      name: "listarRecuperaveis",
+      description: "Lista vendas em pix_gerado/boleto_gerado/aguardando_pagamento nas últimas N horas (default 24h). Carrinhos abandonados prontos para recuperação.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 24" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recuperarVendaPix",
+      description: "Dispara hot-lead-responder para venda com Pix/Boleto pendente. Auto-executa (low-risk). Use após listarRecuperaveis.",
+      parameters: {
+        type: "object",
+        properties: {
+          venda_id: { type: "string", description: "id da venda em imphq_vendas" },
+        }, required: ["venda_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "listarTemplatesRecuperacao",
+      description: "Lista templates ativos de recuperação (imphq_recovery_templates) por projeto/canal.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          canal: { type: "string", description: "whatsapp|email|sms (opcional)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pontuarLead",
+      description: "Retorna score atual + breakdown do lead. Útil antes de decidir ação de recuperação.",
+      parameters: {
+        type: "object",
+        properties: { lead_id: { type: "string" } },
+        required: ["lead_id"], additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
