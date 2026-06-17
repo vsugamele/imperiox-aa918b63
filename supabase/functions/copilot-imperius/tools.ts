@@ -654,6 +654,126 @@ async function enviarWhatsappEmMassa(ctx: ToolCtx, args: { lead_ids: string[]; m
   };
 }
 
+// ===== ADS EXECUTORS =====
+
+async function listarAnunciosAtivos(ctx: ToolCtx, args: { projeto_id?: string; dias?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id obrigatório" };
+  const dias = args.dias ?? 7;
+  const limite = Math.min(args.limite ?? 30, 100);
+  const since = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+
+  const { data, error } = await ctx.supabase
+    .from("imphq_ads_spend")
+    .select("ad_id, adset_id, campaign_id, anuncio, conjunto_anuncios, campanha, valor, ctr, custo_por_compra, compras, link_clicks, impressoes, effective_status, daily_budget, data_ref")
+    .eq("project_id", pid)
+    .gte("data_ref", since)
+    .not("ad_id", "is", null)
+    .not("ad_id", "ilike", "CAMP:%")
+    .limit(2000);
+  if (error) return { error: error.message };
+
+  // Agregar por ad_id
+  const map = new Map<string, any>();
+  for (const r of data || []) {
+    const k = r.ad_id;
+    if (!k) continue;
+    const cur = map.get(k) || {
+      ad_id: k, adset_id: r.adset_id, campaign_id: r.campaign_id,
+      anuncio: r.anuncio, conjunto: r.conjunto_anuncios, campanha: r.campanha,
+      gasto: 0, cliques: 0, impressoes: 0, compras: 0,
+      effective_status: r.effective_status, daily_budget: r.daily_budget,
+    };
+    cur.gasto += Number(r.valor || 0);
+    cur.cliques += Number(r.link_clicks || 0);
+    cur.impressoes += Number(r.impressoes || 0);
+    cur.compras += Number(r.compras || 0);
+    map.set(k, cur);
+  }
+  const ads = [...map.values()]
+    .filter((a: any) => (a.effective_status || "").toUpperCase() === "ACTIVE")
+    .map((a: any) => {
+      const ctr = a.impressoes > 0 ? (a.cliques / a.impressoes) * 100 : 0;
+      const cpa = a.compras > 0 ? a.gasto / a.compras : null;
+      const categoria = ctr > 2 ? "Top" : ctr >= 1 ? "Mid" : "Low";
+      return { ...a, ctr_pct: Number(ctr.toFixed(2)), cpa, categoria };
+    })
+    .sort((a, b) => b.gasto - a.gasto)
+    .slice(0, limite);
+  return { projeto_id: pid, dias, total: ads.length, anuncios: ads };
+}
+
+async function invokeAdsToggle(ctx: ToolCtx, payload: any) {
+  const { data, error } = await ctx.supabase.functions.invoke("facebook-ads-toggle", { body: payload });
+  if (error) return { error: error.message || String(error) };
+  return data;
+}
+
+async function pausarAnuncio(ctx: ToolCtx, args: { projeto_id: string; ad_id: string; motivo?: string }) {
+  if (!args.projeto_id || !args.ad_id) return { error: "projeto_id e ad_id obrigatórios" };
+  const result = await invokeAdsToggle(ctx, {
+    project_id: args.projeto_id,
+    entity_type: "ad", entity_id: args.ad_id,
+    action: "PAUSED", previous_status: "ACTIVE",
+  });
+  if (result?.error) return { error: result.error };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "pauseAd", projeto_id: args.projeto_id,
+    title: `Anúncio pausado (${args.ad_id})`,
+    reason: args.motivo || "Pausado via Imperius chat",
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 0.95, source: "imperius_chat", created_by: ctx.userId,
+    payload: { ad_id: args.ad_id }, result,
+  });
+  return { ok: true, ad_id: args.ad_id, acao: "PAUSED", result };
+}
+
+async function ativarAnuncio(ctx: ToolCtx, args: { projeto_id: string; ad_id: string; motivo?: string }) {
+  if (!args.projeto_id || !args.ad_id) return { error: "projeto_id e ad_id obrigatórios" };
+  const result = await invokeAdsToggle(ctx, {
+    project_id: args.projeto_id,
+    entity_type: "ad", entity_id: args.ad_id,
+    action: "ACTIVE", previous_status: "PAUSED",
+  });
+  if (result?.error) return { error: result.error };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "activateAd", projeto_id: args.projeto_id,
+    title: `Anúncio ativado (${args.ad_id})`,
+    reason: args.motivo || "Ativado via Imperius chat",
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 0.9, source: "imperius_chat", created_by: ctx.userId,
+    payload: { ad_id: args.ad_id }, result,
+  });
+  return { ok: true, ad_id: args.ad_id, acao: "ACTIVE", result };
+}
+
+async function ajustarOrcamentoAdset(ctx: ToolCtx, args: { projeto_id: string; adset_id: string; novo_orcamento: number; orcamento_anterior?: number; motivo?: string }) {
+  if (!args.projeto_id || !args.adset_id || !args.novo_orcamento) {
+    return { error: "projeto_id, adset_id e novo_orcamento obrigatórios" };
+  }
+  const { data: act, error } = await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "adjustBudget", projeto_id: args.projeto_id,
+    title: `Ajustar orçamento adset ${args.adset_id} → R$ ${args.novo_orcamento.toFixed(2)}/dia`,
+    reason: args.motivo || "Ajuste proposto via Imperius chat",
+    status: "proposed", auto_executed: false,
+    risk_level: "medium", confidence: 0.85,
+    source: "imperius_chat", created_by: ctx.userId,
+    payload: {
+      project_id: args.projeto_id, entity_type: "adset", entity_id: args.adset_id,
+      action: "UPDATE_BUDGET",
+      daily_budget: args.novo_orcamento,
+      previous_budget: args.orcamento_anterior,
+    },
+  }).select("id").single();
+  if (error) return { error: error.message };
+  return {
+    status: "pending_approval", action_id: act.id,
+    adset_id: args.adset_id, novo_orcamento: args.novo_orcamento,
+    aviso: "Ajuste de orçamento enviado para a Caixa de Ações — aprove no header para aplicar.",
+  };
+}
+
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
   try {
     switch (name) {
