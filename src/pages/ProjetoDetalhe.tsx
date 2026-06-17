@@ -736,7 +736,7 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
     <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔔 Webhooks de Pagamento</CardTitle>
-        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify e Ticto</p>
+        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify, Ticto e Perfect Pay</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Webhook URLs */}
