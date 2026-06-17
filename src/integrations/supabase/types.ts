@@ -40492,6 +40492,94 @@ export type Database = {
           },
         ]
       }
+      webi_retention_buckets: {
+        Row: {
+          bucket_seconds: number
+          bucket_start_seconds: number
+          created_at: string
+          id: string
+          last_timestamp_video: number | null
+          lead_email: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          metadata: Json
+          project_id: string
+          run_id: string | null
+          sample_count: number
+          session_id: string
+          session_mode: string | null
+          timezone: string | null
+          updated_at: string
+          user_agent: string | null
+          watch_delta_seconds: number
+          webinar_id: string
+        }
+        Insert: {
+          bucket_seconds?: number
+          bucket_start_seconds: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id: string
+          run_id?: string | null
+          sample_count?: number
+          session_id: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id: string
+        }
+        Update: {
+          bucket_seconds?: number
+          bucket_start_seconds?: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id?: string
+          run_id?: string | null
+          sample_count?: number
+          session_id?: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_retention_buckets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_session_events: {
         Row: {
           created_at: string | null
