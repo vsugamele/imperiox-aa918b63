@@ -2309,6 +2309,20 @@ export function FlowEditor({
                   </div>
                 )}
 
+                {/* Media attachment for WhatsApp */}
+                {acao.tipo === "whatsapp" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                      📎 Mídia anexada <span className="text-muted-foreground/50 normal-case font-normal">(opcional — o template vira legenda)</span>
+                    </Label>
+                    <MediaPicker
+                      value={acao.media || null}
+                      projects={projectId ? [{ id: projectId, name: "Projeto atual" }] : []}
+                      onChange={(m) => updateAcao(selectedIdx, "media" as any, m)}
+                    />
+                  </div>
+                )}
+
                 {/* Audio Custom Voice Settings */}
                 {acao.tipo === "audio" && (
                   <div className="space-y-3 border-t border-border/40 pt-3">
