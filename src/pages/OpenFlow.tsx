@@ -71,6 +71,8 @@ interface Automacao {
   exit_trigger_payload?: any;
   exit_cascade?: boolean;
   flow_objective?: string | null;
+  prioridade?: number | null;
+  exclusivo?: boolean | null;
 }
 
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
