@@ -34,14 +34,17 @@ export function validateFlow(acoes: Acao[]): FlowIssue[] {
   const out: FlowIssue[] = [];
 
   acoes.forEach((a, i) => {
-    // Mensagem obrigatória
+    // Mensagem obrigatória (WhatsApp aceita só mídia, sem texto)
     if (MSG_TIPOS.has(a.tipo) && !hasContent(a)) {
-      out.push({
-        stepIndex: i,
-        severity: "error",
-        message: `Etapa ${i + 1}: ${a.tipo} sem mensagem/template.`,
-        field: "template",
-      });
+      const waHasMedia = a.tipo === "whatsapp" && !!a.media?.url;
+      if (!waHasMedia) {
+        out.push({
+          stepIndex: i,
+          severity: "error",
+          message: `Etapa ${i + 1}: ${a.tipo} sem mensagem/template.`,
+          field: "template",
+        });
+      }
     }
     if (a.tipo === "email" && !a.assunto?.trim()) {
       out.push({ stepIndex: i, severity: "warn", message: `Etapa ${i + 1}: email sem assunto.`, field: "assunto" });
