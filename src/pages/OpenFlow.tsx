@@ -369,6 +369,7 @@ export default function OpenFlow() {
         <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
+        <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
