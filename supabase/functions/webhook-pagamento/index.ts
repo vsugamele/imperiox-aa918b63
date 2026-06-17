@@ -125,6 +125,27 @@ function extractFinanceiro(body: any, plataforma: string): Record<string, any> |
         };
       }
     }
+    if (plataforma === "PerfectPay") {
+      const saleAmount = parseFloat(String(body?.sale_amount ?? "0")) || 0;
+      const prodValue = parseFloat(String(body?.producer_value ?? body?.commission?.producer_value ?? "0")) || undefined;
+      const platformFee = parseFloat(String(body?.platform_fee ?? body?.commission?.platform_fee ?? body?.platform_tax_value ?? "0")) || undefined;
+      const affValue = parseFloat(String(body?.affiliate_value ?? body?.commission?.affiliate_value ?? "0")) || undefined;
+      const pmEnum = body?.payment_method_enum;
+      const pmMap: Record<string, string> = { "1": "credit_card", "2": "boleto", "3": "pix", "4": "debit_card", "7": "pix" };
+      if (saleAmount > 0) {
+        return {
+          valor_bruto: saleAmount,
+          comissao_plataforma: platformFee,
+          taxa_transacao: undefined,
+          comissao_produtor: prodValue,
+          comissao_afiliado: affValue,
+          valor_liquido: prodValue || undefined,
+          metodo_pagamento: pmMap[String(pmEnum)] || body?.payment_method || undefined,
+          parcelas: body?.quantity || body?.installments || undefined,
+          codigo_pedido: body?.code || body?.sale_id || undefined,
+        };
+      }
+    }
   } catch (e) {
     console.warn("[webhook-pagamento] Erro ao extrair financeiro:", e);
   }
@@ -461,6 +482,46 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     // Tenta DD/MM primeiro; se inválido ou data futura > +1 dia, usa hora do webhook.
     data_compra = parseTictoDate(body.created_at);
   }
+  // ── Perfect Pay ──
+  else if (body?.code && (body?.sale_status_enum !== undefined || body?.sale_status_detail) && body?.customer) {
+    plataforma = "PerfectPay";
+    const statusEnum = String(body.sale_status_enum ?? "");
+    const statusDetail = String(body.sale_status_detail ?? "").toLowerCase();
+    // Enum: 1=pendente, 2=aprovado, 3=em processo, 4=disputa, 5=devolvido, 6=cancelado, 7=devolução em processo, 8=chargeback, 9=expirado
+    const enumMap: Record<string, string> = {
+      "1": "aguardando_pagamento",
+      "2": "compra_aprovada",
+      "3": "pagamento_pendente",
+      "4": "chargeback",
+      "5": "reembolso",
+      "6": "compra_cancelada",
+      "7": "reembolso",
+      "8": "chargeback",
+      "9": "pagamento_expirado",
+    };
+    evento = enumMap[statusEnum] || statusDetail || "desconhecido";
+
+    // Boleto/Pix gerados aparecem como pendentes (enum=1) — desambiguar pelo método
+    const pmEnum = String(body.payment_method_enum ?? "");
+    if (evento === "aguardando_pagamento") {
+      if (pmEnum === "3" || pmEnum === "7") evento = "pix_gerado";
+      else if (pmEnum === "2") evento = "boleto_gerado";
+    }
+
+    const customer = body.customer || {};
+    email = customer.email || "";
+    nome = customer.full_name || customer.name || "";
+    phone = (customer.phone_formated || customer.phone || customer.cell_phone || "").replace(/\D/g, "");
+
+    const product = body.product || {};
+    produto = product.name || body.plan?.name || "";
+    valor = parseFloat(String(body.sale_amount ?? body.original_price ?? "0")) || 0;
+    data_compra = body.date_approved || body.date_created || body.created_at || null;
+
+    // Bump/upsell: Perfect Pay marca via product.type ou plan.is_upsell
+    if (product?.is_upsell === true || body.plan?.is_upsell === true) tipo_venda = "upsell";
+    else if (product?.is_bump === true || body.plan?.is_bump === true) tipo_venda = "orderbump";
+  }
   // ── Generic fallback ──
   else {
     plataforma = body.plataforma || "Outro";
@@ -623,6 +684,17 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           console.warn("[webhook-pagamento] Ticto token mismatch for project", projectId);
           return new Response(
             JSON.stringify({ error: "Invalid ticto token" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Validate Perfect Pay token against project config
+      if (plataforma === "PerfectPay" && body?.token && proj?.data?.perfectpay_token) {
+        if (body.token !== proj.data.perfectpay_token) {
+          console.warn("[webhook-pagamento] PerfectPay token mismatch for project", projectId);
+          return new Response(
+            JSON.stringify({ error: "Invalid perfectpay token" }),
             { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
