@@ -792,7 +792,12 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "anotarLead": return await anotarLead(ctx, args);
       case "enviarWhatsapp": return await enviarWhatsapp(ctx, args);
       case "enviarWhatsappEmMassa": return await enviarWhatsappEmMassa(ctx, args);
+      case "listarAnunciosAtivos": return await listarAnunciosAtivos(ctx, args);
+      case "pausarAnuncio": return await pausarAnuncio(ctx, args);
+      case "ativarAnuncio": return await ativarAnuncio(ctx, args);
+      case "ajustarOrcamentoAdset": return await ajustarOrcamentoAdset(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
+
     }
   } catch (e: any) {
     return { error: e?.message || String(e) };
