@@ -19120,6 +19120,57 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_media: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          id: string
+          kind: string
+          label: string
+          mime_type: string | null
+          project_id: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          tags: string[] | null
+          transcript: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind: string
+          label: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind?: string
+          label?: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       imphq_flow_templates: {
         Row: {
           acoes: Json
