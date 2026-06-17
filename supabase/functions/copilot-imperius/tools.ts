@@ -1668,6 +1668,80 @@ async function briefingDiario(ctx: ToolCtx, args: { projeto_id?: string }) {
 
 
 
+// ===== Onda 5: Criativos & Inteligência de Mercado =====
+
+async function listarBatchesCriativos(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 10;
+  let q = ctx.supabase
+    .from("imphq_creative_batches")
+    .select("id, name, status, created_at, project_id, total_assets, completed_assets")
+    .order("created_at", { ascending: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, batches: data || [] };
+}
+
+async function topCriativos(ctx: ToolCtx, args: { projeto_id?: string; dias?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 14;
+  const limite = args.limite ?? 10;
+  const since = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+  let q = ctx.supabase
+    .from("imphq_ads_spend")
+    .select("anuncio, ad_id, gasto, compras, cliques, impressoes, valor_conversao")
+    .gte("data_ref", since);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q.limit(2000);
+  if (error) return { error: error.message };
+  const agg = new Map<string, any>();
+  for (const r of (data || [])) {
+    const key = r.ad_id || r.anuncio || "—";
+    const cur = agg.get(key) || { criativo: r.anuncio || key, gasto: 0, compras: 0, cliques: 0, impressoes: 0, receita: 0 };
+    cur.gasto += Number(r.gasto || 0);
+    cur.compras += Number(r.compras || 0);
+    cur.cliques += Number(r.cliques || 0);
+    cur.impressoes += Number(r.impressoes || 0);
+    cur.receita += Number(r.valor_conversao || 0);
+    agg.set(key, cur);
+  }
+  const rows = [...agg.values()].map((r) => ({
+    ...r,
+    ctr: r.impressoes ? +(r.cliques / r.impressoes * 100).toFixed(2) : 0,
+    cpa: r.compras ? +(r.gasto / r.compras).toFixed(2) : null,
+    roas: r.gasto ? +(r.receita / r.gasto).toFixed(2) : 0,
+  })).sort((a, b) => b.compras - a.compras || b.receita - a.receita).slice(0, limite);
+  return { dias, count: rows.length, criativos: rows };
+}
+
+async function oportunidadesMercado(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 15;
+  let q = ctx.supabase
+    .from("imphq_mi_opportunities")
+    .select("id, titulo, descricao, tipo, score, created_at, project_id")
+    .order("score", { ascending: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, oportunidades: data || [] };
+}
+
+async function concorrentesAtivos(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 10;
+  let q = ctx.supabase
+    .from("imphq_competitors")
+    .select("id, nome, dominio, ads_ativos, ultima_analise, project_id")
+    .order("ads_ativos", { ascending: false, nullsFirst: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, concorrentes: data || [] };
+}
+
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
 
   try {
