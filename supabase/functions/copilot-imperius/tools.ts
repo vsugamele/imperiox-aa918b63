@@ -406,6 +406,61 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 4: Recuperação & Hot Leads =====
+  {
+    type: "function",
+    function: {
+      name: "listarRecuperaveis",
+      description: "Lista vendas em pix_gerado/boleto_gerado/aguardando_pagamento nas últimas N horas (default 24h). Carrinhos abandonados prontos para recuperação.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 24" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recuperarVendaPix",
+      description: "Dispara hot-lead-responder para venda com Pix/Boleto pendente. Auto-executa (low-risk). Use após listarRecuperaveis.",
+      parameters: {
+        type: "object",
+        properties: {
+          venda_id: { type: "string", description: "id da venda em imphq_vendas" },
+        }, required: ["venda_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "listarTemplatesRecuperacao",
+      description: "Lista templates ativos de recuperação (imphq_recovery_templates) por projeto/canal.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          canal: { type: "string", description: "whatsapp|email|sms (opcional)" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pontuarLead",
+      description: "Retorna score atual + breakdown do lead. Útil antes de decidir ação de recuperação.",
+      parameters: {
+        type: "object",
+        properties: { lead_id: { type: "string" } },
+        required: ["lead_id"], additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
@@ -1110,6 +1165,82 @@ async function funilPorEtapa(ctx: ToolCtx, args: { projeto_id?: string; dias?: n
   return { projeto_id: pid, dias, total: data?.length || 0, macro, detalhe };
 }
 
+// ===== Onda 4: Recuperação & Hot Leads =====
+
+async function listarRecuperaveis(ctx: ToolCtx, args: { projeto_id?: string; horas?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const horas = args.horas ?? 24;
+  const limite = args.limite ?? 30;
+  const since = new Date(Date.now() - horas * 3600000).toISOString();
+  let q = ctx.supabase
+    .from("imphq_vendas")
+    .select("id, valor, produto_nome, status, plataforma, data_venda, lead_id, projeto_id")
+    .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento"])
+    .gte("data_venda", since)
+    .order("data_venda", { ascending: false })
+    .limit(limite);
+  if (pid) q = q.eq("projeto_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const total = (data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+  return {
+    horas, total_recuperavel: total, count: data?.length || 0,
+    vendas: (data || []).map((v: any) => ({
+      venda_id: v.id, lead_id: v.lead_id, produto: v.produto_nome,
+      valor: v.valor, status: v.status, plataforma: v.plataforma, em: v.data_venda,
+    })),
+  };
+}
+
+async function recuperarVendaPix(ctx: ToolCtx, args: { venda_id: string }) {
+  if (!args.venda_id) return { error: "venda_id obrigatório" };
+  const { data: venda, error: vErr } = await ctx.supabase
+    .from("imphq_vendas").select("id, lead_id, projeto_id, status, valor, produto_nome")
+    .eq("id", args.venda_id).maybeSingle();
+  if (vErr || !venda) return { error: "venda não encontrada" };
+
+  const { data, error } = await ctx.supabase.functions.invoke("hot-lead-responder", {
+    body: { venda_id: venda.id, lead_id: venda.lead_id, projeto_id: venda.projeto_id, source: "imperius" },
+  });
+  if (error) return { error: error.message };
+
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    user_id: ctx.userId, projeto_id: venda.projeto_id, kind: "recoverPix",
+    title: `Recuperação Pix: ${venda.produto_nome}`, status: "executed",
+    auto_executed: true, risk_level: "low", confidence: 0.9,
+    impact_brl: venda.valor, payload: { venda_id: venda.id, lead_id: venda.lead_id },
+  });
+  return { ok: true, venda_id: venda.id, resposta: data };
+}
+
+async function listarTemplatesRecuperacao(ctx: ToolCtx, args: { projeto_id?: string; canal?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  let q = ctx.supabase
+    .from("imphq_recovery_templates")
+    .select("id, tipo, canal, assunto, ativo, project_id")
+    .eq("ativo", true).limit(50);
+  if (pid) q = q.eq("project_id", pid);
+  if (args.canal) q = q.eq("canal", args.canal);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, templates: data || [] };
+}
+
+async function pontuarLead(ctx: ToolCtx, args: { lead_id: string }) {
+  if (!args.lead_id) return { error: "lead_id obrigatório" };
+  const { data: lead } = await ctx.supabase
+    .from("imphq_leads")
+    .select("id, nome, score, ultimo_evento, ultimo_produto, projeto_id, status")
+    .eq("id", args.lead_id).maybeSingle();
+  if (!lead) return { error: "lead não encontrado" };
+  const { data: logs } = await ctx.supabase
+    .from("imphq_lead_scores_log")
+    .select("delta, motivo, created_at")
+    .eq("lead_id", args.lead_id)
+    .order("created_at", { ascending: false }).limit(10);
+  return { lead, breakdown_recente: logs || [] };
+}
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
 
   try {
@@ -1141,6 +1272,10 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "previsaoReceita": return await previsaoReceita(ctx, args);
       case "leadsQuentes": return await leadsQuentes(ctx, args);
       case "funilPorEtapa": return await funilPorEtapa(ctx, args);
+      case "listarRecuperaveis": return await listarRecuperaveis(ctx, args);
+      case "recuperarVendaPix": return await recuperarVendaPix(ctx, args);
+      case "listarTemplatesRecuperacao": return await listarTemplatesRecuperacao(ctx, args);
+      case "pontuarLead": return await pontuarLead(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
