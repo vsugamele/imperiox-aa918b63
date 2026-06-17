@@ -518,6 +518,60 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 7: Calendário & Operação =====
+  {
+    type: "function",
+    function: {
+      name: "proximosEventosCalendario",
+      description: "Próximos eventos do calendário (lives, lançamentos, reuniões) nos próximos N dias.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 7" },
+          limite: { type: "number", description: "default 10" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "tarefasAtrasadas",
+      description: "Lista cards do Kanban com due_date vencido e ainda não concluídos. Inclui prioridade e responsável.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 20" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "statusWebinar",
+      description: "Status do próximo webinar/aula: inscritos, cliques, agendamento, templates de pitch/reminder.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "briefingDiario",
+      description: "Briefing operacional do dia: vendas, hot leads, tarefas atrasadas, próximos eventos e alertas. Use no início do expediente.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 
