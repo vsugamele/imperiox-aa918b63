@@ -27,6 +27,7 @@ import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StepGuide } from "@/components/openflow/StepGuide";
 import { VersionHistoryDrawer } from "@/components/openflow/VersionHistoryDrawer";
+import { FlowMediaLibrary } from "@/components/openflow/FlowMediaLibrary";
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
