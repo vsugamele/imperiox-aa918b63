@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
         if (!hasTag) return false;
       }
       return true;
-    });
+    }).sort((a: any, b: any) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
     if (matched.length === 0) {
       return new Response(JSON.stringify({ ok: true, executed: 0, message: "Nenhuma automação encontrada" }), {
