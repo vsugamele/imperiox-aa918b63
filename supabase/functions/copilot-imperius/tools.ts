@@ -231,7 +231,73 @@ export const TOOL_SPECS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "listarAnunciosAtivos",
+      description: "Lista anúncios ativos do projeto com CTR, CPA, gasto e categoria (Top/Mid/Low). Use para diagnosticar quais pausar/escalar.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "Janela em dias, default 7" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pausarAnuncio",
+      description: "Pausa um anúncio no Facebook Ads (chama facebook-ads-toggle). Auto-executa (low-risk reversível). Use ad_id da listarAnunciosAtivos.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          ad_id: { type: "string", description: "ID do anúncio no Facebook (não confundir com adset/campaign)" },
+          motivo: { type: "string", description: "Por que está pausando (vai pro log)" },
+        },
+        required: ["projeto_id", "ad_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ativarAnuncio",
+      description: "Reativa um anúncio pausado no Facebook Ads. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          ad_id: { type: "string" },
+          motivo: { type: "string" },
+        },
+        required: ["projeto_id", "ad_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ajustarOrcamentoAdset",
+      description: "Ajusta o orçamento diário (em R$) de um conjunto de anúncios. SEMPRE entra em fila de aprovação (mexe em dinheiro).",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          adset_id: { type: "string" },
+          novo_orcamento: { type: "number", description: "Novo budget diário em reais (ex: 150.00)" },
+          orcamento_anterior: { type: "number" },
+          motivo: { type: "string" },
+        },
+        required: ["projeto_id", "adset_id", "novo_orcamento"], additionalProperties: false,
+      },
+    },
+  },
 ];
+
 
 // ===== Executors =====
 
