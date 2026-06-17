@@ -106,7 +106,8 @@ function CmdKHint() {
   );
 }
 
-const MOBILE_OVERRIDE_KEY = "imphq.mobile.override";
+// Preferência de view persistente (compartilhada com ProtectedRoute e MobileCockpit)
+const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 
 export function AppLayout() {
   const [open, setOpen] = useState<boolean>(() => {
@@ -119,7 +120,8 @@ export function AppLayout() {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
   }, [open]);
 
-  // Mobile auto-redirect → /mobile-cockpit (escape via ?desktop=1 ou link "Versão desktop")
+  // Mobile auto-redirect → /mobile-cockpit
+  // Escape persistente: ?desktop=1 grava localStorage; usuário só precisa fazer 1x.
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -129,10 +131,10 @@ export function AppLayout() {
     try {
       const params = new URLSearchParams(search);
       if (params.get("desktop") === "1") {
-        sessionStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
+        localStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
         return;
       }
-      if (sessionStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
+      if (localStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
     } catch {}
     navigate("/mobile-cockpit", { replace: true });
   }, [isMobile, pathname, search, navigate]);
