@@ -40701,6 +40701,7 @@ export type Database = {
           landing_button_text: string | null
           landing_headline: string | null
           landing_subheadline: string | null
+          language: string | null
           name: string
           peak_viewers_max: number | null
           peak_viewers_min: number | null
@@ -40725,6 +40726,9 @@ export type Database = {
           waiting_room_message: string | null
           whatsapp_pitch_message: string | null
           whatsapp_welcome_message: string | null
+          yt_channel_avatar_url: string | null
+          yt_comments_enabled: boolean | null
+          yt_subscriber_count: string | null
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -40765,6 +40769,7 @@ export type Database = {
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -40789,6 +40794,9 @@ export type Database = {
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Update: {
           ai_enabled?: boolean | null
@@ -40829,6 +40837,7 @@ export type Database = {
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name?: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -40853,6 +40862,9 @@ export type Database = {
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Relationships: [
           {
