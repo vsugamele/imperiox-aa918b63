@@ -1533,6 +1533,83 @@ async function pontuarLead(ctx: ToolCtx, args: { lead_id: string }) {
   return { lead, breakdown_recente: logs || [] };
 }
 
+// ===== Onda 7: Calendário & Operação =====
+
+async function proximosEventosCalendario(ctx: ToolCtx, args: { projeto_id?: string; dias?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 7;
+  const limite = args.limite ?? 10;
+  const agora = new Date().toISOString();
+  const ate = new Date(Date.now() + dias * 86400000).toISOString();
+  let q = ctx.supabase
+    .from("imphq_calendar_events")
+    .select("id, title, event_date, end_date, event_type, all_day, project_id")
+    .gte("event_date", agora).lte("event_date", ate)
+    .order("event_date", { ascending: true }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, eventos: data || [] };
+}
+
+async function tarefasAtrasadas(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 20;
+  const hoje = new Date().toISOString().slice(0, 10);
+  // pega colunas que NÃO são done/concluído
+  let colsQ = ctx.supabase.from("imphq_kanban_columns").select("id, title, project_id");
+  if (pid) colsQ = colsQ.eq("project_id", pid);
+  const { data: cols } = await colsQ;
+  const colsAbertas = (cols || []).filter((c: any) => !/conclu|done|finaliz/i.test(c.title || ""));
+  const colIds = colsAbertas.map((c: any) => c.id);
+  if (colIds.length === 0) return { count: 0, tarefas: [] };
+  const { data, error } = await ctx.supabase
+    .from("imphq_kanban_cards")
+    .select("id, title, due_date, priority, assignee_id, project_id, column_id")
+    .in("column_id", colIds)
+    .lt("due_date", hoje)
+    .not("due_date", "is", null)
+    .order("due_date", { ascending: true }).limit(limite);
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, tarefas: data || [] };
+}
+
+async function statusWebinar(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  let q = ctx.supabase
+    .from("imphq_webinar_sessions")
+    .select("id, nome, scheduled_at, checkout_url, pitch_label, project_id")
+    .gte("scheduled_at", new Date(Date.now() - 86400000).toISOString())
+    .order("scheduled_at", { ascending: true }).limit(1);
+  if (pid) q = q.eq("project_id", pid);
+  const { data: sessions } = await q;
+  const sess = sessions?.[0];
+  if (!sess) return { aviso: "Nenhum webinar futuro agendado." };
+  const [{ count: inscritos }, { count: cliques }] = await Promise.all([
+    ctx.supabase.from("imphq_webinar_registrations").select("id", { count: "exact", head: true }).eq("session_id", sess.id),
+    ctx.supabase.from("imphq_webinar_clicks").select("id", { count: "exact", head: true }).eq("session_id", sess.id),
+  ]);
+  return { webinar: sess, inscritos: inscritos || 0, cliques: cliques || 0 };
+}
+
+async function briefingDiario(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const [vendas, hot, tarefas, eventos] = await Promise.all([
+    vendasDoDia(ctx, { projeto_id: pid || undefined }),
+    leadsQuentes(ctx, { projeto_id: pid || undefined, horas: 2, limite: 10 }),
+    tarefasAtrasadas(ctx, { projeto_id: pid || undefined, limite: 10 }),
+    proximosEventosCalendario(ctx, { projeto_id: pid || undefined, dias: 3, limite: 5 }),
+  ]);
+  return {
+    vendas_hoje: { count: (vendas as any)?.count || 0, receita: (vendas as any)?.receita_total || 0 },
+    hot_leads: { count: (hot as any)?.count || 0, leads: (hot as any)?.leads?.slice(0, 5) || [] },
+    tarefas_atrasadas: { count: (tarefas as any)?.count || 0 },
+    proximos_eventos: { count: (eventos as any)?.count || 0, eventos: (eventos as any)?.eventos || [] },
+  };
+}
+
+
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
 
   try {
