@@ -7,13 +7,15 @@ import { Crown, Send, Loader2, Sparkles, Trash2, Plus, Square } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CopilotMessage } from "./CopilotMessage";
+import { CopilotMessage, type ToolActivity } from "./CopilotMessage";
+import { AudioRecorder } from "./AudioRecorder";
 import { useParams } from "react-router-dom";
 
 interface Msg {
   role: "user" | "assistant";
   content: string;
   ts?: string;
+  tools?: ToolActivity[];
 }
 
 interface ThreadRow {
@@ -25,11 +27,11 @@ interface ThreadRow {
 }
 
 const SUGGESTIONS = [
+  "Quem comprou hoje? Quantidade, produto e nome",
+  "Quais leads estão travados no WhatsApp há mais de 2h?",
   "Qual canal tá com pior CPA esta semana?",
-  "Quais leads quentes esfriaram nos últimos 7 dias?",
-  "Onde tá vazando dinheiro agora?",
-  "Qual produto tem maior LTV/CAC?",
-  "Que campanha eu deveria pausar?",
+  "Cria 3 tarefas no projeto X: 1) revisar copy, 2) testar criativo, 3) atualizar avatar",
+  "Quem mandou mensagem nas últimas horas?",
 ];
 
 interface Props {
@@ -185,6 +187,17 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
               if (json.threadId) setThreadId(json.threadId);
               continue;
             }
+            if (json.type === "tools") {
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === "assistant") {
+                  copy[copy.length - 1] = { ...last, tools: json.tools };
+                }
+                return copy;
+              });
+              continue;
+            }
             const delta = json.choices?.[0]?.delta?.content;
             if (delta) {
               accText += delta;
@@ -303,7 +316,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
                   </div>
                 )}
                 {messages.map((m, i) => (
-                  <CopilotMessage key={i} role={m.role} content={m.content} />
+                  <CopilotMessage key={i} role={m.role} content={m.content} tools={m.tools} />
                 ))}
                 {loading && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -324,10 +337,16 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
                       if (loading) { stop(); } else { send(); }
                     }
                   }}
-                  placeholder="Pergunta ao Imperius… (Enter envia, Shift+Enter quebra linha)"
+                  placeholder="Pergunta ao Imperius… (Enter envia, Shift+Enter, 🎤 áudio)"
                   className="min-h-[60px] resize-none text-sm"
                   disabled={loading}
                 />
+                {!loading && (
+                  <AudioRecorder
+                    disabled={loading}
+                    onTranscript={(t) => setInput((cur) => (cur ? cur + " " + t : t))}
+                  />
+                )}
                 {loading ? (
                   <Button
                     onClick={stop}
