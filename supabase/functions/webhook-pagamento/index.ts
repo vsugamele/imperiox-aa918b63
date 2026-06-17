@@ -1457,15 +1457,18 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     const capiEventName = CAPI_EVENT_MAP[evento];
     if (capiEventName && fbToken && fbPixelId) {
       try {
+        const fallbackKey = `${email || "anon"}:${valor || 0}:${produto || ""}`;
+        const eventId = await buildCapiEventId(externalTxId, capiEventName, fallbackKey);
         const capiResult = await sendCAPIEvent(
           fbToken, fbPixelId, fbTestCode,
-          capiEventName, email, nome, phone, valor, produto
+          capiEventName, email, nome, phone, valor, produto, eventId,
         );
-        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado:`, capiResult);
+        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado (event_id=${eventId.slice(0,12)}):`, capiResult);
       } catch (capiErr) {
         console.error("[webhook-pagamento] Erro CAPI:", capiErr);
       }
     }
+
 
     // Check automations — use aliases so lead_novo matches lead_capturado etc.
     const triggerAliases: Record<string, string[]> = {
