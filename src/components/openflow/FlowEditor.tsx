@@ -868,9 +868,38 @@ export function FlowEditor({
               <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
                 {trigger.icon}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-[8px] font-bold tracking-widest text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">Gatilho Principal</span>
-                <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                {onTriggerChange ? (
+                  <Select
+                    value={triggerTipo}
+                    onValueChange={(v) => {
+                      onTriggerChange(v);
+                      toast.success(`Gatilho alterado para "${TRIGGERS_MAP[v]?.label || v}"`);
+                    }}
+                  >
+                    <SelectTrigger className="h-7 mt-1 bg-transparent border-0 px-0 py-0 text-xs font-bold text-foreground hover:text-primary focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[60vh]">
+                      {Object.entries(
+                        Object.entries(TRIGGERS_MAP).reduce<Record<string, [string, typeof TRIGGERS_MAP[string]][]>>((acc, [k, v]) => {
+                          (acc[v.group] = acc[v.group] || []).push([k, v]);
+                          return acc;
+                        }, {})
+                      ).map(([group, items]) => (
+                        <div key={group}>
+                          <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{group}</div>
+                          {items.map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
+                          ))}
+                        </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                )}
               </div>
               
               {/* Output Connection Node */}
