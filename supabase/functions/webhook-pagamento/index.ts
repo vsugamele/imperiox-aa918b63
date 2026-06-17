@@ -482,6 +482,46 @@ function parseWebhookBody(body: any, hotmartToken: string | null) {
     // Tenta DD/MM primeiro; se inválido ou data futura > +1 dia, usa hora do webhook.
     data_compra = parseTictoDate(body.created_at);
   }
+  // ── Perfect Pay ──
+  else if (body?.code && (body?.sale_status_enum !== undefined || body?.sale_status_detail) && body?.customer) {
+    plataforma = "PerfectPay";
+    const statusEnum = String(body.sale_status_enum ?? "");
+    const statusDetail = String(body.sale_status_detail ?? "").toLowerCase();
+    // Enum: 1=pendente, 2=aprovado, 3=em processo, 4=disputa, 5=devolvido, 6=cancelado, 7=devolução em processo, 8=chargeback, 9=expirado
+    const enumMap: Record<string, string> = {
+      "1": "aguardando_pagamento",
+      "2": "compra_aprovada",
+      "3": "pagamento_pendente",
+      "4": "chargeback",
+      "5": "reembolso",
+      "6": "compra_cancelada",
+      "7": "reembolso",
+      "8": "chargeback",
+      "9": "pagamento_expirado",
+    };
+    evento = enumMap[statusEnum] || statusDetail || "desconhecido";
+
+    // Boleto/Pix gerados aparecem como pendentes (enum=1) — desambiguar pelo método
+    const pmEnum = String(body.payment_method_enum ?? "");
+    if (evento === "aguardando_pagamento") {
+      if (pmEnum === "3" || pmEnum === "7") evento = "pix_gerado";
+      else if (pmEnum === "2") evento = "boleto_gerado";
+    }
+
+    const customer = body.customer || {};
+    email = customer.email || "";
+    nome = customer.full_name || customer.name || "";
+    phone = (customer.phone_formated || customer.phone || customer.cell_phone || "").replace(/\D/g, "");
+
+    const product = body.product || {};
+    produto = product.name || body.plan?.name || "";
+    valor = parseFloat(String(body.sale_amount ?? body.original_price ?? "0")) || 0;
+    data_compra = body.date_approved || body.date_created || body.created_at || null;
+
+    // Bump/upsell: Perfect Pay marca via product.type ou plan.is_upsell
+    if (product?.is_upsell === true || body.plan?.is_upsell === true) tipo_venda = "upsell";
+    else if (product?.is_bump === true || body.plan?.is_bump === true) tipo_venda = "orderbump";
+  }
   // ── Generic fallback ──
   else {
     plataforma = body.plataforma || "Outro";
