@@ -40612,6 +40612,7 @@ export type Database = {
           ai_persona_avatar: string | null
           ai_persona_name: string | null
           ai_system_prompt: string | null
+          analytics_pitch_minute: number | null
           bad_words_filter: boolean | null
           chat_cpm: number | null
           chat_default_tab: string | null
@@ -40674,6 +40675,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
@@ -40736,6 +40738,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
