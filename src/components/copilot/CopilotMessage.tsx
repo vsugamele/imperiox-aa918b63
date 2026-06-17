@@ -26,6 +26,12 @@ const TOOL_LABELS: Record<string, string> = {
   adsPerformance: "Performance de ads",
   buscarLead: "Buscou lead",
   criarTarefas: "Criou tarefas",
+  adicionarChecklistNaTarefa: "Adicionou checklist",
+  moverTarefa: "Moveu tarefa",
+  agendarLembrete: "Agendou lembrete",
+  anotarLead: "Anotou no lead",
+  enviarWhatsapp: "WhatsApp (aprovação)",
+  enviarWhatsappEmMassa: "WhatsApp em massa (aprovação)",
 };
 
 function toolSummary(t: ToolActivity): string {
@@ -41,6 +47,12 @@ function toolSummary(t: ToolActivity): string {
     case "buscarLead": return `${r.matches?.length ?? 0} lead(s)`;
     case "listarProjetos": return `${r.projetos?.length ?? 0} projetos`;
     case "criarTarefas": return `${r.criadas ?? 0} criada(s) em ${r.projeto || "?"}`;
+    case "adicionarChecklistNaTarefa": return `${r.adicionados ?? 0} item(s) em "${r.tarefa || "?"}"`;
+    case "moverTarefa": return `"${r.tarefa || "?"}" → ${r.novaColuna || "?"}`;
+    case "agendarLembrete": return `${r.lembrete || "?"} (${r.quando || ""})`;
+    case "anotarLead": return `nota em ${r.lead || "?"}`;
+    case "enviarWhatsapp": return r.status === "pending_approval" ? `pendente · ${r.lead || ""}` : "enviado";
+    case "enviarWhatsappEmMassa": return r.status === "pending_approval" ? `${r.total ?? 0} pendente(s)` : "enviado";
     default: return "ok";
   }
 }
@@ -49,18 +61,26 @@ function ToolChip({ tool }: { tool: ToolActivity }) {
   const [open, setOpen] = useState(false);
   const label = TOOL_LABELS[tool.name] || tool.name;
   const hasError = tool.result?.error;
+  const isPending = tool.result?.status === "pending_approval";
   return (
     <div className={cn(
       "text-[11px] border rounded-md mb-1.5 overflow-hidden",
-      hasError ? "border-red-500/30 bg-red-500/5" : "border-primary/20 bg-primary/5"
+      hasError ? "border-red-500/30 bg-red-500/5"
+        : isPending ? "border-amber-500/40 bg-amber-500/5"
+        : "border-primary/20 bg-primary/5"
     )}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full px-2 py-1 flex items-center gap-1.5 hover:bg-primary/10"
       >
-        <Wrench className="h-3 w-3 text-primary shrink-0" />
+        <Wrench className={cn("h-3 w-3 shrink-0", isPending ? "text-amber-400" : "text-primary")} />
         <span className="font-medium">{label}</span>
         <span className="text-muted-foreground truncate">· {toolSummary(tool)}</span>
+        {isPending && (
+          <span className="ml-1 px-1.5 py-[1px] rounded text-[9px] uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            Aguardando aprovação
+          </span>
+        )}
         <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", open && "rotate-180")} />
       </button>
       {open && (

@@ -139,6 +139,98 @@ export const TOOL_SPECS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "adicionarChecklistNaTarefa",
+      description: "Adiciona itens de checklist em uma tarefa Kanban existente. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string", description: "id da tarefa (kanban card)" },
+          itens: { type: "array", items: { type: "string" } },
+        },
+        required: ["tarefa_id", "itens"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moverTarefa",
+      description: "Move tarefa para outra coluna do Kanban. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string" },
+          coluna: { type: "string", description: "Nome da coluna destino (ex: 'A Fazer', 'Fazendo', 'Feito', 'Bloqueado')" },
+        },
+        required: ["tarefa_id", "coluna"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "agendarLembrete",
+      description: "Cria uma tarefa do tipo lembrete com prazo. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          titulo: { type: "string" },
+          quando: { type: "string", description: "ISO date YYYY-MM-DD" },
+          descricao: { type: "string" },
+        },
+        required: ["projeto_id", "titulo", "quando"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "anotarLead",
+      description: "Adiciona nota interna na conversa WhatsApp do lead. Auto-executa.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          nota: { type: "string" },
+        },
+        required: ["lead_id", "nota"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "enviarWhatsapp",
+      description: "Envia mensagem WhatsApp para um lead. SEMPRE entra em fila de aprovação (caixa de ações).",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string" },
+          mensagem: { type: "string" },
+        },
+        required: ["lead_id", "mensagem"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "enviarWhatsappEmMassa",
+      description: "Envia mensagem WhatsApp para múltiplos leads. SEMPRE entra em fila de aprovação. Use com cautela.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_ids: { type: "array", items: { type: "string" } },
+          mensagem: { type: "string" },
+        },
+        required: ["lead_ids", "mensagem"], additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ===== Executors =====
@@ -368,6 +460,134 @@ async function criarTarefas(ctx: ToolCtx, args: { projeto_id: string; tarefas: a
   };
 }
 
+async function adicionarChecklistNaTarefa(ctx: ToolCtx, args: { tarefa_id: string; itens: string[] }) {
+  const { data: card } = await ctx.supabase.from("imphq_kanban_cards").select("id, title, project_id").eq("id", args.tarefa_id).maybeSingle();
+  if (!card) return { error: "tarefa não encontrada" };
+  const rows = args.itens.map((titulo, i) => ({ card_id: args.tarefa_id, title: titulo, is_done: false, position: i }));
+  const { error } = await ctx.supabase.from("imphq_card_checklists").insert(rows);
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "createTask", projeto_id: card.project_id, title: `Checklist adicionado em "${card.title}"`,
+    reason: args.itens.join("; ").slice(0, 200),
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 1.0, payload: { tarefa_id: args.tarefa_id, itens: args.itens },
+  });
+  return { tarefa: card.title, adicionados: rows.length };
+}
+
+async function moverTarefa(ctx: ToolCtx, args: { tarefa_id: string; coluna: string }) {
+  const { data: card } = await ctx.supabase.from("imphq_kanban_cards").select("id, title, project_id, column_id").eq("id", args.tarefa_id).maybeSingle();
+  if (!card) return { error: "tarefa não encontrada" };
+  const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title").eq("project_id", card.project_id);
+  const target = (cols || []).find((c: any) => (c.title || "").toLowerCase().includes(args.coluna.toLowerCase()));
+  if (!target) return { error: `coluna "${args.coluna}" não encontrada`, disponiveis: (cols || []).map((c: any) => c.title) };
+  const { error } = await ctx.supabase.from("imphq_kanban_cards").update({ column_id: target.id }).eq("id", args.tarefa_id);
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "updateLead", projeto_id: card.project_id, title: `Tarefa "${card.title}" → ${target.title}`,
+    status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 1.0, payload: { tarefa_id: args.tarefa_id, coluna: target.title },
+  });
+  return { tarefa: card.title, novaColuna: target.title };
+}
+
+async function agendarLembrete(ctx: ToolCtx, args: { projeto_id: string; titulo: string; quando: string; descricao?: string }) {
+  const { data: proj } = await ctx.supabase.from("imphq_projects").select("id, name").eq("id", args.projeto_id).maybeSingle();
+  if (!proj) return { error: "projeto não encontrado" };
+  const { data, error } = await ctx.supabase.from("imphq_kanban_cards").insert({
+    project_id: args.projeto_id, title: `🔔 ${args.titulo}`, description: args.descricao || null,
+    due_date: args.quando.slice(0, 10), board: "tarefas", priority: "media", ai_generated: true,
+    metadata: { tipo: "lembrete", origem: "imperius_chat" },
+  }).select("id, title").single();
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "createTask", projeto_id: args.projeto_id, title: `Lembrete: ${args.titulo}`,
+    reason: `Para ${args.quando}`, status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 1.0, payload: { tarefa_id: data.id, quando: args.quando },
+  });
+  return { projeto: proj.name, lembrete: data.title, quando: args.quando };
+}
+
+async function anotarLead(ctx: ToolCtx, args: { lead_id: string; nota: string }) {
+  const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
+  if (!lead) return { error: "lead não encontrado" };
+  const { data: conv } = await ctx.supabase.from("imphq_wa_conversations").select("id").eq("project_id", lead.project_id).eq("phone", lead.phone).maybeSingle();
+  if (!conv) return { error: "sem conversa WhatsApp para este lead" };
+  const { error } = await ctx.supabase.from("imphq_wa_internal_notes").insert({
+    conversation_id: conv.id, author_id: ctx.userId, author_name: "Imperius IA", content: args.nota,
+  });
+  if (error) return { error: error.message };
+  await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "notify", projeto_id: lead.project_id, title: `Nota em ${lead.nome || lead.phone}`,
+    reason: args.nota.slice(0, 200), status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
+    risk_level: "low", confidence: 1.0, payload: { lead_id: lead.id, nota: args.nota },
+  });
+  return { lead: lead.nome || lead.phone, ok: true };
+}
+
+async function resolveProviderForProject(ctx: ToolCtx, projectId: string) {
+  const { data } = await ctx.supabase.from("imphq_wa_providers")
+    .select("id, instance_name, provider").eq("project_id", projectId).eq("is_active", true).limit(1).maybeSingle();
+  return data;
+}
+
+async function enviarWhatsapp(ctx: ToolCtx, args: { lead_id: string; mensagem: string }) {
+  const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
+  if (!lead) return { error: "lead não encontrado" };
+  if (!lead.phone) return { error: "lead sem telefone" };
+  const prov = await resolveProviderForProject(ctx, lead.project_id);
+  if (!prov) return { error: "nenhum provider WhatsApp ativo para o projeto" };
+  const { data: act, error } = await ctx.supabase.from("imphq_ai_actions").insert({
+    kind: "sendWhatsApp", projeto_id: lead.project_id,
+    title: `Enviar WhatsApp para ${lead.nome || lead.phone}`,
+    reason: args.mensagem.slice(0, 240),
+    status: "proposed", auto_executed: false, risk_level: "medium", confidence: 0.9,
+    source: "imperius_chat", created_by: ctx.userId,
+    payload: { instance: prov.instance_name, number: lead.phone, text: args.mensagem, lead_id: lead.id },
+  }).select("id").single();
+  if (error) return { error: error.message };
+  return {
+    status: "pending_approval", action_id: act.id,
+    lead: lead.nome || lead.phone,
+    aviso: "Ação enviada para a Caixa de Ações — aprove no header (ícone Imperius) para enviar.",
+  };
+}
+
+async function enviarWhatsappEmMassa(ctx: ToolCtx, args: { lead_ids: string[]; mensagem: string }) {
+  if (!args.lead_ids?.length) return { error: "lead_ids vazio" };
+  const { data: leads } = await ctx.supabase.from("imphq_leads")
+    .select("id, nome, phone, project_id").in("id", args.lead_ids);
+  const valid = (leads || []).filter((l: any) => l.phone);
+  if (!valid.length) return { error: "nenhum lead com telefone" };
+  const byProject = new Map<string, any[]>();
+  for (const l of valid) {
+    const arr = byProject.get(l.project_id) || [];
+    arr.push(l); byProject.set(l.project_id, arr);
+  }
+  const actions: any[] = [];
+  for (const [pid, ls] of byProject.entries()) {
+    const prov = await resolveProviderForProject(ctx, pid);
+    if (!prov) continue;
+    for (const l of ls) {
+      actions.push({
+        kind: "sendWhatsApp", projeto_id: pid,
+        title: `Massa: ${l.nome || l.phone}`,
+        reason: args.mensagem.slice(0, 240),
+        status: "proposed", auto_executed: false, risk_level: "high", confidence: 0.85,
+        source: "imperius_chat", created_by: ctx.userId,
+        payload: { instance: prov.instance_name, number: l.phone, text: args.mensagem, lead_id: l.id },
+      });
+    }
+  }
+  if (!actions.length) return { error: "nenhum projeto com provider ativo" };
+  const { error } = await ctx.supabase.from("imphq_ai_actions").insert(actions);
+  if (error) return { error: error.message };
+  return {
+    status: "pending_approval", total: actions.length,
+    aviso: `${actions.length} envios criados na Caixa de Ações — aprove um a um ou em lote.`,
+  };
+}
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
   try {
     switch (name) {
@@ -380,6 +600,12 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "adsPerformance": return await adsPerformance(ctx, args);
       case "buscarLead": return await buscarLead(ctx, args);
       case "criarTarefas": return await criarTarefas(ctx, args);
+      case "adicionarChecklistNaTarefa": return await adicionarChecklistNaTarefa(ctx, args);
+      case "moverTarefa": return await moverTarefa(ctx, args);
+      case "agendarLembrete": return await agendarLembrete(ctx, args);
+      case "anotarLead": return await anotarLead(ctx, args);
+      case "enviarWhatsapp": return await enviarWhatsapp(ctx, args);
+      case "enviarWhatsappEmMassa": return await enviarWhatsappEmMassa(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
     }
   } catch (e: any) {
