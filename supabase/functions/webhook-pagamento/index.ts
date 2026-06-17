@@ -125,6 +125,27 @@ function extractFinanceiro(body: any, plataforma: string): Record<string, any> |
         };
       }
     }
+    if (plataforma === "PerfectPay") {
+      const saleAmount = parseFloat(String(body?.sale_amount ?? "0")) || 0;
+      const prodValue = parseFloat(String(body?.producer_value ?? body?.commission?.producer_value ?? "0")) || undefined;
+      const platformFee = parseFloat(String(body?.platform_fee ?? body?.commission?.platform_fee ?? body?.platform_tax_value ?? "0")) || undefined;
+      const affValue = parseFloat(String(body?.affiliate_value ?? body?.commission?.affiliate_value ?? "0")) || undefined;
+      const pmEnum = body?.payment_method_enum;
+      const pmMap: Record<string, string> = { "1": "credit_card", "2": "boleto", "3": "pix", "4": "debit_card", "7": "pix" };
+      if (saleAmount > 0) {
+        return {
+          valor_bruto: saleAmount,
+          comissao_plataforma: platformFee,
+          taxa_transacao: undefined,
+          comissao_produtor: prodValue,
+          comissao_afiliado: affValue,
+          valor_liquido: prodValue || undefined,
+          metodo_pagamento: pmMap[String(pmEnum)] || body?.payment_method || undefined,
+          parcelas: body?.quantity || body?.installments || undefined,
+          codigo_pedido: body?.code || body?.sale_id || undefined,
+        };
+      }
+    }
   } catch (e) {
     console.warn("[webhook-pagamento] Erro ao extrair financeiro:", e);
   }
