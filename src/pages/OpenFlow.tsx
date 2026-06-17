@@ -205,6 +205,7 @@ export default function OpenFlow() {
       follow_up_hours: a.follow_up_hours, follow_up_template: a.follow_up_template,
       exit_trigger_tipo: a.exit_trigger_tipo, exit_cascade: a.exit_cascade,
       flow_objective: a.flow_objective,
+      prioridade: a.prioridade ?? 5, exclusivo: !!a.exclusivo,
     } as any).eq("id", a.id);
     if (error) toast.error(error.message);
     else { toast.success("Salvo!"); setEditing(null); load(); }
