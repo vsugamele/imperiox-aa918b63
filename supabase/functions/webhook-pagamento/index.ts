@@ -31,11 +31,13 @@ async function sendCAPIEvent(
   phone: string,
   valor: number,
   produto: string,
+  eventId?: string,
 ) {
   const eventData: any = {
     data: [{
       event_name: eventName,
       event_time: Math.floor(Date.now() / 1000),
+      event_id: eventId || undefined, // dedup: FB ignora eventos duplicados com mesmo event_id em 7d
       action_source: "website",
       user_data: {
         em: email ? [await hashSHA256(email.toLowerCase())] : undefined,
@@ -61,6 +63,13 @@ async function sendCAPIEvent(
   );
   return await capiRes.json();
 }
+
+/** event_id determinístico para deduplicação CAPI (mesma transação + mesmo evento => mesmo id). */
+export async function buildCapiEventId(externalTxId: string | null | undefined, eventName: string, fallbackKey: string): Promise<string> {
+  const seed = externalTxId && String(externalTxId).trim() ? String(externalTxId) : fallbackKey;
+  return await hashSHA256(`${seed}:${eventName}`);
+}
+
 
 function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
   try {
