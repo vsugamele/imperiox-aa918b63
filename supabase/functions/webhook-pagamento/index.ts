@@ -823,7 +823,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             const attrFromBody = body?.xc || body?.attr || body?.tracking?.xc || body?.tracking?.attr || body?.data?.purchase?.tracking?.xc;
             const { linkSaleToAttribution } = await import("../_shared/attribution.ts");
             const matchedAttr = await linkSaleToAttribution(supabase, {
-              project_id: projectId,
+              project_id: projectId!,
               venda_id: vendaInsert.id,
               venda_status: vendaStatus,
               click_id: attrFromBody ? String(attrFromBody) : null,
