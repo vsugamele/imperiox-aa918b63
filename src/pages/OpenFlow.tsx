@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -27,6 +27,7 @@ import { FlowSimulator } from "@/components/openflow/FlowSimulator";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StepGuide } from "@/components/openflow/StepGuide";
 import { VersionHistoryDrawer } from "@/components/openflow/VersionHistoryDrawer";
+import { FlowMediaLibrary } from "@/components/openflow/FlowMediaLibrary";
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
@@ -280,6 +281,7 @@ export default function OpenFlow() {
           <TabsTrigger value="logs" className="gap-2"><Activity className="h-4 w-4" /> Logs & Monitoramento</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Performance</TabsTrigger>
           <TabsTrigger value="roi" className="gap-2"><Zap className="h-4 w-4" /> ROI Global</TabsTrigger>
+          <TabsTrigger value="midias" className="gap-2"><ImageIcon className="h-4 w-4" /> Mídias</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fluxos" className="space-y-6 pt-4">
@@ -367,6 +369,7 @@ export default function OpenFlow() {
         <TabsContent value="logs"><AutomacaoLogs automacoes={automacoes} projects={projects} /></TabsContent>
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
+        <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
