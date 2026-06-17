@@ -281,6 +281,7 @@ export default function OpenFlow() {
           <TabsTrigger value="logs" className="gap-2"><Activity className="h-4 w-4" /> Logs & Monitoramento</TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Performance</TabsTrigger>
           <TabsTrigger value="roi" className="gap-2"><Zap className="h-4 w-4" /> ROI Global</TabsTrigger>
+          <TabsTrigger value="midias" className="gap-2"><ImageIcon className="h-4 w-4" /> Mídias</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fluxos" className="space-y-6 pt-4">
