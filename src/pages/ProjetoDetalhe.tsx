@@ -487,6 +487,7 @@ export default function ProjetoDetalhe() {
                   { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
                   { label: "Kiwify", ok: !!project.data?.kiwify_token, icon: "🟪" },
                   { label: "Ticto", ok: !!project.data?.ticto_token, icon: "🟩" },
+                  { label: "Perfect Pay", ok: !!project.data?.perfectpay_token, icon: "🟨" },
                 ].map(i => (
                   <div key={i.label} className="p-3 rounded bg-secondary/50 border border-border text-center">
                     <span className="text-lg">{i.icon}</span>
@@ -728,13 +729,14 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
     { key: "hotmart_token", label: "Hotmart", icon: "🟧", placeholder: "Hottok de validação", help: "Cole em Ferramentas > Webhooks na Hotmart. Use o header x-hotmart-hottok." },
     { key: "kiwify_token", label: "Kiwify", icon: "🟪", placeholder: "Secret de validação", help: "Configurações > Webhooks > Secret na Kiwify." },
     { key: "ticto_token", label: "Ticto (v2)", icon: "🟩", placeholder: "Token de validação", help: "Na Ticto, vá em Integrações > Webhooks > Adicione a URL acima. O token enviado no body será validado automaticamente. Valores (paid_amount) são convertidos de centavos." },
+    { key: "perfectpay_token", label: "Perfect Pay", icon: "🟨", placeholder: "Token de validação", help: "Ferramentas > Notificações (Postback) no Perfect Pay. Defina um Token e cole aqui — será validado contra o campo 'token' do postback." },
   ];
 
   return (
     <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🔔 Webhooks de Pagamento</CardTitle>
-        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify e Ticto</p>
+        <p className="text-[10px] text-muted-foreground">URLs exclusivas deste projeto para receber eventos de Hotmart, Kiwify, Ticto e Perfect Pay</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Webhook URLs */}
