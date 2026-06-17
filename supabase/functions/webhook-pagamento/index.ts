@@ -31,11 +31,13 @@ async function sendCAPIEvent(
   phone: string,
   valor: number,
   produto: string,
+  eventId?: string,
 ) {
   const eventData: any = {
     data: [{
       event_name: eventName,
       event_time: Math.floor(Date.now() / 1000),
+      event_id: eventId || undefined, // dedup: FB ignora eventos duplicados com mesmo event_id em 7d
       action_source: "website",
       user_data: {
         em: email ? [await hashSHA256(email.toLowerCase())] : undefined,
@@ -62,7 +64,14 @@ async function sendCAPIEvent(
   return await capiRes.json();
 }
 
-function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
+/** event_id determinístico para deduplicação CAPI (mesma transação + mesmo evento => mesmo id). */
+export async function buildCapiEventId(externalTxId: string | null | undefined, eventName: string, fallbackKey: string): Promise<string> {
+  const seed = externalTxId && String(externalTxId).trim() ? String(externalTxId) : fallbackKey;
+  return await hashSHA256(`${seed}:${eventName}`);
+}
+
+
+export function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
   try {
     if (plataforma === "Ticto") {
       const order = body?.order || {};
@@ -153,7 +162,7 @@ function extractFinanceiro(body: any, plataforma: string): Record<string, any> |
 }
 
 // Decode common encodings used by trackers (xcod often uses pipe encoded as %7C)
-function decodeXcod(raw: string): Record<string, string> {
+export function decodeXcod(raw: string): Record<string, string> {
   if (!raw) return {};
   const out: Record<string, string> = {};
   try {
@@ -176,7 +185,7 @@ function decodeXcod(raw: string): Record<string, string> {
   return out;
 }
 
-function extractUtms(body: any): Record<string, string> | null {
+export function extractUtms(body: any): Record<string, string> | null {
   // 1) Direct UTMs from common locations
   let src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source || body?.tracking?.source;
   let med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
@@ -257,7 +266,7 @@ async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmC
  * gerando datas no futuro (ex: 13/06 vira 06/13 e dia>12 quebra; 06/12 vira Dec/06).
  * Estratégia: tenta ISO → tenta DD/MM/YYYY → se inválido ou > now+1d, usa hora do webhook.
  */
-function parseTictoDate(raw: any): string {
+export function parseTictoDate(raw: any): string {
   const now = new Date();
   const fallback = now.toISOString();
   if (!raw || typeof raw !== "string") return fallback;
@@ -286,7 +295,7 @@ function parseTictoDate(raw: any): string {
   return fallback;
 }
 
-function parseWebhookBody(body: any, hotmartToken: string | null) {
+export function parseWebhookBody(body: any, hotmartToken: string | null) {
   let plataforma = "desconhecido";
   let evento = "desconhecido";
   let email = "";
@@ -814,7 +823,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             const attrFromBody = body?.xc || body?.attr || body?.tracking?.xc || body?.tracking?.attr || body?.data?.purchase?.tracking?.xc;
             const { linkSaleToAttribution } = await import("../_shared/attribution.ts");
             const matchedAttr = await linkSaleToAttribution(supabase, {
-              project_id: projectId,
+              project_id: projectId!,
               venda_id: vendaInsert.id,
               venda_status: vendaStatus,
               click_id: attrFromBody ? String(attrFromBody) : null,
@@ -1448,15 +1457,18 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     const capiEventName = CAPI_EVENT_MAP[evento];
     if (capiEventName && fbToken && fbPixelId) {
       try {
+        const fallbackKey = `${email || "anon"}:${valor || 0}:${produto || ""}`;
+        const eventId = await buildCapiEventId(externalTxId, capiEventName, fallbackKey);
         const capiResult = await sendCAPIEvent(
           fbToken, fbPixelId, fbTestCode,
-          capiEventName, email, nome, phone, valor, produto
+          capiEventName, email, nome, phone, valor, produto, eventId,
         );
-        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado:`, capiResult);
+        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado (event_id=${eventId.slice(0,12)}):`, capiResult);
       } catch (capiErr) {
         console.error("[webhook-pagamento] Erro CAPI:", capiErr);
       }
     }
+
 
     // Check automations — use aliases so lead_novo matches lead_capturado etc.
     const triggerAliases: Record<string, string[]> = {

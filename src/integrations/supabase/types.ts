@@ -40661,6 +40661,7 @@ export type Database = {
           tracking_head_code: string | null
           updated_at: string | null
           video_orientation: string | null
+          video_transcript: string | null
           video_url: string | null
           waiting_delay_seconds: number | null
           waiting_room_enabled: boolean | null
@@ -40724,6 +40725,7 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
@@ -40787,6 +40789,7 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
