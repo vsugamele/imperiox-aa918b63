@@ -7,13 +7,15 @@ import { Crown, Send, Loader2, Sparkles, Trash2, Plus, Square } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CopilotMessage } from "./CopilotMessage";
+import { CopilotMessage, type ToolActivity } from "./CopilotMessage";
+import { AudioRecorder } from "./AudioRecorder";
 import { useParams } from "react-router-dom";
 
 interface Msg {
   role: "user" | "assistant";
   content: string;
   ts?: string;
+  tools?: ToolActivity[];
 }
 
 interface ThreadRow {
