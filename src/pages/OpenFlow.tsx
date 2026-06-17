@@ -417,6 +417,7 @@ export default function OpenFlow() {
                   triggerTipo={editing.trigger_tipo} 
                   acoes={editing.acoes} 
                   onChange={v => setEditing({ ...editing, acoes: v })} 
+                  onTriggerChange={v => setEditing({ ...editing, trigger_tipo: v })}
                   projectId={editing.project_id} 
                   providers={providers} 
                   templates={projectTemplates} 
@@ -441,6 +442,35 @@ export default function OpenFlow() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Dedupe (h)</Label><Input type="number" min={0} value={editing.dedupe_hours ?? 0} onChange={e => setEditing({ ...editing, dedupe_hours: Number(e.target.value) || 0 })} className="h-9 bg-background/50 border-white/10" /></div>
                       <div className="flex items-center justify-between gap-2 h-16 pt-4"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Ativo</Label><Switch checked={editing.ativo} onCheckedChange={v => setEditing({ ...editing, ativo: v })} /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-secondary/5 p-4 rounded-xl border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                        <Activity className="h-3.5 w-3.5" /> Conflito entre Fluxos
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        Quando o mesmo lead entra em mais de um fluxo, prioridade decide quem vence. Exclusivo bloqueia outros até este terminar.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Prioridade (1-10)</Label>
+                      <Input
+                        type="number" min={1} max={10}
+                        value={editing.prioridade ?? 5}
+                        onChange={e => setEditing({ ...editing, prioridade: Math.max(1, Math.min(10, Number(e.target.value) || 5)) })}
+                        className="h-9 bg-background/50 border-white/10"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 ml-1">Maior número = ganha em conflito</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 h-16 pt-4">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Exclusivo</Label>
+                      <Switch checked={!!editing.exclusivo} onCheckedChange={v => setEditing({ ...editing, exclusivo: v })} />
                     </div>
                   </div>
                 </div>
