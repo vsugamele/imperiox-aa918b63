@@ -229,6 +229,13 @@ export default function OpenFlow() {
         tipo: a.tipo || "email",
         template: a.template || "",
         delay_min: typeof a.delay_min === "number" ? a.delay_min : 60,
+        ...(a.ia_vision !== undefined ? { ia_vision: !!a.ia_vision } : {}),
+        ...(a.ia_voice_response !== undefined ? { ia_voice_response: !!a.ia_voice_response } : {}),
+        ...(a.ia_search_web !== undefined ? { ia_search_web: !!a.ia_search_web } : {}),
+        ...(a.questioning_strategy ? { questioning_strategy: a.questioning_strategy } : {}),
+        ...(a.timeout_min !== undefined ? { timeout_min: a.timeout_min } : {}),
+        ...(a.tag ? { tag: a.tag } : {}),
+        ...(a.stop_event_type ? { stop_event_type: a.stop_event_type } : {}),
       }));
       setEditing({ ...editing, acoes: [...editing.acoes, ...acoesGeradas] });
       toast.success(`${acoesGeradas.length} etapas geradas com IA!`);
