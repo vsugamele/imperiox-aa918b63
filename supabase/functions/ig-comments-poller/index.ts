@@ -10,9 +10,123 @@ const corsHeaders = {
 };
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+const ZERNIO = "https://zernio.com/api/v1";
 
 function json(d: any, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function upsertComment(supa: any, result: any, row: any) {
+  const { error } = await supa.from("imphq_ig_comments").upsert(row, { onConflict: "comment_id" });
+  if (error) result.errors.push(`upsert ${row.comment_id}: ${error.message}`);
+  else result.comments_upserted++;
+}
+
+async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
+  const token = creds?.page_access_token;
+  if (!token) { result.errors.push("missing page_access_token"); return; }
+  const igUserId = account.ig_user_id;
+  if (!igUserId) { result.errors.push("missing ig_user_id"); return; }
+
+  const mediaUrl = `${GRAPH}/${igUserId}/media?fields=id,timestamp&limit=${opts.maxPosts}&access_token=${encodeURIComponent(token)}`;
+  const mediaRes = await fetch(mediaUrl);
+  if (!mediaRes.ok) { result.errors.push(`media fetch ${mediaRes.status}: ${(await mediaRes.text()).slice(0, 200)}`); return; }
+  const posts: any[] = (await mediaRes.json()).data || [];
+
+  for (const post of posts) {
+    result.posts_scanned++;
+    const commRes = await fetch(`${GRAPH}/${post.id}/comments?fields=id,text,username,from,parent_id,timestamp&limit=${opts.maxComments}&access_token=${encodeURIComponent(token)}`);
+    if (!commRes.ok) { result.errors.push(`comments ${post.id} ${commRes.status}`); continue; }
+    const comments: any[] = (await commRes.json()).data || [];
+    for (const c of comments) {
+      const fromUserId = c.from?.id || null;
+      if (fromUserId && fromUserId === igUserId) continue;
+      await upsertComment(supa, result, {
+        account_id: account.id,
+        media_id: post.id,
+        comment_id: c.id,
+        parent_comment_id: c.parent_id || null,
+        from_user_id: fromUserId,
+        from_username: c.username || c.from?.username || null,
+        text: c.text || null,
+        created_at: c.timestamp || new Date().toISOString(),
+      });
+    }
+  }
+}
+
+async function processViaZernio(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
+  const apiKey = creds?.zernio_api_key;
+  const zernioAccountId = creds?.zernio_account_id;
+  if (!apiKey || !zernioAccountId) { result.errors.push("missing zernio credentials"); return; }
+
+  const auth = { "Authorization": `Bearer ${apiKey}` };
+
+  // Tenta múltiplos endpoints de posts (a API do Zernio pode variar)
+  const postEndpoints = [
+    `${ZERNIO}/posts?accountId=${zernioAccountId}&limit=${opts.maxPosts}`,
+    `${ZERNIO}/media?accountId=${zernioAccountId}&limit=${opts.maxPosts}`,
+    `${ZERNIO}/accounts/${zernioAccountId}/posts?limit=${opts.maxPosts}`,
+  ];
+
+  let posts: any[] = [];
+  let lastErr = "";
+  for (const url of postEndpoints) {
+    try {
+      const r = await fetch(url, { headers: auth });
+      if (!r.ok) { lastErr = `${r.status} ${url}`; continue; }
+      const d = await r.json();
+      posts = d.posts || d.media || d.data || [];
+      if (posts.length >= 0) { lastErr = ""; break; }
+    } catch (e: any) { lastErr = e?.message || String(e); }
+  }
+  if (lastErr && posts.length === 0) {
+    result.errors.push(`zernio posts fetch failed: ${lastErr}`);
+    return;
+  }
+
+  for (const post of posts) {
+    const postId = post.id || post._id || post.mediaId || post.postId;
+    if (!postId) continue;
+    result.posts_scanned++;
+
+    const commentEndpoints = [
+      `${ZERNIO}/posts/${postId}/comments?limit=${opts.maxComments}`,
+      `${ZERNIO}/media/${postId}/comments?limit=${opts.maxComments}`,
+      `${ZERNIO}/comments?postId=${postId}&limit=${opts.maxComments}`,
+    ];
+    let comments: any[] = [];
+    let cErr = "";
+    for (const url of commentEndpoints) {
+      try {
+        const r = await fetch(url, { headers: auth });
+        if (!r.ok) { cErr = `${r.status}`; continue; }
+        const d = await r.json();
+        comments = d.comments || d.data || [];
+        cErr = ""; break;
+      } catch (e: any) { cErr = e?.message || String(e); }
+    }
+    if (cErr) { result.errors.push(`zernio comments ${postId}: ${cErr}`); continue; }
+
+    for (const c of comments) {
+      const rawId = c.id || c._id || c.commentId;
+      if (!rawId) continue;
+      const fromUserId = c.from?.id || c.user?.id || c.userId || c.authorId || null;
+      // pula comentários da própria conta
+      if (fromUserId && (fromUserId === account.ig_user_id || fromUserId === zernioAccountId)) continue;
+      const fromUsername = c.from?.username || c.user?.username || c.username || c.author?.username || null;
+      await upsertComment(supa, result, {
+        account_id: account.id,
+        media_id: String(postId),
+        comment_id: `zernio-${rawId}`,
+        parent_comment_id: c.parentId || c.parent_id || c.replyTo || null,
+        from_user_id: fromUserId,
+        from_username: fromUsername,
+        text: c.text || c.message || c.body || null,
+        created_at: c.createdAt || c.timestamp || c.created_at || new Date().toISOString(),
+      });
+    }
+  }
 }
 
 async function processAccount(supa: any, account: any, opts: { maxPosts: number; maxComments: number }) {
@@ -25,63 +139,14 @@ async function processAccount(supa: any, account: any, opts: { maxPosts: number;
     .eq("provider", "instagram")
     .maybeSingle();
 
-  const token = credRow?.credentials?.page_access_token;
-  if (!token) {
-    result.errors.push("missing page_access_token");
-    return result;
+  const creds = credRow?.credentials;
+  if (!creds) { result.errors.push("missing instagram credentials"); return result; }
+
+  if (creds.auth_method === "zernio") {
+    await processViaZernio(supa, account, creds, opts, result);
+  } else {
+    await processViaMeta(supa, account, creds, opts, result);
   }
-  const igUserId = account.ig_user_id;
-  if (!igUserId) {
-    result.errors.push("missing ig_user_id");
-    return result;
-  }
-
-  // 1) últimos N posts
-  const mediaUrl = `${GRAPH}/${igUserId}/media?fields=id,timestamp&limit=${opts.maxPosts}&access_token=${encodeURIComponent(token)}`;
-  const mediaRes = await fetch(mediaUrl);
-  if (!mediaRes.ok) {
-    result.errors.push(`media fetch ${mediaRes.status}: ${(await mediaRes.text()).slice(0, 200)}`);
-    return result;
-  }
-  const mediaData = await mediaRes.json();
-  const posts: any[] = mediaData.data || [];
-
-  for (const post of posts) {
-    result.posts_scanned++;
-    const commentsUrl = `${GRAPH}/${post.id}/comments?fields=id,text,username,from,parent_id,timestamp&limit=${opts.maxComments}&access_token=${encodeURIComponent(token)}`;
-    const commRes = await fetch(commentsUrl);
-    if (!commRes.ok) {
-      result.errors.push(`comments ${post.id} ${commRes.status}`);
-      continue;
-    }
-    const commData = await commRes.json();
-    const comments: any[] = commData.data || [];
-
-    for (const c of comments) {
-      const fromUserId = c.from?.id || null;
-      const fromUsername = c.username || c.from?.username || null;
-      // pula próprios
-      if (fromUserId && fromUserId === igUserId) continue;
-
-      const { error } = await supa.from("imphq_ig_comments").upsert({
-        account_id: account.id,
-        media_id: post.id,
-        comment_id: c.id,
-        parent_comment_id: c.parent_id || null,
-        from_user_id: fromUserId,
-        from_username: fromUsername,
-        text: c.text || null,
-        created_at: c.timestamp || new Date().toISOString(),
-      }, { onConflict: "comment_id" });
-
-      if (error) {
-        result.errors.push(`upsert ${c.id}: ${error.message}`);
-      } else {
-        result.comments_upserted++;
-      }
-    }
-  }
-
   return result;
 }
 
