@@ -27,11 +27,11 @@ interface ThreadRow {
 }
 
 const SUGGESTIONS = [
+  "Quem comprou hoje? Quantidade, produto e nome",
+  "Quais leads estão travados no WhatsApp há mais de 2h?",
   "Qual canal tá com pior CPA esta semana?",
-  "Quais leads quentes esfriaram nos últimos 7 dias?",
-  "Onde tá vazando dinheiro agora?",
-  "Qual produto tem maior LTV/CAC?",
-  "Que campanha eu deveria pausar?",
+  "Cria 3 tarefas no projeto X: 1) revisar copy, 2) testar criativo, 3) atualizar avatar",
+  "Quem mandou mensagem nas últimas horas?",
 ];
 
 interface Props {
