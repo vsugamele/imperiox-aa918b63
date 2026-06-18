@@ -67,6 +67,9 @@ export default function Configuracoes() {
           <TabsTrigger value="product-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Package className="h-3.5 w-3.5 mr-2" /> Produto → Projeto
           </TabsTrigger>
+          <TabsTrigger value="outbound" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Webhook className="h-3.5 w-3.5 mr-2" /> Webhooks Saída
+          </TabsTrigger>
         </TabsList>
 
 
