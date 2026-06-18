@@ -2239,6 +2239,8 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "listarProjetos": return await listarProjetos(ctx);
       case "buscarProjeto": return await buscarProjeto(ctx, args);
       case "vendasDoDia": return await vendasDoDia(ctx, args);
+      case "leadsDoDia": return await leadsDoDia(ctx, args);
+      case "leadsResumo": return await leadsResumo(ctx, args);
       case "vendasResumo": return await vendasResumo(ctx, args);
       case "leadsTravadosWhatsapp": return await leadsTravadosWhatsapp(ctx, args);
       case "ultimasMensagensWhatsapp": return await ultimasMensagensWhatsapp(ctx, args);
