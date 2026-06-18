@@ -19501,6 +19501,62 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ig_account_insights: {
+        Row: {
+          account_id: string
+          created_at: string
+          followers_count: number
+          follows_count: number
+          id: string
+          impressions: number
+          media_count: number
+          profile_views: number
+          project_id: string
+          raw: Json | null
+          reach: number
+          snapshot_date: string
+          website_clicks: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id?: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_account_insights_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ig_accounts: {
         Row: {
           auth_method: string
@@ -19747,6 +19803,124 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media: {
+        Row: {
+          account_id: string
+          caption: string | null
+          created_at: string
+          id: string
+          ig_media_id: string
+          media_product_type: string | null
+          media_type: string | null
+          media_url: string | null
+          permalink: string | null
+          posted_at: string | null
+          project_id: string
+          raw: Json | null
+          thumbnail_url: string | null
+          updated_at: string
+          zernio_post_id: string | null
+        }
+        Insert: {
+          account_id: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id?: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id?: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media_insights: {
+        Row: {
+          comments: number
+          created_at: string
+          engagement: number
+          id: string
+          impressions: number
+          likes: number
+          media_id: string
+          raw: Json | null
+          reach: number
+          saves: number
+          shares: number
+          snapshot_date: string
+          video_views: number
+        }
+        Insert: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Update: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id?: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_insights_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_media"
             referencedColumns: ["id"]
           },
         ]
