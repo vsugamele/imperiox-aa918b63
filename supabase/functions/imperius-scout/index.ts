@@ -570,7 +570,11 @@ Deno.serve(async (req) => {
     for (const p of (projetos || []) as Projeto[]) {
       let proposals: Proposed[] = [];
       try {
-        proposals = [...(await scoutProject(supabase, p)), ...(await detectFlowPatterns(supabase, p))];
+        proposals = [
+          ...(await scoutProject(supabase, p)),
+          ...(await detectFlowPatterns(supabase, p)),
+          ...(await detectMacroSignals(supabase, p)),
+        ];
       } catch (e: any) {
         errors.push(`${p.id}: ${String(e?.message || e)}`);
         continue;
