@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MobileChat } from "@/components/mobile/MobileChat";
 
 interface Conversation {
   id: string;
@@ -27,6 +28,8 @@ interface Conversation {
   temperature: string | null;
   status: string | null;
   unread_count?: number | null;
+  provider_id?: string | null;
+  lead_id?: string | null;
 }
 
 interface Lead {
@@ -69,6 +72,9 @@ export default function MobileCockpit() {
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [leadStatus, setLeadStatus] = useState<string>("all");
+
+  // Open chat in fullscreen
+  const [openConv, setOpenConv] = useState<Conversation | null>(null);
 
   const setActiveTab = (t: Tab) => {
     setTab(t);
@@ -118,7 +124,7 @@ export default function MobileCockpit() {
     try {
       const { data, error } = await supabase
         .from("imphq_wa_conversations")
-        .select("*")
+        .select("id, project_id, contact_name, phone, last_message, last_message_at, ai_paused_until, buy_intent_detected, temperature, status, unread_count, provider_id, lead_id")
         .eq("project_id", selectedProjectId)
         .order("last_message_at", { ascending: false })
         .limit(100);
@@ -280,7 +286,7 @@ export default function MobileCockpit() {
             hotConversations={hotConversations}
             loading={loadingConvs}
             onRefresh={() => { loadStats(); loadConversations(); }}
-            onOpenWa={handleOpenWaDirect}
+            onOpenChat={(c: Conversation) => setOpenConv(c)}
             onTogglePause={handleToggleAiPause}
             onToggleCloser={handleToggleCloserMode}
           />
@@ -296,7 +302,7 @@ export default function MobileCockpit() {
             filter={inboxFilter}
             setFilter={setInboxFilter}
             onRefresh={loadConversations}
-            onOpenWa={handleOpenWaDirect}
+            onOpenChat={(c: Conversation) => setOpenConv(c)}
             onTogglePause={handleToggleAiPause}
           />
         )}
@@ -345,6 +351,15 @@ export default function MobileCockpit() {
           );
         })}
       </nav>
+
+      {openConv && (
+        <MobileChat
+          conversation={openConv as any}
+          onClose={() => { setOpenConv(null); loadConversations(); }}
+          onTogglePause={handleToggleAiPause}
+          onToggleCloser={handleToggleCloserMode}
+        />
+      )}
     </div>
   );
 }
@@ -352,7 +367,7 @@ export default function MobileCockpit() {
 /* ───────────── Cockpit Tab ───────────── */
 function CockpitTab({
   salesStats, loadingStats, hotConversations, loading, onRefresh,
-  onOpenWa, onTogglePause, onToggleCloser
+  onOpenChat, onTogglePause, onToggleCloser
 }: any) {
   return (
     <div className="space-y-4">
@@ -393,7 +408,7 @@ function CockpitTab({
             <ConvCard
               key={conv.id}
               conv={conv}
-              onOpenWa={onOpenWa}
+              onOpenChat={onOpenChat}
               onTogglePause={onTogglePause}
               onToggleCloser={onToggleCloser}
               full
@@ -408,7 +423,7 @@ function CockpitTab({
 /* ───────────── Inbox Tab ───────────── */
 function InboxTab({
   conversations, total, loading, search, setSearch, filter, setFilter,
-  onRefresh, onOpenWa, onTogglePause
+  onRefresh, onOpenChat, onTogglePause
 }: any) {
   const filters: { id: InboxFilter; label: string }[] = [
     { id: "all", label: "Todas" },
@@ -462,7 +477,7 @@ function InboxTab({
             <ConvCard
               key={conv.id}
               conv={conv}
-              onOpenWa={onOpenWa}
+              onOpenChat={onOpenChat}
               onTogglePause={onTogglePause}
               compact
             />
@@ -603,17 +618,19 @@ function MaisTab({ onDesktop, navigate }: any) {
 }
 
 /* ───────────── Conv Card ───────────── */
-function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false, compact = false }: any) {
+function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = false, compact = false }: any) {
   const isPaused = conv.ai_paused_until && new Date(conv.ai_paused_until) > new Date();
   const isHot = conv.temperature === "hot" || conv.buy_intent_detected;
   const remaining = conv.ai_paused_until
     ? Math.max(0, Math.ceil((new Date(conv.ai_paused_until).getTime() - Date.now()) / 60000)) : 0;
 
   return (
-    <Card className={cn(
-      "bg-slate-900 border-border/40 transition-all shadow-md active:scale-[0.99]",
-      isHot && "border-orange-500/30 bg-gradient-to-br from-slate-900 to-orange-500/5",
-      isPaused && "border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-500/5"
+    <Card
+      onClick={() => onOpenChat?.(conv)}
+      className={cn(
+        "bg-slate-900 border-border/40 transition-all shadow-md active:scale-[0.99] cursor-pointer",
+        isHot && "border-orange-500/30 bg-gradient-to-br from-slate-900 to-orange-500/5",
+        isPaused && "border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-500/5"
     )}>
       <CardContent className={cn("space-y-3", compact ? "p-3" : "p-3.5")}>
         <div className="flex justify-between items-start gap-2">
@@ -647,16 +664,16 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onOpenWa(conv.phone)}
+            onClick={(e) => { e.stopPropagation(); onOpenChat?.(conv); }}
             className="text-sm min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           >
-            <ExternalLink className="h-4 w-4" /> Chat
+            <MessageSquare className="h-4 w-4" /> Abrir chat
           </Button>
           {full && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onToggleCloser(conv)}
+              onClick={(e) => { e.stopPropagation(); onToggleCloser(conv); }}
               className={cn(
                 "text-sm min-h-11 gap-1 font-semibold",
                 conv.buy_intent_detected
@@ -670,7 +687,7 @@ function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false,
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onTogglePause(conv)}
+            onClick={(e) => { e.stopPropagation(); onTogglePause(conv); }}
             className={cn(
               "text-sm min-h-11 gap-1 font-semibold",
               isPaused
