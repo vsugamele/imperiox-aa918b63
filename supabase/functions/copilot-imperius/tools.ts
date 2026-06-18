@@ -630,7 +630,67 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 10: Equipe & Tarefas Avançadas =====
+  {
+    type: "function",
+    function: {
+      name: "listarEquipe",
+      description: "Lista membros da equipe (imphq_team_members) ativos, com nome, email, role e department.",
+      parameters: { type: "object", properties: { apenas_ativos: { type: "boolean", description: "default true" } }, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cargaTrabalhoEquipe",
+      description: "Carga de trabalho: agrupa tarefas abertas (imphq_kanban_cards não concluídas) por responsável, com count e atrasadas.",
+      parameters: { type: "object", properties: { projeto_id: { type: "string" } }, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "tarefasPorResponsavel",
+      description: "Lista tarefas abertas de um membro específico (busca por nome ou email).",
+      parameters: {
+        type: "object",
+        properties: {
+          responsavel: { type: "string", description: "nome ou email do membro" },
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 20" },
+        },
+        required: ["responsavel"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "atribuirTarefa",
+      description: "Atribui uma tarefa do kanban a um membro da equipe (busca por nome/email).",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string" },
+          responsavel: { type: "string", description: "nome ou email" },
+        },
+        required: ["tarefa_id", "responsavel"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "estatisticasKanban",
+      description: "Distribuição de cards por coluna do kanban de um projeto, com totais e % de progresso.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
 
 
 
