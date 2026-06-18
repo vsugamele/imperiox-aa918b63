@@ -654,6 +654,8 @@ Deno.serve(async (req) => {
       proposed: proposedCount,
       auto_executed: autoExecCount,
       dedup_skipped: dedupSkipped,
+      killed_skipped: killedSkipped,
+
       errors,
       execution_ms: Date.now() - startedAt,
     };
