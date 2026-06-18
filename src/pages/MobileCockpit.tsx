@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MobileChat } from "@/components/mobile/MobileChat";
 
 interface Conversation {
   id: string;
@@ -27,6 +28,8 @@ interface Conversation {
   temperature: string | null;
   status: string | null;
   unread_count?: number | null;
+  provider_id?: string | null;
+  lead_id?: string | null;
 }
 
 interface Lead {
