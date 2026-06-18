@@ -19,6 +19,9 @@ import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
 import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
 import { ProductRoutingRulesTab } from "@/components/configuracoes/ProductRoutingRulesTab";
+import { OutboundWebhooksTab } from "@/components/configuracoes/OutboundWebhooksTab";
+
+
 
 
 export default function Configuracoes() {
@@ -64,6 +67,9 @@ export default function Configuracoes() {
           <TabsTrigger value="product-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Package className="h-3.5 w-3.5 mr-2" /> Produto → Projeto
           </TabsTrigger>
+          <TabsTrigger value="outbound" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Webhook className="h-3.5 w-3.5 mr-2" /> Webhooks Saída
+          </TabsTrigger>
         </TabsList>
 
 
@@ -78,6 +84,7 @@ export default function Configuracoes() {
           <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
           <TabsContent value="tag-routing"><TagRoutingRulesTab /></TabsContent>
           <TabsContent value="product-routing"><ProductRoutingRulesTab /></TabsContent>
+          <TabsContent value="outbound"><OutboundWebhooksTab /></TabsContent>
         </div>
 
       </Tabs>
