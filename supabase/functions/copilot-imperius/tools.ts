@@ -630,7 +630,67 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 10: Equipe & Tarefas Avançadas =====
+  {
+    type: "function",
+    function: {
+      name: "listarEquipe",
+      description: "Lista membros da equipe (imphq_team_members) ativos, com nome, email, role e department.",
+      parameters: { type: "object", properties: { apenas_ativos: { type: "boolean", description: "default true" } }, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cargaTrabalhoEquipe",
+      description: "Carga de trabalho: agrupa tarefas abertas (imphq_kanban_cards não concluídas) por responsável, com count e atrasadas.",
+      parameters: { type: "object", properties: { projeto_id: { type: "string" } }, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "tarefasPorResponsavel",
+      description: "Lista tarefas abertas de um membro específico (busca por nome ou email).",
+      parameters: {
+        type: "object",
+        properties: {
+          responsavel: { type: "string", description: "nome ou email do membro" },
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 20" },
+        },
+        required: ["responsavel"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "atribuirTarefa",
+      description: "Atribui uma tarefa do kanban a um membro da equipe (busca por nome/email).",
+      parameters: {
+        type: "object",
+        properties: {
+          tarefa_id: { type: "string" },
+          responsavel: { type: "string", description: "nome ou email" },
+        },
+        required: ["tarefa_id", "responsavel"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "estatisticasKanban",
+      description: "Distribuição de cards por coluna do kanban de um projeto, com totais e % de progresso.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
 
 
 
@@ -1728,6 +1788,110 @@ async function oportunidadesMercado(ctx: ToolCtx, args: { projeto_id?: string; l
   return { count: data?.length || 0, oportunidades: data || [] };
 }
 
+// ===== Onda 10: Equipe & Tarefas Avançadas =====
+
+async function listarEquipe(ctx: ToolCtx, args: { apenas_ativos?: boolean }) {
+  const apenas = args.apenas_ativos !== false;
+  let q = ctx.supabase.from("imphq_team_members")
+    .select("id, user_id, name, email, role, department, is_active")
+    .order("name", { ascending: true });
+  if (apenas) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, membros: data || [] };
+}
+
+async function cargaTrabalhoEquipe(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title");
+  const closedIds = new Set((cols || []).filter((c: any) => /conclu|done|finaliz/i.test(c.title || "")).map((c: any) => c.id));
+  let q = ctx.supabase.from("imphq_kanban_cards").select("id, assignee_id, due_date, column_id, project_id").limit(2000);
+  if (pid) q = q.eq("project_id", pid);
+  const { data: cards, error } = await q;
+  if (error) return { error: error.message };
+  const open = (cards || []).filter((c: any) => !closedIds.has(c.column_id));
+  const { data: team } = await ctx.supabase.from("imphq_team_members").select("user_id, name, email");
+  const nameMap = new Map<string, string>();
+  (team || []).forEach((t: any) => { if (t.user_id) nameMap.set(t.user_id, t.name || t.email || t.user_id); });
+  const agg = new Map<string, { responsavel: string; abertas: number; atrasadas: number }>();
+  const hoje = new Date().toISOString().slice(0, 10);
+  for (const c of open) {
+    const key = c.assignee_id || "sem_responsavel";
+    const nome = c.assignee_id ? (nameMap.get(c.assignee_id) || "—") : "Sem responsável";
+    const cur = agg.get(key) || { responsavel: nome, abertas: 0, atrasadas: 0 };
+    cur.abertas += 1;
+    if (c.due_date && c.due_date < hoje) cur.atrasadas += 1;
+    agg.set(key, cur);
+  }
+  const rows = [...agg.values()].sort((a, b) => b.abertas - a.abertas);
+  return { total_abertas: open.length, por_responsavel: rows };
+}
+
+async function tarefasPorResponsavel(ctx: ToolCtx, args: { responsavel: string; projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 20;
+  const term = `%${args.responsavel}%`;
+  const { data: team } = await ctx.supabase.from("imphq_team_members")
+    .select("user_id, name, email").or(`name.ilike.${term},email.ilike.${term}`);
+  if (!team?.length) return { error: `Nenhum membro encontrado para "${args.responsavel}"` };
+  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t: any) => ({ nome: t.name, email: t.email })) };
+  const userId = team[0].user_id;
+  if (!userId) return { error: "Membro sem user_id vinculado" };
+  const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title");
+  const closedIds = new Set((cols || []).filter((c: any) => /conclu|done|finaliz/i.test(c.title || "")).map((c: any) => c.id));
+  const colMap = new Map((cols || []).map((c: any) => [c.id, c.title]));
+  let q = ctx.supabase.from("imphq_kanban_cards")
+    .select("id, title, due_date, priority, column_id, project_id, created_at")
+    .eq("assignee_id", userId).order("due_date", { ascending: true, nullsFirst: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const rows = (data || []).filter((c: any) => !closedIds.has(c.column_id))
+    .map((c: any) => ({ ...c, coluna: colMap.get(c.column_id) || "—" }));
+  return { responsavel: team[0].name || team[0].email, count: rows.length, tarefas: rows };
+}
+
+async function atribuirTarefa(ctx: ToolCtx, args: { tarefa_id: string; responsavel: string }) {
+  const term = `%${args.responsavel}%`;
+  const { data: team } = await ctx.supabase.from("imphq_team_members")
+    .select("user_id, name, email").or(`name.ilike.${term},email.ilike.${term}`);
+  if (!team?.length) return { error: `Membro "${args.responsavel}" não encontrado` };
+  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t: any) => ({ nome: t.name, email: t.email })) };
+  const userId = team[0].user_id;
+  if (!userId) return { error: "Membro sem user_id vinculado" };
+  const { data, error } = await ctx.supabase.from("imphq_kanban_cards")
+    .update({ assignee_id: userId, updated_at: new Date().toISOString() })
+    .eq("id", args.tarefa_id).select("id, title").maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "Tarefa não encontrada" };
+  return { ok: true, tarefa: data.title, atribuida_a: team[0].name || team[0].email };
+}
+
+async function estatisticasKanban(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (!pid) return { error: "projeto_id é obrigatório" };
+  const { data: cols } = await ctx.supabase.from("imphq_kanban_columns")
+    .select("id, title, position").eq("project_id", pid).order("position");
+  const { data: cards } = await ctx.supabase.from("imphq_kanban_cards")
+    .select("column_id, due_date").eq("project_id", pid).limit(2000);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const colCount = new Map<string, { abertas: number; atrasadas: number }>();
+  for (const c of cards || []) {
+    const cur = colCount.get(c.column_id) || { abertas: 0, atrasadas: 0 };
+    cur.abertas += 1;
+    if (c.due_date && c.due_date < hoje) cur.atrasadas += 1;
+    colCount.set(c.column_id, cur);
+  }
+  const total = cards?.length || 0;
+  const colunas = (cols || []).map((c: any) => {
+    const st = colCount.get(c.id) || { abertas: 0, atrasadas: 0 };
+    const isDone = /conclu|done|finaliz/i.test(c.title || "");
+    return { coluna: c.title, cards: st.abertas, atrasadas: st.atrasadas, pct: total ? +(st.abertas / total * 100).toFixed(1) : 0, concluida: isDone };
+  });
+  const concluidas = colunas.filter((c) => c.concluida).reduce((s, c) => s + c.cards, 0);
+  return { total_cards: total, concluidas, em_aberto: total - concluidas, progresso_pct: total ? +(concluidas / total * 100).toFixed(1) : 0, colunas };
+}
+
 async function concorrentesAtivos(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
   const pid = resolveProjectId(ctx, args.projeto_id);
   const limite = args.limite ?? 10;
@@ -1789,6 +1953,11 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "topCriativos": return await topCriativos(ctx, args);
       case "oportunidadesMercado": return await oportunidadesMercado(ctx, args);
       case "concorrentesAtivos": return await concorrentesAtivos(ctx, args);
+      case "listarEquipe": return await listarEquipe(ctx, args);
+      case "cargaTrabalhoEquipe": return await cargaTrabalhoEquipe(ctx, args);
+      case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, args);
+      case "atribuirTarefa": return await atribuirTarefa(ctx, args);
+      case "estatisticasKanban": return await estatisticasKanban(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
