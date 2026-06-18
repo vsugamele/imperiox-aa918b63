@@ -2162,6 +2162,11 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, args);
       case "atribuirTarefa": return await atribuirTarefa(ctx, args);
       case "estatisticasKanban": return await estatisticasKanban(ctx, args);
+      case "vendasPorPlataforma": return await vendasPorPlataforma(ctx, args);
+      case "chargebacksRecentes": return await chargebacksRecentes(ctx, args);
+      case "fluxoCaixaMes": return await fluxoCaixaMes(ctx, args);
+      case "automacoesAtivas": return await automacoesAtivas(ctx, args);
+      case "execucoesTravadas": return await execucoesTravadas(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
