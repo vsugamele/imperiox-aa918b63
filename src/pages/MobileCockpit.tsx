@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MobileChat } from "@/components/mobile/MobileChat";
+import { MobileKpiCarousel } from "@/components/mobile/MobileKpiCarousel";
 
 interface Conversation {
   id: string;
