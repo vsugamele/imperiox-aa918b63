@@ -19,6 +19,9 @@ import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
 import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
 import { ProductRoutingRulesTab } from "@/components/configuracoes/ProductRoutingRulesTab";
+import { OutboundWebhooksTab } from "@/components/configuracoes/OutboundWebhooksTab";
+
+
 
 
 export default function Configuracoes() {
