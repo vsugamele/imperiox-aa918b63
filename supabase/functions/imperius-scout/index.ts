@@ -565,7 +565,21 @@ Deno.serve(async (req) => {
     let proposedCount = 0;
     let autoExecCount = 0;
     let dedupSkipped = 0;
+    let killedSkipped = 0;
     const errors: string[] = [];
+
+    // Carrega política aprendida
+    const { data: policies } = await supabase
+      .from("imphq_ai_policy")
+      .select("kind, source, auto_exec_threshold, killed");
+    const policyMap = new Map<string, { threshold: number; killed: boolean }>();
+    for (const p of policies ?? []) {
+      policyMap.set(`${p.kind}::${p.source ?? ""}`, {
+        threshold: Number(p.auto_exec_threshold ?? 0.8),
+        killed: !!p.killed,
+      });
+    }
+
 
     for (const p of (projetos || []) as Projeto[]) {
       let proposals: Proposed[] = [];
@@ -604,7 +618,11 @@ Deno.serve(async (req) => {
         }
         if (isDup) { dedupSkipped++; continue; }
 
-        const autoExec = prop.risk_level === "low" && prop.confidence >= 0.8 && prop.kind !== "notify" && prop.kind !== "createFlow";
+        const pol = policyMap.get(`${prop.kind}::${prop.source ?? ""}`);
+        if (pol?.killed) { killedSkipped++; continue; }
+        const threshold = pol?.threshold ?? 0.8;
+        const autoExec = prop.risk_level === "low" && prop.confidence >= threshold && prop.kind !== "notify" && prop.kind !== "createFlow";
+
 
         const { data: inserted, error: insErr } = await supabase.from("imphq_ai_actions").insert({
           kind: prop.kind,
@@ -636,6 +654,8 @@ Deno.serve(async (req) => {
       proposed: proposedCount,
       auto_executed: autoExecCount,
       dedup_skipped: dedupSkipped,
+      killed_skipped: killedSkipped,
+
       errors,
       execution_ms: Date.now() - startedAt,
     };

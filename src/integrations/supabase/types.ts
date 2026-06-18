@@ -17016,6 +17016,56 @@ export type Database = {
           },
         ]
       }
+      imphq_ai_action_outcomes: {
+        Row: {
+          action_id: string
+          created_at: string
+          days_to_outcome: number | null
+          id: string
+          kind: string
+          notes: string | null
+          observed_at: string
+          projeto_id: string | null
+          result: string
+          revenue_delta: number | null
+          source: string | null
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind?: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result?: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ai_action_outcomes_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ai_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ai_actions: {
         Row: {
           approved_by: string | null
@@ -17213,6 +17263,51 @@ export type Database = {
           result?: Json | null
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_ai_policy: {
+        Row: {
+          auto_exec_threshold: number
+          confidence_floor: number
+          failure_rate: number
+          id: string
+          killed: boolean
+          killed_reason: string | null
+          kind: string
+          sample_size: number
+          scope: string
+          source: string | null
+          success_rate: number
+          updated_at: string
+        }
+        Insert: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind?: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
         }
         Relationships: []
       }
