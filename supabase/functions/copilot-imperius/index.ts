@@ -199,11 +199,36 @@ CONTEXTO ATUAL:
           }
         } catch (e) { console.warn("[copilot] stream interrupted", e); }
 
+        // Guard: se modelo não escreveu nada, gerar fallback útil
+        let finalText = fullText.trim();
+        if (!finalText) {
+          const semMatch = toolActivity.find(
+            (a) => a.name === "buscarProjeto" && a.result?.fallback === "sem_match_exato",
+          );
+          if (semMatch) {
+            const termo = semMatch.result?.termo_buscado || "esse nome";
+            const cands = (semMatch.result?.candidatos || [])
+              .slice(0, 5)
+              .map((c: any) => c.nome)
+              .filter(Boolean);
+            finalText = cands.length
+              ? `Não encontrei projeto com "${termo}". Quis dizer: ${cands.join(", ")}?`
+              : `Não encontrei projeto com "${termo}" e não há projetos ativos cadastrados.`;
+          } else {
+            finalText = "Não consegui formular uma resposta. Reformula o pedido?";
+          }
+          try {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: finalText } }] })}\n\n`),
+            );
+          } catch {}
+        }
+
         // Persistir
         if (!req.signal.aborted) {
           const newMessages = [
             ...messages,
-            { role: "assistant", content: fullText || "Sem resposta.", ts: new Date().toISOString(), tools: toolActivity },
+            { role: "assistant", content: finalText, ts: new Date().toISOString(), tools: toolActivity },
           ];
           const savedId = await persistThread(supabase, user.id, projectId, threadId || null, newMessages, {});
           try {
