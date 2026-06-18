@@ -149,6 +149,76 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
+    // === POST / MEDIA EVENTS (post.created, post.updated, post.metrics, media.*) ===
+    if (
+      typeof payload.event === "string" &&
+      (payload.event.startsWith("post.") || payload.event.startsWith("media."))
+    ) {
+      const d = payload.data || payload;
+      const p = d.post || d.media || d;
+      const zernioAccountId = d.account?.id || d.accountId || d.account_id;
+      const igMediaId = p.ig_id || p.igMediaId || p.media_id || p.mediaId || p.id;
+      if (!igMediaId) {
+        if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ processed: true, error: "no media id" }).eq("id", logEntry.id);
+        return new Response("OK (skipped)", { status: 200 });
+      }
+
+      let accId: string | null = null;
+      if (zernioAccountId) {
+        const { data: acc } = await supa.from("imphq_ig_accounts").select("id")
+          .eq("project_id", projectId).eq("page_id", zernioAccountId).maybeSingle();
+        if (acc) accId = acc.id;
+      }
+      if (!accId) {
+        const { data: acc } = await supa.from("imphq_ig_accounts").select("id")
+          .eq("project_id", projectId).limit(1).maybeSingle();
+        if (acc) accId = acc.id;
+      }
+      if (!accId) {
+        if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ processed: true, error: "no account" }).eq("id", logEntry.id);
+        return new Response("OK (skipped)", { status: 200 });
+      }
+
+      const { data: mediaRow } = await supa.from("imphq_ig_media").upsert({
+        account_id: accId,
+        project_id: projectId,
+        ig_media_id: String(igMediaId),
+        zernio_post_id: p.id || null,
+        media_type: p.mediaType || p.media_type || p.type || null,
+        media_product_type: p.mediaProductType || p.media_product_type || null,
+        caption: p.caption || p.text || null,
+        permalink: p.permalink || p.link || null,
+        thumbnail_url: p.thumbnailUrl || p.thumbnail_url || null,
+        media_url: p.mediaUrl || p.media_url || null,
+        posted_at: p.timestamp || p.publishedAt || p.createdAt || null,
+        raw: p,
+      }, { onConflict: "account_id,ig_media_id" }).select("id").maybeSingle();
+
+      const m = p.insights || p.metrics || p.stats || p;
+      const num = (...v: any[]) => { for (const x of v) { const n = Number(x); if (Number.isFinite(n) && n > 0) return n; } return 0; };
+      const likes = num(m.likes, m.likeCount, m.like_count, p.likes_count);
+      const comments = num(m.comments, m.commentCount, m.comments_count, p.comments_count);
+      const saves = num(m.saves, m.saved);
+      const shares = num(m.shares);
+      const reach = num(m.reach);
+      const impressions = num(m.impressions, m.views);
+      const videoViews = num(m.videoViews, m.video_views, m.plays);
+
+      if (mediaRow && (likes + comments + saves + shares + reach + impressions + videoViews) > 0) {
+        await supa.from("imphq_ig_media_insights").upsert({
+          media_id: mediaRow.id,
+          snapshot_date: new Date().toISOString().slice(0, 10),
+          likes, comments, saves, shares, reach, impressions,
+          video_views: videoViews,
+          engagement: likes + comments + saves + shares,
+          raw: m,
+        }, { onConflict: "media_id,snapshot_date" });
+      }
+
+      if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      return new Response("OK", { status: 200 });
+    }
+
     // Processamos inbound (cliente -> nós) e outbound (nós -> cliente, vindo do app nativo do IG)
     if (payload.event !== "message.received" && payload.event !== "message.sent") {
       console.log(`[zernio-webhook] Ignoring event type: ${payload.event}`);
