@@ -609,17 +609,19 @@ function MaisTab({ onDesktop, navigate }: any) {
 }
 
 /* ───────────── Conv Card ───────────── */
-function ConvCard({ conv, onOpenWa, onTogglePause, onToggleCloser, full = false, compact = false }: any) {
+function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = false, compact = false }: any) {
   const isPaused = conv.ai_paused_until && new Date(conv.ai_paused_until) > new Date();
   const isHot = conv.temperature === "hot" || conv.buy_intent_detected;
   const remaining = conv.ai_paused_until
     ? Math.max(0, Math.ceil((new Date(conv.ai_paused_until).getTime() - Date.now()) / 60000)) : 0;
 
   return (
-    <Card className={cn(
-      "bg-slate-900 border-border/40 transition-all shadow-md active:scale-[0.99]",
-      isHot && "border-orange-500/30 bg-gradient-to-br from-slate-900 to-orange-500/5",
-      isPaused && "border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-500/5"
+    <Card
+      onClick={() => onOpenChat?.(conv)}
+      className={cn(
+        "bg-slate-900 border-border/40 transition-all shadow-md active:scale-[0.99] cursor-pointer",
+        isHot && "border-orange-500/30 bg-gradient-to-br from-slate-900 to-orange-500/5",
+        isPaused && "border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-500/5"
     )}>
       <CardContent className={cn("space-y-3", compact ? "p-3" : "p-3.5")}>
         <div className="flex justify-between items-start gap-2">
