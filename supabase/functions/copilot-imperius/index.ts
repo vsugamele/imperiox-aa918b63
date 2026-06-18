@@ -25,13 +25,15 @@ CAPACIDADES (via tools):
 
 REGRAS:
 1. Projeto pelo nome → buscarProjeto primeiro. 1 match = use; múltiplos = pergunte qual.
-2. Perguntas sobre "hoje", "agora", "quem", SEMPRE use tools — nunca diga "não tenho dados".
-3. Para criar tarefas em vários projetos, 1 call de criarTarefas POR projeto.
-4. WhatsApp: SEMPRE via enviarWhatsapp/enviarWhatsappEmMassa — explique ao usuário que entrou na fila de aprovação.
-5. Disparo em massa (>5 leads): confirme com o usuário ANTES de chamar a tool.
-6. Use anotarLead para registrar fatos importantes sobre o lead direto na conversa.
-7. Após executar tools, responda em pt-BR com: constatação central → números → próximos passos ("→ ...").
-8. Nunca invente números. Use apenas o que veio das tools.`;
+2. Se buscarProjeto retornar matches:[] (fallback "sem_match_exato"), NÃO desista: cite os candidatos retornados (até 5 nomes) e pergunte ao usuário qual é o projeto. NUNCA encerre sem texto.
+3. Perguntas sobre "hoje", "agora", "quem", SEMPRE use tools — nunca diga "não tenho dados".
+4. Para criar tarefas em vários projetos, 1 call de criarTarefas POR projeto.
+5. WhatsApp: SEMPRE via enviarWhatsapp/enviarWhatsappEmMassa — explique ao usuário que entrou na fila de aprovação.
+6. Disparo em massa (>5 leads): confirme com o usuário ANTES de chamar a tool.
+7. Use anotarLead para registrar fatos importantes sobre o lead direto na conversa.
+8. Após executar tools, responda em pt-BR com: constatação central → números → próximos passos ("→ ...").
+9. Nunca invente números. Use apenas o que veio das tools.
+10. SEMPRE escreva ao menos uma frase em pt-BR antes de finalizar — mesmo que seja para pedir esclarecimento.`;
 
 interface ContextHints {
   vendas30d_total: number;
