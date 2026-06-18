@@ -689,7 +689,77 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 11: Finanças & Recuperação =====
+  {
+    type: "function",
+    function: {
+      name: "vendasPorPlataforma",
+      description: "Split de receita aprovada por plataforma (Hotmart/Kiwify/Ticto/etc) nos últimos N dias. Retorna receita, vendas e ticket médio por plataforma.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "chargebacksRecentes",
+      description: "Lista vendas com status chargeback, reembolsada ou cancelada nos últimos N dias. Inclui valor perdido total.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 30" },
+          limite: { type: "number", description: "default 50" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fluxoCaixaMes",
+      description: "Fluxo de caixa do mês atual: receita aprovada vs custos (imphq_project_costs + imphq_custos + ads) com margem e projeção até fim do mês.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
+  // ===== Onda 12: Automações & OpenFlow =====
+  {
+    type: "function",
+    function: {
+      name: "automacoesAtivas",
+      description: "Lista automações ativas (imphq_automacoes) com contagem de execuções nas últimas 24h e status.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" }, limite: { type: "number", description: "default 20" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execucoesTravadas",
+      description: "Lista execuções de fluxos (imphq_flow_executions) em status 'waiting' ou 'error' há mais de N horas. Detecta automações travadas.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 1" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
 
 
 
@@ -1906,7 +1976,141 @@ async function concorrentesAtivos(ctx: ToolCtx, args: { projeto_id?: string; lim
 }
 
 
+// ===== Onda 11: Finanças & Recuperação =====
+async function vendasPorPlataforma(ctx: ToolCtx, args: { projeto_id?: string; dias?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 30;
+  const since = new Date(Date.now() - dias * 86400000).toISOString();
+  let q = ctx.supabase.from("imphq_vendas")
+    .select("valor, plataforma").eq("status", "aprovado").gte("data_venda", since).limit(5000);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const map = new Map<string, { receita: number; vendas: number }>();
+  for (const v of data || []) {
+    const k = v.plataforma || "outro";
+    const cur = map.get(k) || { receita: 0, vendas: 0 };
+    cur.receita += Number(v.valor || 0); cur.vendas += 1;
+    map.set(k, cur);
+  }
+  const plataformas = Array.from(map.entries()).map(([nome, v]) => ({
+    plataforma: nome, receita: +v.receita.toFixed(2), vendas: v.vendas,
+    ticket_medio: v.vendas ? +(v.receita / v.vendas).toFixed(2) : 0,
+  })).sort((a, b) => b.receita - a.receita);
+  const total = plataformas.reduce((s, p) => s + p.receita, 0);
+  return { dias, projeto_id: pid, receita_total: +total.toFixed(2), plataformas };
+}
+
+async function chargebacksRecentes(ctx: ToolCtx, args: { projeto_id?: string; dias?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 30;
+  const limite = args.limite ?? 50;
+  const since = new Date(Date.now() - dias * 86400000).toISOString();
+  let q = ctx.supabase.from("imphq_vendas")
+    .select("id, valor, produto_nome, status, plataforma, data_venda, lead_id")
+    .in("status", ["chargeback", "reembolsada", "cancelada"])
+    .gte("data_venda", since)
+    .order("data_venda", { ascending: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const perdido = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const porStatus = new Map<string, number>();
+  for (const v of data || []) porStatus.set(v.status, (porStatus.get(v.status) || 0) + 1);
+  return {
+    dias, count: data?.length || 0, valor_perdido: +perdido.toFixed(2),
+    por_status: Object.fromEntries(porStatus),
+    vendas: (data || []).map((v: any) => ({
+      id: v.id, produto: v.produto_nome, valor: Number(v.valor || 0),
+      status: v.status, plataforma: v.plataforma, em: v.data_venda,
+    })),
+  };
+}
+
+async function fluxoCaixaMes(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const now = new Date();
+  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const diasNoMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const diaAtual = now.getDate();
+  let qv = ctx.supabase.from("imphq_vendas").select("valor")
+    .eq("status", "aprovado").gte("data_venda", inicioMes).limit(5000);
+  if (pid) qv = qv.eq("project_id", pid);
+  let qc = ctx.supabase.from("imphq_project_costs").select("valor, created_at").gte("created_at", inicioMes).limit(2000);
+  if (pid) qc = qc.eq("project_id", pid);
+  let qa = ctx.supabase.from("imphq_ads_spend").select("valor").gte("data_ref", inicioMes.slice(0, 10)).limit(5000);
+  if (pid) qa = qa.eq("project_id", pid);
+  const [{ data: vendas }, { data: custos }, { data: ads }] = await Promise.all([qv, qc, qa] as PromiseLike<any>[]);
+  const receita = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const custoFixo = (custos || []).reduce((s: number, c: any) => s + Number(c.valor || 0), 0);
+  const custoAds = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const custoTotal = custoFixo + custoAds;
+  const margem = receita - custoTotal;
+  return {
+    projeto_id: pid, dia_atual: diaAtual, dias_no_mes: diasNoMes,
+    receita: +receita.toFixed(2), custo_ads: +custoAds.toFixed(2), custo_fixo: +custoFixo.toFixed(2),
+    custo_total: +custoTotal.toFixed(2), margem: +margem.toFixed(2),
+    margem_pct: receita > 0 ? +(margem / receita * 100).toFixed(1) : 0,
+    projecao_receita_fim_mes: diaAtual ? +(receita / diaAtual * diasNoMes).toFixed(2) : 0,
+    projecao_margem_fim_mes: diaAtual ? +(margem / diaAtual * diasNoMes).toFixed(2) : 0,
+  };
+}
+
+// ===== Onda 12: Automações & OpenFlow =====
+async function automacoesAtivas(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 20;
+  let q = ctx.supabase.from("imphq_automacoes")
+    .select("id, nome, trigger_tipo, ativo, project_id, updated_at")
+    .eq("ativo", true).order("updated_at", { ascending: false }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const ids = (data || []).map((a: any) => a.id);
+  const since = new Date(Date.now() - 86400000).toISOString();
+  const runMap: Record<string, number> = {};
+  if (ids.length) {
+    const { data: runs } = await ctx.supabase.from("imphq_flow_executions")
+      .select("automacao_id").in("automacao_id", ids).gte("created_at", since).limit(5000);
+    for (const r of runs || []) runMap[r.automacao_id] = (runMap[r.automacao_id] || 0) + 1;
+  }
+  return {
+    count: data?.length || 0,
+    automacoes: (data || []).map((a: any) => ({
+      id: a.id, nome: a.nome, trigger: a.trigger_tipo,
+      execucoes_24h: runMap[a.id] || 0, atualizado: a.updated_at,
+    })),
+  };
+}
+
+async function execucoesTravadas(ctx: ToolCtx, args: { projeto_id?: string; horas?: number; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const horas = args.horas ?? 1;
+  const limite = args.limite ?? 30;
+  const cutoff = new Date(Date.now() - horas * 3600000).toISOString();
+  let q = ctx.supabase.from("imphq_flow_executions")
+    .select("id, automacao_id, lead_id, status, current_step, error_message, next_run_at, updated_at, project_id")
+    .in("status", ["waiting", "error"])
+    .lte("updated_at", cutoff)
+    .order("updated_at", { ascending: true }).limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const waiting = (data || []).filter((e: any) => e.status === "waiting").length;
+  const errored = (data || []).filter((e: any) => e.status === "error").length;
+  return {
+    count: data?.length || 0, waiting, errored, horas_min: horas,
+    execucoes: (data || []).map((e: any) => ({
+      id: e.id, automacao_id: e.automacao_id, lead_id: e.lead_id,
+      status: e.status, step: e.current_step, erro: e.error_message,
+      proxima_execucao: e.next_run_at, ultimo_update: e.updated_at,
+    })),
+  };
+}
+
+
 export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
+
 
   try {
     switch (name) {
@@ -1958,6 +2162,11 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, args);
       case "atribuirTarefa": return await atribuirTarefa(ctx, args);
       case "estatisticasKanban": return await estatisticasKanban(ctx, args);
+      case "vendasPorPlataforma": return await vendasPorPlataforma(ctx, args);
+      case "chargebacksRecentes": return await chargebacksRecentes(ctx, args);
+      case "fluxoCaixaMes": return await fluxoCaixaMes(ctx, args);
+      case "automacoesAtivas": return await automacoesAtivas(ctx, args);
+      case "execucoesTravadas": return await execucoesTravadas(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
