@@ -689,7 +689,77 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 11: Finanças & Recuperação =====
+  {
+    type: "function",
+    function: {
+      name: "vendasPorPlataforma",
+      description: "Split de receita aprovada por plataforma (Hotmart/Kiwify/Ticto/etc) nos últimos N dias. Retorna receita, vendas e ticket médio por plataforma.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "chargebacksRecentes",
+      description: "Lista vendas com status chargeback, reembolsada ou cancelada nos últimos N dias. Inclui valor perdido total.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "default 30" },
+          limite: { type: "number", description: "default 50" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fluxoCaixaMes",
+      description: "Fluxo de caixa do mês atual: receita aprovada vs custos (imphq_project_costs + imphq_custos + ads) com margem e projeção até fim do mês.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" } }, additionalProperties: false,
+      },
+    },
+  },
+  // ===== Onda 12: Automações & OpenFlow =====
+  {
+    type: "function",
+    function: {
+      name: "automacoesAtivas",
+      description: "Lista automações ativas (imphq_automacoes) com contagem de execuções nas últimas 24h e status.",
+      parameters: {
+        type: "object",
+        properties: { projeto_id: { type: "string" }, limite: { type: "number", description: "default 20" } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execucoesTravadas",
+      description: "Lista execuções de fluxos (imphq_flow_executions) em status 'waiting' ou 'error' há mais de N horas. Detecta automações travadas.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          horas: { type: "number", description: "default 1" },
+          limite: { type: "number", description: "default 30" },
+        }, additionalProperties: false,
+      },
+    },
+  },
 ];
+
 
 
 
