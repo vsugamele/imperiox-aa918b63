@@ -358,7 +358,7 @@ export default function MobileCockpit() {
 /* ───────────── Cockpit Tab ───────────── */
 function CockpitTab({
   salesStats, loadingStats, hotConversations, loading, onRefresh,
-  onOpenWa, onTogglePause, onToggleCloser
+  onOpenChat, onTogglePause, onToggleCloser
 }: any) {
   return (
     <div className="space-y-4">
