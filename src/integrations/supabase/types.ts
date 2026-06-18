@@ -21403,6 +21403,152 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_outbound_webhook_deliveries: {
+        Row: {
+          attempt: number
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          event: string
+          id: string
+          max_attempts: number
+          next_retry_at: string | null
+          payload: Json
+          response_body: string | null
+          status: string
+          status_code: number | null
+          webhook_id: string
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event?: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload?: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhook_deliveries_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_outbound_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_outbound_webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          events: string[]
+          headers: Json
+          id: string
+          last_delivery_at: string | null
+          last_status: string | null
+          name: string
+          project_id: string | null
+          secret: string
+          total_deliveries: number
+          total_failures: number
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name: string
+          project_id?: string | null
+          secret: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name?: string
+          project_id?: string | null
+          secret?: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_processes: {
         Row: {
           category: string
