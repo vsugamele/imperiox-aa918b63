@@ -1,5 +1,5 @@
-// Imperius Scout — varre projetos vendendo, propõe ações na fila
-// Roda via cron (15min). Auto-executa low risk.
+// Imperius Scout — varre projetos ativos, propõe ações na fila imphq_ai_actions
+// Auto-executa low risk (confidence ≥ 0.8). Roda via cron a cada 15min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
@@ -19,108 +19,132 @@ type Proposed = {
   payload: any;
   projeto_id?: string;
   source?: string;
+  impact_brl?: number;
 };
 
-async function scoutProject(supabase: any, projeto: any): Promise<Proposed[]> {
+type Projeto = {
+  id: string;
+  name: string;
+  settings: any;
+  data: any;
+  daily_revenue_goal: number | null;
+};
+
+function metaCpaOf(p: Projeto): number {
+  const s = p.settings || {};
+  const d = p.data || {};
+  return Number(s.meta_cpa ?? d.meta_cpa ?? 50);
+}
+
+async function scoutProject(supabase: any, projeto: Projeto): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
-  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const since2h = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 1) Hot leads sem follow-up nas últimas 2h
+  // 1) Hot leads quentes sem follow-up recente
   const { data: hotLeads } = await supabase
     .from("imphq_leads")
-    .select("id, nome, telefone, score, ultimo_evento, updated_at, projeto_id")
-    .eq("projeto_id", projetoId)
+    .select("id, nome, phone, score, updated_at")
+    .eq("project_id", projetoId)
     .gte("score", 70)
     .gte("updated_at", since2h)
     .limit(20);
 
   for (const lead of hotLeads || []) {
-    if (!lead.telefone) continue;
+    if (!lead.phone) continue;
     out.push({
       kind: "notify",
       risk_level: "low",
       confidence: 0.85,
-      title: `Hot lead sem toque: ${lead.nome || lead.telefone}`,
-      reason: `Score ${lead.score}, último evento ${lead.ultimo_evento || "n/a"}. Follow-up recomendado.`,
-      payload: { lead_id: lead.id, telefone: lead.telefone, score: lead.score },
+      title: `Hot lead sem toque: ${lead.nome || lead.phone}`,
+      reason: `Score ${lead.score}. Follow-up recomendado.`,
+      payload: { lead_id: lead.id, telefone: lead.phone, score: lead.score },
       projeto_id: projetoId,
       source: "scout-hot-leads",
+      impact_brl: 300,
     });
   }
 
-  // 2) Anúncios com CPA ruim (>1.5x meta) ou CTR <0.8% nos últimos 7d
-  const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // 2) Ads ruins nos últimos 7d (CPA alto OU CTR baixo)
   const { data: ads } = await supabase
-    .from("imphq_facebook_ads_insights")
-    .select("entity_id, entity_type, entity_name, impressions, clicks, spend, conversions, date_start")
-    .eq("projeto_id", projetoId)
-    .gte("date_start", since7.slice(0, 10))
-    .limit(200);
+    .from("imphq_ads_spend")
+    .select("ad_id, adset_id, anuncio, conjunto_anuncios, impressoes, cliques, spend, valor, compras")
+    .eq("project_id", projetoId)
+    .gte("date", since7d.slice(0, 10))
+    .limit(500);
 
-  // Agrega por entity_id
   const agg = new Map<string, any>();
   for (const a of ads || []) {
-    const k = a.entity_id;
-    if (!agg.has(k)) agg.set(k, { ...a, impressions: 0, clicks: 0, spend: 0, conversions: 0 });
-    const r = agg.get(k);
-    r.impressions += Number(a.impressions || 0);
-    r.clicks += Number(a.clicks || 0);
-    r.spend += Number(a.spend || 0);
-    r.conversions += Number(a.conversions || 0);
+    const entityId = a.ad_id || a.adset_id;
+    if (!entityId) continue;
+    const entityType = a.ad_id ? "ad" : "adset";
+    const entityName = a.anuncio || a.conjunto_anuncios || entityId;
+    if (!agg.has(entityId)) {
+      agg.set(entityId, { entity_id: entityId, entity_type: entityType, entity_name: entityName, impressions: 0, clicks: 0, spend: 0, conversions: 0 });
+    }
+    const r = agg.get(entityId);
+    r.impressions += Number(a.impressoes || 0);
+    r.clicks += Number(a.cliques || 0);
+    r.spend += Number(a.spend ?? a.valor ?? 0);
+    r.conversions += Number(a.compras || 0);
   }
 
-  const metaCpa = Number(projeto.meta_cpa || 50);
+  const metaCpa = metaCpaOf(projeto);
   for (const r of agg.values()) {
     const ctr = r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0;
-    const cpa = r.conversions > 0 ? r.spend / r.conversions : 999;
+    const cpa = r.conversions > 0 ? r.spend / r.conversions : 9999;
     if (r.clicks >= 50 && cpa > metaCpa * 1.5) {
       out.push({
         kind: "pauseAd",
         risk_level: "low",
         confidence: 0.9,
-        title: `Pausar ${r.entity_name || r.entity_id} (CPA R$ ${cpa.toFixed(2)})`,
+        title: `Pausar ${r.entity_name} (CPA R$ ${cpa.toFixed(2)})`,
         reason: `CPA ${cpa.toFixed(2)} é ${(cpa / metaCpa).toFixed(1)}x da meta R$ ${metaCpa}. Cliques: ${r.clicks}, gasto R$ ${r.spend.toFixed(2)}.`,
-        payload: { entity_id: r.entity_id, entity_type: r.entity_type || "adset" },
+        payload: { entity_id: r.entity_id, entity_type: r.entity_type },
         projeto_id: projetoId,
         source: "scout-ads-cpa",
+        impact_brl: Math.round(r.spend),
       });
     } else if (r.impressions >= 3000 && ctr < 0.8) {
       out.push({
         kind: "pauseAd",
         risk_level: "low",
         confidence: 0.8,
-        title: `Pausar ${r.entity_name || r.entity_id} (CTR ${ctr.toFixed(2)}%)`,
+        title: `Pausar ${r.entity_name} (CTR ${ctr.toFixed(2)}%)`,
         reason: `CTR ${ctr.toFixed(2)}% após ${r.impressions} impressões. Criativo fraco.`,
-        payload: { entity_id: r.entity_id, entity_type: r.entity_type || "adset" },
+        payload: { entity_id: r.entity_id, entity_type: r.entity_type },
         projeto_id: projetoId,
         source: "scout-ads-ctr",
+        impact_brl: Math.round(r.spend),
       });
     }
   }
 
-  // 3) Vendas Pix/Boleto pendentes >24h sem recuperação
+  // 3) Vendas Pix/Boleto pendentes >24h sem recuperação (join leads)
   const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: pending } = await supabase
     .from("imphq_vendas")
-    .select("id, comprador_nome, comprador_telefone, valor, status, metodo_pagamento, created_at, projeto_id")
-    .eq("projeto_id", projetoId)
-    .in("status", ["pending", "waiting_payment", "expired"])
-    .lt("created_at", since24)
-    .limit(20);
+    .select("id, valor, status, lead_id, data_venda, lead:imphq_leads!lead_id(nome, phone)")
+    .eq("project_id", projetoId)
+    .in("status", ["pending", "waiting_payment", "expired", "pendente", "aguardando_pagamento"])
+    .lt("data_venda", since24)
+    .gte("data_venda", since7d)
+    .limit(30);
 
   for (const v of pending || []) {
-    if (!v.comprador_telefone) continue;
+    const phone = v.lead?.phone;
+    if (!phone) continue;
     out.push({
       kind: "notify",
       risk_level: "low",
       confidence: 0.75,
-      title: `Recuperar Pix/Boleto: ${v.comprador_nome || v.comprador_telefone}`,
-      reason: `${v.metodo_pagamento || "pagamento"} R$ ${Number(v.valor).toFixed(2)} pendente há +24h.`,
-      payload: { venda_id: v.id, telefone: v.comprador_telefone, valor: v.valor },
+      title: `Recuperar Pix/Boleto: ${v.lead?.nome || phone}`,
+      reason: `Pagamento R$ ${Number(v.valor).toFixed(2)} pendente há +24h.`,
+      payload: { venda_id: v.id, telefone: phone, valor: v.valor },
       projeto_id: projetoId,
       source: "scout-recovery",
+      impact_brl: Math.round(Number(v.valor) * 0.2),
     });
   }
 
@@ -129,7 +153,6 @@ async function scoutProject(supabase: any, projeto: any): Promise<Proposed[]> {
 
 // ── Detector de padrões → propõe drafts de OpenFlow ──
 
-// Confidence dinâmica: cresce com sample_size (saturação)
 function dynamicConfidence(sample: number, threshold: number, base = 0.7, max = 0.95): number {
   if (sample <= threshold) return base;
   const ratio = Math.min(1, (sample - threshold) / (threshold * 3));
@@ -142,13 +165,12 @@ function buildPreview(acoes: any[]): string[] {
     .map((a) => `${a.tipo}: ${String(a.template).slice(0, 90)}`);
 }
 
-async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed[]> {
+async function detectFlowPatterns(supabase: any, projeto: Projeto): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
   const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Helper: existe automação ativa para este trigger no projeto?
   const hasFlow = async (trigger: string) => {
     const { data } = await supabase
       .from("imphq_automacoes")
@@ -171,6 +193,7 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     metric: string;
     estimated_recovery: string;
     source: string;
+    impact_brl?: number;
   }) => {
     const conf = dynamicConfidence(cfg.sample, cfg.threshold);
     out.push({
@@ -194,17 +217,18 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
       },
       projeto_id: projetoId,
       source: cfg.source,
+      impact_brl: cfg.impact_brl,
     });
   };
 
-  // Padrão A — Pix/Boleto sem recuperação automática
+  // A — Pix/Boleto sem recuperação automática
   if (!(await hasFlow("aguardando_pagamento"))) {
     const { count } = await supabase
       .from("imphq_vendas")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
-      .in("status", ["waiting_payment", "pending"])
-      .gte("created_at", since7);
+      .eq("project_id", projetoId)
+      .in("status", ["waiting_payment", "pending", "aguardando_pagamento"])
+      .gte("data_venda", since7);
     if ((count || 0) >= 10) {
       pushFlow({
         title: "Criar recuperação automática de Pix/Boleto",
@@ -221,18 +245,19 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
         metric: `${count} pendentes/7d`,
         estimated_recovery: `~${Math.round((count || 0) * 0.2)} vendas/sem`,
         source: "scout-pattern-recovery",
+        impact_brl: Math.round((count || 0) * 0.2 * 200),
       });
     }
   }
 
-  // Padrão B — Hot leads sem flow de boas-vindas
+  // B — Hot leads sem boas-vindas
   if (!(await hasFlow("lead_novo"))) {
     const { count } = await supabase
       .from("imphq_leads")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
+      .eq("project_id", projetoId)
       .gte("score", 70)
-      .gte("created_at", since7);
+      .gte("criado_em", since7);
     if ((count || 0) >= 15) {
       pushFlow({
         title: "Criar boas-vindas automática para leads quentes",
@@ -253,14 +278,14 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     }
   }
 
-  // Padrão C — Compras aprovadas sem onboarding
+  // C — Compras aprovadas sem onboarding
   if (!(await hasFlow("compra_aprovada"))) {
     const { count } = await supabase
       .from("imphq_vendas")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
-      .in("status", ["approved", "paid"])
-      .gte("created_at", since30);
+      .eq("project_id", projetoId)
+      .in("status", ["approved", "paid", "aprovada", "paga"])
+      .gte("data_venda", since30);
     if ((count || 0) >= 20) {
       pushFlow({
         title: "Criar onboarding pós-compra automático",
@@ -281,18 +306,18 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     }
   }
 
-  // Padrão D — Carrinho abandonado sem flow
+  // D — Carrinho abandonado sem flow
   if (!(await hasFlow("carrinho_abandonado")) && !(await hasFlow("inicio_checkout"))) {
     const { count } = await supabase
       .from("imphq_vendas")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
-      .in("status", ["abandoned", "checkout_abandoned", "cart_abandoned"])
-      .gte("created_at", since7);
+      .eq("project_id", projetoId)
+      .in("status", ["abandoned", "checkout_abandoned", "cart_abandoned", "abandonado"])
+      .gte("data_venda", since7);
     if ((count || 0) >= 8) {
       pushFlow({
         title: "Criar recuperação de carrinho abandonado",
-        reason: `${count} carrinhos abandonados em 7d. Recuperação típica de carrinho: 10-15%.`,
+        reason: `${count} carrinhos abandonados em 7d. Recuperação típica: 10-15%.`,
         flow_name: "Recuperação de Carrinho (Imperius)",
         trigger_tipo: "carrinho_abandonado",
         acoes: [
@@ -309,18 +334,18 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     }
   }
 
-  // Padrão E — Reembolsos sem flow de retenção
+  // E — Reembolsos sem flow de retenção
   if (!(await hasFlow("reembolso"))) {
     const { count } = await supabase
       .from("imphq_vendas")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
-      .in("status", ["refunded", "chargeback"])
-      .gte("created_at", since30);
+      .eq("project_id", projetoId)
+      .in("status", ["refunded", "chargeback", "reembolsada", "estornada"])
+      .gte("data_venda", since30);
     if ((count || 0) >= 3) {
       pushFlow({
         title: "Criar flow de retenção pós-reembolso",
-        reason: `${count} reembolsos/chargebacks em 30d. Entender o motivo reduz churn e melhora produto.`,
+        reason: `${count} reembolsos/chargebacks em 30d. Entender o motivo reduz churn.`,
         flow_name: "Retenção Pós-Reembolso (Imperius)",
         trigger_tipo: "reembolso",
         acoes: [
@@ -337,17 +362,17 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
     }
   }
 
-  // Padrão F — Leads que clicaram link mas não compraram
+  // F — Leads que clicaram link mas não compraram
   if (!(await hasFlow("clicou_link")) && !(await hasFlow("tag_adicionada"))) {
     const { count } = await supabase
       .from("imphq_clicks")
       .select("id", { count: "exact", head: true })
-      .eq("projeto_id", projetoId)
+      .eq("project_id", projetoId)
       .gte("created_at", since7);
     if ((count || 0) >= 30) {
       pushFlow({
         title: "Criar follow-up para leads que clicaram mas não compraram",
-        reason: `${count} cliques de tracker em 7d sem flow de follow-up. Maioria não converte sozinha.`,
+        reason: `${count} cliques de tracker em 7d sem flow de follow-up.`,
         flow_name: "Follow-up Clique sem Compra (Imperius)",
         trigger_tipo: "tag_adicionada",
         acoes: [
@@ -368,62 +393,100 @@ async function detectFlowPatterns(supabase: any, projeto: any): Promise<Proposed
   return out;
 }
 
-
-
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const startedAt = Date.now();
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const url = new URL(req.url);
     const projetoIdParam = url.searchParams.get("projeto_id");
 
-    let q = supabase.from("imphq_projetos").select("id, nome, status, meta_cpa").in("status", ["vendendo", "Vendendo"]);
-    if (projetoIdParam) q = supabase.from("imphq_projetos").select("id, nome, status, meta_cpa").eq("id", projetoIdParam);
+    const cols = "id, name, settings, data, daily_revenue_goal";
+    let q = supabase.from("imphq_projects").select(cols).eq("is_archived", false);
+    if (projetoIdParam) q = supabase.from("imphq_projects").select(cols).eq("id", projetoIdParam);
 
     const { data: projetos, error } = await q;
     if (error) throw error;
 
     let proposedCount = 0;
     let autoExecCount = 0;
+    let dedupSkipped = 0;
+    const errors: string[] = [];
 
-    for (const p of projetos || []) {
-      const proposals = [...(await scoutProject(supabase, p)), ...(await detectFlowPatterns(supabase, p))];
+    for (const p of (projetos || []) as Projeto[]) {
+      let proposals: Proposed[] = [];
+      try {
+        proposals = [...(await scoutProject(supabase, p)), ...(await detectFlowPatterns(supabase, p))];
+      } catch (e: any) {
+        errors.push(`${p.id}: ${String(e?.message || e)}`);
+        continue;
+      }
       for (const prop of proposals) {
-        // Dedup: não duplica ação aberta para mesmo (kind + payload chave)
-        const dedupKey = JSON.stringify({ kind: prop.kind, projeto: prop.projeto_id, key: prop.payload?.entity_id || prop.payload?.lead_id || prop.payload?.venda_id });
         const { data: existing } = await supabase
           .from("imphq_ai_actions")
           .select("id")
           .eq("projeto_id", prop.projeto_id || "")
           .eq("kind", prop.kind)
           .in("status", ["proposed", "approved"])
-          .limit(1);
-        if (existing && existing.length > 0) continue;
+          .limit(50);
+
+        const dupKey = prop.payload?.entity_id || prop.payload?.lead_id || prop.payload?.venda_id || prop.payload?.trigger_tipo;
+        let isDup = false;
+        if (existing && existing.length > 0 && dupKey) {
+          const { data: full } = await supabase
+            .from("imphq_ai_actions")
+            .select("id, payload")
+            .in("id", existing.map((x: any) => x.id));
+          isDup = (full || []).some((f: any) => {
+            const k = f.payload?.entity_id || f.payload?.lead_id || f.payload?.venda_id || f.payload?.trigger_tipo;
+            return k === dupKey;
+          });
+        } else if (existing && existing.length > 0 && !dupKey) {
+          isDup = true;
+        }
+        if (isDup) { dedupSkipped++; continue; }
 
         const autoExec = prop.risk_level === "low" && prop.confidence >= 0.8 && prop.kind !== "notify" && prop.kind !== "createFlow";
 
-        const { data: inserted } = await supabase.from("imphq_ai_actions").insert({
-          ...prop,
+        const { data: inserted, error: insErr } = await supabase.from("imphq_ai_actions").insert({
+          kind: prop.kind,
+          risk_level: prop.risk_level,
+          confidence: prop.confidence,
+          title: prop.title,
+          reason: prop.reason,
+          payload: prop.payload,
+          projeto_id: prop.projeto_id,
+          source: prop.source,
+          impact_brl: prop.impact_brl ?? null,
           status: autoExec ? "approved" : "proposed",
           auto_executed: autoExec,
         }).select().single();
 
+        if (insErr) { errors.push(`insert: ${insErr.message}`); continue; }
         proposedCount++;
 
         if (autoExec && inserted) {
-          // Dispara executor
           await supabase.functions.invoke("imperius-executor", { body: { action_id: inserted.id, mode: "execute" } });
           autoExecCount++;
         }
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, projetos: projetos?.length || 0, proposed: proposedCount, auto_executed: autoExecCount }), {
+    const result = {
+      ok: true,
+      projetos: projetos?.length || 0,
+      proposed: proposedCount,
+      auto_executed: autoExecCount,
+      dedup_skipped: dedupSkipped,
+      errors,
+      execution_ms: Date.now() - startedAt,
+    };
+    console.log("imperius-scout:", JSON.stringify(result));
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    console.error("imperius-scout:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("imperius-scout fatal:", e);
+    return new Response(JSON.stringify({ error: String(e?.message || e), execution_ms: Date.now() - startedAt }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
