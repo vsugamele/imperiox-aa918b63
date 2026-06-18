@@ -655,16 +655,16 @@ function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = fals
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onOpenWa(conv.phone)}
+            onClick={(e) => { e.stopPropagation(); onOpenChat?.(conv); }}
             className="text-sm min-h-11 gap-1 font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           >
-            <ExternalLink className="h-4 w-4" /> Chat
+            <MessageSquare className="h-4 w-4" /> Abrir chat
           </Button>
           {full && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onToggleCloser(conv)}
+              onClick={(e) => { e.stopPropagation(); onToggleCloser(conv); }}
               className={cn(
                 "text-sm min-h-11 gap-1 font-semibold",
                 conv.buy_intent_detected
@@ -678,7 +678,7 @@ function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = fals
           <Button
             size="sm"
             variant="outline"
-            onClick={() => onTogglePause(conv)}
+            onClick={(e) => { e.stopPropagation(); onTogglePause(conv); }}
             className={cn(
               "text-sm min-h-11 gap-1 font-semibold",
               isPaused
