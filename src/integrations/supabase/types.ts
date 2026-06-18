@@ -21709,6 +21709,7 @@ export type Database = {
           is_archived: boolean | null
           members: Json | null
           meta_diaria_notified_date: string | null
+          meta_offline_event_set_id: string | null
           name: string
           owner_phone: string | null
           parent_id: string | null
@@ -21737,6 +21738,7 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name: string
           owner_phone?: string | null
           parent_id?: string | null
@@ -21765,6 +21767,7 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name?: string
           owner_phone?: string | null
           parent_id?: string | null
@@ -23311,6 +23314,7 @@ export type Database = {
           id: string
           lead_id: string | null
           learned_at: string | null
+          meta_offline_synced_at: string | null
           pais: string | null
           plataforma: string
           produto_id_ext: string | null
@@ -23336,6 +23340,7 @@ export type Database = {
           id: string
           lead_id?: string | null
           learned_at?: string | null
+          meta_offline_synced_at?: string | null
           pais?: string | null
           plataforma: string
           produto_id_ext?: string | null
@@ -23361,6 +23366,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           learned_at?: string | null
+          meta_offline_synced_at?: string | null
           pais?: string | null
           plataforma?: string
           produto_id_ext?: string | null
