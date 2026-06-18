@@ -393,6 +393,160 @@ async function detectFlowPatterns(supabase: any, projeto: Projeto): Promise<Prop
   return out;
 }
 
+// ── Sensores macro: anomalias, budget, CAC, nutrição parada ──
+async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Proposed[]> {
+  const out: Proposed[] = [];
+  const projetoId = projeto.id;
+  const today = new Date().toISOString().slice(0, 10);
+  const since14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // 1) Anomalia de receita hoje (>2σ abaixo da média 14d)
+  try {
+    const { data: vendas14 } = await supabase
+      .from("imphq_vendas")
+      .select("valor, data_venda, status")
+      .eq("project_id", projetoId)
+      .in("status", ["approved", "paid", "aprovada", "paga"])
+      .gte("data_venda", since14)
+      .limit(2000);
+
+    if (vendas14 && vendas14.length > 0) {
+      const byDay = new Map<string, number>();
+      for (const v of vendas14) {
+        const d = String(v.data_venda).slice(0, 10);
+        byDay.set(d, (byDay.get(d) || 0) + Number(v.valor || 0));
+      }
+      const todayRev = byDay.get(today) || 0;
+      const historic = [...byDay.entries()].filter(([d]) => d !== today).map(([, v]) => v);
+      if (historic.length >= 7) {
+        const mean = historic.reduce((a, b) => a + b, 0) / historic.length;
+        const variance = historic.reduce((a, b) => a + (b - mean) ** 2, 0) / historic.length;
+        const std = Math.sqrt(variance);
+        const hour = new Date().getHours();
+        // só alerta depois das 14h pra não disparar de manhã
+        if (hour >= 14 && std > 0 && todayRev < mean - 2 * std && mean > 100) {
+          out.push({
+            kind: "notify",
+            risk_level: "medium",
+            confidence: 0.85,
+            title: `Receita hoje ${(todayRev / mean * 100).toFixed(0)}% da média`,
+            reason: `Hoje: R$ ${todayRev.toFixed(2)}. Média 14d: R$ ${mean.toFixed(2)} (σ R$ ${std.toFixed(2)}). Queda > 2σ.`,
+            payload: { tipo: "anomalia_receita", today: todayRev, mean, std },
+            projeto_id: projetoId,
+            source: "scout-revenue-anomaly",
+            impact_brl: Math.round(mean - todayRev),
+          });
+        }
+      }
+    }
+  } catch (e) { console.warn("anomaly:", e); }
+
+  // 2) Queima de orçamento: spend hoje > 80% da meta diária (meta = goal/30 ou settings.daily_ad_budget)
+  try {
+    const settings = projeto.settings || {};
+    const data = projeto.data || {};
+    const dailyBudget = Number(settings.daily_ad_budget ?? data.daily_ad_budget ?? (projeto.daily_revenue_goal ? Number(projeto.daily_revenue_goal) * 0.3 : 0));
+    if (dailyBudget > 0 && new Date().getHours() >= 12) {
+      const { data: todaySpend } = await supabase
+        .from("imphq_ads_spend")
+        .select("spend, valor")
+        .eq("project_id", projetoId)
+        .eq("date", today)
+        .limit(1000);
+      const total = (todaySpend || []).reduce((a: number, r: any) => a + Number(r.spend ?? r.valor ?? 0), 0);
+      const pct = total / dailyBudget;
+      if (pct >= 0.8) {
+        out.push({
+          kind: "notify",
+          risk_level: pct >= 1 ? "high" : "medium",
+          confidence: 0.9,
+          title: `Budget diário em ${(pct * 100).toFixed(0)}%`,
+          reason: `Gasto hoje R$ ${total.toFixed(2)} de R$ ${dailyBudget.toFixed(2)} (meta diária). ${pct >= 1 ? "Estourou." : "Próximo do teto."}`,
+          payload: { tipo: "budget_burn", spend_today: total, daily_budget: dailyBudget, pct },
+          projeto_id: projetoId,
+          source: "scout-budget-burn",
+          impact_brl: Math.round(total),
+        });
+      }
+    }
+  } catch (e) { console.warn("budget:", e); }
+
+  // 3) CAC subindo 3 dias seguidos
+  try {
+    const last4 = Array.from({ length: 4 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      return d.toISOString().slice(0, 10);
+    });
+    const { data: spendRows } = await supabase
+      .from("imphq_ads_spend")
+      .select("date, spend, valor, compras")
+      .eq("project_id", projetoId)
+      .in("date", last4)
+      .limit(1000);
+    const dayMap = new Map<string, { spend: number; conv: number }>();
+    for (const r of spendRows || []) {
+      const d = String(r.date);
+      const cur = dayMap.get(d) || { spend: 0, conv: 0 };
+      cur.spend += Number(r.spend ?? r.valor ?? 0);
+      cur.conv += Number(r.compras || 0);
+      dayMap.set(d, cur);
+    }
+    const cacs = last4.slice(0, 4).reverse().map((d) => {
+      const x = dayMap.get(d);
+      if (!x || x.conv === 0) return null;
+      return { date: d, cac: x.spend / x.conv };
+    });
+    const valid = cacs.filter(Boolean) as { date: string; cac: number }[];
+    if (valid.length >= 4) {
+      const [a, b, c, d] = valid.slice(-4);
+      if (b.cac > a.cac && c.cac > b.cac && d.cac > c.cac && d.cac > a.cac * 1.3) {
+        out.push({
+          kind: "notify",
+          risk_level: "medium",
+          confidence: 0.8,
+          title: `CAC subiu 3 dias seguidos`,
+          reason: `${a.date}: R$ ${a.cac.toFixed(2)} → ${d.date}: R$ ${d.cac.toFixed(2)} (+${((d.cac / a.cac - 1) * 100).toFixed(0)}%). Revisar criativos.`,
+          payload: { tipo: "cac_rising", trend: valid.map(v => ({ date: v.date, cac: Number(v.cac.toFixed(2)) })) },
+          projeto_id: projetoId,
+          source: "scout-cac-rising",
+          impact_brl: Math.round((d.cac - a.cac) * (dayMap.get(d.date)?.conv || 1)),
+        });
+      }
+    }
+  } catch (e) { console.warn("cac:", e); }
+
+  // 4) Leads quentes parados em sequência de nutrição há +24h
+  try {
+    const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: stuck } = await supabase
+      .from("imphq_lead_sequence_enrollments")
+      .select("id, lead_id, sequence_id, current_step, updated_at, status, lead:imphq_leads!lead_id(nome, phone, score, project_id)")
+      .eq("status", "active")
+      .lt("updated_at", since24)
+      .gte("updated_at", since7d)
+      .limit(50);
+    const filtered = (stuck || []).filter((s: any) => s.lead?.project_id === projetoId && (s.lead?.score || 0) >= 60 && s.lead?.phone);
+    if (filtered.length >= 3) {
+      out.push({
+        kind: "notify",
+        risk_level: "low",
+        confidence: 0.8,
+        title: `${filtered.length} hot leads parados em sequência`,
+        reason: `Leads (score≥60) sem avanço em sequência há +24h. Possível travamento no flow.`,
+        payload: { tipo: "nutrition_stuck", count: filtered.length, lead_ids: filtered.slice(0, 10).map((f: any) => f.lead_id) },
+        projeto_id: projetoId,
+        source: "scout-nutrition-stuck",
+        impact_brl: filtered.length * 150,
+      });
+    }
+  } catch (e) { console.warn("stuck:", e); }
+
+  return out;
+}
+
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const startedAt = Date.now();
@@ -416,7 +570,11 @@ Deno.serve(async (req) => {
     for (const p of (projetos || []) as Projeto[]) {
       let proposals: Proposed[] = [];
       try {
-        proposals = [...(await scoutProject(supabase, p)), ...(await detectFlowPatterns(supabase, p))];
+        proposals = [
+          ...(await scoutProject(supabase, p)),
+          ...(await detectFlowPatterns(supabase, p)),
+          ...(await detectMacroSignals(supabase, p)),
+        ];
       } catch (e: any) {
         errors.push(`${p.id}: ${String(e?.message || e)}`);
         continue;
