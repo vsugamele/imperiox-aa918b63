@@ -468,7 +468,7 @@ function InboxTab({
             <ConvCard
               key={conv.id}
               conv={conv}
-              onOpenWa={onOpenWa}
+              onOpenChat={onOpenChat}
               onTogglePause={onTogglePause}
               compact
             />
