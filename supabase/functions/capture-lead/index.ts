@@ -364,6 +364,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Dispara webhook de saída lead.created ──
+    if (!existing) {
+      try {
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/outbound-webhook-dispatcher`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            event: "lead.created",
+            project_id: projectId,
+            payload: { lead_id: leadId, nome: name, email, telefone: phone, project_id: projectId },
+          }),
+        }).catch(() => {});
+      } catch (_) {}
+    }
+
     return new Response(
       JSON.stringify({ success: true, ok: true, lead_id: leadId, is_new: !existing }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

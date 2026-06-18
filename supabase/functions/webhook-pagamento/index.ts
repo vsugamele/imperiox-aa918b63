@@ -1620,6 +1620,27 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       }
     }
 
+    // ── Dispara webhook de saída (fire-and-forget) ──
+    try {
+      const outboundEvent =
+        evento === "compra_aprovada" ? "venda.paga" :
+        evento === "reembolso" ? "venda.reembolsada" : null;
+      if (outboundEvent) {
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/outbound-webhook-dispatcher`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            event: outboundEvent,
+            project_id: projectId,
+            payload: { plataforma, evento, lead_id: leadId, project_id: projectId, nome, email, phone, valor, produto, tipo_venda, data_compra },
+          }),
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
     return new Response(
       JSON.stringify({ ok: true, plataforma, evento, lead_id: leadId, project_id: projectId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
