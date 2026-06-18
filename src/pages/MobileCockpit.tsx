@@ -286,7 +286,7 @@ export default function MobileCockpit() {
             hotConversations={hotConversations}
             loading={loadingConvs}
             onRefresh={() => { loadStats(); loadConversations(); }}
-            onOpenWa={handleOpenWaDirect}
+            onOpenChat={(c: Conversation) => setOpenConv(c)}
             onTogglePause={handleToggleAiPause}
             onToggleCloser={handleToggleCloserMode}
           />
@@ -302,7 +302,7 @@ export default function MobileCockpit() {
             filter={inboxFilter}
             setFilter={setInboxFilter}
             onRefresh={loadConversations}
-            onOpenWa={handleOpenWaDirect}
+            onOpenChat={(c: Conversation) => setOpenConv(c)}
             onTogglePause={handleToggleAiPause}
           />
         )}
