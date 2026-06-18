@@ -667,6 +667,46 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           </a>
         </div>
 
+        {/* Offline Conversions - alternativa ao CAPI quando não há token */}
+        <div className="border-t border-border pt-4 mt-2">
+          <Label className="text-xs text-muted-foreground font-semibold">📤 Offline Event Set ID (Offline Conversions)</Label>
+          <p className="text-[10px] text-muted-foreground mb-2">
+            Alternativa ao CAPI: envia vendas confirmadas direto ao Events Manager por <code className="bg-secondary px-1 rounded">email/telefone hasheado</code>, sem precisar de token CAPI no Pixel. Usa o Access Token de Marketing API acima. Cron a cada 30min.
+          </p>
+          <Input
+            value={project.meta_offline_event_set_id || ""}
+            onChange={e => setProject((p: any) => ({ ...p, meta_offline_event_set_id: e.target.value }))}
+            onBlur={() => updateField("meta_offline_event_set_id", project.meta_offline_event_set_id || "")}
+            className="bg-secondary"
+            placeholder="123456789012345 (ID do Offline Event Set)"
+          />
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke("meta-offline-upload", { body: { project_id: project.id } });
+                  if (error) throw error;
+                  const r = data?.results?.[0];
+                  if (r?.error) toast.error("Erro: " + r.error);
+                  else if (r?.skipped) toast.warning("Configure Event Set ID e Access Token (Marketing API)");
+                  else toast.success(`Enviado: ${r?.uploaded ?? 0} de ${r?.total_candidates ?? 0} vendas`);
+                } catch (e: any) { toast.error(e.message); }
+              }}
+            >
+              <TestTube2 className="h-3 w-3 mr-1" /> Enviar agora
+            </Button>
+            <a href="https://business.facebook.com/events_manager2/list/offline_event_set" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline self-center">
+              <ExternalLink className="h-3 w-3" /> Criar/abrir Offline Event Set
+            </a>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            Como criar: Events Manager → "Adicionar Eventos" → "Offline" → Criar conjunto → copie o ID e cole acima. Atribua às campanhas ativas.
+          </p>
+        </div>
+
         <div className="flex gap-2">
           <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
             <ExternalLink className="h-3 w-3" /> Abrir Facebook Events Manager
