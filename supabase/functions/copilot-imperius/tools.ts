@@ -780,12 +780,48 @@ async function listarProjetos(ctx: ToolCtx) {
 async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
   const t = (termo || "").trim();
   if (!t) return { error: "termo vazio" };
-  const { data } = await ctx.supabase
+
+  // 1ª tentativa: ilike literal
+  const r1 = await ctx.supabase
     .from("imphq_projects")
     .select("id, name, active")
     .ilike("name", `%${t}%`)
     .limit(10);
-  return { matches: (data || []).map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })) };
+  if ((r1.data || []).length) {
+    return { termo_buscado: t, matches: r1.data!.map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })) };
+  }
+
+  // 2ª tentativa: tokens ≥ 3 chars com OR
+  const tokens = t.split(/\s+/).filter((x) => x.length >= 3);
+  if (tokens.length) {
+    const orExpr = tokens.map((tok) => `name.ilike.%${tok.replace(/[,()]/g, "")}%`).join(",");
+    const r2 = await ctx.supabase
+      .from("imphq_projects")
+      .select("id, name, active")
+      .or(orExpr)
+      .limit(10);
+    if ((r2.data || []).length) {
+      return {
+        termo_buscado: t,
+        fallback: "match_por_token",
+        matches: r2.data!.map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })),
+      };
+    }
+  }
+
+  // 3ª tentativa: devolve candidatos ativos para o modelo perguntar
+  const r3 = await ctx.supabase
+    .from("imphq_projects")
+    .select("id, name, active, is_archived")
+    .eq("is_archived", false)
+    .order("name")
+    .limit(10);
+  return {
+    termo_buscado: t,
+    fallback: "sem_match_exato",
+    matches: [],
+    candidatos: (r3.data || []).map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })),
+  };
 }
 
 function resolveProjectId(ctx: ToolCtx, given?: string) {
