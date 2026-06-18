@@ -159,7 +159,7 @@ CONTEXTO ATUAL:
     const finalRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages: modelMessages, stream: true }),
+      body: JSON.stringify({ model: MODEL, messages: modelMessages, stream: true, tool_choice: "none" }),
       signal: req.signal,
     });
     if (!finalRes.ok || !finalRes.body) {
