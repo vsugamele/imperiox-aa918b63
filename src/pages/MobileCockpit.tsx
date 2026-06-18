@@ -124,7 +124,7 @@ export default function MobileCockpit() {
     try {
       const { data, error } = await supabase
         .from("imphq_wa_conversations")
-        .select("*")
+        .select("id, project_id, contact_name, phone, last_message, last_message_at, ai_paused_until, buy_intent_detected, temperature, status, unread_count, provider_id, lead_id")
         .eq("project_id", selectedProjectId)
         .order("last_message_at", { ascending: false })
         .limit(100);
