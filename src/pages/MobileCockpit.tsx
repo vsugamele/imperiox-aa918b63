@@ -542,51 +542,12 @@ function LeadsTab({
       ) : (
         <div className="space-y-2.5">
           {leads.map((lead: Lead) => (
-            <Card
+            <MobileLeadCard
               key={lead.id}
-              onClick={() => onOpen(lead.id)}
-              className="bg-slate-900 border-border/40 shadow-md active:scale-[0.99] cursor-pointer"
-            >
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h4 className="text-base font-bold text-white truncate">{lead.nome || "Sem nome"}</h4>
-                    <p className="text-sm text-muted-foreground font-mono truncate">{lead.phone || lead.email || "—"}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {typeof lead.score === "number" && lead.score > 0 && (
-                      <Badge className={cn(
-                        "text-xs font-bold px-2 py-0.5",
-                        lead.score >= 70 ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
-                        : lead.score >= 40 ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                        : "bg-slate-700/40 text-slate-300 border-slate-600/40"
-                      )}>
-                        {lead.score}
-                      </Badge>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span className="truncate max-w-[60%]">
-                    {lead.status || "Lead"}
-                  </span>
-                  <span className="shrink-0">
-                    {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: ptBR })}
-                  </span>
-                </div>
-                {lead.phone && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => { e.stopPropagation(); onWhats(lead.phone!); }}
-                    className="w-full text-sm h-10 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                  >
-                    <ExternalLink className="h-4 w-4" /> WhatsApp
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+              lead={lead}
+              onOpen={onOpen}
+              onWhats={onWhats}
+            />
           ))}
         </div>
       )}
