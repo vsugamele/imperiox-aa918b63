@@ -3603,6 +3603,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -3622,6 +3623,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -3641,6 +3643,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -4041,6 +4044,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
@@ -4050,6 +4054,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
@@ -4059,6 +4064,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
