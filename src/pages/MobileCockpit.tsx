@@ -414,7 +414,7 @@ function CockpitTab({
 /* ───────────── Inbox Tab ───────────── */
 function InboxTab({
   conversations, total, loading, search, setSearch, filter, setFilter,
-  onRefresh, onOpenWa, onTogglePause
+  onRefresh, onOpenChat, onTogglePause
 }: any) {
   const filters: { id: InboxFilter; label: string }[] = [
     { id: "all", label: "Todas" },
