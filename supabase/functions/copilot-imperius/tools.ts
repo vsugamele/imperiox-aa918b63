@@ -45,6 +45,34 @@ export const TOOL_SPECS = [
   {
     type: "function",
     function: {
+      name: "leadsDoDia",
+      description: "Conta e lista leads CAPTURADOS em uma data (default hoje). Use quando o usuário perguntar 'quantos leads', 'leads de hoje', 'leads capturados'. NÃO confunda com vendas.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          data: { type: "string", description: "ISO YYYY-MM-DD; default hoje" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "leadsResumo",
+      description: "Resumo de captação de leads por período (default 7d): total, média diária, por dia, por plataforma.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          dias: { type: "number", description: "Janela em dias, default 7" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "vendasResumo",
       description: "Resumo de vendas por período (default 30d). Receita, ticket médio, top produtos.",
       parameters: {
