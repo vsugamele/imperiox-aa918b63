@@ -73,6 +73,9 @@ export default function MobileCockpit() {
   const [leadSearch, setLeadSearch] = useState("");
   const [leadStatus, setLeadStatus] = useState<string>("all");
 
+  // Open chat in fullscreen
+  const [openConv, setOpenConv] = useState<Conversation | null>(null);
+
   const setActiveTab = (t: Tab) => {
     setTab(t);
     localStorage.setItem(TAB_KEY, t);
