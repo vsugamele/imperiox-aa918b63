@@ -351,6 +351,15 @@ export default function MobileCockpit() {
           );
         })}
       </nav>
+
+      {openConv && (
+        <MobileChat
+          conversation={openConv as any}
+          onClose={() => { setOpenConv(null); loadConversations(); }}
+          onTogglePause={handleToggleAiPause}
+          onToggleCloser={handleToggleCloserMode}
+        />
+      )}
     </div>
   );
 }
