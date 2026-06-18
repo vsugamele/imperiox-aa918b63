@@ -16,6 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileKpiCarousel } from "@/components/mobile/MobileKpiCarousel";
+import { MobileLeadCard } from "@/components/mobile/MobileLeadCard";
 
 interface Conversation {
   id: string;
@@ -541,51 +542,12 @@ function LeadsTab({
       ) : (
         <div className="space-y-2.5">
           {leads.map((lead: Lead) => (
-            <Card
+            <MobileLeadCard
               key={lead.id}
-              onClick={() => onOpen(lead.id)}
-              className="bg-slate-900 border-border/40 shadow-md active:scale-[0.99] cursor-pointer"
-            >
-              <CardContent className="p-3.5 space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h4 className="text-base font-bold text-white truncate">{lead.nome || "Sem nome"}</h4>
-                    <p className="text-sm text-muted-foreground font-mono truncate">{lead.phone || lead.email || "—"}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {typeof lead.score === "number" && lead.score > 0 && (
-                      <Badge className={cn(
-                        "text-xs font-bold px-2 py-0.5",
-                        lead.score >= 70 ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
-                        : lead.score >= 40 ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                        : "bg-slate-700/40 text-slate-300 border-slate-600/40"
-                      )}>
-                        {lead.score}
-                      </Badge>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span className="truncate max-w-[60%]">
-                    {lead.status || "Lead"}
-                  </span>
-                  <span className="shrink-0">
-                    {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: ptBR })}
-                  </span>
-                </div>
-                {lead.phone && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => { e.stopPropagation(); onWhats(lead.phone!); }}
-                    className="w-full text-sm h-10 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                  >
-                    <ExternalLink className="h-4 w-4" /> WhatsApp
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+              lead={lead}
+              onOpen={onOpen}
+              onWhats={onWhats}
+            />
           ))}
         </div>
       )}
@@ -595,33 +557,56 @@ function LeadsTab({
 
 /* ───────────── Mais Tab ───────────── */
 function MaisTab({ onDesktop, navigate }: any) {
-  const items = [
-    { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
-    { label: "Finanças", icon: DollarSign, to: "/financas" },
-    { label: "Recuperação", icon: Wallet, to: "/recuperacao" },
-    { label: "Tarefas", icon: ListTodo, to: "/openflow" },
+  const groups: { title: string; items: { label: string; icon: any; to: string; desc: string; color: string }[] }[] = [
+    {
+      title: "Operação",
+      items: [
+        { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard", desc: "Visão geral", color: "text-blue-400" },
+        { label: "Finanças", icon: DollarSign, to: "/financas", desc: "Receita, ROAS, projeção", color: "text-emerald-400" },
+        { label: "Recuperação", icon: Wallet, to: "/recuperacao", desc: "Pix/Boleto pendentes", color: "text-amber-400" },
+        { label: "Tarefas", icon: ListTodo, to: "/openflow", desc: "Kanban e to-dos", color: "text-violet-400" },
+      ],
+    },
+    {
+      title: "Inteligência",
+      items: [
+        { label: "Imperius", icon: Flame, to: "/imperius", desc: "Ações autônomas da IA", color: "text-orange-400" },
+        { label: "Notificações", icon: InboxIcon, to: "/notificacoes", desc: "Alertas e avisos", color: "text-cyan-400" },
+        { label: "Equipe", icon: Users, to: "/equipe", desc: "Membros e papéis", color: "text-pink-400" },
+        { label: "Configurações", icon: MoreHorizontal, to: "/configuracoes", desc: "Integrações e regras", color: "text-slate-300" },
+      ],
+    },
   ];
+
   return (
-    <div className="space-y-2">
-      {items.map(i => {
-        const Icon = i.icon;
-        return (
-          <button
-            key={i.to}
-            onClick={() => navigate(i.to)}
-            className="w-full flex items-center justify-between p-4 rounded-lg bg-slate-900 border border-border/40 active:scale-[0.99] min-h-11"
-          >
-            <span className="flex items-center gap-3">
-              <Icon className="h-5 w-5 text-amber-400" />
-              <span className="text-base font-semibold text-white">{i.label}</span>
-            </span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-        );
-      })}
+    <div className="space-y-5">
+      {groups.map(g => (
+        <div key={g.title} className="space-y-2">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold px-1">{g.title}</h3>
+          <div className="grid grid-cols-2 gap-2.5">
+            {g.items.map(i => {
+              const Icon = i.icon;
+              return (
+                <button
+                  key={i.to}
+                  onClick={() => navigate(i.to)}
+                  className="flex flex-col items-start gap-2 p-3.5 rounded-xl bg-slate-900 border border-border/40 active:scale-[0.98] transition-transform text-left min-h-[96px]"
+                >
+                  <Icon className={cn("h-5 w-5", i.color)} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{i.label}</p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-tight">{i.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
       <button
         onClick={onDesktop}
-        className="w-full mt-4 p-4 rounded-lg border border-dashed border-border/50 text-base text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
+        className="w-full p-4 rounded-lg border border-dashed border-border/50 text-base text-muted-foreground hover:text-amber-400 hover:border-amber-500/40 transition min-h-11"
       >
         Ver versão desktop →
       </button>
