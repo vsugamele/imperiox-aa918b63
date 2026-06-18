@@ -565,7 +565,21 @@ Deno.serve(async (req) => {
     let proposedCount = 0;
     let autoExecCount = 0;
     let dedupSkipped = 0;
+    let killedSkipped = 0;
     const errors: string[] = [];
+
+    // Carrega política aprendida
+    const { data: policies } = await supabase
+      .from("imphq_ai_policy")
+      .select("kind, source, auto_exec_threshold, killed");
+    const policyMap = new Map<string, { threshold: number; killed: boolean }>();
+    for (const p of policies ?? []) {
+      policyMap.set(`${p.kind}::${p.source ?? ""}`, {
+        threshold: Number(p.auto_exec_threshold ?? 0.8),
+        killed: !!p.killed,
+      });
+    }
+
 
     for (const p of (projetos || []) as Projeto[]) {
       let proposals: Proposed[] = [];
