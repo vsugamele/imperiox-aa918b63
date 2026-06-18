@@ -1953,6 +1953,11 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "topCriativos": return await topCriativos(ctx, args);
       case "oportunidadesMercado": return await oportunidadesMercado(ctx, args);
       case "concorrentesAtivos": return await concorrentesAtivos(ctx, args);
+      case "listarEquipe": return await listarEquipe(ctx, args);
+      case "cargaTrabalhoEquipe": return await cargaTrabalhoEquipe(ctx, args);
+      case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, args);
+      case "atribuirTarefa": return await atribuirTarefa(ctx, args);
+      case "estatisticasKanban": return await estatisticasKanban(ctx, args);
       default: return { error: `tool desconhecida: ${name}` };
 
 
