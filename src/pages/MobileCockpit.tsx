@@ -282,6 +282,7 @@ export default function MobileCockpit() {
       <div className="px-4 py-4 max-w-xl mx-auto space-y-4">
         {tab === "cockpit" && (
           <CockpitTab
+            projectId={selectedProjectId}
             salesStats={salesStats}
             loadingStats={loadingStats}
             hotConversations={hotConversations}
@@ -290,6 +291,12 @@ export default function MobileCockpit() {
             onOpenChat={(c: Conversation) => setOpenConv(c)}
             onTogglePause={handleToggleAiPause}
             onToggleCloser={handleToggleCloserMode}
+            onNavigateMore={(target: string) => {
+              if (target === "leads") setActiveTab("leads");
+              else if (target === "financas") navigate("/financas");
+              else if (target === "recuperacao") navigate("/recuperacao");
+              else if (target === "analytics") navigate("/dashboard");
+            }}
           />
         )}
 
