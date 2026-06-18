@@ -618,7 +618,11 @@ Deno.serve(async (req) => {
         }
         if (isDup) { dedupSkipped++; continue; }
 
-        const autoExec = prop.risk_level === "low" && prop.confidence >= 0.8 && prop.kind !== "notify" && prop.kind !== "createFlow";
+        const pol = policyMap.get(`${prop.kind}::${prop.source ?? ""}`);
+        if (pol?.killed) { killedSkipped++; continue; }
+        const threshold = pol?.threshold ?? 0.8;
+        const autoExec = prop.risk_level === "low" && prop.confidence >= threshold && prop.kind !== "notify" && prop.kind !== "createFlow";
+
 
         const { data: inserted, error: insErr } = await supabase.from("imphq_ai_actions").insert({
           kind: prop.kind,
