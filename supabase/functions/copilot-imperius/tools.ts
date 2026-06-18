@@ -856,6 +856,64 @@ function resolveProjectId(ctx: ToolCtx, given?: string) {
   return given || ctx.projectId || null;
 }
 
+async function leadsDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dia = args.data || new Date().toISOString().slice(0, 10);
+  const start = `${dia}T00:00:00`;
+  const end = `${dia}T23:59:59.999`;
+  let q = ctx.supabase
+    .from("imphq_leads")
+    .select("id, nome, email, phone, plataforma, status, created_at")
+    .gte("created_at", start).lte("created_at", end)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const porPlataforma: Record<string, number> = {};
+  for (const l of data || []) {
+    const k = l.plataforma || "—";
+    porPlataforma[k] = (porPlataforma[k] || 0) + 1;
+  }
+  return {
+    data: dia,
+    projeto_id: pid,
+    total: data?.length || 0,
+    por_plataforma: porPlataforma,
+    ultimos: (data || []).slice(0, 10).map((l: any) => ({
+      nome: l.nome, email: l.email, phone: l.phone, plataforma: l.plataforma, hora: l.created_at,
+    })),
+  };
+}
+
+async function leadsResumo(ctx: ToolCtx, args: { projeto_id?: string; dias?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const dias = args.dias ?? 7;
+  const since = new Date(Date.now() - dias * 86400000).toISOString();
+  let q = ctx.supabase.from("imphq_leads")
+    .select("plataforma, created_at").gte("created_at", since).limit(5000);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  const porDia: Record<string, number> = {};
+  const porPlat: Record<string, number> = {};
+  for (const l of data || []) {
+    const d = (l.created_at || "").slice(0, 10);
+    porDia[d] = (porDia[d] || 0) + 1;
+    const k = l.plataforma || "—";
+    porPlat[k] = (porPlat[k] || 0) + 1;
+  }
+  const total = data?.length || 0;
+  return {
+    projeto_id: pid,
+    dias,
+    total_periodo: total,
+    media_diaria: Number((total / dias).toFixed(1)),
+    por_dia: Object.entries(porDia).sort((a, b) => a[0].localeCompare(b[0])).map(([data, count]) => ({ data, count })),
+    top_plataformas: Object.entries(porPlat).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([plataforma, count]) => ({ plataforma, count })),
+  };
+}
+
 async function vendasDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: string }) {
   const pid = resolveProjectId(ctx, args.projeto_id);
   const dia = args.data || new Date().toISOString().slice(0, 10);
