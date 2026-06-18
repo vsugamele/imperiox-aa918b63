@@ -399,7 +399,7 @@ function CockpitTab({
             <ConvCard
               key={conv.id}
               conv={conv}
-              onOpenWa={onOpenWa}
+              onOpenChat={onOpenChat}
               onTogglePause={onTogglePause}
               onToggleCloser={onToggleCloser}
               full
