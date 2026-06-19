@@ -739,23 +739,37 @@ export default function InstagramPage() {
     }
     try {
       const isCommentSource = triggerSourceType === "all" || triggerSourceType === "specific";
-      const { error } = await supabase
-        .from("imphq_ig_comment_triggers")
-        .insert({
-          project_id: selectedProjectId,
-          trigger_keyword: newTrigger.trigger_keyword.trim(),
-          post_id: newTrigger.post_id.trim() || "all",
-          reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
-          send_dm_template: newTrigger.send_dm_template.trim(),
-          is_active: newTrigger.is_active,
-          match_count: 0,
-          dm_sent_count: 0,
-          click_count: 0
-        });
+      const payload = {
+        trigger_keyword: newTrigger.trigger_keyword.trim(),
+        post_id: newTrigger.post_id.trim() || "all",
+        reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
+        send_dm_template: newTrigger.send_dm_template.trim(),
+        is_active: newTrigger.is_active,
+      };
 
-      if (error) throw error;
-      toast.success("Gatilho criado com sucesso!");
+      if (editingTriggerId) {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .update(payload)
+          .eq("id", editingTriggerId);
+        if (error) throw error;
+        toast.success("Gatilho atualizado!");
+      } else {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .insert({
+            project_id: selectedProjectId,
+            ...payload,
+            match_count: 0,
+            dm_sent_count: 0,
+            click_count: 0
+          });
+        if (error) throw error;
+        toast.success("Gatilho criado com sucesso!");
+      }
+
       setShowAddTrigger(false);
+      setEditingTriggerId(null);
       setTriggerSourceType("all");
       setNewTrigger({
         trigger_keyword: "",
@@ -766,9 +780,29 @@ export default function InstagramPage() {
       });
       loadTriggers();
     } catch (err: any) {
-      toast.error("Erro ao criar gatilho: " + err.message);
+      toast.error("Erro ao salvar gatilho: " + err.message);
     }
   };
+
+  const openEditTrigger = (trigger: any) => {
+    setEditingTriggerId(trigger.id);
+    const pid = trigger.post_id || "all";
+    const sourceType: "all" | "dm" | "story" | "story_mention" | "specific" =
+      pid === "all" ? "all" :
+      pid === "dm" ? "dm" :
+      pid === "story" ? "story" :
+      pid === "story_mention" ? "story_mention" : "specific";
+    setTriggerSourceType(sourceType);
+    setNewTrigger({
+      trigger_keyword: trigger.trigger_keyword || "",
+      post_id: pid,
+      reply_comment_template: trigger.reply_comment_template || "",
+      send_dm_template: trigger.send_dm_template || "",
+      is_active: trigger.is_active ?? true,
+    });
+    setShowAddTrigger(true);
+  };
+
 
   const handleToggleTriggerActive = async (id: string, active: boolean) => {
     try {
