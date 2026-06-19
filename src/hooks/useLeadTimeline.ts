@@ -25,16 +25,17 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
   const [scoreLog, setScoreLog] = useState<{ acao: string; pontos: number; created_at: string }[]>([]);
   const [formResponses, setFormResponses] = useState<{ form_id: string; form_name?: string; question: string; answer: string; created_at: string }[]>([]);
+  const [recoveryLogs, setRecoveryLogs] = useState<{ id: string; bucket: string; acao: string; canal: string; status: string; valor?: number; observacao?: string; venda_id?: string; created_at: string }[]>([]);
 
   useEffect(() => {
     if (!lead) {
-      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]);
+      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]); setRecoveryLogs([]);
       return;
     }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]);
+      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]); setRecoveryLogs([]);
       const events: TimelineEvent[] = [];
       const visitorId = lead.data?.visitor_id;
       const promises: PromiseLike<any>[] = [];
@@ -120,6 +121,23 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
       promises.push(supabase.from("imphq_lead_scores_log").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).then(({ data }) => {
         if (!cancelled) setScoreLog((data || []).map((s: any) => ({ acao: s.acao, pontos: s.pontos, created_at: s.created_at })));
       }));
+      promises.push(supabase.from("imphq_recovery_logs").select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100).then(({ data }) => {
+        const rows = (data || []).map((r: any) => ({
+          id: r.id, bucket: r.bucket || "", acao: r.acao || "", canal: r.canal || "",
+          status: r.status || "", valor: r.valor, observacao: r.observacao, venda_id: r.venda_id, created_at: r.created_at,
+        }));
+        if (!cancelled) setRecoveryLogs(rows);
+        rows.forEach((r) => {
+          events.push({
+            id: `rec_${r.id}`,
+            type: "Recovery",
+            timestamp: r.created_at,
+            title: `🔄 Recuperação: ${r.bucket || "—"}`,
+            subtitle: [r.canal, r.acao, r.status].filter(Boolean).join(" • "),
+            details: { canal: r.canal, status: r.status, valor: r.valor, obs: r.observacao, venda_id: r.venda_id },
+          });
+        });
+      }));
       await Promise.all(promises);
       if (cancelled) return;
       const unique = new Map(events.map(e => [e.id, e]));
@@ -131,5 +149,5 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
     return () => { cancelled = true; };
   }, [lead?.id]);
 
-  return { timeline, loading, leadAutomationLogs, scoreLog, formResponses };
+  return { timeline, loading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs };
 }

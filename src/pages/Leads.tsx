@@ -79,6 +79,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
   LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
   FormResponse: { icon: <Radio className="h-3 w-3" />, color: "bg-purple-500", label: "Resposta Formulário" },
+  Recovery: { icon: <Zap className="h-3 w-3" />, color: "bg-amber-500", label: "Disparo de Recuperação" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
@@ -336,7 +337,7 @@ export default function Leads() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses } = useLeadTimeline(editLead, automations);
+  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs } = useLeadTimeline(editLead, automations);
 
   const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
   const filtered = leads.filter((l) => {
@@ -942,6 +943,27 @@ export default function Leads() {
                       } catch {}
                     }
                     return null;
+                  })()}
+
+                  {/* Recovery dispatch badge */}
+                  {recoveryLogs && recoveryLogs.length > 0 && (() => {
+                    const last = recoveryLogs[0];
+                    const statusColor =
+                      last.status === "sent" || last.status === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                      last.status === "failed" || last.status === "error" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                      "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                    let when = "";
+                    try { const d = parseISO(last.created_at); if (isValid(d)) when = `há ${Math.max(1, differenceInDays(new Date(), d))}d`; } catch {}
+                    return (
+                      <div className={cn("mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium", statusColor)}>
+                        <Zap className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          🔄 Recuperação <strong className="font-semibold">{last.bucket}</strong> · {last.canal || "?"} · {last.status}
+                          {when && <span className="opacity-70"> · {when}</span>}
+                          {recoveryLogs.length > 1 && <span className="opacity-70"> · +{recoveryLogs.length - 1}</span>}
+                        </span>
+                      </div>
+                    );
                   })()}
                 </div>
 
