@@ -1419,6 +1419,19 @@ export default function InstagramPage() {
         </div>
       </div>
 
+      {/* ─── BANNER: SÓ ZERNIO, FALTA META ─── */}
+      {selectedAccount && igAuthMethod === "zernio" && !igHasMeta && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+          <Instagram className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 text-xs leading-6 text-amber-100/90">
+            Conectado via <strong>Zernio</strong>. Algumas ações (abrir post, responder/excluir comentário, insights, icebreakers) exigem também conexão via <strong>Meta/Facebook</strong>.
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] border-amber-500/40 hover:bg-amber-500/10" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+            Conectar Meta
+          </Button>
+        </div>
+      )}
+
       {/* ─── ALERTA DE CONTA CONECTADA ─── */}
       {!selectedAccount && !loadingConvs && (
         <Card className="bg-card border-dashed border-amber-500/20 shadow-xl max-w-2xl mx-auto py-8">
