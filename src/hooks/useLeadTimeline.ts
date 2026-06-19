@@ -29,7 +29,7 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
 
   useEffect(() => {
     if (!lead) {
-      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]);
+      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]); setRecoveryLogs([]);
       return;
     }
     let cancelled = false;
