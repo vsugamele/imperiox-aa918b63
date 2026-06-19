@@ -542,6 +542,84 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
     }
   } catch (e) { console.warn("stuck:", e); }
 
+  // 5) Anúncio campeão sub-investido (ROAS >3× média do projeto, budget baixo)
+  try {
+    const { data: adsRows } = await supabase
+      .from("imphq_ads_spend")
+      .select("ad_id, adset_id, anuncio, conjunto_anuncios, spend, valor, valor_conversao, budget_daily")
+      .eq("project_id", projetoId)
+      .gte("date", since7d.slice(0, 10))
+      .limit(500);
+    const agg = new Map<string, any>();
+    let totalSpend = 0, totalRev = 0;
+    for (const a of adsRows || []) {
+      const id = a.adset_id || a.ad_id; if (!id) continue;
+      const type = a.adset_id ? "adset" : "ad";
+      const name = a.conjunto_anuncios || a.anuncio || id;
+      const spend = Number(a.spend ?? a.valor ?? 0);
+      const rev = Number(a.valor_conversao ?? 0);
+      const budget = Number(a.budget_daily ?? 0);
+      totalSpend += spend; totalRev += rev;
+      if (!agg.has(id)) agg.set(id, { id, type, name, spend: 0, rev: 0, budget });
+      const r = agg.get(id); r.spend += spend; r.rev += rev;
+      if (budget > 0) r.budget = budget;
+    }
+    const projAvgRoas = totalSpend > 0 ? totalRev / totalSpend : 0;
+    if (projAvgRoas > 0) {
+      for (const r of agg.values()) {
+        const roas = r.spend > 0 ? r.rev / r.spend : 0;
+        if (roas >= projAvgRoas * 3 && r.spend >= 30 && r.budget > 0 && r.budget < 100) {
+          const newBudget = Math.round(r.budget * 1.2);
+          out.push({
+            kind: "adjustBudget",
+            risk_level: "medium",
+            confidence: 0.85,
+            title: `Escalar ${r.name} +20% (ROAS ${roas.toFixed(1)}x)`,
+            reason: `ROAS ${roas.toFixed(1)}x vs média ${projAvgRoas.toFixed(1)}x do projeto. Budget atual R$ ${r.budget} → R$ ${newBudget}.`,
+            payload: { entity_id: r.id, entity_type: r.type, new_budget: newBudget, old_budget: r.budget },
+            projeto_id: projetoId,
+            source: "scout-ads-scale-winner",
+            impact_brl: Math.round((newBudget - r.budget) * roas * 7),
+          });
+        }
+      }
+    }
+  } catch (e) { console.warn("ads-winner:", e); }
+
+  // 6) Humano respondeu há +2h mas IA ainda pausada (em horário comercial) — retomar IA
+  try {
+    const hour = new Date().getHours();
+    if (hour >= 8 && hour < 20) {
+      const since2hAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      const { data: paused } = await supabase
+        .from("imphq_wa_conversations")
+        .select("id, phone, contact_name, ai_paused_until, last_message_at, last_incoming_at, ia_ativa")
+        .eq("project_id", projetoId)
+        .eq("ia_ativa", true)
+        .not("ai_paused_until", "is", null)
+        .gt("ai_paused_until", now)
+        .lt("last_message_at", since2hAgo)
+        .limit(20);
+      for (const c of paused || []) {
+        // só se cliente está aguardando (último incoming é mais recente que último outgoing)
+        if (c.last_incoming_at && c.last_message_at && c.last_incoming_at >= c.last_message_at) {
+          out.push({
+            kind: "resumeAi",
+            risk_level: "low",
+            confidence: 0.85,
+            title: `Retomar IA: ${c.contact_name || c.phone}`,
+            reason: `Cliente aguardando há +2h em horário comercial e IA está pausada. Retomando autônomo.`,
+            payload: { conversation_id: c.id, phone: c.phone, project_id: projetoId },
+            projeto_id: projetoId,
+            source: "scout-resume-ai-stale",
+            impact_brl: 200,
+          });
+        }
+      }
+    }
+  } catch (e) { console.warn("resume-ai:", e); }
+
   return out;
 }
 

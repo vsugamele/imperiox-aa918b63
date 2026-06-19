@@ -21,7 +21,8 @@ type ActionKind =
   | "adjustBudget"
   | "runStudio"
   | "createFlow"
-  | "notify";
+  | "notify"
+  | "resumeAi";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
   const kind: ActionKind = action.kind;
@@ -103,6 +104,26 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
       case "notify": {
         // Só registra; UI mostrará no inbox
         return { ok: true, result: { notified: true } };
+      }
+      case "resumeAi": {
+        // Limpa pausa da IA na conversa (volta autônomo)
+        const { phone, project_id, conversation_id } = p;
+        const prevQ = supabase.from("imphq_wa_conversations").select("id, ai_paused_until, ia_ativa");
+        const lookup = conversation_id
+          ? prevQ.eq("id", conversation_id)
+          : prevQ.eq("project_id", project_id).eq("phone", phone);
+        const { data: prev } = await lookup.maybeSingle();
+        if (!prev) throw new Error("conversa não encontrada");
+        const { error } = await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_paused_until: null })
+          .eq("id", prev.id);
+        if (error) throw error;
+        return {
+          ok: true,
+          result: { conversation_id: prev.id },
+          revert_payload: { conversation_id: prev.id, restore_paused_until: prev.ai_paused_until },
+        };
       }
       default:
         throw new Error(`Tipo de ação desconhecido: ${kind}`);
