@@ -35,7 +35,7 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]);
+      setTimeline([]); setLeadAutomationLogs([]); setScoreLog([]); setFormResponses([]); setRecoveryLogs([]);
       const events: TimelineEvent[] = [];
       const visitorId = lead.data?.visitor_id;
       const promises: PromiseLike<any>[] = [];
