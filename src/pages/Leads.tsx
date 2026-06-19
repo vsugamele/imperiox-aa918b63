@@ -337,7 +337,7 @@ export default function Leads() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses } = useLeadTimeline(editLead, automations);
+  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs } = useLeadTimeline(editLead, automations);
 
   const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
   const filtered = leads.filter((l) => {
