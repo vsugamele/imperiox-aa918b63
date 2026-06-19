@@ -149,5 +149,5 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
     return () => { cancelled = true; };
   }, [lead?.id]);
 
-  return { timeline, loading, leadAutomationLogs, scoreLog, formResponses };
+  return { timeline, loading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs };
 }
