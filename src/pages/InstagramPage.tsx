@@ -136,6 +136,7 @@ export default function InstagramPage() {
   const [triggers, setTriggers] = useState<any[]>([]);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
   const [showAddTrigger, setShowAddTrigger] = useState(false);
+  const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
   const [newTrigger, setNewTrigger] = useState({
     trigger_keyword: "",
     post_id: "all",
