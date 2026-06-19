@@ -944,6 +944,27 @@ export default function Leads() {
                     }
                     return null;
                   })()}
+
+                  {/* Recovery dispatch badge */}
+                  {recoveryLogs && recoveryLogs.length > 0 && (() => {
+                    const last = recoveryLogs[0];
+                    const statusColor =
+                      last.status === "sent" || last.status === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                      last.status === "failed" || last.status === "error" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                      "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                    let when = "";
+                    try { const d = parseISO(last.created_at); if (isValid(d)) when = `há ${Math.max(1, differenceInDays(new Date(), d))}d`; } catch {}
+                    return (
+                      <div className={cn("mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium", statusColor)}>
+                        <Zap className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          🔄 Recuperação <strong className="font-semibold">{last.bucket}</strong> · {last.canal || "?"} · {last.status}
+                          {when && <span className="opacity-70"> · {when}</span>}
+                          {recoveryLogs.length > 1 && <span className="opacity-70"> · +{recoveryLogs.length - 1}</span>}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* 2. Main Dialog Tabs */}
