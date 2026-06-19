@@ -21,7 +21,8 @@ type ActionKind =
   | "adjustBudget"
   | "runStudio"
   | "createFlow"
-  | "notify";
+  | "notify"
+  | "resumeAi";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
   const kind: ActionKind = action.kind;
