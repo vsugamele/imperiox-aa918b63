@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
       const { project_id, recipient_id, text, metadata } = body;
       if (!project_id || !recipient_id || !text) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
-      if (!creds) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
 
       let messageId = "";
       let provider = "";
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
         return json({ error: "project_id e array de icebreakers são obrigatórios" }, 400);
       }
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
 
       // format for Meta API
       const metaIcebreakers = icebreakers
@@ -424,7 +424,7 @@ Deno.serve(async (req) => {
       const { project_id, comment_id, message } = body;
       if (!project_id || !comment_id || !message) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}/replies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -441,7 +441,7 @@ Deno.serve(async (req) => {
       const { project_id, comment_id } = body;
       const hide = action === "hide_comment";
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}?hide=${hide}&access_token=${creds.page_access_token}`, { method: "POST" });
       const data = await r.json();
       if (data.error) return json({ error: data.error.message }, 400);
@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
     if (action === "delete_comment") {
       const { project_id, comment_id } = body;
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}?access_token=${creds.page_access_token}`, { method: "DELETE" });
       const data = await r.json();
       if (data.error) return json({ error: data.error.message }, 400);
@@ -465,7 +465,7 @@ Deno.serve(async (req) => {
     if (action === "private_reply") {
       const { project_id, comment_id, message } = body;
       const creds = await getCreds(supa, project_id);
-      if (!creds) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
 
       let messageId = "";
 
@@ -511,7 +511,7 @@ Deno.serve(async (req) => {
           return json({ error: "Conversa do Zernio correspondente ao comentário não encontrada." }, 400);
         }
       } else {
-        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada" }, 404);
+        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
         if (creds?.n8n_webhook_url) {
           console.log(`[instagram-api] Forwarding private_reply to N8N webhook: ${creds.n8n_webhook_url}`);
           const nr = await fetch(creds.n8n_webhook_url, {
@@ -625,7 +625,7 @@ Deno.serve(async (req) => {
       const media_id = url.searchParams.get("media_id") || body.media_id;
       if (!project_id || !media_id) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
-      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
+      if (!creds?.page_access_token) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
       const r = await fetch(`${GRAPH}/${media_id}?fields=permalink,shortcode,caption&access_token=${creds.page_access_token}`);
       const data = await r.json();
       if (data.error) return json({ error: data.error.message }, 400);
