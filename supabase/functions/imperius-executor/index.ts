@@ -135,6 +135,19 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
           revert_payload: { conversation_id: prev.id, restore_paused_until: prev.ai_paused_until },
         };
       }
+      case "runZernioTool": {
+        // Invoca tool MCP do Zernio via bridge zernio-mcp
+        const { tool, args } = p;
+        if (!tool) throw new Error("tool obrigatório");
+        if (!action.projeto_id) throw new Error("projeto_id obrigatório (Zernio key é por projeto)");
+        const r = await supabase.functions.invoke("zernio-mcp", {
+          body: { project_id: action.projeto_id, op: "tools/call", tool, args: args || {} },
+        });
+        if (r.error) throw new Error(r.error.message);
+        if (r.data && r.data.ok === false) throw new Error(typeof r.data.error === "string" ? r.data.error : JSON.stringify(r.data.error));
+        // Sem revert_payload — publicação social não tem undo automático
+        return { ok: true, result: r.data?.result ?? r.data };
+      }
       default:
         throw new Error(`Tipo de ação desconhecido: ${kind}`);
     }
