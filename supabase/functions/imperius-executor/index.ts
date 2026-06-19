@@ -125,6 +125,8 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
           revert_payload: { conversation_id: prev.id, restore_paused_until: prev.ai_paused_until },
         };
       }
+      default:
+        throw new Error(`Tipo de ação desconhecido: ${kind}`);
     }
   } catch (e: any) {
     return { ok: false, error: String(e?.message || e) };
