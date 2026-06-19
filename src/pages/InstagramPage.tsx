@@ -225,6 +225,9 @@ export default function InstagramPage() {
     }
   }, [selectedConv, loadLeadData]);
 
+  const [igAuthMethod, setIgAuthMethod] = useState<string | null>(null);
+  const [igHasMeta, setIgHasMeta] = useState<boolean>(false);
+
   const loadIcebreakers = useCallback(async (projectId: string) => {
     const { data } = await supabase
       .from("imphq_integration_credentials")
@@ -234,6 +237,8 @@ export default function InstagramPage() {
       .maybeSingle();
     
     const creds = (data?.credentials as any) || {};
+    setIgAuthMethod(creds?.auth_method || null);
+    setIgHasMeta(!!creds?.page_access_token);
     if (creds?.icebreakers && Array.isArray(creds.icebreakers)) {
       const qs = [...creds.icebreakers];
       while (qs.length < 4) qs.push("");
