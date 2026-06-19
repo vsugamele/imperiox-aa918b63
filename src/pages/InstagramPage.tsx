@@ -3886,7 +3886,7 @@ export default function InstagramPage() {
                 size="sm"
                 className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs"
               >
-                Salvar Regra
+                {editingTriggerId ? "Salvar Alterações" : "Salvar Regra"}
               </Button>
             </div>
           </form>
