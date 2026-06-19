@@ -14,7 +14,7 @@ import {
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
   Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink,
-  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
+  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity, Pencil
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { formatCompactTime } from "@/lib/formatCompactTime";
@@ -136,6 +136,7 @@ export default function InstagramPage() {
   const [triggers, setTriggers] = useState<any[]>([]);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
   const [showAddTrigger, setShowAddTrigger] = useState(false);
+  const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
   const [newTrigger, setNewTrigger] = useState({
     trigger_keyword: "",
     post_id: "all",
@@ -738,23 +739,37 @@ export default function InstagramPage() {
     }
     try {
       const isCommentSource = triggerSourceType === "all" || triggerSourceType === "specific";
-      const { error } = await supabase
-        .from("imphq_ig_comment_triggers")
-        .insert({
-          project_id: selectedProjectId,
-          trigger_keyword: newTrigger.trigger_keyword.trim(),
-          post_id: newTrigger.post_id.trim() || "all",
-          reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
-          send_dm_template: newTrigger.send_dm_template.trim(),
-          is_active: newTrigger.is_active,
-          match_count: 0,
-          dm_sent_count: 0,
-          click_count: 0
-        });
+      const payload = {
+        trigger_keyword: newTrigger.trigger_keyword.trim(),
+        post_id: newTrigger.post_id.trim() || "all",
+        reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
+        send_dm_template: newTrigger.send_dm_template.trim(),
+        is_active: newTrigger.is_active,
+      };
 
-      if (error) throw error;
-      toast.success("Gatilho criado com sucesso!");
+      if (editingTriggerId) {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .update(payload)
+          .eq("id", editingTriggerId);
+        if (error) throw error;
+        toast.success("Gatilho atualizado!");
+      } else {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .insert({
+            project_id: selectedProjectId,
+            ...payload,
+            match_count: 0,
+            dm_sent_count: 0,
+            click_count: 0
+          });
+        if (error) throw error;
+        toast.success("Gatilho criado com sucesso!");
+      }
+
       setShowAddTrigger(false);
+      setEditingTriggerId(null);
       setTriggerSourceType("all");
       setNewTrigger({
         trigger_keyword: "",
@@ -765,9 +780,29 @@ export default function InstagramPage() {
       });
       loadTriggers();
     } catch (err: any) {
-      toast.error("Erro ao criar gatilho: " + err.message);
+      toast.error("Erro ao salvar gatilho: " + err.message);
     }
   };
+
+  const openEditTrigger = (trigger: any) => {
+    setEditingTriggerId(trigger.id);
+    const pid = trigger.post_id || "all";
+    const sourceType: "all" | "dm" | "story" | "story_mention" | "specific" =
+      pid === "all" ? "all" :
+      pid === "dm" ? "dm" :
+      pid === "story" ? "story" :
+      pid === "story_mention" ? "story_mention" : "specific";
+    setTriggerSourceType(sourceType);
+    setNewTrigger({
+      trigger_keyword: trigger.trigger_keyword || "",
+      post_id: pid,
+      reply_comment_template: trigger.reply_comment_template || "",
+      send_dm_template: trigger.send_dm_template || "",
+      is_active: trigger.is_active ?? true,
+    });
+    setShowAddTrigger(true);
+  };
+
 
   const handleToggleTriggerActive = async (id: string, active: boolean) => {
     try {
@@ -3601,6 +3636,16 @@ export default function InstagramPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-7 w-7 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-border/40"
+                                  onClick={() => openEditTrigger(trigger)}
+                                  title="Editar gatilho"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 border border-border/40"
                                   onClick={() => handleDeleteTrigger(trigger.id)}
                                 >
@@ -3712,12 +3757,19 @@ export default function InstagramPage() {
       </Dialog>
 
       {/* Add Trigger Dialog */}
-      <Dialog open={showAddTrigger} onOpenChange={setShowAddTrigger}>
+      <Dialog open={showAddTrigger} onOpenChange={(open) => {
+        setShowAddTrigger(open);
+        if (!open) {
+          setEditingTriggerId(null);
+          setTriggerSourceType("all");
+          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", is_active: true });
+        }
+      }}>
         <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg">
           <form onSubmit={handleSaveTrigger}>
             <DialogHeader>
               <DialogTitle className="text-amber-500 font-bold flex items-center gap-1.5">
-                <Zap className="h-5 w-5 text-amber-500" /> Criar Novo Gatilho de Comentário
+                <Zap className="h-5 w-5 text-amber-500" /> {editingTriggerId ? "Editar Gatilho" : "Criar Novo Gatilho de Comentário"}
               </DialogTitle>
               <DialogDescription className="text-slate-400 text-xs">
                 Configure regras automáticas. Ao detectarmos a palavra-chave em comentários, enviaremos a resposta pública e o direct privado.
@@ -3834,7 +3886,7 @@ export default function InstagramPage() {
                 size="sm"
                 className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs"
               >
-                Salvar Regra
+                {editingTriggerId ? "Salvar Alterações" : "Salvar Regra"}
               </Button>
             </div>
           </form>
