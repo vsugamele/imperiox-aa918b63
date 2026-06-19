@@ -620,6 +620,36 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
     }
   } catch (e) { console.warn("resume-ai:", e); }
 
+  // 7) Pix/Boleto/Carrinho abandonado sem disparo do hot-lead-responder (rede de segurança)
+  try {
+    const since30min = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const since3h = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const { data: pending } = await supabase
+      .from("imphq_vendas")
+      .select("id, lead_id, produto_nome, valor, status, created_at, data, lead:imphq_leads!lead_id(nome, phone, score)")
+      .eq("project_id", projetoId)
+      .in("status", ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente", "abandoned", "checkout_abandoned", "abandonado"])
+      .gte("created_at", since3h)
+      .lt("created_at", since30min)
+      .limit(30);
+    for (const v of pending || []) {
+      const meta: any = v.data || {};
+      if (meta.hot_lead_responder_sent) continue;
+      if (!v.lead?.phone || (v.lead?.score || 0) < 60) continue;
+      out.push({
+        kind: "runHotLeadResponder",
+        risk_level: "low",
+        confidence: 0.82,
+        title: `Reativar hot lead: ${v.lead?.nome || v.lead?.phone}`,
+        reason: `Pix/Boleto/Carrinho de R$ ${Number(v.valor || 0).toFixed(2)} há +30min sem mensagem automática. Disparar IA agora.`,
+        payload: { venda_id: v.id, lead_id: v.lead_id, valor: v.valor },
+        projeto_id: projetoId,
+        source: "scout-hotlead-safety-net",
+        impact_brl: Math.round(Number(v.valor || 0) * 0.2),
+      });
+    }
+  } catch (e) { console.warn("hotlead-safety:", e); }
+
   return out;
 }
 
