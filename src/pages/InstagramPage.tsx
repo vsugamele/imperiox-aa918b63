@@ -14,7 +14,7 @@ import {
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
   Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink,
-  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
+  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity, Pencil
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { formatCompactTime } from "@/lib/formatCompactTime";
