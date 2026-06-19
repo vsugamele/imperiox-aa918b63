@@ -23,7 +23,8 @@ type ActionKind =
   | "createFlow"
   | "notify"
   | "resumeAi"
-  | "runHotLeadResponder";
+  | "runHotLeadResponder"
+  | "runZernioTool";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
   const kind: ActionKind = action.kind;
