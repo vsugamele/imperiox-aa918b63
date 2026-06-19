@@ -225,6 +225,9 @@ export default function InstagramPage() {
     }
   }, [selectedConv, loadLeadData]);
 
+  const [igAuthMethod, setIgAuthMethod] = useState<string | null>(null);
+  const [igHasMeta, setIgHasMeta] = useState<boolean>(false);
+
   const loadIcebreakers = useCallback(async (projectId: string) => {
     const { data } = await supabase
       .from("imphq_integration_credentials")
@@ -234,6 +237,8 @@ export default function InstagramPage() {
       .maybeSingle();
     
     const creds = (data?.credentials as any) || {};
+    setIgAuthMethod(creds?.auth_method || null);
+    setIgHasMeta(!!creds?.page_access_token);
     if (creds?.icebreakers && Array.isArray(creds.icebreakers)) {
       const qs = [...creds.icebreakers];
       while (qs.length < 4) qs.push("");
@@ -1413,6 +1418,19 @@ export default function InstagramPage() {
           </select>
         </div>
       </div>
+
+      {/* ─── BANNER: SÓ ZERNIO, FALTA META ─── */}
+      {selectedAccount && igAuthMethod === "zernio" && !igHasMeta && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+          <Instagram className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 text-xs leading-6 text-amber-100/90">
+            Conectado via <strong>Zernio</strong>. Algumas ações (abrir post, responder/excluir comentário, insights, icebreakers) exigem também conexão via <strong>Meta/Facebook</strong>.
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] border-amber-500/40 hover:bg-amber-500/10" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+            Conectar Meta
+          </Button>
+        </div>
+      )}
 
       {/* ─── ALERTA DE CONTA CONECTADA ─── */}
       {!selectedAccount && !loadingConvs && (
