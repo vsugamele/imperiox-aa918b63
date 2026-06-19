@@ -3769,7 +3769,7 @@ export default function InstagramPage() {
           <form onSubmit={handleSaveTrigger}>
             <DialogHeader>
               <DialogTitle className="text-amber-500 font-bold flex items-center gap-1.5">
-                <Zap className="h-5 w-5 text-amber-500" /> Criar Novo Gatilho de Comentário
+                <Zap className="h-5 w-5 text-amber-500" /> {editingTriggerId ? "Editar Gatilho" : "Criar Novo Gatilho de Comentário"}
               </DialogTitle>
               <DialogDescription className="text-slate-400 text-xs">
                 Configure regras automáticas. Ao detectarmos a palavra-chave em comentários, enviaremos a resposta pública e o direct privado.
