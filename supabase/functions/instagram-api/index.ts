@@ -515,7 +515,7 @@ Deno.serve(async (req) => {
           return json({ error: "Conversa do Zernio correspondente ao comentário não encontrada." }, 400);
         }
       } else {
-        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
+        if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Esta ação requer conexão via Meta/Facebook. Sua conta está conectada apenas via Zernio.", needs_meta: true }, 200);
         if (creds?.n8n_webhook_url) {
           console.log(`[instagram-api] Forwarding private_reply to N8N webhook: ${creds.n8n_webhook_url}`);
           const nr = await fetch(creds.n8n_webhook_url, {
