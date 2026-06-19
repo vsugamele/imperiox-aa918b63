@@ -79,6 +79,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
   LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
   FormResponse: { icon: <Radio className="h-3 w-3" />, color: "bg-purple-500", label: "Resposta Formulário" },
+  Recovery: { icon: <Zap className="h-3 w-3" />, color: "bg-amber-500", label: "Disparo de Recuperação" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
