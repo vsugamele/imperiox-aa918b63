@@ -25,6 +25,7 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
   const [leadAutomationLogs, setLeadAutomationLogs] = useState<any[]>([]);
   const [scoreLog, setScoreLog] = useState<{ acao: string; pontos: number; created_at: string }[]>([]);
   const [formResponses, setFormResponses] = useState<{ form_id: string; form_name?: string; question: string; answer: string; created_at: string }[]>([]);
+  const [recoveryLogs, setRecoveryLogs] = useState<{ id: string; bucket: string; acao: string; canal: string; status: string; valor?: number; observacao?: string; venda_id?: string; created_at: string }[]>([]);
 
   useEffect(() => {
     if (!lead) {
