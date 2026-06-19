@@ -22,7 +22,8 @@ type ActionKind =
   | "runStudio"
   | "createFlow"
   | "notify"
-  | "resumeAi";
+  | "resumeAi"
+  | "runHotLeadResponder";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
   const kind: ActionKind = action.kind;
@@ -104,6 +105,14 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
       case "notify": {
         // Só registra; UI mostrará no inbox
         return { ok: true, result: { notified: true } };
+      }
+      case "runHotLeadResponder": {
+        // Dispara hot-lead-responder direcionado a uma venda específica
+        const { venda_id } = p;
+        if (!venda_id) throw new Error("venda_id obrigatório");
+        const r = await supabase.functions.invoke("hot-lead-responder", { body: { venda_id } });
+        if (r.error) throw new Error(r.error.message);
+        return { ok: true, result: r.data };
       }
       case "resumeAi": {
         // Limpa pausa da IA na conversa (volta autônomo)
