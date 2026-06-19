@@ -1021,6 +1021,8 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           onClose={() => setShowDiagram(false)}
           steps={steps as any}
           baseDate={campaign?.start_date ? new Date(campaign.start_date + "T00:00:00") : campaign?.created_at ? new Date(campaign.created_at) : new Date()}
+          onUpdateStep={updateStep}
+          onReorder={reorderById}
         />
       )}
     </>
