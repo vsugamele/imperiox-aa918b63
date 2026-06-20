@@ -196,6 +196,8 @@ serve(async (req) => {
           payload = { number: currentGroupJid, mediatype: "document", media: mediaUrl, caption: rendered, fileName: "document" };
         }
 
+        withMentions(payload, campaign, currentGroupJid);
+
         try {
           await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, payload, 1);
           await supabase.from("imphq_wa_campaign_logs").insert({
