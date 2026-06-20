@@ -43,6 +43,14 @@ function renderVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
 }
 
+function withMentions(payload: any, campaign: any, jid: string): any {
+  if (campaign?.mention_all && typeof jid === "string" && jid.endsWith("@g.us")) {
+    payload.mentionsEveryOne = true;
+    payload.options = { ...(payload.options || {}), mentionsEveryOne: true };
+  }
+  return payload;
+}
+
 // 6C: stable hash → 0/1 for deterministic A/B split per group
 function hashAB(input: string): 0 | 1 {
   let h = 0;
