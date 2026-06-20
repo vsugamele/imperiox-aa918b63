@@ -18,7 +18,22 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, project_id, provider_id, phone, push_name } = body;
+    const { conversation_id, project_id, phone, push_name } = body;
+    let provider_id = body.provider_id;
+    // Fallback: callers como wa-ai-pending-flush não passam provider_id.
+    // Busca da conversa para não cair em "Missing required fields".
+    if (!provider_id && conversation_id) {
+      try {
+        const { data: convRow } = await supabase
+          .from("imphq_wa_conversations")
+          .select("provider_id")
+          .eq("id", conversation_id)
+          .maybeSingle();
+        if (convRow?.provider_id) provider_id = convRow.provider_id;
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] provider_id fallback lookup error:", e?.message);
+      }
+    }
     let message = body.message || "";
 
     // Keyword bypass for testing (ex: #testeia or #testeia2026)

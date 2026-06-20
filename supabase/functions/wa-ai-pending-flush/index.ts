@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
   const { data: conversations, error } = await supabase
     .from("imphq_wa_conversations")
-    .select("id, project_id, phone, ai_pending_since")
+    .select("id, project_id, phone, provider_id, ai_pending_since")
     .not("ai_pending_since", "is", null)
     .order("ai_pending_since", { ascending: true })
     .limit(50);
@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           conversation_id: conv.id,
           project_id: conv.project_id,
+          provider_id: conv.provider_id,
           phone: conv.phone,
           message: lastMsg.content || "",
           message_id: lastMsg.message_id,
