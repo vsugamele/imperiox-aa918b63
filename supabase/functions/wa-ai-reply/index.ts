@@ -481,8 +481,13 @@ Deno.serve(async (req) => {
     if (conv?.ai_last_reply_at && !isTestMode) {
       const elapsed = (Date.now() - new Date(conv.ai_last_reply_at).getTime()) / 1000;
       if (elapsed < cooldownSec) {
-        console.log(`[wa-ai-reply] Cooldown ativo: ${elapsed.toFixed(1)}s < ${cooldownSec}s`);
-        return new Response(JSON.stringify({ skipped: "cooldown", elapsed_s: elapsed }), {
+        console.log(`[wa-ai-reply] Cooldown ativo: ${elapsed.toFixed(1)}s < ${cooldownSec}s — enfileirando para flush`);
+        await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_pending_since: new Date().toISOString() })
+          .eq("id", conversation_id)
+          .is("ai_pending_since", null);
+        return new Response(JSON.stringify({ skipped: "cooldown", elapsed_s: elapsed, queued: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -492,8 +497,13 @@ Deno.serve(async (req) => {
     if (conv?.ai_lock_until && !isTestMode) {
       const lockExpiry = new Date(conv.ai_lock_until);
       if (lockExpiry > new Date()) {
-        console.log(`[wa-ai-reply] Lock ativo até ${conv.ai_lock_until}, pulando`);
-        return new Response(JSON.stringify({ skipped: "locked", lock_until: conv.ai_lock_until }), {
+        console.log(`[wa-ai-reply] Lock ativo até ${conv.ai_lock_until}, enfileirando para flush`);
+        await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_pending_since: new Date().toISOString() })
+          .eq("id", conversation_id)
+          .is("ai_pending_since", null);
+        return new Response(JSON.stringify({ skipped: "locked", lock_until: conv.ai_lock_until, queued: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
