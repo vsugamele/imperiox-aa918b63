@@ -15,10 +15,11 @@ const isInIframe = (() => {
 })();
 
 const host = window.location.hostname;
+// Only nuke SW in Lovable editor preview hosts — NOT on the published domain,
+// otherwise push notifications never reach the user's phone.
 const isPreviewHost =
   host.includes("id-preview--") ||
-  host.includes("lovableproject.com") ||
-  host.includes("lovable.app"); // also nuke stale SWs on the published domain just in case
+  host.includes("lovableproject.com");
 
 if (isPreviewHost || isInIframe) {
   // Unregister any existing service worker.
