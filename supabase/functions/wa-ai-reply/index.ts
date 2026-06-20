@@ -575,6 +575,14 @@ Deno.serve(async (req) => {
           .then(() => {})
           .catch(() => {});
       }
+
+      // CONSULTIVE INTENT — lead pediu ajuda pra ESCOLHER entre produtos/cursos.
+      // Quando ativo: suprime closer/recovery e força a IA a apresentar catálogo + 1 pergunta diagnóstica.
+      const CONSULTIVE_PATTERNS = /\b(qual|quais|diferen[çc]a|v[áa]rios cursos|v[áa]rios curso|tem v[áa]rios|se encaixa|encaixaria|me indica|recomenda|qual recomenda|melhor pra mim|qual melhor|pra come[çc]ar|sou iniciante|n[ãa]o sei qual|t[óo] na d[úu]vida|estou na d[úu]vida|fiquei na d[úu]vida|qual escolher|qual comprar)\b/i;
+      const isConsultiveProductQuery = CONSULTIVE_PATTERNS.test(message);
+      if (isConsultiveProductQuery) {
+        console.log(`[wa-ai-reply] 🧭 CONSULTIVE intent detected: "${message.slice(0, 60)}"`);
+      }
       if (escalated) {
         console.log(`[wa-ai-reply] Keyword de escalação detectada`);
         await supabase.from("imphq_wa_conversations")
@@ -909,7 +917,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const leadScore = (lead as any)?.score || 0;
       const HOT_SCORE_THRESHOLD = 70;
       const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
-      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled;
+      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled && !isConsultiveProductQuery;
 
       if (isHotLead && !hasBuyIntent) {
         console.log(`[wa-ai-reply] 🔥 Hot lead (score ${leadScore}) — closer mode auto-ativado`);
@@ -1044,7 +1052,20 @@ ${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pe
 - Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
 ` : "";
 
-      const systemPrompt = `${paymentConfirmationBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const consultiveBlock = (isConsultiveProductQuery && !isPaymentConfirmation) ? `
+
+🧭 MODO CONSULTIVO ATIVADO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE recovery/closer):
+O lead pediu ajuda para ESCOLHER entre os cursos/produtos disponíveis (ex: "tem vários cursos, qual se encaixa pra mim", "qual indica?", "tô na dúvida").
+Sua missão NESTA resposta:
+1. NÃO mande link de checkout ainda. NÃO empurre recuperação de carrinho abandonado.
+2. Liste de 2 a 4 cursos do catálogo (use os nomes EXATOS do MAPEAMENTO PRODUTO → LINK abaixo), 1 linha por curso, formato: "• Nome — pra quem é (1 linha)".
+3. Termine com UMA pergunta diagnóstica curta (ex: "Você já corta há quanto tempo?" ou "Qual sua maior dificuldade hoje: técnica, finalização ou colorimetria?").
+4. Só envie link DEPOIS que o lead responder a pergunta diagnóstica na próxima troca.
+5. Use a base de conhecimento (FAQ/aulas) pra descrever cada curso com 1 detalhe concreto, nunca genérico.
+Máximo 6 linhas no total.
+` : "";
+
+      const systemPrompt = `${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
