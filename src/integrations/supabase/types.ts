@@ -23764,6 +23764,7 @@ export type Database = {
           project_id: string
           provider_id: string | null
           response_delay_seconds: number | null
+          sector_template_applied: string | null
           tone: string | null
           triage_prompt: string | null
           triage_stages: Json | null
@@ -23775,6 +23776,7 @@ export type Database = {
           voice_reply_enabled: boolean | null
           voice_stability: number | null
           welcome_message: string | null
+          wizard_completed_at: string | null
         }
         Insert: {
           ai_model?: string | null
@@ -23827,6 +23829,7 @@ export type Database = {
           project_id: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
@@ -23838,6 +23841,7 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Update: {
           ai_model?: string | null
@@ -23890,6 +23894,7 @@ export type Database = {
           project_id?: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
@@ -23901,6 +23906,7 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Relationships: [
           {
@@ -25319,6 +25325,45 @@ export type Database = {
           scheduled_at?: string
           sent_at?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      imphq_wa_sector_templates: {
+        Row: {
+          config_json: Json
+          created_at: string | null
+          descricao: string | null
+          emoji: string | null
+          faq_json: Json
+          flows_json: Json
+          id: string
+          nome: string
+          ordem: number | null
+          setor: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome: string
+          ordem?: number | null
+          setor: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome?: string
+          ordem?: number | null
+          setor?: string
         }
         Relationships: []
       }
