@@ -165,6 +165,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
   const [elevenLabsLoading, setElevenLabsLoading] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [packOpen, setPackOpen] = useState(false);
 
   const fetchElevenLabsVoices = async () => {
     setElevenLabsLoading(true);
