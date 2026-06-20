@@ -1,5 +1,6 @@
 // wa-ai-reply — AI responder simples e robusto para WhatsApp
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
