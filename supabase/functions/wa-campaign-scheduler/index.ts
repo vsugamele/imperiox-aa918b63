@@ -413,6 +413,7 @@ serve(async (req) => {
                   : step.media_type === "audio"
                   ? { number: groupJid, audio: step.media_url }
                   : { number: groupJid, mediatype: step.media_type, media: step.media_url, caption: renderVariables(step.content || "", { produto: campaign.produto || "", campanha: campaign.name || "", grupo: "", grupo_nome: "", nome: "" }), fileName: "document" };
+                withMentions(fbBody, campaign, groupJid);
                 await sendWithRetry(fbEndpoint, { "Content-Type": "application/json", apikey: fbKey }, fbBody, 1);
                 await supabase.from("imphq_wa_campaign_logs").insert({
                   step_id: step.id, campaign_id: campaign.id, group_jid: groupJid, status: "sent", error: "FALLBACK_USED",
