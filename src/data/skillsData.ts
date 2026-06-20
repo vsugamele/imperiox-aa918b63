@@ -20,6 +20,7 @@ import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 import marketIntelPrompt from "./skills/market-intel-v2.md?raw";
 import yoshitaniPrompt from "./skills/yoshitani-traffic-scale.md?raw";
 import roteirosViraisPrompt from "./skills/roteiros-virais-reels.md?raw";
+import angulosFilemonPrompt from "./skills/angulos-filemon.md?raw";
 
 export interface SkillData {
   id: string;
