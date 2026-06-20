@@ -13,16 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, X, Wand2, Image as ImageIcon, Target, Palette, Compass } from "lucide-react";
 import { toast } from "sonner";
 import { CreativeMatrix } from "@/components/studio/CreativeMatrix";
+import { CREATIVE_ANGLES } from "@/data/creativeAngles";
 
-const ANGULOS = [
-  { value: "dor", label: "Dor" },
-  { value: "desejo", label: "Desejo / Transformação" },
-  { value: "prova", label: "Prova Social" },
-  { value: "autoridade", label: "Autoridade" },
-  { value: "curiosidade", label: "Curiosidade" },
-  { value: "antes-depois", label: "Antes vs Depois" },
-  { value: "objecao", label: "Objeção Destruída" },
-];
+const ANGULOS = CREATIVE_ANGLES.map((a) => ({ value: a.slug, label: a.nome }));
 
 const AVATAR_PRINCIPAL = "__principal__";
 
