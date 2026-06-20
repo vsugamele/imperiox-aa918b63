@@ -1052,7 +1052,20 @@ ${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pe
 - Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
 ` : "";
 
-      const systemPrompt = `${paymentConfirmationBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const consultiveBlock = (isConsultiveProductQuery && !isPaymentConfirmation) ? `
+
+🧭 MODO CONSULTIVO ATIVADO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE recovery/closer):
+O lead pediu ajuda para ESCOLHER entre os cursos/produtos disponíveis (ex: "tem vários cursos, qual se encaixa pra mim", "qual indica?", "tô na dúvida").
+Sua missão NESTA resposta:
+1. NÃO mande link de checkout ainda. NÃO empurre recuperação de carrinho abandonado.
+2. Liste de 2 a 4 cursos do catálogo (use os nomes EXATOS do MAPEAMENTO PRODUTO → LINK abaixo), 1 linha por curso, formato: "• Nome — pra quem é (1 linha)".
+3. Termine com UMA pergunta diagnóstica curta (ex: "Você já corta há quanto tempo?" ou "Qual sua maior dificuldade hoje: técnica, finalização ou colorimetria?").
+4. Só envie link DEPOIS que o lead responder a pergunta diagnóstica na próxima troca.
+5. Use a base de conhecimento (FAQ/aulas) pra descrever cada curso com 1 detalhe concreto, nunca genérico.
+Máximo 6 linhas no total.
+` : "";
+
+      const systemPrompt = `${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
