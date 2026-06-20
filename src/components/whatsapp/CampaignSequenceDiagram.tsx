@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Mic, Video, FileText, Type, Download, GitBranch, CalendarDays, LayoutGrid, GripVertical, Pencil } from "lucide-react";
-import { addDays, format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Image as ImageIcon, Mic, Video, FileText, Type, Download, GitBranch, CalendarDays, LayoutGrid, GripVertical, Pencil, CalendarIcon } from "lucide-react";
+import { addDays, differenceInCalendarDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
@@ -48,22 +50,25 @@ function preview(s: string | null, n = 60) {
 }
 
 // ─────────── EDIT POPOVER ───────────
-function StepEditPopover({ step, children, onUpdateStep }: { step: Step; children: React.ReactNode; onUpdateStep?: Props["onUpdateStep"] }) {
+function StepEditPopover({ step, baseDate, children, onUpdateStep }: { step: Step; baseDate: Date; children: React.ReactNode; onUpdateStep?: Props["onUpdateStep"] }) {
   const [local, setLocal] = useState({
     send_time: step.send_time?.slice(0, 5) || "09:00",
     days_offset: step.days_offset,
     content: step.content || "",
     is_active: step.is_active,
   });
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   if (!onUpdateStep) return <>{children}</>;
 
   const commit = (field: string, value: any) => onUpdateStep(step.id, field, value);
+  const baseDay = startOfDay(baseDate);
+  const currentDate = addDays(baseDay, local.days_offset);
 
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80 bg-secondary/95 backdrop-blur p-3 space-y-2.5" side="right" align="start">
+      <PopoverContent className="w-96 bg-secondary/95 backdrop-blur p-3 space-y-2.5" side="right" align="start">
         <div className="flex items-center justify-between">
           <Badge variant="outline" className="text-[10px]">#{step.step_order + 1}</Badge>
           <div className="flex items-center gap-2">
@@ -74,7 +79,49 @@ function StepEditPopover({ step, children, onUpdateStep }: { step: Step; childre
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[1fr_110px] gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Data do envio</Label>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("h-8 w-full justify-start text-left font-normal text-xs bg-background/60 px-2")}
+                >
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5 text-gold" />
+                  {format(currentDate, "dd/MM/yyyy (EEE)", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-auto p-0 bg-secondary/95 backdrop-blur pointer-events-auto z-[100]"
+                align="start"
+                onInteractOutside={(e) => {
+                  const t = e.target as HTMLElement;
+                  if (t.closest("[data-radix-popper-content-wrapper]")) e.preventDefault();
+                }}
+              >
+                <Calendar
+                  mode="single"
+                  selected={currentDate}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    const newOffset = differenceInCalendarDays(startOfDay(d), baseDay);
+                    if (newOffset < 0) {
+                      toast.error("Data anterior à data base da campanha.");
+                      return;
+                    }
+                    setLocal(p => ({ ...p, days_offset: newOffset }));
+                    commit("days_offset", newOffset);
+                    setCalendarOpen(false);
+                  }}
+                  initialFocus
+                  locale={ptBR}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <p className="text-[9px] text-muted-foreground/70 font-mono">D+{local.days_offset} · base {format(baseDay, "dd/MM", { locale: ptBR })}</p>
+          </div>
           <div className="space-y-1">
             <Label className="text-[10px] text-muted-foreground">Horário</Label>
             <Input
@@ -82,17 +129,6 @@ function StepEditPopover({ step, children, onUpdateStep }: { step: Step; childre
               value={local.send_time}
               onChange={(e) => setLocal(p => ({ ...p, send_time: e.target.value }))}
               onBlur={() => commit("send_time", local.send_time)}
-              className="h-8 text-xs bg-background/60"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Dia (offset)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={local.days_offset}
-              onChange={(e) => setLocal(p => ({ ...p, days_offset: parseInt(e.target.value) || 0 }))}
-              onBlur={() => commit("days_offset", local.days_offset)}
               className="h-8 text-xs bg-background/60"
             />
           </div>
@@ -296,7 +332,7 @@ function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateSte
                 );
                 return (
                   <div key={s.id}>
-                    {canEdit ? <StepEditPopover step={s} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
+                    {canEdit ? <StepEditPopover step={s} baseDate={base} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
                   </div>
                 );
               })}
@@ -377,7 +413,7 @@ function FlowView({ sorted, base, signals, signalColor, onUpdateStep, onReorder 
                 onDrop={(e) => { e.preventDefault(); handleDrop(i); }}
               />
             )}
-            {canEdit ? <StepEditPopover step={s} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
+            {canEdit ? <StepEditPopover step={s} baseDate={base} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
           </div>
         );
       })}
