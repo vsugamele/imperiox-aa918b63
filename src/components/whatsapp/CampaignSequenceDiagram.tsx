@@ -332,7 +332,7 @@ function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateSte
                 );
                 return (
                   <div key={s.id}>
-                    {canEdit ? <StepEditPopover step={s} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
+                    {canEdit ? <StepEditPopover step={s} baseDate={base} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
                   </div>
                 );
               })}
@@ -413,7 +413,7 @@ function FlowView({ sorted, base, signals, signalColor, onUpdateStep, onReorder 
                 onDrop={(e) => { e.preventDefault(); handleDrop(i); }}
               />
             )}
-            {canEdit ? <StepEditPopover step={s} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
+            {canEdit ? <StepEditPopover step={s} baseDate={base} onUpdateStep={onUpdateStep}>{card}</StepEditPopover> : card}
           </div>
         );
       })}
