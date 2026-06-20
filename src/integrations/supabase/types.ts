@@ -39042,6 +39042,7 @@ export type Database = {
       }
       scanner_leads: {
         Row: {
+          admin_notes: string | null
           age: number | null
           answers: Json
           created_at: string
@@ -39050,9 +39051,12 @@ export type Database = {
           name: string
           phone: string
           profile: string
+          status: string
+          updated_at: string
           user_agent: string | null
         }
         Insert: {
+          admin_notes?: string | null
           age?: number | null
           answers?: Json
           created_at?: string
@@ -39061,9 +39065,12 @@ export type Database = {
           name: string
           phone: string
           profile: string
+          status?: string
+          updated_at?: string
           user_agent?: string | null
         }
         Update: {
+          admin_notes?: string | null
           age?: number | null
           answers?: Json
           created_at?: string
@@ -39072,6 +39079,8 @@ export type Database = {
           name?: string
           phone?: string
           profile?: string
+          status?: string
+          updated_at?: string
           user_agent?: string | null
         }
         Relationships: []
