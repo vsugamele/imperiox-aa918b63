@@ -1024,7 +1024,7 @@ ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
 ${leadContextBlock}${campaignContextBlock}
-${humanizationRules}
+${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
 (A) LEAD QUE JÁ SABE O QUE QUER (perguntou preço, link, "quero comprar", citou produto específico, pediu Pix):
