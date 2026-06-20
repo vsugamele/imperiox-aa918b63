@@ -2,6 +2,7 @@
 // Cada execução cria um batch com 3 ângulos (curiosidade, prova, antes-depois)
 // e dispara creative-factory. Loga em imphq_ai_actions (high risk = aprovação).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { getAnglesForDay } from "../_shared/creativeAngles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const ANGULOS_DIARIOS = ["curiosidade", "prova", "antes-depois"];
 const FORMATO_DEFAULT = "9:16";
 const PER_ANGULO = 1;
 
