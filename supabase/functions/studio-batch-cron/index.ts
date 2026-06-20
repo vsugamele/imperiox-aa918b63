@@ -41,14 +41,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Rotação diária: 3 dos 11 ângulos do catálogo, varia a cada dia
+        const angulosDia = getAnglesForDay(3).map((a) => a.slug);
+
         // Cria batch
         const { data: batch, error: bErr } = await supabase.from("imphq_creative_batches").insert({
           project_id: proj.id,
           nome: `Lote IA — ${new Date().toLocaleDateString("pt-BR")}`,
           briefing: { auto: true, fonte: "studio-batch-cron" },
-          angulos: ANGULOS_DIARIOS,
+          angulos: angulosDia,
           formato: FORMATO_DEFAULT,
-          total_planejado: ANGULOS_DIARIOS.length * PER_ANGULO,
+          total_planejado: angulosDia.length * PER_ANGULO,
           status: "processando",
         }).select().single();
         if (bErr) throw bErr;
@@ -64,9 +67,9 @@ Deno.serve(async (req) => {
           risk_level: "high",
           status: "executed",
           confidence: 0.9,
-          title: `${ANGULOS_DIARIOS.length} criativos novos para ${proj.nome}`,
-          reason: `Lote diário automático — ângulos: ${ANGULOS_DIARIOS.join(", ")}`,
-          payload: { batch_id: batch.id, projeto: proj.nome },
+          title: `${angulosDia.length} criativos novos para ${proj.nome}`,
+          reason: `Lote diário automático — ângulos: ${angulosDia.join(", ")}`,
+          payload: { batch_id: batch.id, projeto: proj.nome, angulos: angulosDia },
           projeto_id: proj.id,
           source: "studio-batch-cron",
           auto_executed: true,
