@@ -818,14 +818,47 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               Configure como o cérebro artificial responderá aos seus leads no WhatsApp.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 bg-secondary/50 border border-border/40 px-3 py-1.5 rounded-full">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Status:</span>
-            <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5">
-              {config.enabled ? "ATIVO (Auto)" : "INATIVO (Manual)"}
-            </Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setWizardOpen(true)}
+              className="h-8 gap-1.5 border-primary/40 hover:bg-primary/10"
+            >
+              <Wand2 className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs">Wizard rápido</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPackOpen(true)}
+              className="h-8 gap-1.5 border-primary/40 hover:bg-primary/10"
+            >
+              <Package className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs">Pack por setor</span>
+            </Button>
+            <div className="flex items-center gap-2 bg-secondary/50 border border-border/40 px-3 py-1.5 rounded-full">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Status:</span>
+              <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5">
+                {config.enabled ? "ATIVO (Auto)" : "INATIVO (Manual)"}
+              </Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
+
+      <AIWizardDialog
+        projectId={projectId}
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onApplied={() => window.location.reload()}
+      />
+      <SectorPackDialog
+        projectId={projectId}
+        open={packOpen}
+        onOpenChange={setPackOpen}
+        onApplied={() => window.location.reload()}
+      />
 
       <CardContent className="p-0">
         <Tabs defaultValue="behavior" className="w-full">
