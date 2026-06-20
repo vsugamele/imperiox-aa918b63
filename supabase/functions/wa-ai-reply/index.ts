@@ -917,7 +917,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const leadScore = (lead as any)?.score || 0;
       const HOT_SCORE_THRESHOLD = 70;
       const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
-      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled;
+      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled && !isConsultiveProductQuery;
 
       if (isHotLead && !hasBuyIntent) {
         console.log(`[wa-ai-reply] 🔥 Hot lead (score ${leadScore}) — closer mode auto-ativado`);
