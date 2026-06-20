@@ -240,4 +240,16 @@ export const SKILLS_DATA: SkillData[] = [
     cor: "#ff3366",
     system_prompt: roteirosViraisPrompt,
   },
+  {
+    id: "angulos-filemon",
+    nome: "Ângulos Filemon",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Arsenal de 11 ângulos psicológicos (7 clássicos + 4 Filemon: Conspiração, Controvérsia, História Emocional, Promessa). Gera 3 variações contrastantes de copy para criativos, anúncios, scripts e WhatsApp com hook/body/CTA por ângulo.",
+    gatilho: "[Produto] + [Avatar] + [Estágio do funil]",
+    status: "Ativo",
+    icone: "🎯",
+    cor: "#ff6b35",
+    system_prompt: angulosFilemonPrompt,
+  },
 ];
