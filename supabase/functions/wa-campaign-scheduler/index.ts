@@ -379,6 +379,7 @@ serve(async (req) => {
               body = { number: groupJid, text: renderedContent };
             }
 
+            withMentions(body, campaign, groupJid);
             await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, body, 2);
 
             await supabase.from("imphq_wa_campaign_logs").insert({
