@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           conversation_id: conv.id,
           project_id: conv.project_id,
+          provider_id: conv.provider_id,
           phone: conv.phone,
           message: lastMsg.content || "",
           message_id: lastMsg.message_id,
