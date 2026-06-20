@@ -575,6 +575,14 @@ Deno.serve(async (req) => {
           .then(() => {})
           .catch(() => {});
       }
+
+      // CONSULTIVE INTENT — lead pediu ajuda pra ESCOLHER entre produtos/cursos.
+      // Quando ativo: suprime closer/recovery e força a IA a apresentar catálogo + 1 pergunta diagnóstica.
+      const CONSULTIVE_PATTERNS = /\b(qual|quais|diferen[çc]a|v[áa]rios cursos|v[áa]rios curso|tem v[áa]rios|se encaixa|encaixaria|me indica|recomenda|qual recomenda|melhor pra mim|qual melhor|pra come[çc]ar|sou iniciante|n[ãa]o sei qual|t[óo] na d[úu]vida|estou na d[úu]vida|fiquei na d[úu]vida|qual escolher|qual comprar)\b/i;
+      const isConsultiveProductQuery = CONSULTIVE_PATTERNS.test(message);
+      if (isConsultiveProductQuery) {
+        console.log(`[wa-ai-reply] 🧭 CONSULTIVE intent detected: "${message.slice(0, 60)}"`);
+      }
       if (escalated) {
         console.log(`[wa-ai-reply] Keyword de escalação detectada`);
         await supabase.from("imphq_wa_conversations")
