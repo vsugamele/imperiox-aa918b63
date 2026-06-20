@@ -39040,6 +39040,42 @@ export type Database = {
           },
         ]
       }
+      scanner_leads: {
+        Row: {
+          age: number | null
+          answers: Json
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          profile: string
+          user_agent: string | null
+        }
+        Insert: {
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          profile: string
+          user_agent?: string | null
+        }
+        Update: {
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          profile?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       sequences: {
         Row: {
           created_at: string
