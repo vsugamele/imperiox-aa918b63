@@ -1875,6 +1875,71 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
           }
         }
 
+        // ====== INTEL UPDATE: intent + emotional state + handoff summary ======
+        // Não-bloqueante: erros aqui não devem impedir o sucesso do envio.
+        try {
+          const intelPrompt = `Voce e um analista de vendas. Leia a ultima mensagem do LEAD e a RESPOSTA da IA. Devolva APENAS JSON (sem markdown, sem texto extra) no formato exato:
+{"current_intent":"<descoberta|consideracao|decisao|objecao|pronto_para_comprar|suporte|saudacao|outro>","emotional_state":"<animado|curioso|cetico|frustrado|ansioso|neutro|comprador>","last_objection":"<frase curta da principal objecao do lead OU string vazia se nao houver>"${shouldTransitionToHuman ? `,"handoff_summary":{"status":"<resumo em 1 frase>","dor":"<dor principal>","proxima_acao":"<o que humano deve fazer agora>","score":"<frio|morno|quente>","contexto":"<resumo em 2 frases para o humano entrar pronto>"}` : ""}}
+
+LEAD: """${String(message).slice(0, 800)}"""
+IA: """${String(finalAiReply).slice(0, 800)}"""
+MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
+
+          const intelRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              messages: [{ role: "user", content: intelPrompt }],
+              temperature: 0.2,
+              response_format: { type: "json_object" },
+              max_tokens: 400,
+            }),
+          });
+
+          if (intelRes.ok) {
+            const intelJson = await intelRes.json();
+            const raw = intelJson?.choices?.[0]?.message?.content || "{}";
+            let parsed: any = {};
+            try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+            const convUpdate: any = {};
+            if (parsed.current_intent && typeof parsed.current_intent === "string") {
+              convUpdate.current_intent = parsed.current_intent.slice(0, 40);
+              convUpdate.intent_updated_at = new Date().toISOString();
+            }
+            if (shouldTransitionToHuman && parsed.handoff_summary && typeof parsed.handoff_summary === "object") {
+              convUpdate.handoff_summary = parsed.handoff_summary;
+              convUpdate.handoff_at = new Date().toISOString();
+            }
+            if (Object.keys(convUpdate).length > 0) {
+              await supabase.from("imphq_wa_conversations").update(convUpdate).eq("id", conversation_id);
+              console.log(`[wa-ai-reply] Intel updated: ${Object.keys(convUpdate).join(",")}`);
+            }
+
+            const emotional = parsed.emotional_state && typeof parsed.emotional_state === "string" ? parsed.emotional_state.slice(0, 40) : null;
+            const objection = parsed.last_objection && typeof parsed.last_objection === "string" && parsed.last_objection.trim().length > 0 ? parsed.last_objection.slice(0, 300) : null;
+            if (leadRow?.id && (emotional || objection)) {
+              await supabase.from("imphq_wa_lead_memories").insert({
+                project_id,
+                lead_id: leadRow.id,
+                phone,
+                memory_type: "emotional_snapshot",
+                content: `state=${emotional || "?"}; objection=${objection || "-"}`,
+                emotional_state: emotional,
+                last_objection: objection,
+              });
+            }
+          } else {
+            console.warn(`[wa-ai-reply] Intel call failed: ${intelRes.status}`);
+          }
+        } catch (intelErr: any) {
+          console.warn(`[wa-ai-reply] Intel update error:`, intelErr?.message);
+        }
+
         console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
         return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

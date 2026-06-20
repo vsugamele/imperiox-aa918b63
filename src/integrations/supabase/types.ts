@@ -24520,12 +24520,16 @@ export type Database = {
           conv_status: string | null
           conversation_summary: string | null
           created_at: string
+          current_intent: string | null
           escalation_confidence: number | null
           escalation_decided_at: string | null
           escalation_reason: string | null
+          handoff_at: string | null
+          handoff_summary: Json | null
           ia_ativa: boolean | null
           id: string
           intent_tags: string[] | null
+          intent_updated_at: string | null
           jid_suffix: string
           last_incoming_at: string | null
           last_message: string | null
@@ -24565,12 +24569,16 @@ export type Database = {
           conv_status?: string | null
           conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
+          handoff_at?: string | null
+          handoff_summary?: Json | null
           ia_ativa?: boolean | null
           id?: string
           intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
           last_incoming_at?: string | null
           last_message?: string | null
@@ -24610,12 +24618,16 @@ export type Database = {
           conv_status?: string | null
           conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
+          handoff_at?: string | null
+          handoff_summary?: Json | null
           ia_ativa?: boolean | null
           id?: string
           intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
           last_incoming_at?: string | null
           last_message?: string | null
@@ -24980,7 +24992,9 @@ export type Database = {
           content: string
           created_at: string
           embedding: string | null
+          emotional_state: string | null
           id: string
+          last_objection: string | null
           lead_id: string | null
           memory_type: string
           phone: string | null
@@ -24991,7 +25005,9 @@ export type Database = {
           content: string
           created_at?: string
           embedding?: string | null
+          emotional_state?: string | null
           id?: string
+          last_objection?: string | null
           lead_id?: string | null
           memory_type?: string
           phone?: string | null
@@ -25002,7 +25018,9 @@ export type Database = {
           content?: string
           created_at?: string
           embedding?: string | null
+          emotional_state?: string | null
           id?: string
+          last_objection?: string | null
           lead_id?: string | null
           memory_type?: string
           phone?: string | null
