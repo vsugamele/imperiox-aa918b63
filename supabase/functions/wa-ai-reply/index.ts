@@ -687,6 +687,34 @@ Deno.serve(async (req) => {
       let lessonsBlock = "";
       let memoryBlock = "";
       let objectionsBlock = "";
+      let projectRulesBlock = "";
+
+      // 7.0.1. Regras permanentes do projeto (vão SEMPRE no prompt, não dependem de similaridade)
+      try {
+        const { data: rules } = await supabase
+          .from("imphq_wa_project_rules")
+          .select("id, rule_text, rule_type")
+          .eq("project_id", project_id)
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        if (rules && rules.length > 0) {
+          const behaviorRules = rules.filter((r: any) => r.rule_type !== "unavailable_product");
+          const unavailableRules = rules.filter((r: any) => r.rule_type === "unavailable_product");
+          projectRulesBlock = "\n📜 REGRAS PERMANENTES DO PROJETO (NUNCA VIOLAR):\n" +
+            behaviorRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          if (unavailableRules.length > 0) {
+            projectRulesBlock += "\n\n🚫 PRODUTOS/EVENTOS INDISPONÍVEIS (NÃO OFERECER):\n" +
+              unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          }
+          projectRulesBlock += "\n";
+          // incrementa contador de aplicação (best-effort, não bloqueia)
+          const ids = rules.map((r: any) => r.id);
+          supabase.rpc("increment_wa_rules_applied", { p_ids: ids }).then(() => null, () => null);
+        }
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] project_rules load error:", e.message);
+      }
 
       let triageIntent = "";
       try {
@@ -1073,15 +1101,17 @@ ${leadContextBlock}${campaignContextBlock}
 ${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
-(A) LEAD QUE JÁ SABE O QUE QUER (perguntou preço, link, "quero comprar", citou produto específico, pediu Pix):
+(A) LEAD QUE JÁ SABE O QUE QUER E EXPLICITAMENTE PEDIU AVANÇO (perguntou PREÇO, pediu LINK, disse "quero comprar"/"quero fechar", pediu PIX, mandou comprovante):
 → Vá DIRETO. Responda objetivamente e apresente o próximo passo (link, forma de pagamento).
 → NÃO valide com frase de empatia, NÃO faça triagem, NÃO termine com pergunta de avanço se a info já leva ele pro checkout.
-→ Ex: lead pergunta "qual o valor do Master Cuts?" → "R$ 1.997,00, presencial em SP nos dias 29 e 30 de março. Link: [URL]" — e PARA. Sem "Faz todo sentido querer saber...".
+→ Ex: lead pergunta "qual o valor do Master Cuts?" → "R$ 1.997,00. Link: [URL]" — e PARA. Sem "Faz todo sentido querer saber...".
+→ ATENÇÃO: apenas citar o nome de um curso/produto NÃO é modo A. "Quero informações sobre X" é modo B (descoberta), não modo A.
 
-(B) LEAD EM DESCOBERTA (mensagem genérica: "oi", "quero saber mais", "como funciona", "me explica"):
-→ Atue como SDR — faça UMA pergunta CURTA de triagem por vez para qualificar.
+(B) LEAD EM DESCOBERTA (mensagem genérica OU pediu informações sobre um curso/produto sem ainda perguntar preço/link: "oi", "quero saber mais", "como funciona", "me explica", "gostaria de informações sobre o curso X"):
+→ Atue como SDR — faça UMA pergunta CURTA de triagem por vez para qualificar ANTES de empurrar oferta.
 → Exemplos: "Você já trabalha com cabelo ou tá começando?", "Tá buscando mais técnica ou gestão do salão?", "Pra hoje, presencial ou online?"
 → NUNCA empilhe 2 perguntas na mesma mensagem. Espere a resposta.
+→ NÃO mande data, preço, link ou descrição completa de evento na PRIMEIRA resposta. Faça ao menos 1 pergunta de qualificação antes.
 
 (C) LEAD COM OBJEÇÃO ou EMOÇÃO ("tá caro", "vou pensar", "não tenho tempo", desabafo):
 → Empatia REAL (não frase pronta) + 1 frase com argumento concreto + convite suave.
@@ -1102,7 +1132,7 @@ REGRAS CRITICAS:
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];

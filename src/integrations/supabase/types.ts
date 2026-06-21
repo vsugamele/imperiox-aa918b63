@@ -20763,20 +20763,25 @@ export type Database = {
           created_at: string | null
           criado_em: string | null
           data: Json | null
+          dor_principal: string | null
           email: string | null
           funil_id: string | null
           id: string
           ig_closer_sent_at: string | null
           ig_participant_id: string | null
           lead_memory: Json | null
+          nivel_qualificacao: string | null
           nome: string | null
+          objecao_atual: string | null
           phone: string | null
           plataforma: string | null
           project_id: string | null
+          qualificacao_updated_at: string | null
           score: number | null
           status: string | null
           tags: string[] | null
           total_gasto: number | null
+          ultimo_interesse: string | null
           updated_at: string | null
         }
         Insert: {
@@ -20787,20 +20792,25 @@ export type Database = {
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id: string
           ig_closer_sent_at?: string | null
           ig_participant_id?: string | null
           lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -20811,20 +20821,25 @@ export type Database = {
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id?: string
           ig_closer_sent_at?: string | null
           ig_participant_id?: string | null
           lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -24545,6 +24560,7 @@ export type Database = {
           profile_pic_url: string | null
           project_id: string
           provider_id: string | null
+          qualification_questions_asked: number
           reengagement_sent_at: string | null
           session: string
           snoozed_until: string | null
@@ -24594,6 +24610,7 @@ export type Database = {
           profile_pic_url?: string | null
           project_id: string
           provider_id?: string | null
+          qualification_questions_asked?: number
           reengagement_sent_at?: string | null
           session: string
           snoozed_until?: string | null
@@ -24643,6 +24660,7 @@ export type Database = {
           profile_pic_url?: string | null
           project_id?: string
           provider_id?: string | null
+          qualification_questions_asked?: number
           reengagement_sent_at?: string | null
           session?: string
           snoozed_until?: string | null
@@ -25096,6 +25114,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           direction: string | null
+          feedback_correction_type: string | null
           gap_analyzed: boolean | null
           gap_score: number | null
           id: string
@@ -25121,6 +25140,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
           gap_analyzed?: boolean | null
           gap_score?: number | null
           id?: string
@@ -25146,6 +25166,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
           gap_analyzed?: boolean | null
           gap_score?: number | null
           id?: string
@@ -25231,6 +25252,45 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_wa_project_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          created_from_message_id: string | null
+          id: string
+          project_id: string
+          rule_text: string
+          rule_type: string
+          times_applied: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          id?: string
+          project_id: string
+          rule_text: string
+          rule_type?: string
+          times_applied?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          id?: string
+          project_id?: string
+          rule_text?: string
+          rule_type?: string
+          times_applied?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_wa_providers: {
         Row: {
