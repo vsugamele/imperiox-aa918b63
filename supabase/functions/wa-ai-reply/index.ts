@@ -708,14 +708,9 @@ Deno.serve(async (req) => {
               unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
           }
           projectRulesBlock += "\n";
-          // contador de aplicação
-          await supabase.rpc("execute_sql_safe", {}).catch(() => null);
+          // incrementa contador de aplicação (best-effort, não bloqueia)
           const ids = rules.map((r: any) => r.id);
-          await supabase
-            .from("imphq_wa_project_rules")
-            .update({ times_applied: (rules[0] as any).times_applied != null ? undefined : 1 } as any)
-            .in("id", ids)
-            .then(() => null, () => null);
+          supabase.rpc("increment_wa_rules_applied", { p_ids: ids }).then(() => null, () => null);
         }
       } catch (e: any) {
         console.warn("[wa-ai-reply] project_rules load error:", e.message);
