@@ -324,11 +324,13 @@ export default function Referencias() {
   const handleBulkUpload = async (urls: string[]) => {
     let count = 0;
     for (const url of urls) {
+      const isVid = isVideoUrl(url);
       const { error } = await supabase.from("imphq_referencias").insert({
         id: crypto.randomUUID(),
-        titulo: `Upload ${new Date().toLocaleDateString()} #${count + 1}`,
-        tipo: "criativo",
-        image_url: url,
+        titulo: `${isVid ? "Vídeo" : "Upload"} ${new Date().toLocaleDateString()} #${count + 1}`,
+        tipo: isVid ? "video" : "criativo",
+        image_url: isVid ? null : url,
+        url: isVid ? url : null,
         project_id: filterProject !== "all" ? filterProject : null,
         pasta: currentFolder.length > 0 ? currentFolderPath : (filterPasta !== "all" ? filterPasta : null),
         tags: [],
