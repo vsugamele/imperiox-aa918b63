@@ -405,11 +405,36 @@ export default function Referencias() {
       <div><Label>Produto</Label><Input value={data.produto || ""} onChange={e => setData({ ...data, produto: e.target.value })} placeholder="Ex: Curso X, Mentoria Y..." /></div>
       <div><Label>URL</Label><Input value={data.url || ""} onChange={e => setData({ ...data, url: e.target.value })} placeholder="https://..." /></div>
       <div>
-        <Label>Imagem</Label>
+        <Label>Mídia (imagem ou vídeo)</Label>
         <div className="flex items-center gap-2">
-          <Input value={data.image_url || ""} onChange={e => setData({ ...data, image_url: e.target.value })} placeholder="URL da imagem..." className="flex-1" />
-          <FileUpload bucket="project-media" path="referencias" onUpload={url => setData({ ...data, image_url: url })} label="Upload" />
+          <Input
+            value={data.image_url || data.url || ""}
+            onChange={e => {
+              const v = e.target.value;
+              if (isVideoUrl(v)) setData({ ...data, url: v, image_url: "", tipo: "video" });
+              else setData({ ...data, image_url: v });
+            }}
+            placeholder="URL da imagem ou vídeo..."
+            className="flex-1"
+          />
+          <FileUpload
+            bucket="project-media"
+            path="referencias"
+            accept="image/*,video/*"
+            onUpload={url => {
+              if (isVideoUrl(url)) setData({ ...data, url, image_url: "", tipo: "video" });
+              else setData({ ...data, image_url: url });
+            }}
+            label="Upload"
+          />
         </div>
+        {(() => {
+          const media = data.url && isVideoUrl(data.url) ? data.url : (data.image_url && isVideoUrl(data.image_url) ? data.image_url : data.image_url);
+          if (!media) return null;
+          return isVideoUrl(media)
+            ? <video src={media} controls muted className="mt-2 max-h-40 rounded border border-border" />
+            : <img src={media} alt="preview" className="mt-2 max-h-40 rounded border border-border object-contain" />;
+        })()}
       </div>
       <div><Label>Score</Label><ScoreStars score={data.score || 0} onChange={s => setData({ ...data, score: s })} /></div>
       <div><Label>Tags</Label><EditableTagList tags={data.tags || []} onChange={tags => setData({ ...data, tags })} /></div>
