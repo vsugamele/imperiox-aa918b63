@@ -50,6 +50,7 @@ const inteligenciaItems = [
   { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
   { title: "Skills",               url: "/skills",         icon: Zap },
+  { title: "Guia Claude (Copy)",   url: "/claude-skills",  icon: BookOpen },
   { title: "Estúdio de Produto",   url: "/studio",         icon: Clapperboard },
   { title: "Swipe File",           url: "/swipe",          icon: Library },
   { title: "Market Intel",         url: "/market-intel",   icon: Search },
