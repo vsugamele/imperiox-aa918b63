@@ -14,6 +14,7 @@ import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, 
 import AIWizardDialog from "./AIWizardDialog";
 import SectorPackDialog from "./SectorPackDialog";
 import { RefineAIDialog } from "./RefineAIDialog";
+import AILearnedRulesPanel from "./AILearnedRulesPanel";
 import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
 import { MENTES_DATA } from "@/data/mentesData";
 
@@ -876,6 +877,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               </TabsTrigger>
               <TabsTrigger value="training" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
                 <GraduationCap className="h-3.5 w-3.5" /> Cérebro & FAQ
+              </TabsTrigger>
+              <TabsTrigger value="learned" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Brain className="h-3.5 w-3.5" /> Aprendizado
               </TabsTrigger>
               <TabsTrigger value="playground" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" /> Playground de Teste
@@ -2315,6 +2319,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* ── TAB: APRENDIZADO DA IA ── */}
+            <TabsContent value="learned" className="mt-0 animate-fade-in">
+              <AILearnedRulesPanel projectId={projectId} />
             </TabsContent>
 
             {/* ── TAB 5: PLAYGROUND DE TESTE ── */}
