@@ -690,32 +690,88 @@ Deno.serve(async (req) => {
       let objectionsBlock = "";
       let projectRulesBlock = "";
 
-      // 7.0.1. Regras permanentes do projeto (vão SEMPRE no prompt, não dependem de similaridade)
+      // 7.0.1. Regras permanentes do projeto — RAG: top-K por similaridade + guardrails (unavailable)
+      // + sticky A/B: cada conversa sempre vê a mesma variante de um ab_group
       try {
-        const { data: rules } = await supabase
-          .from("imphq_wa_project_rules")
-          .select("id, rule_text, rule_type")
-          .eq("project_id", project_id)
-          .eq("active", true)
-          .order("created_at", { ascending: false })
-          .limit(40);
-        if (rules && rules.length > 0) {
-          const behaviorRules = rules.filter((r: any) => r.rule_type !== "unavailable_product");
-          const unavailableRules = rules.filter((r: any) => r.rule_type === "unavailable_product");
-          projectRulesBlock = "\n📜 REGRAS PERMANENTES DO PROJETO (NUNCA VIOLAR):\n" +
+        const ruleEmb = await getCachedEmbedding(supabase, message);
+        let rules: any[] = [];
+        if (ruleEmb) {
+          const { data: matched, error: matchErr } = await supabase.rpc("match_wa_rules", {
+            p_project_id: project_id,
+            p_query_embedding: ruleEmb,
+            p_match_count: 5,
+            p_threshold: 0.45,
+          });
+          if (matchErr) console.warn("[wa-ai-reply] match_wa_rules err:", matchErr.message);
+          rules = matched || [];
+        }
+        // fallback: se sem embedding, carrega tudo ativo
+        if (rules.length === 0) {
+          const { data: all } = await supabase
+            .from("imphq_wa_project_rules")
+            .select("id, rule_text, rule_type, ab_group_id, ab_status")
+            .eq("project_id", project_id)
+            .eq("active", true)
+            .order("created_at", { ascending: false })
+            .limit(40);
+          rules = all || [];
+        }
+
+        // sticky A/B por conversa: para cada ab_group_id, escolhe 1 variante de forma determinística
+        const stickyHash = (s: string) => {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+          return Math.abs(h);
+        };
+        const byGroup = new Map<string, any[]>();
+        const noGroup: any[] = [];
+        for (const r of rules) {
+          if (r.ab_group_id && (r.ab_status === "control" || r.ab_status === "variant")) {
+            const arr = byGroup.get(r.ab_group_id) || [];
+            arr.push(r);
+            byGroup.set(r.ab_group_id, arr);
+          } else {
+            noGroup.push(r);
+          }
+        }
+        const chosen: any[] = [...noGroup];
+        for (const [gid, variants] of byGroup) {
+          variants.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+          const pick = stickyHash(`${conversation_id}|${gid}`) % variants.length;
+          chosen.push(variants[pick]);
+        }
+
+        if (chosen.length > 0) {
+          const behaviorRules = chosen.filter((r: any) => r.rule_type !== "unavailable_product");
+          const unavailableRules = chosen.filter((r: any) => r.rule_type === "unavailable_product");
+          projectRulesBlock = "\n📜 REGRAS RELEVANTES DO PROJETO (NUNCA VIOLAR):\n" +
             behaviorRules.map((r: any) => `- ${r.rule_text}`).join("\n");
           if (unavailableRules.length > 0) {
             projectRulesBlock += "\n\n🚫 PRODUTOS/EVENTOS INDISPONÍVEIS (NÃO OFERECER):\n" +
               unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
           }
           projectRulesBlock += "\n";
-          // incrementa contador de aplicação (best-effort, não bloqueia)
-          const ids = rules.map((r: any) => r.id);
+
+          // increment + log de aplicações (best-effort)
+          const ids = chosen.map((r: any) => r.id);
           supabase.rpc("increment_wa_rules_applied", { p_ids: ids }).then(() => null, () => null);
+
+          const leadKey = leadRow?.id || phone || null;
+          if (leadKey) {
+            const rows = chosen.map((r: any) => ({
+              rule_id: r.id,
+              ab_group_id: r.ab_group_id || null,
+              project_id,
+              conversation_id,
+              lead_id: leadKey,
+            }));
+            supabase.from("imphq_wa_rule_applications").insert(rows).then(() => null, () => null);
+          }
         }
       } catch (e: any) {
-        console.warn("[wa-ai-reply] project_rules load error:", e.message);
+        console.warn("[wa-ai-reply] project_rules RAG error:", e.message);
       }
+
 
       let triageIntent = "";
       try {
