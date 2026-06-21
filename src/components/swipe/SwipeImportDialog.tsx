@@ -133,8 +133,9 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
         return;
       }
       const { data, error } = await supabase.functions.invoke("swipe-import", {
-        body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null },
+        body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null, force_format: forceFormat === "auto" ? null : forceFormat },
       });
+
       if (error) throw error;
       console.log("[swipe-import] result:", data);
       toast.success(`${data.count} swipe(s) importadas!`);
