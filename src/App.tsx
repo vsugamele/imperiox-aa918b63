@@ -68,6 +68,7 @@ const ABTests = lazy(() => import("./pages/ABTests"));
 const MobileCockpit = lazy(() => import("./pages/MobileCockpit"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const CopyEngine = lazy(() => import("./pages/CopyEngine"));
+const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -151,6 +152,7 @@ const App = () => (
                 <Route path="conteudo-ia" element={<ConteudoIA />} />
                 <Route path="nutricao" element={<Nutricao />} />
                 <Route path="guia" element={<Guia />} />
+                <Route path="claude-skills" element={<ClaudeSkillsGuide />} />
                 <Route path="criativos" element={<Criativos />} />
                 <Route path="criativos/novo" element={<CriativoNovo />} />
                 <Route path="criativos/:batchId" element={<CriativoDetalhe />} />
