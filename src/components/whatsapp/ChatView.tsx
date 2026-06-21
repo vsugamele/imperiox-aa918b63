@@ -1480,19 +1480,40 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                         )}
                         {/* Correction input */}
                         {feedbackCorrecting === m.id && (
-                          <div className="mt-2 space-y-1.5 min-w-[240px]">
+                          <div className="mt-2 space-y-1.5 min-w-[280px]">
                             <Textarea
                               value={correctionText}
                               onChange={e => setCorrectionText(e.target.value)}
-                              placeholder="Como deveria ter sido respondido?"
+                              placeholder="Como deveria ter sido respondido? Ou que regra a IA deve seguir?"
                               className="min-h-[56px] text-xs bg-background text-foreground"
                               autoFocus
                             />
+                            <div className="flex flex-wrap gap-1">
+                              {([
+                                ["auto", "🤖 Auto"],
+                                ["answer", "✏️ Resposta melhor"],
+                                ["rule", "📜 Regra do projeto"],
+                                ["unavailable", "🚫 Produto indisponível"],
+                              ] as const).map(([val, label]) => (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setCorrectionType(val)}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+                                    correctionType === val
+                                      ? "bg-amber-600 border-amber-500 text-white"
+                                      : "bg-background border-border text-muted-foreground hover:border-amber-500/50"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
                             <div className="flex gap-1 justify-end">
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); }}>
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); setCorrectionType("auto"); }}>
                                 <X className="h-3 w-3 mr-0.5" /> Cancelar
                               </Button>
-                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText)} disabled={!correctionText.trim()}>
+                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText, correctionType)} disabled={!correctionText.trim()}>
                                 Salvar Correção
                               </Button>
                             </div>
