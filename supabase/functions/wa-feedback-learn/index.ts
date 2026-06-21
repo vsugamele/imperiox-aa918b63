@@ -138,12 +138,42 @@ Deno.serve(async (req) => {
 
       // ROTA 1: regra do projeto (comportamental ou produto indisponível)
       if (correction_type === "rule" || correction_type === "unavailable") {
+        const rule_type = correction_type === "unavailable" ? "unavailable_product" : "behavior";
+        const ruleEmb = await getCachedEmbedding(supa, correction);
+
+        // Detecta conflito com regra ativa similar → cria como variante A/B
+        let ab_group_id: string | null = null;
+        let ab_status: string | null = null;
+        if (ruleEmb && rule_type === "behavior") {
+          const { data: similar } = await supa.rpc("match_wa_rules", {
+            p_project_id: project_id,
+            p_query_embedding: ruleEmb,
+            p_match_count: 1,
+            p_threshold: 0.85,
+          });
+          const conflict = (similar || []).find((s: any) => s.rule_type === "behavior");
+          if (conflict) {
+            ab_group_id = conflict.ab_group_id || crypto.randomUUID();
+            ab_status = "variant";
+            // garante que a regra original vire control no mesmo grupo
+            if (!conflict.ab_group_id) {
+              await supa.from("imphq_wa_project_rules").update({
+                ab_group_id, ab_status: "control", ab_started_at: new Date().toISOString(),
+              }).eq("id", conflict.id);
+            }
+          }
+        }
+
         await supa.from("imphq_wa_project_rules").insert({
           project_id,
           rule_text: correction,
-          rule_type: correction_type === "unavailable" ? "unavailable_product" : "behavior",
+          rule_type,
           active: true,
           created_from_message_id: message_id,
+          embedding: ruleEmb,
+          ab_group_id,
+          ab_status,
+          ab_started_at: ab_group_id ? new Date().toISOString() : null,
         });
 
         await supa.from("imphq_ai_actions").insert({
@@ -151,12 +181,16 @@ Deno.serve(async (req) => {
           kind: "refine_prompt",
           risk_level: "low",
           status: "completed",
-          title: correction_type === "unavailable"
-            ? "🚫 Restrição de produto adicionada"
-            : "📜 Regra do projeto adicionada",
-          reason: `Operador definiu nova ${correction_type === "unavailable" ? "restrição de produto" : "regra"}: "${correction.slice(0, 150)}"`,
+          title: ab_group_id
+            ? "🧪 Nova variante A/B de regra criada"
+            : (correction_type === "unavailable"
+              ? "🚫 Restrição de produto adicionada"
+              : "📜 Regra do projeto adicionada"),
+          reason: ab_group_id
+            ? `Conflito detectado — regra adicionada como variante A/B: "${correction.slice(0, 150)}"`
+            : `Operador definiu nova ${correction_type === "unavailable" ? "restrição de produto" : "regra"}: "${correction.slice(0, 150)}"`,
           source: "wa-feedback-learn",
-          payload: { message_id, correction: correction.slice(0, 300), rule_type: correction_type },
+          payload: { message_id, correction: correction.slice(0, 300), rule_type, ab_group_id },
         });
       } else {
         // ROTA 2: resposta literal melhor (comportamento legado)
