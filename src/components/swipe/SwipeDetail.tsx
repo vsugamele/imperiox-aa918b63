@@ -255,9 +255,15 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             </div>
 
             <div className="space-y-3 mt-2">
-              {BLOCK_KEYS.map((b) => (
+              {isVsl && (
+                <p className="text-[10px] uppercase tracking-wider text-amber-400/80">
+                  Estrutura VSL em 7 blocos · 19m30s
+                </p>
+              )}
+              {BLOCK_KEYS.map((b: any) => (
                 <div key={b.key}>
                   <Label className="text-xs">{b.label}</Label>
+                  {b.hint && <p className="text-[10px] text-muted-foreground mb-1">{b.hint}</p>}
                   <Textarea
                     value={data.blocks?.[b.key] || ""}
                     onChange={(e) => updateBlock(b.key, e.target.value)}
@@ -266,6 +272,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
                 </div>
               ))}
             </div>
+
 
             <div className="flex gap-2 pt-2">
               <Button onClick={save} disabled={saving} className="flex-1">
