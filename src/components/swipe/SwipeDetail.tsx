@@ -73,8 +73,10 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
 
   useEffect(() => setData(swipe), [swipe?.id]);
 
-  const isVsl = data?.formato === "vsl";
+  const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || data?.blocks?.__schema === "vsl7";
+  const BLOCK_KEYS = isVsl ? VSL7_BLOCKS : SHORT_BLOCKS;
   const videoUrl = data?.media_urls?.[0];
+
   const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
 
   // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
