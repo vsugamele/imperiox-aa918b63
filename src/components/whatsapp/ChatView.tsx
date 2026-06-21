@@ -995,16 +995,22 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
     const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
     const [correctionText, setCorrectionText] = useState("");
+    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable">("auto");
 
-    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string) => {
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable") => {
       try {
-        await supabase.functions.invoke("wa-feedback-learn", {
-          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId },
+        const { data } = await supabase.functions.invoke("wa-feedback-learn", {
+          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId, correction_type: ctype || "auto" },
         });
         setFeedbackSent(prev => ({ ...prev, [msgId]: feedback }));
         setFeedbackCorrecting(null);
         setCorrectionText("");
-        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : "✏️ Correção incorporada à base");
+        setCorrectionType("auto");
+        const finalType = (data as any)?.correction_type;
+        const typeLabel = finalType === "rule" ? "📜 regra do projeto"
+          : finalType === "unavailable" ? "🚫 produto indisponível"
+          : "✏️ resposta corrigida";
+        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
       } catch (err: any) {
         toast.error("Erro ao salvar feedback: " + err.message);
       }
