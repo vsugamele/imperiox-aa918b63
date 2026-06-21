@@ -165,10 +165,28 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   };
 
   const copyAll = () => {
-    const txt = BLOCK_KEYS.map((b) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
+    const txt = BLOCK_KEYS.map((b: any) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
     navigator.clipboard.writeText(`# ${data.title}\n\n${txt}`);
     toast.success("Copiado");
   };
+
+  const generateVslFromMotor = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setGenerating(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("swipe-generate", {
+        body: { mode: "vsl_from_swipe", swipe_id: data.id, target_project_id: data.project_id, target_produto_id: data.produto_id, briefing },
+      });
+      if (error) throw error;
+      toast.success(`VSL gerada: "${res.swipe?.title}"`);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
 
   const re = data.reverse_engineering || {};
 
