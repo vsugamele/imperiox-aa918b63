@@ -358,6 +358,19 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             <Button onClick={extractTemplate} disabled={generating} variant="outline" className="w-full gap-2">
               <FlaskConical className="h-4 w-4" /> Extrair fórmula reutilizável (template)
             </Button>
+            {isVsl && (
+              <>
+                <div className="border-t border-border/40 pt-3 mt-3" />
+                <Button onClick={generateVslFromMotor} disabled={generating} className="w-full gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  ⚡ Gerar nova VSL com este motor (7 blocos)
+                </Button>
+                <p className="text-[10px] text-muted-foreground leading-6">
+                  Usa esta VSL como esqueleto + produto/avatar do projeto atual para escrever uma VSL nova adaptada.
+                </p>
+              </>
+            )}
+
             <p className="text-[10px] text-muted-foreground leading-6">
               <strong>Variações</strong>: cria N novas copys adaptadas mantendo a estrutura.<br />
               <strong>Extrair fórmula</strong>: salva o esqueleto numa biblioteca de templates.
