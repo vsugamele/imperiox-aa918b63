@@ -2321,6 +2321,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               </div>
             </TabsContent>
 
+            {/* ── TAB: APRENDIZADO DA IA ── */}
+            <TabsContent value="learned" className="mt-0 animate-fade-in">
+              <AILearnedRulesPanel projectId={projectId} />
+            </TabsContent>
+
             {/* ── TAB 5: PLAYGROUND DE TESTE ── */}
             <TabsContent value="playground" className="mt-0 space-y-6 animate-fade-in">
               <div className="bg-primary/5 rounded-lg border border-primary/10 p-4 flex gap-3 items-start">
