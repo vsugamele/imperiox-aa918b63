@@ -21,7 +21,9 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [nicho, setNicho] = useState("");
+  const [forceFormat, setForceFormat] = useState<"auto" | "vsl" | "short">("auto");
   const [loading, setLoading] = useState(false);
+
 
   // VSL form
   const [vsl, setVsl] = useState({
