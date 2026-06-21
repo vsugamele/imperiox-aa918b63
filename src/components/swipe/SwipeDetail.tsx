@@ -36,7 +36,7 @@ function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src
   }
 }
 
-const BLOCK_KEYS = [
+const SHORT_BLOCKS = [
   { key: "gancho", label: "🎯 Gancho" },
   { key: "participacao_ativa", label: "👋 Participação ativa" },
   { key: "narrativa", label: "📖 Narrativa" },
@@ -44,6 +44,17 @@ const BLOCK_KEYS = [
   { key: "cta_engajamento", label: "💬 CTA Engajamento" },
   { key: "cta_venda", label: "💰 CTA Venda" },
 ];
+
+const VSL7_BLOCKS = [
+  { key: "b1_gancho", label: "1. 🎯 Gancho & Interrupção", hint: "0:00–1:30 · promessa chocante, qualifica avatar" },
+  { key: "b2_agitacao", label: "2. 🔥 Agitação do Problema", hint: "1:30–4:00 · sintoma → causa raiz → custo de não resolver" },
+  { key: "b3_origem", label: "3. 📖 História de Origem & Epifania", hint: "4:00–8:30 · antes / crise / busca / descoberta / transformação" },
+  { key: "b4_mecanismo", label: "4. 🧬 Mecanismo Único", hint: "8:30–11:00 · nome + analogia + pilares + por que concorrência falha" },
+  { key: "b5_oferta", label: "5. 💎 Revelação da Oferta", hint: "11:00–14:00 · escada de ancoragem (valor / custo / mercado / preço)" },
+  { key: "b6_value_stack", label: "6. 🎁 Value Stack & Bônus", hint: "14:00–17:00 · cada bônus mata uma objeção" },
+  { key: "b7_garantia_cta", label: "7. 🛡️ Garantia & CTA Final", hint: "17:00–19:30 · risco invertido + urgência" },
+];
+
 
 interface Props {
   swipe: any;
@@ -62,8 +73,10 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
 
   useEffect(() => setData(swipe), [swipe?.id]);
 
-  const isVsl = data?.formato === "vsl";
+  const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || data?.blocks?.__schema === "vsl7";
+  const BLOCK_KEYS = isVsl ? VSL7_BLOCKS : SHORT_BLOCKS;
   const videoUrl = data?.media_urls?.[0];
+
   const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
 
   // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
@@ -152,10 +165,28 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   };
 
   const copyAll = () => {
-    const txt = BLOCK_KEYS.map((b) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
+    const txt = BLOCK_KEYS.map((b: any) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
     navigator.clipboard.writeText(`# ${data.title}\n\n${txt}`);
     toast.success("Copiado");
   };
+
+  const generateVslFromMotor = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setGenerating(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("swipe-generate", {
+        body: { mode: "vsl_from_swipe", swipe_id: data.id, target_project_id: data.project_id, target_produto_id: data.produto_id, briefing },
+      });
+      if (error) throw error;
+      toast.success(`VSL gerada: "${res.swipe?.title}"`);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
 
   const re = data.reverse_engineering || {};
 
@@ -242,9 +273,15 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             </div>
 
             <div className="space-y-3 mt-2">
-              {BLOCK_KEYS.map((b) => (
+              {isVsl && (
+                <p className="text-[10px] uppercase tracking-wider text-amber-400/80">
+                  Estrutura VSL em 7 blocos · 19m30s
+                </p>
+              )}
+              {BLOCK_KEYS.map((b: any) => (
                 <div key={b.key}>
                   <Label className="text-xs">{b.label}</Label>
+                  {b.hint && <p className="text-[10px] text-muted-foreground mb-1">{b.hint}</p>}
                   <Textarea
                     value={data.blocks?.[b.key] || ""}
                     onChange={(e) => updateBlock(b.key, e.target.value)}
@@ -253,6 +290,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
                 </div>
               ))}
             </div>
+
 
             <div className="flex gap-2 pt-2">
               <Button onClick={save} disabled={saving} className="flex-1">
@@ -320,6 +358,19 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             <Button onClick={extractTemplate} disabled={generating} variant="outline" className="w-full gap-2">
               <FlaskConical className="h-4 w-4" /> Extrair fórmula reutilizável (template)
             </Button>
+            {isVsl && (
+              <>
+                <div className="border-t border-border/40 pt-3 mt-3" />
+                <Button onClick={generateVslFromMotor} disabled={generating} className="w-full gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  ⚡ Gerar nova VSL com este motor (7 blocos)
+                </Button>
+                <p className="text-[10px] text-muted-foreground leading-6">
+                  Usa esta VSL como esqueleto + produto/avatar do projeto atual para escrever uma VSL nova adaptada.
+                </p>
+              </>
+            )}
+
             <p className="text-[10px] text-muted-foreground leading-6">
               <strong>Variações</strong>: cria N novas copys adaptadas mantendo a estrutura.<br />
               <strong>Extrair fórmula</strong>: salva o esqueleto numa biblioteca de templates.

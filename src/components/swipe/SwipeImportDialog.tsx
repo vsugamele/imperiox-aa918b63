@@ -21,7 +21,9 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [nicho, setNicho] = useState("");
+  const [forceFormat, setForceFormat] = useState<"auto" | "vsl" | "short">("auto");
   const [loading, setLoading] = useState(false);
+
 
   // VSL form
   const [vsl, setVsl] = useState({
@@ -131,8 +133,9 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
         return;
       }
       const { data, error } = await supabase.functions.invoke("swipe-import", {
-        body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null },
+        body: { mode: tab === "json" ? "json" : tab, payload: tab === "json" ? payload : payload, nicho: nicho || null, force_format: forceFormat === "auto" ? null : forceFormat },
       });
+
       if (error) throw error;
       console.log("[swipe-import] result:", data);
       toast.success(`${data.count} swipe(s) importadas!`);
@@ -198,9 +201,22 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
               <Textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Cole aqui qualquer copy: legenda de Reel, roteiro de VSL, e-mail, post… A IA vai quebrar em gancho/narrativa/reframe/CTA automaticamente."
+                placeholder="Cole aqui qualquer copy: legenda de Reel, roteiro de VSL, e-mail, post… A IA quebra automaticamente. Se for VSL longa (>1500 palavras), aplica esquema de 7 blocos."
                 className="bg-background text-sm min-h-[280px] leading-7"
               />
+              <div className="flex items-center gap-2 pt-1">
+                <Label className="text-[10px] text-muted-foreground">Forçar formato:</Label>
+                {(["auto", "vsl", "short"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setForceFormat(f)}
+                    className={`text-[10px] px-2 py-0.5 rounded border ${forceFormat === f ? "border-primary bg-primary/20 text-primary" : "border-border/40 text-muted-foreground"}`}
+                  >
+                    {f === "auto" ? "Auto (detectar)" : f === "vsl" ? "VSL (7 blocos)" : "Copy curta (6 blocos)"}
+                  </button>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="url" className="space-y-2">
@@ -214,7 +230,21 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
               <p className="text-[10px] text-muted-foreground">
                 Funciona melhor com Landing Pages, páginas de venda e posts públicos. Para Reels/TikTok, o conteúdo extraído é a legenda + comentários.
               </p>
+              <div className="flex items-center gap-2 pt-1">
+                <Label className="text-[10px] text-muted-foreground">Forçar formato:</Label>
+                {(["auto", "vsl", "short"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setForceFormat(f)}
+                    className={`text-[10px] px-2 py-0.5 rounded border ${forceFormat === f ? "border-primary bg-primary/20 text-primary" : "border-border/40 text-muted-foreground"}`}
+                  >
+                    {f === "auto" ? "Auto" : f === "vsl" ? "VSL (7 blocos)" : "Copy curta"}
+                  </button>
+                ))}
+              </div>
             </TabsContent>
+
 
             <TabsContent value="vsl" className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
