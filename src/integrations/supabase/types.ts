@@ -39174,6 +39174,7 @@ export type Database = {
           name: string
           phone: string
           profile: string
+          session_id: string | null
           status: string
           updated_at: string
           user_agent: string | null
@@ -39188,6 +39189,7 @@ export type Database = {
           name: string
           phone: string
           profile: string
+          session_id?: string | null
           status?: string
           updated_at?: string
           user_agent?: string | null
@@ -39202,11 +39204,77 @@ export type Database = {
           name?: string
           phone?: string
           profile?: string
+          session_id?: string | null
           status?: string
           updated_at?: string
           user_agent?: string | null
         }
         Relationships: []
+      }
+      scanner_sessions: {
+        Row: {
+          age: number | null
+          answers: Json
+          completed_at: string | null
+          email: string | null
+          id: string
+          last_question_index: number | null
+          last_step: string
+          lead_id: string | null
+          name: string | null
+          phone: string | null
+          profile: string | null
+          session_id: string
+          started_at: string
+          total_questions: number | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id?: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scanner_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "scanner_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sequences: {
         Row: {
