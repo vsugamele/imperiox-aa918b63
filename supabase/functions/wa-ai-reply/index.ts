@@ -687,6 +687,39 @@ Deno.serve(async (req) => {
       let lessonsBlock = "";
       let memoryBlock = "";
       let objectionsBlock = "";
+      let projectRulesBlock = "";
+
+      // 7.0.1. Regras permanentes do projeto (vão SEMPRE no prompt, não dependem de similaridade)
+      try {
+        const { data: rules } = await supabase
+          .from("imphq_wa_project_rules")
+          .select("id, rule_text, rule_type")
+          .eq("project_id", project_id)
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .limit(40);
+        if (rules && rules.length > 0) {
+          const behaviorRules = rules.filter((r: any) => r.rule_type !== "unavailable_product");
+          const unavailableRules = rules.filter((r: any) => r.rule_type === "unavailable_product");
+          projectRulesBlock = "\n📜 REGRAS PERMANENTES DO PROJETO (NUNCA VIOLAR):\n" +
+            behaviorRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          if (unavailableRules.length > 0) {
+            projectRulesBlock += "\n\n🚫 PRODUTOS/EVENTOS INDISPONÍVEIS (NÃO OFERECER):\n" +
+              unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          }
+          projectRulesBlock += "\n";
+          // contador de aplicação
+          await supabase.rpc("execute_sql_safe", {}).catch(() => null);
+          const ids = rules.map((r: any) => r.id);
+          await supabase
+            .from("imphq_wa_project_rules")
+            .update({ times_applied: (rules[0] as any).times_applied != null ? undefined : 1 } as any)
+            .in("id", ids)
+            .then(() => null, () => null);
+        }
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] project_rules load error:", e.message);
+      }
 
       let triageIntent = "";
       try {
