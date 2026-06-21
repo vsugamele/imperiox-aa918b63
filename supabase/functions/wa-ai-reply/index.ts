@@ -1135,7 +1135,7 @@ REGRAS CRITICAS:
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
