@@ -36,7 +36,7 @@ function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src
   }
 }
 
-const BLOCK_KEYS = [
+const SHORT_BLOCKS = [
   { key: "gancho", label: "🎯 Gancho" },
   { key: "participacao_ativa", label: "👋 Participação ativa" },
   { key: "narrativa", label: "📖 Narrativa" },
@@ -44,6 +44,17 @@ const BLOCK_KEYS = [
   { key: "cta_engajamento", label: "💬 CTA Engajamento" },
   { key: "cta_venda", label: "💰 CTA Venda" },
 ];
+
+const VSL7_BLOCKS = [
+  { key: "b1_gancho", label: "1. 🎯 Gancho & Interrupção", hint: "0:00–1:30 · promessa chocante, qualifica avatar" },
+  { key: "b2_agitacao", label: "2. 🔥 Agitação do Problema", hint: "1:30–4:00 · sintoma → causa raiz → custo de não resolver" },
+  { key: "b3_origem", label: "3. 📖 História de Origem & Epifania", hint: "4:00–8:30 · antes / crise / busca / descoberta / transformação" },
+  { key: "b4_mecanismo", label: "4. 🧬 Mecanismo Único", hint: "8:30–11:00 · nome + analogia + pilares + por que concorrência falha" },
+  { key: "b5_oferta", label: "5. 💎 Revelação da Oferta", hint: "11:00–14:00 · escada de ancoragem (valor / custo / mercado / preço)" },
+  { key: "b6_value_stack", label: "6. 🎁 Value Stack & Bônus", hint: "14:00–17:00 · cada bônus mata uma objeção" },
+  { key: "b7_garantia_cta", label: "7. 🛡️ Garantia & CTA Final", hint: "17:00–19:30 · risco invertido + urgência" },
+];
+
 
 interface Props {
   swipe: any;
