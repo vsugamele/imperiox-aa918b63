@@ -1,32 +1,46 @@
-# Alternativas ao CAPI da Meta
+# Guia de Inteligência para Claude — Pasta de Skills
 
-Se a conta não libera token CAPI, dá pra deixar a Meta mais inteligente por outros caminhos. Em ordem de impacto:
+Vou montar uma pasta `claude-skills/` na raiz do projeto com **8 arquivos .md modulares**, consolidando todo o arsenal de copy/VSL/avatar do ImperioHQ num formato pronto pra colar no Claude Projects (cada arquivo vira um "knowledge file" do projeto).
 
-## 1. Pixel + Advanced Matching (manual)
-Enviar no `fbq('init', PIXEL_ID, { em, ph, fn, ln, ct, country, external_id })` com dados hasheados do lead capturado no formulário/checkout. Já melhora muito o match rate sem CAPI.
-- Onde: hook no `lead-capture` e no checkout para popular `external_id` (ID do lead/venda) e enviar no `fbq`.
+## Estrutura proposta
 
-## 2. CAPI via Gateway (sem token da conta)
-Usar o **Conversions API Gateway** da própria Meta (deploy AWS) ou serviços como **Stape.io / Addingwell** (server-side GTM gerenciado). Eles assinam os eventos server-side sem precisar você gerar token manualmente — a integração é via Business Manager.
+```text
+claude-skills/
+├── README.md                    # Índice + instruções de uso no Claude Projects
+├── 00-persona-imperius.md       # Tom estratégico, pt-BR, hierarquia de prioridade
+├── 01-vsl-7-blocos.md           # Estrutura VSL 19m30s + regras por bloco
+├── 02-copy-frameworks.md        # Equação Hormozi + Sales Page 14 blocos + ângulos de ad
+├── 03-avatar-4-camadas.md       # C1 Sintomas → C4 Ferida central + mapeamento de desejos
+├── 04-skills-arsenal.md         # Consolidado dos /skills (Anams, Devastador, Filemon, Mecanismo Único, Tripwire, LP Persuasiva, Yoshitani, Sales Architect/Closer, Webinar)
+├── 05-roteiros-virais-reels.md  # 60+ estruturas (Dica, React, Antes/Depois, etc.) de roteirosViraisTemplates.ts
+└── 06-prompt-base-copy.md       # Prompt-mãe pronto: "Você é o Imperius..." c/ regras de output
+```
 
-## 3. CAPI for Stripe / Shopify nativo
-Se a venda passa por Stripe/Shopify, a Meta tem integração nativa no Events Manager → "Adicionar eventos" → escolher partner. Zero código, envia compra server-side.
+## Conteúdo por arquivo
 
-## 4. Offline Conversions (CSV/API)
-Subir conversões via **Offline Event Sets** no Business Manager (upload CSV diário ou API). Atribui vendas reais às campanhas via `email`/`phone` matching. Bom pra rastrear PIX/Boleto pagos depois.
-- Já temos `imphq_vendas` com email/telefone → daria pra gerar CSV automático.
+**00 — Persona Imperius**: tom estratégico/militar, pt-BR, sempre consulta avatar+branding, prioriza projetos "vendendo", nunca cita IA na copy final.
 
-## 5. UTM Tracker próprio (já temos)
-Reforçar o `tracker-system` com `xcod` cheio (`{{campaign.id}}|{{adset.id}}|{{ad.id}}`) e cruzar com `imphq_vendas` no dashboard. Não melhora o algoritmo da Meta, mas dá ROAS real interno.
+**01 — VSL 7 Blocos**: extraído de `src/data/copilotFrameworks.ts` (vsl.blocks) — Gancho, Agitação, Origem/Epifania, Mecanismo Único, Oferta/Ancoragem, Value Stack, Garantia/CTA. Cada bloco com timing, objetivo e *rule* anti-erro.
 
-## 6. Eventos enriquecidos no Pixel
-Enviar `value`, `currency`, `content_ids`, `content_type`, `predicted_ltv` em **todos** os eventos (ViewContent, AddToCart, InitiateCheckout, Purchase). Meta usa esses sinais pra otimizar mesmo só com Pixel.
+**02 — Copy Frameworks**: 
+- Equação de Valor Hormozi (fórmula + 4 alavancas)
+- Sales Page 14 Blocos (B1 Headline → B14 CTA)
+- 5 ângulos de anúncio (Raiva, Medo, Lógica, Status, Curiosidade)
 
-## Recomendação
-**Combo mais barato e eficaz:** (1) Advanced Matching no Pixel + (4) Offline Conversions automático a partir do `imphq_vendas`. Cobre 80% do ganho do CAPI sem depender de token.
+**03 — Avatar 4 Camadas**: C1 Sintomas Observáveis → C2 Dores Conscientes → C3 Ego Ferido → C4 Ferida Central, com perguntas-guia pra preencher cada camada.
 
-Se quiser ir além: (2) Stape.io (~$20/mês) faz CAPI completo sem você gerenciar token.
+**04 — Skills Arsenal**: condenso os .md de `src/data/skills/` (10+ skills) num único índice navegável, mantendo o prompt-system de cada um (Devastador V4, Anams Copywriter, Ângulos Filemon, Mecanismo Único V2, Tripwire Matador, LP Persuasiva, Sales Architect/Closer, Webinar Roteiro, Yoshitani Traffic, Dossiê Problemas).
 
----
+**05 — Roteiros Virais**: lista de `src/data/roteirosViraisTemplates.ts` com estrutura de cada formato (gancho + corpo + CTA).
 
-Qual caminho você quer que eu implemente? Posso começar pelo Advanced Matching + Offline Conversions automático já que temos os dados em `imphq_vendas`.
+**06 — Prompt Base**: prompt-system pronto pra colar no campo "Instructions" do Claude Project, instruindo a ler os outros 6 arquivos como knowledge base e gerar copy seguindo o pipeline Avatar → Ângulo → Framework → Output.
+
+**README**: passo a passo de "como usar no Claude Projects" (criar Project → colar 00-prompt em Instructions → upload dos 01-06 em Knowledge → começar a pedir copy).
+
+## Arquivos a criar
+- 8 arquivos novos sob `claude-skills/`
+
+## Fora de escopo
+- Não cria Claude Skill empacotada (`.claude/skills/` com SKILL.md frontmatter) — é pasta solta pra colar no Claude Projects, conforme escolhido.
+- Não altera código do app.
+- Não inclui transcripts de aulas (`docs/transcripts/`) — escopo é frameworks de copy.
