@@ -25255,42 +25255,74 @@ export type Database = {
       }
       imphq_wa_project_rules: {
         Row: {
+          ab_decided_at: string | null
+          ab_group_id: string | null
+          ab_started_at: string | null
+          ab_status: string | null
           active: boolean
+          conversion_count: number
           created_at: string
           created_by: string | null
           created_from_message_id: string | null
+          embedding: string | null
           id: string
+          parent_id: string | null
           project_id: string
           rule_text: string
           rule_type: string
           times_applied: number
           updated_at: string
+          version: number
         }
         Insert: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
           active?: boolean
+          conversion_count?: number
           created_at?: string
           created_by?: string | null
           created_from_message_id?: string | null
+          embedding?: string | null
           id?: string
+          parent_id?: string | null
           project_id: string
           rule_text: string
           rule_type?: string
           times_applied?: number
           updated_at?: string
+          version?: number
         }
         Update: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
           active?: boolean
+          conversion_count?: number
           created_at?: string
           created_by?: string | null
           created_from_message_id?: string | null
+          embedding?: string | null
           id?: string
+          parent_id?: string | null
           project_id?: string
           rule_text?: string
           rule_type?: string
           times_applied?: number
           updated_at?: string
+          version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_project_rules_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_wa_providers: {
         Row: {
@@ -25354,6 +25386,50 @@ export type Database = {
           webhook_verify_token?: string | null
         }
         Relationships: []
+      }
+      imphq_wa_rule_applications: {
+        Row: {
+          ab_group_id: string | null
+          applied_at: string
+          conversation_id: string | null
+          converted_at: string | null
+          id: string
+          lead_id: string | null
+          project_id: string
+          rule_id: string
+          venda_id: string | null
+        }
+        Insert: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id: string
+          rule_id: string
+          venda_id?: string | null
+        }
+        Update: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id?: string
+          rule_id?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_rule_applications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_wa_scheduled: {
         Row: {
@@ -43249,6 +43325,16 @@ export type Database = {
       }
       diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
+      evaluate_wa_rules_ab: {
+        Args: { p_min_sample?: number }
+        Returns: {
+          group_id: string
+          loser_id: string
+          loser_rate: number
+          winner_id: string
+          winner_rate: number
+        }[]
+      }
       find_wa_phone_duplicates: {
         Args: { p_project_id: string }
         Returns: {
@@ -43564,6 +43650,22 @@ export type Database = {
           id: string
           objecao: string
           resposta_padrao: string
+          similarity: number
+        }[]
+      }
+      match_wa_rules: {
+        Args: {
+          p_match_count?: number
+          p_project_id: string
+          p_query_embedding: string
+          p_threshold?: number
+        }
+        Returns: {
+          ab_group_id: string
+          ab_status: string
+          id: string
+          rule_text: string
+          rule_type: string
           similarity: number
         }[]
       }
