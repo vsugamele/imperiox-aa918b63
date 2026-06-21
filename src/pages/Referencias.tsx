@@ -680,6 +680,7 @@ export default function Referencias() {
           <FileUpload
             bucket="project-media"
             path="referencias"
+            accept="image/*,video/*"
             onUpload={url => handleBulkUpload([url])}
             onUploadMultiple={handleBulkUpload}
             label="Upload Múltiplo"
