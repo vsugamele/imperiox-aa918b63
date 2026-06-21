@@ -43345,6 +43345,10 @@ export type Database = {
         Args: { trigger_id: string }
         Returns: undefined
       }
+      increment_wa_rules_applied: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_appbrabas_super_admin: { Args: { _user_id: string }; Returns: boolean }
