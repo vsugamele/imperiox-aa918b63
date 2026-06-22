@@ -16,6 +16,7 @@ import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
 // ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
+import { ProjetoSitesTab } from "@/components/projeto/ProjetoSitesTab";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
