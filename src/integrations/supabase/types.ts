@@ -21816,6 +21816,41 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_project_sites: {
+        Row: {
+          created_at: string
+          id: string
+          papel: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id?: string
+          site_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_project_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_project_templates: {
         Row: {
           boards_json: Json
@@ -22419,6 +22454,57 @@ export type Database = {
           project_id?: string
           score?: number
           vendedor_name?: string
+        }
+        Relationships: []
+      }
+      imphq_sites: {
+        Row: {
+          branding_json: Json | null
+          content_md: string | null
+          created_at: string
+          id: string
+          last_scraped_at: string | null
+          status: string
+          summary: string | null
+          tags: string[]
+          thumbnail_url: string | null
+          tipo: string
+          titulo: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
         }
         Relationships: []
       }
