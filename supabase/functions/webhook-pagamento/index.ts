@@ -1469,20 +1469,28 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       }
     }
 
-    // Send CAPI event for supported event types
+    // Send CAPI event for supported event types — dispara em paralelo p/ todos os pixels configurados
     const capiEventName = CAPI_EVENT_MAP[evento];
-    if (capiEventName && fbToken && fbPixelId) {
-      try {
-        const fallbackKey = `${email || "anon"}:${valor || 0}:${produto || ""}`;
-        const eventId = await buildCapiEventId(externalTxId, capiEventName, fallbackKey);
-        const capiResult = await sendCAPIEvent(
-          fbToken, fbPixelId, fbTestCode,
-          capiEventName, email, nome, phone, valor, produto, eventId,
-        );
-        console.log(`[webhook-pagamento] CAPI ${capiEventName} enviado (event_id=${eventId.slice(0,12)}):`, capiResult);
-      } catch (capiErr) {
-        console.error("[webhook-pagamento] Erro CAPI:", capiErr);
-      }
+    if (capiEventName && fbPixels.length > 0) {
+      const fallbackKey = `${email || "anon"}:${valor || 0}:${produto || ""}`;
+      const eventId = await buildCapiEventId(externalTxId, capiEventName, fallbackKey);
+      const results = await Promise.allSettled(
+        fbPixels.map((px) =>
+          sendCAPIEvent(
+            px.access_token, px.pixel_id, px.test_event_code,
+            capiEventName, email, nome, phone, valor, produto, eventId,
+          )
+        )
+      );
+      results.forEach((r, i) => {
+        const px = fbPixels[i];
+        const tag = `${px.label || "pixel"}:${px.pixel_id}`;
+        if (r.status === "fulfilled") {
+          console.log(`[webhook-pagamento] CAPI ${capiEventName} OK [${tag}] event_id=${eventId.slice(0,12)}:`, r.value);
+        } else {
+          console.error(`[webhook-pagamento] CAPI ${capiEventName} FAIL [${tag}]:`, r.reason);
+        }
+      });
     }
 
 
