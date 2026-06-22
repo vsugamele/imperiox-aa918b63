@@ -16,6 +16,7 @@ import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
 // ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
 import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
 import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
+import { ProjetoSitesTab } from "@/components/projeto/ProjetoSitesTab";
 import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 
 import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
@@ -81,6 +82,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
     id: "infra", label: "Infra", emoji: "⚙️",
     tabs: [
       { value: "docs", label: "Docs", emoji: "📄" },
+      { value: "sites", label: "Sites", emoji: "🌐" },
     ],
   },
 ];
@@ -408,6 +410,9 @@ export default function ProjetoDetalhe() {
         </TabsContent>
         <TabsContent value="docs" className="mt-4">
           <ProjetoDocs projectId={id!} />
+        </TabsContent>
+        <TabsContent value="sites" className="mt-4">
+          <ProjetoSitesTab projectId={id!} />
         </TabsContent>
         <TabsContent value="concorrentes" className="mt-4">
           <ConcorrentesTab projectId={id!} />

@@ -32,6 +32,7 @@ const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
 const Tracker = lazy(() => import("./pages/Tracker"));
 const Referencias = lazy(() => import("./pages/Referencias"));
+const Sites = lazy(() => import("./pages/Sites"));
 const Skills = lazy(() => import("./pages/Skills"));
 const Equipe = lazy(() => import("./pages/Equipe"));
 const Empresa = lazy(() => import("./pages/Empresa"));
@@ -144,6 +145,7 @@ const App = () => (
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="referencias" element={<Referencias />} />
+                <Route path="sites" element={<Sites />} />
                 <Route path="skills" element={<Skills />} />
                 <Route path="equipe" element={<Equipe />} />
                 <Route path="empresa" element={<Empresa />} />
