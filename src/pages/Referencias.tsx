@@ -226,13 +226,18 @@ export default function Referencias() {
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
 
-    // Pasta filter: show items in current folder (exact match or items with the folder as prefix)
+    // Pasta filter: only applies to manual refs. Library/ads refs don't have folders.
     let mpa = true;
-    if (filterPasta !== "all") {
-      mpa = r.pasta === filterPasta;
-    } else if (currentFolder.length > 0) {
-      // Show only items exactly in this folder (not subfolders)
-      mpa = r.pasta === currentFolderPath;
+    if (r.source === "manual") {
+      if (filterPasta !== "all") {
+        mpa = r.pasta === filterPasta;
+      } else if (currentFolder.length > 0) {
+        // Show only items exactly in this folder (not subfolders)
+        mpa = r.pasta === currentFolderPath;
+      } else {
+        // At root: show manual refs without a folder
+        mpa = !r.pasta;
+      }
     }
 
     return ms && mt && mp && mpr && mpa && mo && mc;
