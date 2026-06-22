@@ -1180,6 +1180,7 @@ REGRA META — VARIAR:
 - Se a info responde o lead por completo, encerre. NÃO force avanço.
 
 REGRAS CRITICAS:
+- AO ENVIAR LINK DE CHECKOUT: na mesma mensagem, antecipe em 1 frase curta as 2-3 dúvidas mais comuns que o lead pode ter (forma de pagamento aceita, parcelamento, garantia, prazo de acesso) — só as relevantes pro projeto. Termine convidando a tirar QUALQUER dúvida específica antes de finalizar, em vez do genérico "se tiver dúvida me fala". Ex: "Aceita Pix, cartão em até 12x e tem 7 dias de garantia. Se tiver dúvida sobre conteúdo, acesso ou pagamento antes de fechar, me fala que te ajudo agora."
 - MANTER O LEAD NA ROTA: Se o lead desviar para conversas aleatórias, assuntos pessoais não relacionados, ou desabafos que fujam da venda/solução, aja com empatia imediata (máximo 1 frase validando ou acolhendo o sentimento), mas em seguida retome o foco principal, conectando a dor dele com a solução/oferta e fazendo uma pergunta consultiva. Evite alongar-se em conversas vazias que esfriam o lead.
 - NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
 - NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
@@ -1918,6 +1919,16 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           .eq("id", conversation_id)
           .maybeSingle();
 
+        // Detecta se a IA enviou link de checkout/pitch nesta resposta
+        // para programar follow-up consultivo automático (wa-pitch-followup).
+        const sentUrls = (finalAiReply.match(/https?:\/\/[^\s)]+/gi) || []);
+        const pitchHost = paymentLink ? paymentLink.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] : "";
+        const isPitchLink = sentUrls.some((u) => {
+          const lu = u.toLowerCase();
+          if (pitchHost && lu.includes(pitchHost)) return true;
+          return /checkout|pay|hotmart|kiwify|monetizze|eduzz|braip|ticto|perfectpay|stripe|comprar|inscri/i.test(lu);
+        });
+
         const updatePayload: any = {
           ai_last_reply_at: new Date().toISOString(),
           ai_lock_until: null,
@@ -1926,6 +1937,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           last_message_direction: "outgoing",
           message_count: ((freshConv?.message_count as number) || 0) + 1,
         };
+        if (isPitchLink) {
+          updatePayload.last_pitch_at = new Date().toISOString();
+          updatePayload.last_pitch_link = sentUrls[0] || paymentLink || null;
+          updatePayload.pitch_followup_stage = 0;
+          updatePayload.pitch_followup_last_at = null;
+        }
 
         if (shouldTransitionToHuman) {
           updatePayload.status = "needs_human";

@@ -23860,6 +23860,9 @@ export type Database = {
           out_of_hours_message: string | null
           payment_link: string | null
           personality: string | null
+          pitch_followup_delays_hours: number[]
+          pitch_followup_enabled: boolean
+          pitch_followup_entry_product_id: string | null
           pix_key: string | null
           product_focus: string | null
           project_id: string
@@ -23925,6 +23928,9 @@ export type Database = {
           out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
           pix_key?: string | null
           product_focus?: string | null
           project_id: string
@@ -23990,6 +23996,9 @@ export type Database = {
           out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
           pix_key?: string | null
           product_focus?: string | null
           project_id?: string
@@ -24636,12 +24645,17 @@ export type Database = {
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
+          last_pitch_at: string | null
+          last_pitch_link: string | null
+          last_pitch_produto: string | null
           last_reactivation_at: string | null
           last_read_at: string | null
           lead_id: string | null
           message_count: number
           metadata: Json | null
           phone: string
+          pitch_followup_last_at: string | null
+          pitch_followup_stage: number
           profile_pic_updated_at: string | null
           profile_pic_url: string | null
           project_id: string
@@ -24686,12 +24700,17 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
           lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id: string
@@ -24736,12 +24755,17 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
           lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone?: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id?: string
