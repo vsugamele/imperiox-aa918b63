@@ -657,9 +657,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
 
                   <div className="space-y-2">
                     {fields.map((f: any) => {
-                      const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
-                        ? fbFallback[f.field as keyof typeof fbFallback]
-                        : itemData[f.field] || "";
+                      // facebook_pixel: rendered as multi-pixel block below, skip default fields
+                      if (item.key === "facebook_pixel") return null;
+
+                      const val = itemData[f.field] || "";
                       const secretKey = `${item.key}_${f.field}`;
                       const isVisible = visibleSecrets[secretKey];
 
@@ -698,6 +699,109 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         </div>
                       );
                     })}
+
+                    {/* Multi-pixel block for facebook_pixel */}
+                    {item.key === "facebook_pixel" && (() => {
+                      const legacySeed = (data.facebook_pixel_id || itemData.pixel_id)
+                        ? [{
+                            label: "Pixel principal",
+                            pixel_id: data.facebook_pixel_id || itemData.pixel_id || "",
+                            access_token: data.facebook_access_token || itemData.access_token || "",
+                            test_event_code: data.facebook_test_event_code || itemData.test_event_code || "",
+                          }]
+                        : [];
+                      const pixels: Array<{ label?: string; pixel_id: string; access_token: string; test_event_code?: string }> =
+                        (Array.isArray(data.facebook_pixels) && data.facebook_pixels.length > 0)
+                          ? data.facebook_pixels
+                          : legacySeed;
+
+                      const savePixels = (updated: typeof pixels) => {
+                        const first = updated[0] || { pixel_id: "", access_token: "", test_event_code: "" };
+                        onUpdateData({
+                          ...data,
+                          facebook_pixels: updated,
+                          facebook_pixel_id: first.pixel_id || "",
+                          facebook_access_token: first.access_token || "",
+                          facebook_test_event_code: first.test_event_code || "",
+                        });
+                      };
+                      const addPixel = () => savePixels([...pixels, { label: "", pixel_id: "", access_token: "", test_event_code: "" }]);
+                      const updatePixel = (idx: number, field: string, val: string) => {
+                        const updated = pixels.map((p, i) => i === idx ? { ...p, [field]: val } : p);
+                        savePixels(updated);
+                      };
+                      const removePixel = (idx: number) => savePixels(pixels.filter((_, i) => i !== idx));
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] text-muted-foreground font-medium">
+                              Pixels ({pixels.length}) — todos recebem CAPI em paralelo
+                            </Label>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={addPixel}>
+                              <Plus className="h-3 w-3 mr-1" /> Pixel
+                            </Button>
+                          </div>
+
+                          {pixels.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground italic">Nenhum pixel cadastrado. Clique em "+ Pixel".</p>
+                          )}
+
+                          {pixels.map((px, idx) => {
+                            const tokKey = `fb_pixel_${idx}_token`;
+                            const isVisible = visibleSecrets[tokKey];
+                            return (
+                              <div key={idx} className="p-2 rounded border border-border/60 bg-background/40 space-y-2">
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={px.label || ""}
+                                    onChange={(e) => updatePixel(idx, "label", e.target.value)}
+                                    placeholder={`Pixel #${idx + 1} (label opcional)`}
+                                    className="bg-secondary h-7 text-[11px] flex-1"
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removePixel(idx)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Pixel ID *</Label>
+                                  <Input
+                                    value={px.pixel_id}
+                                    onChange={(e) => updatePixel(idx, "pixel_id", e.target.value)}
+                                    placeholder="Ex: 614834761557621"
+                                    className="bg-secondary h-7 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Access Token (CAPI) *</Label>
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      value={px.access_token}
+                                      onChange={(e) => updatePixel(idx, "access_token", e.target.value)}
+                                      placeholder="EAAB..."
+                                      type={isVisible ? "text" : "password"}
+                                      className="bg-secondary h-7 text-xs flex-1"
+                                    />
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => toggleSecret(tokKey)}>
+                                      {isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Test Event Code</Label>
+                                  <Input
+                                    value={px.test_event_code || ""}
+                                    onChange={(e) => updatePixel(idx, "test_event_code", e.target.value)}
+                                    placeholder="TEST12345 (opcional)"
+                                    className="bg-secondary h-7 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     {/* CAPI guide button for facebook_pixel */}
                     {item.key === "facebook_pixel" && (
