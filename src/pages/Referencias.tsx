@@ -80,6 +80,30 @@ export default function Referencias() {
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
   const [syncing, setSyncing] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem("referencias.sidebar.hidden.v1") === "1"; } catch { return false; }
+  });
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("referencias.sidebar.expanded.v1");
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const toggleSidebar = () => {
+    setSidebarHidden(v => {
+      const nv = !v;
+      try { localStorage.setItem("referencias.sidebar.hidden.v1", nv ? "1" : "0"); } catch {}
+      return nv;
+    });
+  };
+  const toggleFolderExpanded = (path: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      try { localStorage.setItem("referencias.sidebar.expanded.v1", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Debounce search input -> search (250ms)
   useEffect(() => {
