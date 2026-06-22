@@ -89,12 +89,15 @@ Deno.serve(async (req) => {
         if (!conversations?.length) continue;
 
         const convIds = conversations.map(c => c.id);
-        const { data: activeFlows } = await supabase
-          .from("imphq_openflow_executions" as any)
-          .select("conversation_id")
-          .in("conversation_id", convIds)
-          .eq("status", "running");
-        const inFlow = new Set((activeFlows || []).map((f: any) => f.conversation_id));
+        let inFlow = new Set<string>();
+        try {
+          const { data: activeFlows } = await supabase
+            .from("imphq_openflow_executions" as any)
+            .select("conversation_id")
+            .in("conversation_id", convIds)
+            .eq("status", "running");
+          inFlow = new Set((activeFlows || []).map((f: any) => f.conversation_id));
+        } catch (_) { /* tabela pode não existir nesse projeto */ }
 
         for (const conv of conversations) {
           if (inFlow.has(conv.id)) { results.skipped++; continue; }
