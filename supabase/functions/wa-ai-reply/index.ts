@@ -1918,6 +1918,16 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           .eq("id", conversation_id)
           .maybeSingle();
 
+        // Detecta se a IA enviou link de checkout/pitch nesta resposta
+        // para programar follow-up consultivo automático (wa-pitch-followup).
+        const sentUrls = (finalAiReply.match(/https?:\/\/[^\s)]+/gi) || []);
+        const pitchHost = paymentLink ? paymentLink.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] : "";
+        const isPitchLink = sentUrls.some((u) => {
+          const lu = u.toLowerCase();
+          if (pitchHost && lu.includes(pitchHost)) return true;
+          return /checkout|pay|hotmart|kiwify|monetizze|eduzz|braip|ticto|perfectpay|stripe|comprar|inscri/i.test(lu);
+        });
+
         const updatePayload: any = {
           ai_last_reply_at: new Date().toISOString(),
           ai_lock_until: null,
@@ -1926,6 +1936,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           last_message_direction: "outgoing",
           message_count: ((freshConv?.message_count as number) || 0) + 1,
         };
+        if (isPitchLink) {
+          updatePayload.last_pitch_at = new Date().toISOString();
+          updatePayload.last_pitch_link = sentUrls[0] || paymentLink || null;
+          updatePayload.pitch_followup_stage = 0;
+          updatePayload.pitch_followup_last_at = null;
+        }
 
         if (shouldTransitionToHuman) {
           updatePayload.status = "needs_human";
