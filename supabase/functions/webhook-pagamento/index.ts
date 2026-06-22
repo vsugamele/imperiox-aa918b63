@@ -664,6 +664,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     let fbToken: string | undefined;
     let fbPixelId: string | undefined;
     let fbTestCode: string | undefined;
+    let fbPixels: Array<{ pixel_id: string; access_token: string; test_event_code?: string; label?: string }> = [];
 
     if (projectId) {
       const { data: proj } = await supabase
@@ -675,6 +676,21 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       fbToken = (proj?.data?.facebook_access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
       fbPixelId = proj?.data?.facebook_pixel_id;
       fbTestCode = proj?.data?.facebook_test_event_code;
+
+      // Multi-pixel support: data.facebook_pixels[] tem prioridade; fallback p/ legado (1 pixel)
+      const rawPixels = Array.isArray(proj?.data?.facebook_pixels) ? proj.data.facebook_pixels : [];
+      fbPixels = rawPixels
+        .map((p: any) => ({
+          pixel_id: String(p?.pixel_id || "").trim(),
+          access_token: String(p?.access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, ""),
+          test_event_code: p?.test_event_code ? String(p.test_event_code).trim() : undefined,
+          label: p?.label || undefined,
+        }))
+        .filter((p: any) => p.pixel_id && p.access_token);
+
+      if (fbPixels.length === 0 && fbToken && fbPixelId) {
+        fbPixels = [{ pixel_id: fbPixelId, access_token: fbToken, test_event_code: fbTestCode, label: "legacy" }];
+      }
 
       // Validate Hotmart hottok against project config
       if (hotmartToken && proj?.data?.hotmart_token) {
