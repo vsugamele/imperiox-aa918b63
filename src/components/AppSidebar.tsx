@@ -4,7 +4,7 @@ import {
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow,
+  Inbox, Pencil, Workflow, Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +30,7 @@ const venderItems = [
   { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
   { title: "Funis",                url: "/funis",      icon: Target },
+  { title: "Sites",                url: "/sites",      icon: Globe },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
 ];
 
