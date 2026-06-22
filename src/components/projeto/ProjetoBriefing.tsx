@@ -17,6 +17,8 @@ import { CopyArsenalSection } from "./CopyArsenalSection";
 import { AIGenerateButton } from "./AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
+import { ProductLinksEditor } from "./ProductLinksEditor";
+import type { ProductLink } from "@/lib/produto-links";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -460,28 +462,14 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Links do Produto</Label>
-                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addProductLink(i)}>
-                      <Plus className="h-3 w-3 mr-1" /> Link
-                    </Button>
-                  </div>
-                  {prodLinks.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhum link adicionado</p>}
-                  {prodLinks.map((link: string, li: number) => (
-                    <div key={li} className="flex items-center gap-2">
-                      <Input value={link} onChange={(e) => updateProductLink(i, li, e.target.value)} className="bg-secondary h-8 text-sm flex-1" placeholder="https://..." />
-                      {link && (
-                        <a href={link} target="_blank" rel="noopener noreferrer" className="h-8 w-8 flex items-center justify-center text-primary hover:text-primary/80 shrink-0">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeProductLink(i, li)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <ProductLinksEditor
+                  produto={p}
+                  onChange={(newLinks: ProductLink[]) => {
+                    const updated = [...produtos];
+                    updated[i] = { ...updated[i], links: newLinks, link: undefined };
+                    onUpdateData({ ...data, produtos: updated });
+                  }}
+                />
 
                 {/* Clarity ID por produto + Analisar Comportamento */}
                 <div className="flex items-end gap-2">
