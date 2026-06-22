@@ -679,8 +679,132 @@ export default function Referencias() {
     );
   };
 
+  // Build a hierarchical tree from flat pasta paths (e.g. "A/B/C")
+  type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
+  const buildFolderTree = (): FolderNode[] => {
+    const root: FolderNode[] = [];
+    const byPath = new Map<string, FolderNode>();
+    const sorted = [...allPastas].sort();
+    for (const fullPath of sorted) {
+      const segments = fullPath.split("/").filter(Boolean);
+      let parentArr = root;
+      let acc = "";
+      for (const seg of segments) {
+        acc = acc ? `${acc}/${seg}` : seg;
+        let node = byPath.get(acc);
+        if (!node) {
+          node = { name: seg, path: acc, children: [], count: 0 };
+          byPath.set(acc, node);
+          parentArr.push(node);
+        }
+        parentArr = node.children;
+      }
+    }
+    // Count items in each folder (refs whose pasta equals or starts with path/)
+    const countItems = (path: string) =>
+      refs.filter(r => r.source === "manual" && (r.pasta === path || r.pasta?.startsWith(path + "/"))).length;
+    byPath.forEach(n => { n.count = countItems(n.path); });
+    return root;
+  };
+  const folderTree = buildFolderTree();
+  const rootCount = refs.filter(r => r.source === "manual" && !r.pasta).length;
+
+  const navigateToFolder = (path: string) => {
+    setCurrentFolder(path ? path.split("/") : []);
+    setFilterPasta("all");
+  };
+
+  const FolderTreeNode = ({ node, level }: { node: FolderNode; level: number }) => {
+    const isActive = currentFolderPath === node.path && filterPasta === "all";
+    const isExpanded = expandedFolders.has(node.path);
+    const hasChildren = node.children.length > 0;
+    return (
+      <div>
+        <div
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
+            isActive ? "bg-primary/15 text-primary" : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+          }`}
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+        >
+          {hasChildren ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFolderExpanded(node.path); }}
+              className="p-0.5 hover:bg-secondary rounded shrink-0"
+              aria-label={isExpanded ? "Recolher" : "Expandir"}
+            >
+              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          ) : (
+            <span className="w-4 shrink-0" />
+          )}
+          <button
+            onClick={() => navigateToFolder(node.path)}
+            className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
+          >
+            {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+            <span className="truncate flex-1">{node.name}</span>
+            <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
+          </button>
+        </div>
+        {hasChildren && isExpanded && (
+          <div>
+            {node.children.map(child => (
+              <FolderTreeNode key={child.path} node={child} level={level + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const FolderSidebar = () => (
+    <aside className="w-60 shrink-0 border-r border-border bg-card/30 rounded-lg flex flex-col max-h-[calc(100vh-8rem)] sticky top-4">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-1.5">
+          <FolderOpen className="h-4 w-4 text-amber-400" />
+          <span className="text-xs font-semibold">Pastas</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={toggleSidebar} title="Ocultar painel">
+          <PanelLeftClose className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
+        <button
+          onClick={() => navigateToFolder("")}
+          className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
+            currentFolder.length === 0 && filterPasta === "all"
+              ? "bg-primary/15 text-primary"
+              : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <span className="w-4 shrink-0" />
+          <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />
+          <span className="flex-1 text-left">Raiz</span>
+          <span className="text-[9px] opacity-60">{rootCount}</span>
+        </button>
+        {folderTree.length === 0 ? (
+          <p className="text-[10px] text-muted-foreground/60 px-2 py-3 text-center">Nenhuma pasta criada</p>
+        ) : (
+          folderTree.map(node => <FolderTreeNode key={node.path} node={node} level={0} />)
+        )}
+      </div>
+      <div className="p-2 border-t border-border">
+        <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => setShowNewPasta(true)}>
+          <FolderPlus className="h-3 w-3 mr-1" /> Nova pasta
+        </Button>
+      </div>
+    </aside>
+  );
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="flex gap-4 animate-fade-in">
+      {!sidebarHidden && <FolderSidebar />}
+      <div className="flex-1 min-w-0 space-y-6">
+        {sidebarHidden && (
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={toggleSidebar}>
+            <PanelLeft className="h-3.5 w-3.5 mr-1" /> Mostrar pastas
+          </Button>
+        )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">🗂️ Referências <SectionInfo {...sectionHelpTexts.referencias} /></h1>
