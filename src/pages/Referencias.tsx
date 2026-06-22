@@ -1145,6 +1145,7 @@ export default function Referencias() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
