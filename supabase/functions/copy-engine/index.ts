@@ -49,7 +49,21 @@ Deno.serve(async (req) => {
       ? await loadCopyContext(body.context, SERVICE_ROLE, SUPABASE_URL)
       : { project: null, product: null, branding: null, avatar: null, expert: null, lead: null };
 
-    const systemPrompt = `${cfg.system_prompt}${contextToSystemAddendum(ctx)}`;
+    // Carrega bloco de estilo AUST quando o intent estiver marcado com apply_style
+    let styleAddendum = "";
+    if (cfg.apply_style === true) {
+      const { data: styleRow } = await sb
+        .from("imphq_copy_engine_prompts")
+        .select("system_prompt")
+        .eq("intent", "_style_aust_pt")
+        .eq("enabled", true)
+        .maybeSingle();
+      if (styleRow?.system_prompt) {
+        styleAddendum = `\n\n---\n${styleRow.system_prompt}`;
+      }
+    }
+
+    const systemPrompt = `${cfg.system_prompt}${contextToSystemAddendum(ctx)}${styleAddendum}`;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
