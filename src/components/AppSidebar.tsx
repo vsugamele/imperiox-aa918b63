@@ -53,6 +53,7 @@ const inteligenciaItems = [
   { title: "Skills",               url: "/skills",         icon: Zap },
   { title: "Guia Claude (Copy)",   url: "/claude-skills",  icon: BookOpen },
   { title: "Estúdio de Produto",   url: "/studio",         icon: Clapperboard },
+  { title: "Copy Lab (Imperador)", url: "/copy-lab",       icon: Zap },
   { title: "Swipe File",           url: "/swipe",          icon: Library },
   { title: "Market Intel",         url: "/market-intel",   icon: Search },
 ];
