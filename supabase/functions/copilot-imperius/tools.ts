@@ -985,7 +985,7 @@ async function leadsTravadosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; 
   // Buscar últimas mensagens recentes inbound
   let q = ctx.supabase.from("imphq_wa_messages")
     .select("id, content, conversation_id, phone, direction, created_at, project_id")
-    .eq("direction", "inbound")
+    .eq("direction", "incoming")
     .lte("created_at", cutoff)
     .gte("created_at", new Date(Date.now() - 48 * 3600000).toISOString())
     .order("created_at", { ascending: false })
