@@ -89,13 +89,33 @@ export default function Referencias() {
       return new Set(raw ? JSON.parse(raw) : []);
     } catch { return new Set(); }
   });
-  const [emptyFolders, setEmptyFolders] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("referencias.emptyFolders.v1") || "[]"); } catch { return []; }
-  });
-  const persistEmptyFolders = (next: string[]) => {
-    setEmptyFolders(next);
-    try { localStorage.setItem("referencias.emptyFolders.v1", JSON.stringify(next)); } catch {}
+  const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
+
+  const loadEmptyFolders = async () => {
+    const { data } = await supabase.from("imphq_referencias_pastas" as any).select("path");
+    setEmptyFolders(((data || []) as any[]).map((r: any) => r.path));
   };
+
+  const addEmptyFolder = async (path: string) => {
+    if (emptyFolders.includes(path)) return;
+    const { error } = await supabase.from("imphq_referencias_pastas" as any).insert({ path } as any);
+    if (error && !error.message.includes("duplicate")) {
+      toast.error("Erro ao salvar pasta: " + error.message);
+      return;
+    }
+    setEmptyFolders(prev => [...prev, path]);
+  };
+
+  const removeEmptyFolder = async (path: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).delete().eq("path", path);
+    setEmptyFolders(prev => prev.filter(p => p !== path));
+  };
+
+  const renameEmptyFolder = async (oldPath: string, newPath: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).update({ path: newPath } as any).eq("path", oldPath);
+    setEmptyFolders(prev => prev.map(p => p === oldPath ? newPath : p));
+  };
+
   const toggleSidebar = () => {
     setSidebarHidden(v => {
       const nv = !v;
