@@ -220,6 +220,18 @@ export default function Referencias() {
 
   useEffect(() => { load(); }, []);
 
+  // Auto-clean: remove emptyFolders that now have real refs
+  useEffect(() => {
+    if (refs.length === 0 || emptyFolders.length === 0) return;
+    const derived = new Set(refs.map(r => {
+      const projSeg = (r.project_name || "").replace(/\//g, "-").trim() || (r.project_id ? "Projeto" : "Sem Projeto");
+      if (r.source === "manual" && r.pasta) return `${projSeg}/${r.pasta}`;
+      return null;
+    }).filter(Boolean) as string[]);
+    const stillEmpty = emptyFolders.filter(f => !derived.has(f) && ![...derived].some(d => d.startsWith(f + "/")));
+    if (stillEmpty.length !== emptyFolders.length) persistEmptyFolders(stillEmpty);
+  }, [refs]);
+
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
 
