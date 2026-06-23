@@ -22285,6 +22285,27 @@ export type Database = {
           },
         ]
       }
+      imphq_referencias_pastas: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          project_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_routine_checks: {
         Row: {
           check_date: string

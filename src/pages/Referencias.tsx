@@ -89,13 +89,33 @@ export default function Referencias() {
       return new Set(raw ? JSON.parse(raw) : []);
     } catch { return new Set(); }
   });
-  const [emptyFolders, setEmptyFolders] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("referencias.emptyFolders.v1") || "[]"); } catch { return []; }
-  });
-  const persistEmptyFolders = (next: string[]) => {
-    setEmptyFolders(next);
-    try { localStorage.setItem("referencias.emptyFolders.v1", JSON.stringify(next)); } catch {}
+  const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
+
+  const loadEmptyFolders = async () => {
+    const { data } = await supabase.from("imphq_referencias_pastas" as any).select("path");
+    setEmptyFolders(((data || []) as any[]).map((r: any) => r.path));
   };
+
+  const addEmptyFolder = async (path: string) => {
+    if (emptyFolders.includes(path)) return;
+    const { error } = await supabase.from("imphq_referencias_pastas" as any).insert({ path } as any);
+    if (error && !error.message.includes("duplicate")) {
+      toast.error("Erro ao salvar pasta: " + error.message);
+      return;
+    }
+    setEmptyFolders(prev => [...prev, path]);
+  };
+
+  const removeEmptyFolder = async (path: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).delete().eq("path", path);
+    setEmptyFolders(prev => prev.filter(p => p !== path));
+  };
+
+  const renameEmptyFolder = async (oldPath: string, newPath: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).update({ path: newPath } as any).eq("path", oldPath);
+    setEmptyFolders(prev => prev.map(p => p === oldPath ? newPath : p));
+  };
+
   const toggleSidebar = () => {
     setSidebarHidden(v => {
       const nv = !v;
@@ -218,7 +238,7 @@ export default function Referencias() {
     setRefs([...manualRefs, ...libraryRefs, ...adsRefs]);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadEmptyFolders(); }, []);
 
   // Auto-clean: remove emptyFolders that now have real refs
   useEffect(() => {
@@ -228,8 +248,10 @@ export default function Referencias() {
       if (r.source === "manual" && r.pasta) return `${projSeg}/${r.pasta}`;
       return null;
     }).filter(Boolean) as string[]);
-    const stillEmpty = emptyFolders.filter(f => !derived.has(f) && ![...derived].some(d => d.startsWith(f + "/")));
-    if (stillEmpty.length !== emptyFolders.length) persistEmptyFolders(stillEmpty);
+    const toRemove = emptyFolders.filter(f => derived.has(f) || [...derived].some(d => d.startsWith(f + "/")));
+    if (toRemove.length > 0) {
+      toRemove.forEach(p => { removeEmptyFolder(p); });
+    }
   }, [refs]);
 
   // Build full folder path string from breadcrumb
@@ -845,6 +867,11 @@ export default function Referencias() {
         setCurrentFolder((newPath + currentFolderPath.slice(oldPath.length)).split("/"));
       }
       setRenamingPath(null);
+      // Rename any empty-folder entries (the path itself and any nested ones)
+      const toRename = emptyFolders.filter(p => p === oldPath || p.startsWith(oldPath + "/"));
+      for (const p of toRename) {
+        await renameEmptyFolder(p, newPath + p.slice(oldPath.length));
+      }
       await load();
     } finally {
       setRenaming(false);
@@ -1304,7 +1331,7 @@ export default function Referencias() {
             <p className="text-[10px] text-muted-foreground mt-1">Use "/" para criar hierarquia. Ex: "Anúncios/Meta/Janeiro"</p>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               const name = newPastaName.trim().replace(/^\/+|\/+$/g, "");
               if (!name) { toast.error("Nome obrigatório"); return; }
               // Full virtual path includes project segment (matches getVirtualPath)
@@ -1321,9 +1348,7 @@ export default function Referencias() {
                 fullVPath = `${projSeg}/${name}`;
                 pastaForRefs = name;
               }
-              if (!emptyFolders.includes(fullVPath)) {
-                persistEmptyFolders([...emptyFolders, fullVPath]);
-              }
+              await addEmptyFolder(fullVPath);
               setForm(f => ({ ...f, pasta: pastaForRefs }));
               setCurrentFolder(fullVPath.split("/"));
               setFilterPasta("all");
