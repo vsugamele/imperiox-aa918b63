@@ -245,7 +245,20 @@ REGRAS:
 - Inclua delays realistas (use "aguardar" entre toques)
 - Para IA conversacional use tipo "ia_message" e descreva no template o COMPORTAMENTO esperado (não a mensagem literal)
 - Variáveis: {{nome}}, {{produto}}, {{link}}, {{telefone}}, {{print_resultado}}, {{depoimento_cliente}}
-- Retorne EXATAMENTE o JSON solicitado, sem markdown`;
+- Retorne EXATAMENTE o JSON solicitado, sem markdown
+
+ESTILO DE ESCRITA (REGRAS SUGAMELE — OBRIGATÓRIO em todo template de mensagem):
+A copy deve soar como CONVERSA REAL, não artigo, não texto de IA.
+- Conectivos entre ideias (E, Mas, Só que aí, Então, E olha, Agora, Porque daí). Proibida frase telegráfica ("Comprou. Aprendeu. Tentou.") — sempre fluir.
+- Artigo antes de todo substantivo.
+- Reticências (…) para ritmo de fala em reflexão/suspense.
+- Especificidade extrema: números, prazos, valores, exemplos concretos. Proibido "bons resultados", "muita gente". Forte: "R$ 12.300 em 14 dias com R$ 480 de tráfego".
+- Imagens mentais em vez de rótulos abstratos.
+- Sem dicotomia simplista, sem travessão (—), sem adjetivo vazio (incrível, transformador, revolucionário, profundo).
+- Coloquial natural ("tá", "pra", "na prática", "de tudo que é jeito") sem vulgaridade.
+- CTA conversacional, nunca interrupção. Errado: "Compre agora". Certo: "se isso fizer sentido pra você, dá uma olhada aqui embaixo".
+- Pergunta de engajamento curta quando couber ("faz sentido?", "sabe o que acontece?") — não em toda mensagem.
+- Em mensagens curtas de WhatsApp, mantenha o tom Sugamele mesmo em 2-3 frases.`;
 
     const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
 Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_response?, questioning_strategy?, timeout_min?, tag?, stop_event_type? }.`;
