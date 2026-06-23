@@ -612,24 +612,50 @@ interface FlowEditorCanvasProps {
   onUpdateObjective?: (objective: string) => void;
 }
 
-// Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
-const PALETTE_TYPES: { tipo: string; label: string }[] = [
-  { tipo: "whatsapp", label: "💬 WhatsApp" },
-  { tipo: "ia_message", label: "🤖 IA Conversacional" },
-  { tipo: "audio", label: "🎙️ Áudio IA" },
-  { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
-  { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
-  { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
-  { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
-  { tipo: "ab_split", label: "🔀 Teste A/B" },
-  { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
-  { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
-  { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
-  { tipo: "webhook_call", label: "🌐 Webhook" },
-  { tipo: "email", label: "✉️ Email" },
-  { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
-  { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+// Paleta de elementos agrupada por categoria
+const PALETTE_GROUPS: { group: string; items: { tipo: string; label: string }[] }[] = [
+  {
+    group: "Mensagens",
+    items: [
+      { tipo: "whatsapp", label: "💬 WhatsApp" },
+      { tipo: "ia_message", label: "🤖 IA Conversacional" },
+      { tipo: "audio", label: "🎙️ Áudio IA" },
+      { tipo: "email", label: "✉️ Email" },
+    ],
+  },
+  {
+    group: "Esperas",
+    items: [
+      { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
+      { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
+      { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
+    ],
+  },
+  {
+    group: "Lógica",
+    items: [
+      { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
+      { tipo: "ab_split", label: "🔀 Teste A/B" },
+      { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+    ],
+  },
+  {
+    group: "Ações no Lead",
+    items: [
+      { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
+      { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
+      { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
+    ],
+  },
+  {
+    group: "Integrações",
+    items: [
+      { tipo: "webhook_call", label: "🌐 Webhook" },
+      { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
+    ],
+  },
 ];
+
 
 export function FlowEditorCanvas({ 
   acoes, 
