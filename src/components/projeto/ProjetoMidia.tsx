@@ -315,6 +315,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
 
   return (
     <div className="space-y-4">
+      <ReferenciasDoProjetoSection projectId={projectId} />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           {CONTENT_TABS.map(t => (
