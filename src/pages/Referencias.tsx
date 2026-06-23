@@ -680,7 +680,7 @@ export default function Referencias() {
   // Folder card component
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
-    const itemCount = refs.filter(r => r.pasta === fullPath || r.pasta?.startsWith(fullPath + "/")).length;
+    const itemCount = refsWithPath.filter(r => r._vpath === fullPath || r._vpath?.startsWith(fullPath + "/")).length;
     return (
       <Card
         className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
@@ -698,7 +698,7 @@ export default function Referencias() {
     );
   };
 
-  // Build a hierarchical tree from flat pasta paths (e.g. "A/B/C")
+  // Build a hierarchical tree from flat virtual paths
   type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
   const buildFolderTree = (): FolderNode[] => {
     const root: FolderNode[] = [];
@@ -719,14 +719,13 @@ export default function Referencias() {
         parentArr = node.children;
       }
     }
-    // Count items in each folder (refs whose pasta equals or starts with path/)
     const countItems = (path: string) =>
-      refs.filter(r => r.source === "manual" && (r.pasta === path || r.pasta?.startsWith(path + "/"))).length;
+      refsWithPath.filter(r => r._vpath === path || r._vpath?.startsWith(path + "/")).length;
     byPath.forEach(n => { n.count = countItems(n.path); });
     return root;
   };
   const folderTree = buildFolderTree();
-  const rootCount = refs.filter(r => r.source === "manual" && !r.pasta).length;
+  const rootCount = refs.length;
 
   const navigateToFolder = (path: string) => {
     setCurrentFolder(path ? path.split("/") : []);
