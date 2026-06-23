@@ -1122,10 +1122,6 @@ Seja extremamente impactante e direto. Ao final da mensagem, adicione exatamente
       const humanizationRules = `
 REGRAS DE COMUNICACAO HUMANA (OBRIGATORIO):
 
-ABERTURA — NUNCA comece respostas com:
-- "Certamente!", "Com prazer!", "Claro que sim!", "Ótimo!", "Excelente!", "Maravilha!", "Perfeito!", "Com certeza!", "Absolutamente!", "Entendido!"
-- "Faz todo sentido", "Faz sentido você", "Imagina!", "Imagina,", "Que legal", "Que ótimo", "Entendo perfeitamente"
-Essas frases são marcas registradas de bot. Comece a resposta indo direto ao ponto.
 
 ABERTURA — NUNCA comece respostas com:
 - "Certamente!", "Com prazer!", "Claro que sim!", "Ótimo!", "Excelente!", "Maravilha!", "Perfeito!", "Com certeza!", "Absolutamente!", "Entendido!"
