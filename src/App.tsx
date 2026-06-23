@@ -69,6 +69,7 @@ const ABTests = lazy(() => import("./pages/ABTests"));
 const MobileCockpit = lazy(() => import("./pages/MobileCockpit"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const CopyEngine = lazy(() => import("./pages/CopyEngine"));
+const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -125,6 +126,7 @@ const App = () => (
                 <Route path="leads" element={<Leads />} />
                 <Route path="leads/:id" element={<Lead360 />} />
                 <Route path="copy-engine" element={<CopyEngine />} />
+                <Route path="copy-lab" element={<CopyLab />} />
                 <Route path="campanhas" element={<Campanhas />} />
                 
                 <Route path="financas" element={<Financas />} />
