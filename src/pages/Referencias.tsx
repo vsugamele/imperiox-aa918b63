@@ -1343,9 +1343,7 @@ export default function Referencias() {
                 fullVPath = `${projSeg}/${name}`;
                 pastaForRefs = name;
               }
-              if (!emptyFolders.includes(fullVPath)) {
-                persistEmptyFolders([...emptyFolders, fullVPath]);
-              }
+              await addEmptyFolder(fullVPath);
               setForm(f => ({ ...f, pasta: pastaForRefs }));
               setCurrentFolder(fullVPath.split("/"));
               setFilterPasta("all");
