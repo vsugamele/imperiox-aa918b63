@@ -1326,7 +1326,7 @@ export default function Referencias() {
             <p className="text-[10px] text-muted-foreground mt-1">Use "/" para criar hierarquia. Ex: "Anúncios/Meta/Janeiro"</p>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               const name = newPastaName.trim().replace(/^\/+|\/+$/g, "");
               if (!name) { toast.error("Nome obrigatório"); return; }
               // Full virtual path includes project segment (matches getVirtualPath)
