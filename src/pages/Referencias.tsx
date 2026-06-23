@@ -89,6 +89,13 @@ export default function Referencias() {
       return new Set(raw ? JSON.parse(raw) : []);
     } catch { return new Set(); }
   });
+  const [emptyFolders, setEmptyFolders] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("referencias.emptyFolders.v1") || "[]"); } catch { return []; }
+  });
+  const persistEmptyFolders = (next: string[]) => {
+    setEmptyFolders(next);
+    try { localStorage.setItem("referencias.emptyFolders.v1", JSON.stringify(next)); } catch {}
+  };
   const toggleSidebar = () => {
     setSidebarHidden(v => {
       const nv = !v;
