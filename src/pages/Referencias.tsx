@@ -732,6 +732,95 @@ export default function Referencias() {
     setFilterPasta("all");
   };
 
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
+  const startRename = (path: string) => {
+    const segs = path.split("/");
+    if (segs.length < 2) {
+      toast.error("Renomeie o projeto na página Projetos");
+      return;
+    }
+    setRenamingPath(path);
+    setRenameDraft(segs[segs.length - 1]);
+  };
+
+  const renameFolder = async (oldPath: string, rawName: string) => {
+    const newName = rawName.trim().replace(/\//g, "");
+    if (!newName) { toast.error("Nome inválido"); return; }
+    const segs = oldPath.split("/");
+    if (segs.length < 2) { toast.error("Não é possível renomear o projeto aqui"); return; }
+    if (newName === segs[segs.length - 1]) { setRenamingPath(null); return; }
+
+    const parentPath = segs.slice(0, -1).join("/");
+    const newPath = `${parentPath}/${newName}`;
+
+    // Duplicate sibling check
+    if (allPastas.some(p => p === newPath || p.startsWith(newPath + "/"))) {
+      toast.error("Já existe uma pasta com esse nome");
+      return;
+    }
+
+    // oldSub / newSub are the parts under the project (pasta column doesn't include project)
+    const oldSub = segs.slice(1).join("/");
+    const newSub = [...segs.slice(1, -1), newName].join("/");
+
+    const affected = refsWithPath.filter(r =>
+      r._vpath === oldPath || r._vpath?.startsWith(oldPath + "/")
+    );
+    const manualAffected = affected.filter(r => r.source === "manual");
+    const nonManualCount = affected.length - manualAffected.length;
+
+    if (manualAffected.length === 0) {
+      toast.error(
+        nonManualCount > 0
+          ? "Essa pasta só tem itens de Projetos/Ads — não podem ser renomeados aqui"
+          : "Nenhuma referência manual encontrada"
+      );
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      const updates = manualAffected.map(r => {
+        let nextPasta: string;
+        if (r.pasta) {
+          // r.pasta starts with oldSub or equals oldSub
+          const rest = r.pasta.slice(oldSub.length);
+          nextPasta = newSub + rest;
+        } else {
+          // virtual path — materialize as real pasta under project
+          const vRest = (r._vpath || "").slice(oldPath.length); // "" or "/..."
+          nextPasta = newSub + vRest;
+        }
+        return supabase.from("imphq_referencias").update({ pasta: nextPasta }).eq("id", r.id);
+      });
+      const results = await Promise.all(updates);
+      const errors = results.filter((r: any) => r.error).length;
+      if (errors > 0) {
+        toast.error(`${errors} erros ao renomear`);
+      } else {
+        toast.success(
+          nonManualCount > 0
+            ? `${manualAffected.length} ref(s) renomeadas. ${nonManualCount} de Projetos/Ads mantidas no agrupamento original.`
+            : `${manualAffected.length} ref(s) renomeadas`
+        );
+      }
+      // Adjust currentFolder if we renamed inside it
+      if (currentFolderPath === oldPath) {
+        setCurrentFolder(newPath.split("/"));
+      } else if (currentFolderPath.startsWith(oldPath + "/")) {
+        setCurrentFolder((newPath + currentFolderPath.slice(oldPath.length)).split("/"));
+      }
+      setRenamingPath(null);
+      await load();
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+
   const FolderTreeNode = ({ node, level }: { node: FolderNode; level: number }) => {
     const isActive = currentFolderPath === node.path && filterPasta === "all";
     const isExpanded = expandedFolders.has(node.path);
