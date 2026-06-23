@@ -216,11 +216,37 @@ export default function Referencias() {
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
 
-  // Extract all pastas (manual refs only)
-  const allPastas = [...new Set(refs.filter(r => r.source === "manual").map(r => r.pasta).filter(Boolean))] as string[];
+  // Normalize a segment for use in a path (no slashes)
+  const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
+
+  // Derive a virtual hierarchical path for every ref:
+  //   {Projeto}/{Tipo}/{Plataforma?}    (or "Sem Projeto" / "Sem Tipo")
+  // For manual refs that already have `pasta`, prepend project so they live inside it.
+  const getVirtualPath = (r: Ref): string => {
+    const projSeg = norm(r.project_name) || (r.project_id ? "Projeto" : "Sem Projeto");
+    if (r.source === "manual" && r.pasta) {
+      return `${projSeg}/${r.pasta}`;
+    }
+    const tipoLabel: Record<string, string> = {
+      criativo: "Criativos",
+      landing_page: "Landing Pages",
+      email: "Emails",
+      video: "Vídeos",
+      copy: "Copys",
+    };
+    const tipoSeg = tipoLabel[r.tipo || ""] || "Outros";
+    const platSeg = norm(r.plataforma);
+    return platSeg ? `${projSeg}/${tipoSeg}/${platSeg}` : `${projSeg}/${tipoSeg}`;
+  };
+
+  // Compute virtual paths once per render
+  const refsWithPath = refs.map(r => ({ ...r, _vpath: getVirtualPath(r) }));
+
+  // All unique virtual paths (used to build the tree)
+  const allPastas = [...new Set(refsWithPath.map(r => r._vpath).filter(Boolean))] as string[];
   const categories = [...new Set(refs.filter(r => r.source === "library").map(r => r.content_category).filter(Boolean))] as string[];
 
-  // Get subfolders and items at current level
+  // Get subfolders at current level (for FolderCard grid)
   const getSubfoldersAtLevel = () => {
     const prefix = currentFolderPath ? currentFolderPath + "/" : "";
     const subfolders = new Set<string>();
@@ -232,7 +258,6 @@ export default function Referencias() {
           if (nextSegment) subfolders.add(nextSegment);
         }
       } else {
-        // At root: get top-level folder names
         const topSegment = p.split("/")[0];
         if (topSegment) subfolders.add(topSegment);
       }
@@ -242,7 +267,7 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filteredRaw = refs.filter(r => {
+  const filteredRaw = refsWithPath.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
@@ -250,18 +275,12 @@ export default function Referencias() {
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
 
-    // Pasta filter: only applies to manual refs. Library/ads refs don't have folders.
+    // Virtual folder filter: applies to ALL sources via _vpath, includes subfolders (cumulative)
     let mpa = true;
-    if (r.source === "manual") {
-      if (filterPasta !== "all") {
-        mpa = r.pasta === filterPasta;
-      } else if (currentFolder.length > 0) {
-        // Show only items exactly in this folder (not subfolders)
-        mpa = r.pasta === currentFolderPath;
-      } else {
-        // At root: show manual refs without a folder
-        mpa = !r.pasta;
-      }
+    if (filterPasta !== "all") {
+      mpa = r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
+    } else if (currentFolder.length > 0) {
+      mpa = r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
     }
 
     return ms && mt && mp && mpr && mpa && mo && mc;
@@ -661,7 +680,7 @@ export default function Referencias() {
   // Folder card component
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
-    const itemCount = refs.filter(r => r.pasta === fullPath || r.pasta?.startsWith(fullPath + "/")).length;
+    const itemCount = refsWithPath.filter(r => r._vpath === fullPath || r._vpath?.startsWith(fullPath + "/")).length;
     return (
       <Card
         className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
@@ -679,7 +698,7 @@ export default function Referencias() {
     );
   };
 
-  // Build a hierarchical tree from flat pasta paths (e.g. "A/B/C")
+  // Build a hierarchical tree from flat virtual paths
   type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
   const buildFolderTree = (): FolderNode[] => {
     const root: FolderNode[] = [];
@@ -700,14 +719,13 @@ export default function Referencias() {
         parentArr = node.children;
       }
     }
-    // Count items in each folder (refs whose pasta equals or starts with path/)
     const countItems = (path: string) =>
-      refs.filter(r => r.source === "manual" && (r.pasta === path || r.pasta?.startsWith(path + "/"))).length;
+      refsWithPath.filter(r => r._vpath === path || r._vpath?.startsWith(path + "/")).length;
     byPath.forEach(n => { n.count = countItems(n.path); });
     return root;
   };
   const folderTree = buildFolderTree();
-  const rootCount = refs.filter(r => r.source === "manual" && !r.pasta).length;
+  const rootCount = refs.length;
 
   const navigateToFolder = (path: string) => {
     setCurrentFolder(path ? path.split("/") : []);
