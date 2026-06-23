@@ -11,9 +11,36 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL_PRIMARY = "google/gemini-2.5-flash";
+const MODEL_FALLBACK = "google/gemini-2.5-pro";
 const MAX_TOOL_STEPS = 5;
+
+// Pré-matcher: força uma tool quando a pergunta é clara
+function preMatchTool(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/quem (mandou|enviou|falou)|últimas? mensage|mensagens? recente|chegou no whats/.test(t)) return "ultimasMensagensWhatsapp";
+  if (/(vendas?|compr(ou|aram)|faturou|faturamento|receita)( de)? hoje/.test(t)) return "vendasDoDia";
+  if (/(leads?)( de)? hoje|capturei hoje|quantos leads/.test(t)) return "leadsDoDia";
+  if (/(leads?|conversas?) (travad|parad|sem resposta|sem retorno)/.test(t)) return "leadsTravadosWhatsapp";
+  if (/(cpa|roas|gasto( em)? ads|campanha (pior|melhor)|performance (do |dos )?ads)/.test(t)) return "adsPerformance";
+  if (/leads? quent|hot lead|pix gerado|boleto gerado/.test(t)) return "leadsQuentes";
+  return null;
+}
+
+async function callAI(body: any, signal: AbortSignal, model = MODEL_PRIMARY) {
+  return await fetch(AI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+      "X-Lovable-AIG-SDK": "imperius-copilot",
+    },
+    body: JSON.stringify({ ...body, model }),
+    signal,
+  });
+}
 
 const PERSONA = `Você é Imperius, copiloto estratégico do Imperio HQ. Tom: direto, afiado, sem rodeios. Português brasileiro.
 
@@ -110,36 +137,45 @@ CONTEXTO ATUAL:
     // Coletar tool activity para persistir e expor pro frontend
     const toolActivity: any[] = [];
 
+    // Pré-matcher: força tool específica no primeiro step quando reconhecemos intenção
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const forcedTool = preMatchTool(lastUserMsg);
+    console.log("[copilot] start", { user_id: user.id, msg_preview: lastUserMsg.slice(0, 80), forced_tool: forcedTool, project_id: projectId });
+
     // Loop de tool calling (não-stream)
     for (let step = 0; step < MAX_TOOL_STEPS; step++) {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL, messages: modelMessages, tools: TOOL_SPECS, tool_choice: "auto", stream: false,
-        }),
-        signal: req.signal,
-      });
+      const toolChoice = step === 0 && forcedTool
+        ? { type: "function", function: { name: forcedTool } }
+        : "auto";
+      let res = await callAI({
+        messages: modelMessages, tools: TOOL_SPECS, tool_choice: toolChoice, stream: false,
+      }, req.signal);
+      // Fallback de modelo em rate-limit/erro
+      if (res.status === 429 || res.status === 502 || res.status === 503) {
+        console.warn("[copilot] primary failed, trying fallback", res.status);
+        res = await callAI({
+          messages: modelMessages, tools: TOOL_SPECS, tool_choice: toolChoice, stream: false,
+        }, req.signal, MODEL_FALLBACK);
+      }
       if (!res.ok) {
         const t = await res.text();
         console.error("[copilot] tool-step err", res.status, t.slice(0, 300));
-        if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        return new Response(JSON.stringify({ error: "Falha na IA" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: `Falha na IA (${res.status})` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const data = await res.json();
       const choice = data.choices?.[0];
       const msg = choice?.message;
+      console.log("[copilot] step", step, { tool_calls: msg?.tool_calls?.map((t: any) => t.function?.name), content_len: msg?.content?.length || 0 });
       if (!msg) break;
 
       const toolCalls = msg.tool_calls || [];
       if (!toolCalls.length) {
-        // sem tools — vamos streamar a resposta final
         modelMessages.push({ role: "assistant", content: msg.content || "" });
         break;
       }
 
-      // Executar todas as tools desta rodada
       modelMessages.push({ role: "assistant", content: msg.content || null, tool_calls: toolCalls });
       for (const tc of toolCalls) {
         const name = tc.function?.name;
@@ -152,20 +188,24 @@ CONTEXTO ATUAL:
           content: JSON.stringify(result).slice(0, 8000),
         });
       }
-      // continua loop pra próxima resposta
     }
 
-    // Streaming da resposta final (sem tools, pra dar feel responsivo)
-    const finalRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages: modelMessages, stream: true, tool_choice: "none" }),
-      signal: req.signal,
-    });
+    // Streaming da resposta final
+    let finalRes = await callAI({
+      messages: modelMessages, stream: true, tool_choice: "none",
+    }, req.signal);
+    if (finalRes.status === 429 || finalRes.status === 502 || finalRes.status === 503) {
+      console.warn("[copilot] final primary failed, fallback", finalRes.status);
+      finalRes = await callAI({
+        messages: modelMessages, stream: true, tool_choice: "none",
+      }, req.signal, MODEL_FALLBACK);
+    }
     if (!finalRes.ok || !finalRes.body) {
       const t = await finalRes.text().catch(() => "");
       console.error("[copilot] final stream err", finalRes.status, t.slice(0, 300));
-      return new Response(JSON.stringify({ error: "Falha na IA final" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (finalRes.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (finalRes.status === 402) return new Response(JSON.stringify({ error: "Créditos Lovable AI esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `Falha na IA final (${finalRes.status})` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Emitir prefixo SSE com tool activity antes do stream
@@ -203,6 +243,7 @@ CONTEXTO ATUAL:
         // Guard: se modelo não escreveu nada, gerar fallback útil
         let finalText = fullText.trim();
         if (!finalText) {
+          console.error("[copilot] EMPTY final response", { tool_count: toolActivity.length, tools: toolActivity.map(t => t.name) });
           const semMatch = toolActivity.find(
             (a) => a.name === "buscarProjeto" && a.result?.fallback === "sem_match_exato",
           );
@@ -215,8 +256,12 @@ CONTEXTO ATUAL:
             finalText = cands.length
               ? `Não encontrei projeto com "${termo}". Quis dizer: ${cands.join(", ")}?`
               : `Não encontrei projeto com "${termo}" e não há projetos ativos cadastrados.`;
+          } else if (toolActivity.length) {
+            // Houve tools, mas modelo não verbalizou. Dump compacto dos resultados.
+            const resumo = toolActivity.map((a) => `**${a.name}**: ${JSON.stringify(a.result).slice(0, 400)}`).join("\n\n");
+            finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
           } else {
-            finalText = "Não consegui formular uma resposta. Reformula o pedido?";
+            finalText = "Não consegui interpretar o pedido. Reformula? Ex: 'últimas mensagens no WhatsApp', 'vendas de hoje', 'leads travados'.";
           }
           try {
             controller.enqueue(
