@@ -250,7 +250,8 @@ export default function Referencias() {
   const refsWithPath = refs.map(r => ({ ...r, _vpath: getVirtualPath(r) }));
 
   // All unique virtual paths (used to build the tree)
-  const allPastas = [...new Set(refsWithPath.map(r => r._vpath).filter(Boolean))] as string[];
+  const derivedPastas = [...new Set(refsWithPath.map(r => r._vpath).filter(Boolean))] as string[];
+  const allPastas = [...new Set([...derivedPastas, ...emptyFolders])];
   const categories = [...new Set(refs.filter(r => r.source === "library").map(r => r.content_category).filter(Boolean))] as string[];
 
   // Get subfolders at current level (for FolderCard grid)
