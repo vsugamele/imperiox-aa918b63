@@ -103,12 +103,13 @@ export const TOOL_SPECS = [
     type: "function",
     function: {
       name: "ultimasMensagensWhatsapp",
-      description: "Últimas mensagens inbound recebidas no WhatsApp (quem mandou msg recente).",
+      description: "Últimas mensagens recebidas no WhatsApp (quem mandou msg recente). Agrupa por telefone.",
       parameters: {
         type: "object",
         properties: {
           projeto_id: { type: "string" },
-          limite: { type: "number", description: "default 15" },
+          horas: { type: "number", description: "janela em horas (default 24)" },
+          limite: { type: "number", description: "default 20" },
         }, additionalProperties: false,
       },
     },
