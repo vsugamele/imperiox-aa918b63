@@ -867,6 +867,11 @@ export default function Referencias() {
         setCurrentFolder((newPath + currentFolderPath.slice(oldPath.length)).split("/"));
       }
       setRenamingPath(null);
+      // Rename any empty-folder entries (the path itself and any nested ones)
+      const toRename = emptyFolders.filter(p => p === oldPath || p.startsWith(oldPath + "/"));
+      for (const p of toRename) {
+        await renameEmptyFolder(p, newPath + p.slice(oldPath.length));
+      }
       await load();
     } finally {
       setRenaming(false);
