@@ -1179,7 +1179,7 @@ Sua missão NESTA resposta:
 Máximo 6 linhas no total.
 ` : "";
 
-      const systemPrompt = `${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const systemPrompt = `${temporalAnchorBlock}${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
