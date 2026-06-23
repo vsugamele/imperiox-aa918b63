@@ -1018,20 +1018,58 @@ async function leadsTravadosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; 
   };
 }
 
-async function ultimasMensagensWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+async function ultimasMensagensWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; limite?: number; horas?: number }) {
   const pid = resolveProjectId(ctx, args.projeto_id);
-  const limite = Math.min(args.limite ?? 15, 50);
+  const horas = Math.max(1, Math.min(args.horas ?? 24, 168));
+  const limite = Math.min(args.limite ?? 20, 50);
+  const since = new Date(Date.now() - horas * 3600000).toISOString();
   let q = ctx.supabase.from("imphq_wa_messages")
     .select("content, phone, conversation_id, created_at, project_id")
-    .eq("direction", "inbound").order("created_at", { ascending: false }).limit(limite);
+    .eq("direction", "incoming")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(300);
   if (pid) q = q.eq("project_id", pid);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) return { error: error.message, projeto_id: pid, horas, leads: [] };
+  // Agrupar por phone
+  const byPhone = new Map<string, { phone: string; conversation_id: string; qtd: number; ultima: string; em: string }>();
+  for (const m of data || []) {
+    const ph = m.phone || "";
+    if (!ph) continue;
+    const cur = byPhone.get(ph);
+    if (!cur) {
+      byPhone.set(ph, {
+        phone: ph, conversation_id: m.conversation_id, qtd: 1,
+        ultima: (m.content || "").slice(0, 160), em: m.created_at,
+      });
+    } else {
+      cur.qtd += 1;
+    }
+  }
+  // Enriquecer com nomes dos leads
+  const phones = Array.from(byPhone.keys());
+  if (phones.length > 0) {
+    const { data: leads } = await ctx.supabase.from("imphq_leads")
+      .select("nome, telefone, phone").or(`phone.in.(${phones.map((p) => `"${p}"`).join(",")}),telefone.in.(${phones.map((p) => `"${p}"`).join(",")})`)
+      .limit(500);
+    const nomeMap = new Map<string, string>();
+    for (const l of leads || []) {
+      const k = (l.phone || l.telefone || "").replace(/\D/g, "");
+      if (k && l.nome) nomeMap.set(k, l.nome);
+    }
+    for (const v of byPhone.values()) {
+      const k = (v.phone || "").replace(/\D/g, "");
+      (v as any).nome = nomeMap.get(k) || null;
+    }
+  }
+  const leads = Array.from(byPhone.values())
+    .sort((a, b) => new Date(b.em).getTime() - new Date(a.em).getTime())
+    .slice(0, limite);
   return {
-    projeto_id: pid,
-    mensagens: (data || []).map((m: any) => ({
-      phone: m.phone, conteudo: (m.content || "").slice(0, 200), em: m.created_at,
-      conversation_id: m.conversation_id,
-    })),
+    projeto_id: pid, horas, total: leads.length,
+    mensagens: leads, // mantém chave usada pelo card
+    leads,
   };
 }
 
