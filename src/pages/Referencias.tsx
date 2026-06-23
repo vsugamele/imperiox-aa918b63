@@ -1305,15 +1305,31 @@ export default function Referencias() {
           </div>
           <DialogFooter>
             <Button onClick={() => {
-              if (!newPastaName.trim()) { toast.error("Nome obrigatório"); return; }
-              const fullPasta = currentFolderPath
-                ? `${currentFolderPath}/${newPastaName.trim()}`
-                : newPastaName.trim();
-              setForm(f => ({ ...f, pasta: fullPasta }));
-              setFilterPasta(fullPasta);
+              const name = newPastaName.trim().replace(/^\/+|\/+$/g, "");
+              if (!name) { toast.error("Nome obrigatório"); return; }
+              // Full virtual path includes project segment (matches getVirtualPath)
+              let fullVPath: string;
+              let pastaForRefs: string; // value to store in imphq_referencias.pasta (without project)
+              if (currentFolderPath) {
+                fullVPath = `${currentFolderPath}/${name}`;
+                const segs = currentFolderPath.split("/");
+                pastaForRefs = [...segs.slice(1), name].join("/");
+              } else {
+                const projSeg = filterProject !== "all"
+                  ? (projects.find(p => p.id === filterProject)?.name || "Projeto")
+                  : "Sem Projeto";
+                fullVPath = `${projSeg}/${name}`;
+                pastaForRefs = name;
+              }
+              if (!emptyFolders.includes(fullVPath)) {
+                persistEmptyFolders([...emptyFolders, fullVPath]);
+              }
+              setForm(f => ({ ...f, pasta: pastaForRefs }));
+              setCurrentFolder(fullVPath.split("/"));
+              setFilterPasta("all");
               setShowNewPasta(false);
               setNewPastaName("");
-              toast.success(`Pasta "${fullPasta}" criada! Use-a ao criar novas referências.`);
+              toast.success(`Pasta "${fullVPath}" criada!`);
             }}>Criar</Button>
           </DialogFooter>
         </DialogContent>
