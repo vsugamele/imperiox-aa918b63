@@ -137,36 +137,45 @@ CONTEXTO ATUAL:
     // Coletar tool activity para persistir e expor pro frontend
     const toolActivity: any[] = [];
 
+    // Pré-matcher: força tool específica no primeiro step quando reconhecemos intenção
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const forcedTool = preMatchTool(lastUserMsg);
+    console.log("[copilot] start", { user_id: user.id, msg_preview: lastUserMsg.slice(0, 80), forced_tool: forcedTool, project_id: projectId });
+
     // Loop de tool calling (não-stream)
     for (let step = 0; step < MAX_TOOL_STEPS; step++) {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL, messages: modelMessages, tools: TOOL_SPECS, tool_choice: "auto", stream: false,
-        }),
-        signal: req.signal,
-      });
+      const toolChoice = step === 0 && forcedTool
+        ? { type: "function", function: { name: forcedTool } }
+        : "auto";
+      let res = await callAI({
+        messages: modelMessages, tools: TOOL_SPECS, tool_choice: toolChoice, stream: false,
+      }, req.signal);
+      // Fallback de modelo em rate-limit/erro
+      if (res.status === 429 || res.status === 502 || res.status === 503) {
+        console.warn("[copilot] primary failed, trying fallback", res.status);
+        res = await callAI({
+          messages: modelMessages, tools: TOOL_SPECS, tool_choice: toolChoice, stream: false,
+        }, req.signal, MODEL_FALLBACK);
+      }
       if (!res.ok) {
         const t = await res.text();
         console.error("[copilot] tool-step err", res.status, t.slice(0, 300));
-        if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        return new Response(JSON.stringify({ error: "Falha na IA" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo em alguns segundos." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: `Falha na IA (${res.status})` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const data = await res.json();
       const choice = data.choices?.[0];
       const msg = choice?.message;
+      console.log("[copilot] step", step, { tool_calls: msg?.tool_calls?.map((t: any) => t.function?.name), content_len: msg?.content?.length || 0 });
       if (!msg) break;
 
       const toolCalls = msg.tool_calls || [];
       if (!toolCalls.length) {
-        // sem tools — vamos streamar a resposta final
         modelMessages.push({ role: "assistant", content: msg.content || "" });
         break;
       }
 
-      // Executar todas as tools desta rodada
       modelMessages.push({ role: "assistant", content: msg.content || null, tool_calls: toolCalls });
       for (const tc of toolCalls) {
         const name = tc.function?.name;
@@ -179,20 +188,24 @@ CONTEXTO ATUAL:
           content: JSON.stringify(result).slice(0, 8000),
         });
       }
-      // continua loop pra próxima resposta
     }
 
-    // Streaming da resposta final (sem tools, pra dar feel responsivo)
-    const finalRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages: modelMessages, stream: true, tool_choice: "none" }),
-      signal: req.signal,
-    });
+    // Streaming da resposta final
+    let finalRes = await callAI({
+      messages: modelMessages, stream: true, tool_choice: "none",
+    }, req.signal);
+    if (finalRes.status === 429 || finalRes.status === 502 || finalRes.status === 503) {
+      console.warn("[copilot] final primary failed, fallback", finalRes.status);
+      finalRes = await callAI({
+        messages: modelMessages, stream: true, tool_choice: "none",
+      }, req.signal, MODEL_FALLBACK);
+    }
     if (!finalRes.ok || !finalRes.body) {
       const t = await finalRes.text().catch(() => "");
       console.error("[copilot] final stream err", finalRes.status, t.slice(0, 300));
-      return new Response(JSON.stringify({ error: "Falha na IA final" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (finalRes.status === 429) return new Response(JSON.stringify({ error: "Rate limit. Tenta de novo." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (finalRes.status === 402) return new Response(JSON.stringify({ error: "Créditos Lovable AI esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `Falha na IA final (${finalRes.status})` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Emitir prefixo SSE com tool activity antes do stream
