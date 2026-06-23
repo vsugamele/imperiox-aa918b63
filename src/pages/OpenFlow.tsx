@@ -415,7 +415,8 @@ export default function OpenFlow() {
 
           {editing && (
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6 max-w-7xl mx-auto">
+              <div className="p-4 space-y-4 w-full">
+
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-secondary/10 p-4 rounded-2xl border border-white/5">
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Nome do Fluxo</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} className="h-9 bg-background/50 border-white/10" /></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Projeto</Label><Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="none">Todos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
