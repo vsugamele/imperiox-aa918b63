@@ -269,9 +269,26 @@ CONTEXTO ATUAL:
               ? `Não encontrei projeto com "${termo}". Quis dizer: ${cands.join(", ")}?`
               : `Não encontrei projeto com "${termo}" e não há projetos ativos cadastrados.`;
           } else if (toolActivity.length) {
-            // Houve tools, mas modelo não verbalizou. Dump compacto dos resultados.
-            const resumo = toolActivity.map((a) => `**${a.name}**: ${JSON.stringify(a.result).slice(0, 400)}`).join("\n\n");
-            finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
+            // Tenta verbalizar fallbacks específicos por tool antes de mostrar JSON.
+            const wa = toolActivity.find((a) => a.name === "ultimasMensagensWhatsapp");
+            if (wa) {
+              const leads = wa.result?.leads || wa.result?.mensagens || [];
+              const horas = wa.result?.horas ?? 24;
+              if (!leads.length) {
+                finalText = `Ninguém mandou mensagem no WhatsApp nas últimas ${horas}h.`;
+              } else {
+                const linhas = leads.slice(0, 10).map((l: any) => {
+                  const quem = l.nome || l.phone;
+                  const min = Math.round((Date.now() - new Date(l.em).getTime()) / 60000);
+                  const quando = min < 60 ? `${min}min` : `${Math.round(min / 60)}h`;
+                  return `- **${quem}** (há ${quando}): ${l.ultima || l.conteudo || ""}`;
+                }).join("\n");
+                finalText = `Nas últimas ${horas}h, ${leads.length} ${leads.length === 1 ? "lead mandou" : "leads mandaram"} mensagem:\n\n${linhas}`;
+              }
+            } else {
+              const resumo = toolActivity.map((a) => `**${a.name}**: ${JSON.stringify(a.result).slice(0, 400)}`).join("\n\n");
+              finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
+            }
           } else {
             finalText = "Não consegui interpretar o pedido. Reformula? Ex: 'últimas mensagens no WhatsApp', 'vendas de hoje', 'leads travados'.";
           }
