@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ReferenciasDoProjetoSection } from "./ReferenciasDoProjetoSection";
 
 const PHOTO_CATEGORIES = [
   { key: "expert", label: "📸 Fotos do Expert" },
@@ -314,6 +315,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
 
   return (
     <div className="space-y-4">
+      <ReferenciasDoProjetoSection projectId={projectId} />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           {CONTENT_TABS.map(t => (
