@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ReferenciasDoProjetoSection } from "./ReferenciasDoProjetoSection";
 
 const PHOTO_CATEGORIES = [
   { key: "expert", label: "📸 Fotos do Expert" },
