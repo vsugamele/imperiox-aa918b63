@@ -243,6 +243,7 @@ CONTEXTO ATUAL:
         // Guard: se modelo não escreveu nada, gerar fallback útil
         let finalText = fullText.trim();
         if (!finalText) {
+          console.error("[copilot] EMPTY final response", { tool_count: toolActivity.length, tools: toolActivity.map(t => t.name) });
           const semMatch = toolActivity.find(
             (a) => a.name === "buscarProjeto" && a.result?.fallback === "sem_match_exato",
           );
@@ -255,8 +256,12 @@ CONTEXTO ATUAL:
             finalText = cands.length
               ? `Não encontrei projeto com "${termo}". Quis dizer: ${cands.join(", ")}?`
               : `Não encontrei projeto com "${termo}" e não há projetos ativos cadastrados.`;
+          } else if (toolActivity.length) {
+            // Houve tools, mas modelo não verbalizou. Dump compacto dos resultados.
+            const resumo = toolActivity.map((a) => `**${a.name}**: ${JSON.stringify(a.result).slice(0, 400)}`).join("\n\n");
+            finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
           } else {
-            finalText = "Não consegui formular uma resposta. Reformula o pedido?";
+            finalText = "Não consegui interpretar o pedido. Reformula? Ex: 'últimas mensagens no WhatsApp', 'vendas de hoje', 'leads travados'.";
           }
           try {
             controller.enqueue(
