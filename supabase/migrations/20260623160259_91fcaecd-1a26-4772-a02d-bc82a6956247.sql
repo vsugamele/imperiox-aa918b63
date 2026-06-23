@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_copy_engine_prompts ADD COLUMN IF NOT EXISTS apply_style BOOLEAN NOT NULL DEFAULT false;

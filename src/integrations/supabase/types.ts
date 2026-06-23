@@ -18522,6 +18522,7 @@ export type Database = {
       }
       imphq_copy_engine_prompts: {
         Row: {
+          apply_style: boolean
           created_at: string
           enabled: boolean
           id: string
@@ -18536,6 +18537,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          apply_style?: boolean
           created_at?: string
           enabled?: boolean
           id?: string
@@ -18550,6 +18552,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          apply_style?: boolean
           created_at?: string
           enabled?: boolean
           id?: string
