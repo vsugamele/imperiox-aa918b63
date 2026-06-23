@@ -1002,7 +1002,7 @@ async function leadsTravadosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; 
   const travados: any[] = [];
   for (const m of byConv.values()) {
     const { data: laterOut } = await ctx.supabase.from("imphq_wa_messages")
-      .select("id").eq("conversation_id", m.conversation_id).eq("direction", "outbound")
+      .select("id").eq("conversation_id", m.conversation_id).eq("direction", "outgoing")
       .gt("created_at", m.created_at).limit(1);
     if (!laterOut?.length) travados.push(m);
     if (travados.length >= limite) break;
