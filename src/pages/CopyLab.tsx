@@ -12,7 +12,7 @@ import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope,
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
-type Project = { id: string; nome: string };
+type Project = { id: string; name: string };
 type Intent = "vsl_imperador" | "criativo_imperador" | "conversa_imperador" | "diagnostico_imperador";
 
 const TABS: Array<{ id: Intent; label: string; icon: any; subtitle: string }> = [
@@ -39,8 +39,8 @@ export default function CopyLab() {
     (async () => {
       const { data } = await supabase
         .from("imphq_projects")
-        .select("id, nome")
-        .order("nome");
+        .select("id, name")
+        .order("name");
       setProjects((data as Project[]) || []);
     })();
   }, []);
@@ -115,7 +115,7 @@ export default function CopyLab() {
                 <SelectContent>
                   <SelectItem value="__none__">— Sem projeto —</SelectItem>
                   {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
