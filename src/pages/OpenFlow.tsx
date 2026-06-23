@@ -393,7 +393,7 @@ export default function OpenFlow() {
       </Dialog>
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
-        <DialogContent className={`${(editing?.acoes || []).length > 0 ? "max-w-[98vw] w-[98vw] h-[95vh]" : "max-w-4xl"} p-0 overflow-hidden bg-slate-950 border-white/10 flex flex-col`}>
+        <DialogContent className="max-w-[99vw] w-[99vw] h-[97vh] p-0 overflow-hidden bg-slate-950 border-white/10 flex flex-col">
           <DialogHeader className="px-6 py-4 border-b border-white/5 bg-slate-900/50 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
