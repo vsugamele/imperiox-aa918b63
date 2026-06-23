@@ -1086,6 +1086,18 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             console.log("[webhook-pagamento] Venda já existente (unique_violation), ignorando duplicata:", externalTxId);
           } else {
             console.error("[webhook-pagamento] Erro ao inserir venda:", vendaErr);
+            try {
+              await supabase.from("imphq_webhook_errors").insert({
+                project_id: projectId,
+                lead_id: leadId,
+                plataforma,
+                evento,
+                payload: body,
+                erro: `insert_venda_failed: ${vendaErr.message}`,
+              });
+            } catch (logErr) {
+              console.error("[webhook-pagamento] Falha ao logar webhook_error:", logErr);
+            }
           }
         } else {
           console.log("[webhook-pagamento] Venda inserida:", vendaInsert.id);
