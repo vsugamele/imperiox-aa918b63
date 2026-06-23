@@ -10,7 +10,18 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+function resolveProvider(model: string): { url: string; apiKey: string } {
+  const isLovable = /^(google|openai)\//.test(model);
+  if (isLovable) {
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    return { url: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: LOVABLE_API_KEY };
+  }
+  if (!OPENROUTER_API_KEY) throw new Error(`OPENROUTER_API_KEY não configurada (modelo ${model})`);
+  return { url: "https://openrouter.ai/api/v1/chat/completions", apiKey: OPENROUTER_API_KEY };
+}
 
 interface ReqBody {
   intent: string;
@@ -81,10 +92,11 @@ Deno.serve(async (req) => {
       payload.response_format = { type: "json_object" };
     }
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const { url: providerUrl, apiKey: providerKey } = resolveProvider(model);
+    const upstream = await fetch(providerUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${providerKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
