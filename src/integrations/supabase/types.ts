@@ -43340,6 +43340,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: number
       }
+      areamembrojp_lookup_auth_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       areamembrojp_program_metrics: {
         Args: { p_program_id: string }
         Returns: Json
