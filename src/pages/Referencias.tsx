@@ -681,6 +681,7 @@ export default function Referencias() {
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
     const itemCount = refsWithPath.filter(r => r._vpath === fullPath || r._vpath?.startsWith(fullPath + "/")).length;
+    const canRename = fullPath.split("/").length >= 2;
     return (
       <Card
         className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
@@ -692,11 +693,21 @@ export default function Referencias() {
             <h3 className="font-medium text-sm truncate">{name}</h3>
             <p className="text-[10px] text-muted-foreground">{itemCount} {itemCount === 1 ? "item" : "itens"}</p>
           </div>
+          {canRename && (
+            <button
+              onClick={(e) => { e.stopPropagation(); startRename(fullPath); }}
+              className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition p-1"
+              title="Renomear pasta"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         </CardContent>
       </Card>
     );
   };
+
 
   // Build a hierarchical tree from flat virtual paths
   type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
