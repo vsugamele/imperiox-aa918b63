@@ -844,14 +844,49 @@ export default function Referencias() {
           ) : (
             <span className="w-4 shrink-0" />
           )}
-          <button
-            onClick={() => navigateToFolder(node.path)}
-            className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
-          >
-            {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
-            <span className="truncate flex-1">{node.name}</span>
-            <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
-          </button>
+          {renamingPath === node.path ? (
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <input
+                autoFocus
+                value={renameDraft}
+                disabled={renaming}
+                onChange={e => setRenameDraft(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") renameFolder(node.path, renameDraft);
+                  if (e.key === "Escape") setRenamingPath(null);
+                }}
+                className="flex-1 min-w-0 h-5 px-1 rounded bg-background border border-primary/40 text-xs focus:outline-none"
+              />
+              <button onClick={(e) => { e.stopPropagation(); renameFolder(node.path, renameDraft); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-emerald-400 shrink-0">
+                {renaming ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setRenamingPath(null); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-red-400 shrink-0">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigateToFolder(node.path)}
+              className="flex-1 flex items-center gap-1.5 min-w-0 text-left group/node"
+            >
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <span className="truncate flex-1">{node.name}</span>
+              {level > 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRename(node.path); }}
+                  className="opacity-0 group-hover/node:opacity-60 hover:!opacity-100 transition shrink-0"
+                  title="Renomear"
+                >
+                  <Pencil className="h-2.5 w-2.5" />
+                </button>
+              )}
+              <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
+            </button>
+          )}
+
         </div>
         {hasChildren && isExpanded && (
           <div>
