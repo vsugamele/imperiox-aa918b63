@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -612,24 +612,50 @@ interface FlowEditorCanvasProps {
   onUpdateObjective?: (objective: string) => void;
 }
 
-// Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
-const PALETTE_TYPES: { tipo: string; label: string }[] = [
-  { tipo: "whatsapp", label: "💬 WhatsApp" },
-  { tipo: "ia_message", label: "🤖 IA Conversacional" },
-  { tipo: "audio", label: "🎙️ Áudio IA" },
-  { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
-  { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
-  { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
-  { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
-  { tipo: "ab_split", label: "🔀 Teste A/B" },
-  { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
-  { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
-  { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
-  { tipo: "webhook_call", label: "🌐 Webhook" },
-  { tipo: "email", label: "✉️ Email" },
-  { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
-  { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+// Paleta de elementos agrupada por categoria
+const PALETTE_GROUPS: { group: string; items: { tipo: string; label: string }[] }[] = [
+  {
+    group: "Mensagens",
+    items: [
+      { tipo: "whatsapp", label: "💬 WhatsApp" },
+      { tipo: "ia_message", label: "🤖 IA Conversacional" },
+      { tipo: "audio", label: "🎙️ Áudio IA" },
+      { tipo: "email", label: "✉️ Email" },
+    ],
+  },
+  {
+    group: "Esperas",
+    items: [
+      { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
+      { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
+      { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
+    ],
+  },
+  {
+    group: "Lógica",
+    items: [
+      { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
+      { tipo: "ab_split", label: "🔀 Teste A/B" },
+      { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+    ],
+  },
+  {
+    group: "Ações no Lead",
+    items: [
+      { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
+      { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
+      { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
+    ],
+  },
+  {
+    group: "Integrações",
+    items: [
+      { tipo: "webhook_call", label: "🌐 Webhook" },
+      { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
+    ],
+  },
 ];
+
 
 export function FlowEditorCanvas({ 
   acoes, 
@@ -747,77 +773,155 @@ export function FlowEditorCanvas({
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
-        {/* Painéis Estratégicos */}
-        <Panel position="top-left" className="m-4 flex flex-col gap-4 pointer-events-none">
-          {/* Painel de Objetivo Estratégico */}
-          <div className="bg-slate-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-500 pointer-events-auto">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-purple-400">
-                <Brain className="h-4 w-4" />
-                <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
-              </div>
-              <Textarea 
-                value={flowObjective || ""} 
-                onChange={(e) => onUpdateObjective?.(e.target.value)}
-                placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
-                className="text-[11px] bg-slate-950/50 border-white/10 min-h-[80px] resize-none leading-relaxed text-slate-300 scrollbar-none"
-              />
-              <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
-                Este objetivo guia a IA e ajuda a manter a régua estratégica.
-              </p>
-            </div>
-          </div>
-
-          {/* Painel de Condições de Saída */}
-          <div className="bg-slate-900/95 backdrop-blur-md border border-rose-500/30 rounded-xl shadow-xl p-4 w-72 animate-in fade-in slide-in-from-left-4 duration-700 pointer-events-auto">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-rose-400">
-                <LogOut className="h-4 w-4" />
-                <span className="text-[10px] uppercase font-bold tracking-wider">Condições de Saída</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                O lead sairá do fluxo se:
-              </p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Compra Aprovada
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Lead respondeu (se IA)
-                </div>
-                <Button variant="outline" size="sm" className="w-full text-[9px] h-7 border-dashed border-white/10 bg-transparent hover:bg-white/5">
-                  <Plus className="h-3 w-3 mr-1" /> Add Condição Personalizada
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        {/* Paleta de adicionar etapa direto no canvas */}
-        <Panel
-          position="top-center"
-          className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-xl p-1.5 flex items-center gap-1.5"
-        >
-          <select
-            className="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 cursor-pointer"
-            defaultValue=""
-            onChange={(e) => {
-              const tipo = e.target.value;
-              if (!tipo) return;
-              onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao]);
-              e.target.value = "";
-            }}
-          >
-            <option value="" disabled>＋ Adicionar etapa…</option>
-            {PALETTE_TYPES.map((t) => (
-              <option key={t.tipo} value={t.tipo}>{t.label}</option>
-            ))}
-          </select>
-          <span className="text-[9px] text-slate-500 pr-1 hidden sm:inline">
-            adiciona ao final do fluxo
-          </span>
+        {/* Sidebar de Elementos + Painéis Estratégicos */}
+        <Panel position="top-left" className="m-3 pointer-events-auto">
+          <FlowSidebar
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
+            onAddAcao={(tipo) => onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao])}
+          />
         </Panel>
       </ReactFlow>
     </div>
   );
 }
+
+// ── Sidebar de Elementos ───────────────────────────────────────
+function FlowSidebar({
+  flowObjective,
+  onUpdateObjective,
+  onAddAcao,
+}: {
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
+  onAddAcao: (tipo: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [tab, setTab] = useState<"elementos" | "objetivo" | "saida">("elementos");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-xl px-2 py-3 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-all flex flex-col items-center gap-2"
+        title="Abrir paleta de elementos"
+      >
+        <Sparkles className="h-4 w-4" />
+        <span className="text-[9px] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 font-bold">
+          Elementos
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-72 max-h-[calc(100vh-220px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+      {/* Header com tabs */}
+      <div className="flex items-center border-b border-slate-800 bg-slate-950/40 shrink-0">
+        <button
+          onClick={() => setTab("elementos")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+            tab === "elementos" ? "text-amber-400 border-b-2 border-amber-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          ✨ Elementos
+        </button>
+        <button
+          onClick={() => setTab("objetivo")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+            tab === "objetivo" ? "text-purple-400 border-b-2 border-purple-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          🎯 Objetivo
+        </button>
+        <button
+          onClick={() => setTab("saida")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+            tab === "saida" ? "text-rose-400 border-b-2 border-rose-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          🚪 Saída
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="px-2 py-2.5 text-slate-500 hover:text-amber-400 border-l border-slate-800"
+          title="Recolher"
+        >
+          ‹
+        </button>
+      </div>
+
+      {/* Conteúdo scrollável */}
+      <div className="flex-1 overflow-y-auto p-3">
+        {tab === "elementos" && (
+          <div className="space-y-4">
+            <p className="text-[10px] text-slate-500 leading-snug px-1">
+              Clique em um elemento para adicionar ao final do fluxo.
+            </p>
+            {PALETTE_GROUPS.map((g) => (
+              <div key={g.group} className="space-y-1.5">
+                <div className="text-[9px] uppercase tracking-widest font-bold text-slate-500 px-1">
+                  {g.group}
+                </div>
+                <div className="grid grid-cols-1 gap-1">
+                  {g.items.map((it) => (
+                    <button
+                      key={it.tipo}
+                      onClick={() => onAddAcao(it.tipo)}
+                      className="text-left text-[11px] text-slate-200 bg-slate-950/60 hover:bg-amber-500/10 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg px-2.5 py-2 transition-all flex items-center justify-between group"
+                    >
+                      <span className="truncate">{it.label}</span>
+                      <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "objetivo" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-purple-400">
+              <Brain className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+            </div>
+            <Textarea
+              value={flowObjective || ""}
+              onChange={(e) => onUpdateObjective?.(e.target.value)}
+              placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
+              className="text-[11px] bg-slate-950/50 border-white/10 min-h-[140px] resize-none leading-relaxed text-slate-300"
+            />
+            <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
+              Este objetivo guia a IA e ajuda a manter a régua estratégica.
+            </p>
+          </div>
+        )}
+
+        {tab === "saida" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-rose-400">
+              <LogOut className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Condições de Saída</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              O lead sairá do fluxo se:
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Compra Aprovada
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Lead respondeu (se IA)
+              </div>
+              <Button variant="outline" size="sm" className="w-full text-[9px] h-7 border-dashed border-white/10 bg-transparent hover:bg-white/5">
+                <Plus className="h-3 w-3 mr-1" /> Add Condição Personalizada
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
