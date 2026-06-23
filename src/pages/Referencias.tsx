@@ -238,7 +238,7 @@ export default function Referencias() {
     setRefs([...manualRefs, ...libraryRefs, ...adsRefs]);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadEmptyFolders(); }, []);
 
   // Auto-clean: remove emptyFolders that now have real refs
   useEffect(() => {
