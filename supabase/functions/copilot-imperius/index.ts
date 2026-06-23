@@ -11,11 +11,22 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 const MODEL_PRIMARY = "google/gemini-2.5-flash";
 const MODEL_FALLBACK = "google/gemini-2.5-pro";
 const MAX_TOOL_STEPS = 5;
+
+// Roteamento: prefixos google/ e openai/ vão pelo Lovable Gateway; resto pelo OpenRouter
+function resolveProvider(model: string): { url: string; apiKey: string } {
+  const isLovable = /^(google|openai)\//.test(model);
+  if (isLovable) {
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    return { url: "https://ai.gateway.lovable.dev/v1/chat/completions", apiKey: LOVABLE_API_KEY };
+  }
+  if (!OPENROUTER_API_KEY) throw new Error(`OPENROUTER_API_KEY não configurada (modelo ${model})`);
+  return { url: "https://openrouter.ai/api/v1/chat/completions", apiKey: OPENROUTER_API_KEY };
+}
 
 // Pré-matcher: força uma tool quando a pergunta é clara
 function preMatchTool(text: string): string | null {
@@ -30,10 +41,11 @@ function preMatchTool(text: string): string | null {
 }
 
 async function callAI(body: any, signal: AbortSignal, model = MODEL_PRIMARY) {
-  return await fetch(AI_URL, {
+  const { url, apiKey } = resolveProvider(model);
+  return await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "X-Lovable-AIG-SDK": "imperius-copilot",
     },
