@@ -11,9 +11,36 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
-const MODEL = "google/gemini-2.5-flash";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL_PRIMARY = "google/gemini-2.5-flash";
+const MODEL_FALLBACK = "google/gemini-2.5-pro";
 const MAX_TOOL_STEPS = 5;
+
+// Pré-matcher: força uma tool quando a pergunta é clara
+function preMatchTool(text: string): string | null {
+  const t = text.toLowerCase();
+  if (/quem (mandou|enviou|falou)|últimas? mensage|mensagens? recente|chegou no whats/.test(t)) return "ultimasMensagensWhatsapp";
+  if (/(vendas?|compr(ou|aram)|faturou|faturamento|receita)( de)? hoje/.test(t)) return "vendasDoDia";
+  if (/(leads?)( de)? hoje|capturei hoje|quantos leads/.test(t)) return "leadsDoDia";
+  if (/(leads?|conversas?) (travad|parad|sem resposta|sem retorno)/.test(t)) return "leadsTravadosWhatsapp";
+  if (/(cpa|roas|gasto( em)? ads|campanha (pior|melhor)|performance (do |dos )?ads)/.test(t)) return "adsPerformance";
+  if (/leads? quent|hot lead|pix gerado|boleto gerado/.test(t)) return "leadsQuentes";
+  return null;
+}
+
+async function callAI(body: any, signal: AbortSignal, model = MODEL_PRIMARY) {
+  return await fetch(AI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+      "X-Lovable-AIG-SDK": "imperius-copilot",
+    },
+    body: JSON.stringify({ ...body, model }),
+    signal,
+  });
+}
 
 const PERSONA = `Você é Imperius, copiloto estratégico do Imperio HQ. Tom: direto, afiado, sem rodeios. Português brasileiro.
 
