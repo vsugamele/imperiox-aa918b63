@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
@@ -681,6 +681,7 @@ export default function Referencias() {
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
     const itemCount = refsWithPath.filter(r => r._vpath === fullPath || r._vpath?.startsWith(fullPath + "/")).length;
+    const canRename = fullPath.split("/").length >= 2;
     return (
       <Card
         className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
@@ -692,11 +693,21 @@ export default function Referencias() {
             <h3 className="font-medium text-sm truncate">{name}</h3>
             <p className="text-[10px] text-muted-foreground">{itemCount} {itemCount === 1 ? "item" : "itens"}</p>
           </div>
+          {canRename && (
+            <button
+              onClick={(e) => { e.stopPropagation(); startRename(fullPath); }}
+              className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition p-1"
+              title="Renomear pasta"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         </CardContent>
       </Card>
     );
   };
+
 
   // Build a hierarchical tree from flat virtual paths
   type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
@@ -732,6 +743,95 @@ export default function Referencias() {
     setFilterPasta("all");
   };
 
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
+  const startRename = (path: string) => {
+    const segs = path.split("/");
+    if (segs.length < 2) {
+      toast.error("Renomeie o projeto na página Projetos");
+      return;
+    }
+    setRenamingPath(path);
+    setRenameDraft(segs[segs.length - 1]);
+  };
+
+  const renameFolder = async (oldPath: string, rawName: string) => {
+    const newName = rawName.trim().replace(/\//g, "");
+    if (!newName) { toast.error("Nome inválido"); return; }
+    const segs = oldPath.split("/");
+    if (segs.length < 2) { toast.error("Não é possível renomear o projeto aqui"); return; }
+    if (newName === segs[segs.length - 1]) { setRenamingPath(null); return; }
+
+    const parentPath = segs.slice(0, -1).join("/");
+    const newPath = `${parentPath}/${newName}`;
+
+    // Duplicate sibling check
+    if (allPastas.some(p => p === newPath || p.startsWith(newPath + "/"))) {
+      toast.error("Já existe uma pasta com esse nome");
+      return;
+    }
+
+    // oldSub / newSub are the parts under the project (pasta column doesn't include project)
+    const oldSub = segs.slice(1).join("/");
+    const newSub = [...segs.slice(1, -1), newName].join("/");
+
+    const affected = refsWithPath.filter(r =>
+      r._vpath === oldPath || r._vpath?.startsWith(oldPath + "/")
+    );
+    const manualAffected = affected.filter(r => r.source === "manual");
+    const nonManualCount = affected.length - manualAffected.length;
+
+    if (manualAffected.length === 0) {
+      toast.error(
+        nonManualCount > 0
+          ? "Essa pasta só tem itens de Projetos/Ads — não podem ser renomeados aqui"
+          : "Nenhuma referência manual encontrada"
+      );
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      const updates = manualAffected.map(r => {
+        let nextPasta: string;
+        if (r.pasta) {
+          // r.pasta starts with oldSub or equals oldSub
+          const rest = r.pasta.slice(oldSub.length);
+          nextPasta = newSub + rest;
+        } else {
+          // virtual path — materialize as real pasta under project
+          const vRest = (r._vpath || "").slice(oldPath.length); // "" or "/..."
+          nextPasta = newSub + vRest;
+        }
+        return supabase.from("imphq_referencias").update({ pasta: nextPasta }).eq("id", r.id);
+      });
+      const results = await Promise.all(updates);
+      const errors = results.filter((r: any) => r.error).length;
+      if (errors > 0) {
+        toast.error(`${errors} erros ao renomear`);
+      } else {
+        toast.success(
+          nonManualCount > 0
+            ? `${manualAffected.length} ref(s) renomeadas. ${nonManualCount} de Projetos/Ads mantidas no agrupamento original.`
+            : `${manualAffected.length} ref(s) renomeadas`
+        );
+      }
+      // Adjust currentFolder if we renamed inside it
+      if (currentFolderPath === oldPath) {
+        setCurrentFolder(newPath.split("/"));
+      } else if (currentFolderPath.startsWith(oldPath + "/")) {
+        setCurrentFolder((newPath + currentFolderPath.slice(oldPath.length)).split("/"));
+      }
+      setRenamingPath(null);
+      await load();
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+
   const FolderTreeNode = ({ node, level }: { node: FolderNode; level: number }) => {
     const isActive = currentFolderPath === node.path && filterPasta === "all";
     const isExpanded = expandedFolders.has(node.path);
@@ -755,14 +855,49 @@ export default function Referencias() {
           ) : (
             <span className="w-4 shrink-0" />
           )}
-          <button
-            onClick={() => navigateToFolder(node.path)}
-            className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
-          >
-            {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
-            <span className="truncate flex-1">{node.name}</span>
-            <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
-          </button>
+          {renamingPath === node.path ? (
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <input
+                autoFocus
+                value={renameDraft}
+                disabled={renaming}
+                onChange={e => setRenameDraft(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") renameFolder(node.path, renameDraft);
+                  if (e.key === "Escape") setRenamingPath(null);
+                }}
+                className="flex-1 min-w-0 h-5 px-1 rounded bg-background border border-primary/40 text-xs focus:outline-none"
+              />
+              <button onClick={(e) => { e.stopPropagation(); renameFolder(node.path, renameDraft); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-emerald-400 shrink-0">
+                {renaming ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setRenamingPath(null); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-red-400 shrink-0">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigateToFolder(node.path)}
+              className="flex-1 flex items-center gap-1.5 min-w-0 text-left group/node"
+            >
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <span className="truncate flex-1">{node.name}</span>
+              {level > 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRename(node.path); }}
+                  className="opacity-0 group-hover/node:opacity-60 hover:!opacity-100 transition shrink-0"
+                  title="Renomear"
+                >
+                  <Pencil className="h-2.5 w-2.5" />
+                </button>
+              )}
+              <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
+            </button>
+          )}
+
         </div>
         {hasChildren && isExpanded && (
           <div>
