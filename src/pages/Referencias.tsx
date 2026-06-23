@@ -248,8 +248,10 @@ export default function Referencias() {
       if (r.source === "manual" && r.pasta) return `${projSeg}/${r.pasta}`;
       return null;
     }).filter(Boolean) as string[]);
-    const stillEmpty = emptyFolders.filter(f => !derived.has(f) && ![...derived].some(d => d.startsWith(f + "/")));
-    if (stillEmpty.length !== emptyFolders.length) persistEmptyFolders(stillEmpty);
+    const toRemove = emptyFolders.filter(f => derived.has(f) || [...derived].some(d => d.startsWith(f + "/")));
+    if (toRemove.length > 0) {
+      toRemove.forEach(p => { removeEmptyFolder(p); });
+    }
   }, [refs]);
 
   // Build full folder path string from breadcrumb
