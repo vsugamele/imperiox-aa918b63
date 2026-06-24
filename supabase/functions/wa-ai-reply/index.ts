@@ -2,6 +2,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
 import { getCachedEmbedding } from "../_shared/embeddings.ts";
+import {
+  isJPProject,
+  jpLookupLead,
+  jpBuildContextBlock,
+  jpBuildInstructionsBlock,
+  jpProcessTags,
+} from "../_shared/crmBridgeJP.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -650,6 +657,25 @@ Deno.serve(async (req) => {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
       }
 
+      // 7.1. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
+      let jpCrmContextBlock = "";
+      let jpEmailKnown = false;
+      const jpLeadEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
+      if (isJPProject(project_id)) {
+        jpEmailKnown = !!jpLeadEmail;
+        if (jpEmailKnown) {
+          try {
+            const lookup = await jpLookupLead(jpLeadEmail);
+            jpCrmContextBlock = jpBuildContextBlock(lookup, jpLeadEmail);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpLeadEmail}`);
+          } catch (e: any) {
+            console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+          }
+        } else {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA pedirá no diálogo`);
+        }
+      }
+
       // 7.2. Busca contexto de campanha ativa
       let campaignContextBlock = "";
       if (leadRow?.campanha_id) {
@@ -1205,7 +1231,7 @@ Máximo 6 linhas no total.
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}${campaignContextBlock}
+${leadContextBlock}${campaignContextBlock}${jpCrmContextBlock}
 ${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
@@ -1242,7 +1268,7 @@ ${sugameleStyleRules}
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? jpBuildInstructionsBlock(jpEmailKnown) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
@@ -1460,6 +1486,15 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 
       let finalAiReply = cleaned.trim();
+
+      // JP FREITAS — processa tags [JP_MAGIC_LINK:...], [JP_TAG:...], [JP_LOG:...], [JP_GRANT:...]
+      if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
+        try {
+          finalAiReply = await jpProcessTags(finalAiReply);
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
+        }
+      }
 
       // Prefixo "Bom dia" quando flush invoca esta função (lead mandou fora do horário)
       if (body.from_flush === true && finalAiReply) {
