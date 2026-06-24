@@ -1,4 +1,4 @@
-import { ExternalLink, Link2, Sparkles, Archive, Trash2, RefreshCw, MoreVertical, Globe } from "lucide-react";
+import { ExternalLink, Link2, Sparkles, Archive, Trash2, RefreshCw, MoreVertical, Globe, Github } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ export type Site = {
   summary: string | null;
   last_scraped_at: string | null;
   created_at: string;
+  github_url?: string | null;
 };
 
 const TIPO_LABEL: Record<string, string> = {
@@ -43,11 +44,17 @@ export function SiteCard({
   const thumb = site.thumbnail_url;
   const isData = thumb?.startsWith("data:") || thumb?.startsWith("http");
 
+  const openSite = () => window.open(site.url, "_blank", "noopener,noreferrer");
+  const stop = (e: React.MouseEvent) => { e.stopPropagation(); };
+
   return (
-    <Card className="overflow-hidden hover:border-primary/40 transition-colors flex flex-col">
+    <Card
+      onClick={openSite}
+      className="overflow-hidden hover:border-primary/40 transition-colors flex flex-col cursor-pointer group"
+    >
       <div className="relative aspect-video bg-secondary/30 overflow-hidden">
         {isData ? (
-          <img src={thumb!} alt={site.titulo} className="w-full h-full object-cover object-top" loading="lazy" />
+          <img src={thumb!} alt={site.titulo} className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
             <Globe className="h-10 w-10 opacity-40" />
@@ -63,25 +70,47 @@ export function SiteCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="font-semibold truncate" title={site.titulo}>{site.titulo}</h3>
-            <a href={site.url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground truncate hover:text-primary flex items-center gap-1">
+            <a
+              href={site.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={stop}
+              className="text-xs text-muted-foreground truncate hover:text-primary flex items-center gap-1"
+            >
               <ExternalLink className="h-3 w-3 shrink-0" />
               <span className="truncate">{site.url.replace(/^https?:\/\//, "")}</span>
             </a>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onRescrape}><RefreshCw className="h-4 w-4 mr-2" />Atualizar dados</DropdownMenuItem>
-              <DropdownMenuItem onClick={onArchive}><Archive className="h-4 w-4 mr-2" />{site.status === "arquivado" ? "Reativar" : "Arquivar"}</DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div onClick={stop}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onRescrape}><RefreshCw className="h-4 w-4 mr-2" />Atualizar dados</DropdownMenuItem>
+                <DropdownMenuItem onClick={onArchive}><Archive className="h-4 w-4 mr-2" />{site.status === "arquivado" ? "Reativar" : "Arquivar"}</DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Excluir</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {site.summary && (
           <p className="text-xs text-muted-foreground line-clamp-2">{site.summary}</p>
+        )}
+
+        {site.github_url && (
+          <a
+            href={site.github_url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={stop}
+            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 truncate"
+            title={site.github_url}
+          >
+            <Github className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{site.github_url.replace(/^https?:\/\/(www\.)?github\.com\//, "")}</span>
+          </a>
         )}
 
         {colors.length > 0 && (
@@ -92,7 +121,7 @@ export function SiteCard({
           </div>
         )}
 
-        <div className="flex gap-2 pt-2 mt-auto">
+        <div className="flex gap-2 pt-2 mt-auto" onClick={stop}>
           <Button size="sm" variant="outline" className="flex-1" onClick={onAttach}>
             <Link2 className="h-3.5 w-3.5 mr-1.5" />Anexar
           </Button>

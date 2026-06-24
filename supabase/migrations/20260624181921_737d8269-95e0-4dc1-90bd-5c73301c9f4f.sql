@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_sites ADD COLUMN IF NOT EXISTS github_url text;

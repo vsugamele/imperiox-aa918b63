@@ -22,6 +22,7 @@ export function AddSiteModal({
 }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
   const [url, setUrl] = useState("");
   const [tipo, setTipo] = useState("lp");
+  const [githubUrl, setGithubUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleAdd() {
@@ -38,6 +39,9 @@ export function AddSiteModal({
       let formattedUrl = url.trim();
       if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
 
+      let formattedGithub = githubUrl.trim();
+      if (formattedGithub && !formattedGithub.startsWith("http")) formattedGithub = `https://${formattedGithub}`;
+
       const { error: insErr } = await supabase.from("imphq_sites").insert({
         user_id: userData.user.id,
         titulo: data.title || formattedUrl,
@@ -48,12 +52,13 @@ export function AddSiteModal({
         branding_json: data.branding || null,
         content_md: data.markdown || null,
         summary: data.summary || null,
+        github_url: formattedGithub || null,
         last_scraped_at: new Date().toISOString(),
       });
       if (insErr) throw insErr;
 
       toast.success("Site adicionado");
-      setUrl(""); setTipo("lp");
+      setUrl(""); setTipo("lp"); setGithubUrl("");
       onOpenChange(false);
       onCreated();
     } catch (e: any) {
@@ -62,6 +67,7 @@ export function AddSiteModal({
       setLoading(false);
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,7 +93,12 @@ export function AddSiteModal({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>GitHub (opcional)</Label>
+            <Input value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/usuario/repo" />
+          </div>
         </div>
+
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>

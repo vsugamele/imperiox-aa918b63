@@ -22496,6 +22496,7 @@ export type Database = {
           branding_json: Json | null
           content_md: string | null
           created_at: string
+          github_url: string | null
           id: string
           last_scraped_at: string | null
           status: string
@@ -22512,6 +22513,7 @@ export type Database = {
           branding_json?: Json | null
           content_md?: string | null
           created_at?: string
+          github_url?: string | null
           id?: string
           last_scraped_at?: string | null
           status?: string
@@ -22528,6 +22530,7 @@ export type Database = {
           branding_json?: Json | null
           content_md?: string | null
           created_at?: string
+          github_url?: string | null
           id?: string
           last_scraped_at?: string | null
           status?: string
