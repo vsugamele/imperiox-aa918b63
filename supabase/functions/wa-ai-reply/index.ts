@@ -657,6 +657,25 @@ Deno.serve(async (req) => {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
       }
 
+      // 7.1. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
+      let jpCrmContextBlock = "";
+      let jpEmailKnown = false;
+      const jpLeadEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
+      if (isJPProject(project_id)) {
+        jpEmailKnown = !!jpLeadEmail;
+        if (jpEmailKnown) {
+          try {
+            const lookup = await jpLookupLead(jpLeadEmail);
+            jpCrmContextBlock = jpBuildContextBlock(lookup, jpLeadEmail);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpLeadEmail}`);
+          } catch (e: any) {
+            console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+          }
+        } else {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA pedirá no diálogo`);
+        }
+      }
+
       // 7.2. Busca contexto de campanha ativa
       let campaignContextBlock = "";
       if (leadRow?.campanha_id) {
