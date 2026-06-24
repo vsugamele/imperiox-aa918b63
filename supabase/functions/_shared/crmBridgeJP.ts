@@ -125,54 +125,61 @@ REGRAS:
  * Processa as tags JP_* na resposta da IA: executa ações, substitui [JP_MAGIC_LINK:...] pelo link real,
  * remove as outras tags silenciosas. Retorna o texto final pronto para enviar.
  * Não-bloqueante para tags silenciosas (tags + log + grant rodam em background).
+ *
+ * `fallbackEmail`: usado quando a IA emite placeholder sem email válido (ex: [JP_MAGIC_LINK:EMAIL_DO_LEAD]).
  */
-export async function jpProcessTags(reply: string): Promise<string> {
+export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<string> {
   if (!reply) return reply;
   let out = reply;
+  const fb = (fallbackEmail || "").trim().toLowerCase();
 
-  // 1. [JP_MAGIC_LINK:email] — síncrono, substitui pelo URL
-  const magicRegex = /\[JP_MAGIC_LINK:\s*([^\]\s]+@[^\]\s]+)\s*\]/gi;
-  const magicMatches = [...out.matchAll(magicRegex)];
-  for (const m of magicMatches) {
-    const email = m[1].trim();
+  // Normaliza placeholders inválidos para o fallback (sem @ válido)
+  const resolveEmail = (raw: string): string => {
+    const v = (raw || "").trim();
+    if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(v)) return v.toLowerCase();
+    return fb;
+  };
+
+  // Aceita qualquer conteúdo até `]` ou `|` para capturar placeholders inválidos também
+  // 1. [JP_MAGIC_LINK:...]
+  const magicRegex = /\[JP_MAGIC_LINK:\s*([^\]]+?)\s*\]/gi;
+  for (const m of [...out.matchAll(magicRegex)]) {
+    const email = resolveEmail(m[1]);
+    if (!email) { out = out.replace(m[0], "https://jphaireducation.com.br"); continue; }
     const res = await jpIssueMagicLink(email);
     const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
     if (link) {
       out = out.replace(m[0], link);
       console.log(`[crmBridgeJP] magic_link gerado para ${email}`);
     } else {
-      // Fallback: remove a tag e troca por instrução genérica
       out = out.replace(m[0], "https://jphaireducation.com.br");
       console.warn(`[crmBridgeJP] magic_link falhou para ${email} → fallback url`);
     }
   }
 
-  // 2. [JP_TAG:email|tag1,tag2] — silencioso/fire-and-forget
-  const tagRegex = /\[JP_TAG:\s*([^\]\s|]+@[^\]\s|]+)\s*\|\s*([^\]]+)\]/gi;
-  const tagMatches = [...out.matchAll(tagRegex)];
-  for (const m of tagMatches) {
-    const email = m[1].trim();
+  // 2. [JP_TAG:email|tag1,tag2]
+  const tagRegex = /\[JP_TAG:\s*([^\]|]+?)\s*\|\s*([^\]]+)\]/gi;
+  for (const m of [...out.matchAll(tagRegex)]) {
+    const email = resolveEmail(m[1]);
     const tags = m[2].split(",").map((t) => t.trim()).filter(Boolean);
-    jpAddTags(email, tags).catch(() => {});
+    if (email) jpAddTags(email, tags).catch(() => {});
     out = out.replace(m[0], "");
   }
 
   // 3. [JP_LOG:email|event_name]
-  const logRegex = /\[JP_LOG:\s*([^\]\s|]+@[^\]\s|]+)\s*\|\s*([^\]]+)\]/gi;
-  const logMatches = [...out.matchAll(logRegex)];
-  for (const m of logMatches) {
-    const email = m[1].trim();
+  const logRegex = /\[JP_LOG:\s*([^\]|]+?)\s*\|\s*([^\]]+)\]/gi;
+  for (const m of [...out.matchAll(logRegex)]) {
+    const email = resolveEmail(m[1]);
     const event = m[2].trim();
-    jpLogEvent(email, event, { source: "wa-ai-reply" }).catch(() => {});
+    if (email) jpLogEvent(email, event, { source: "wa-ai-reply" }).catch(() => {});
     out = out.replace(m[0], "");
   }
 
   // 4. [JP_GRANT:email]
-  const grantRegex = /\[JP_GRANT:\s*([^\]\s]+@[^\]\s]+)\s*\]/gi;
-  const grantMatches = [...out.matchAll(grantRegex)];
-  for (const m of grantMatches) {
-    const email = m[1].trim();
-    jpGrantAccess(email).catch(() => {});
+  const grantRegex = /\[JP_GRANT:\s*([^\]]+?)\s*\]/gi;
+  for (const m of [...out.matchAll(grantRegex)]) {
+    const email = resolveEmail(m[1]);
+    if (email) jpGrantAccess(email).catch(() => {});
     out = out.replace(m[0], "");
   }
 
