@@ -2,6 +2,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
 import { getCachedEmbedding } from "../_shared/embeddings.ts";
+import {
+  isJPProject,
+  jpLookupLead,
+  jpBuildContextBlock,
+  jpBuildInstructionsBlock,
+  jpProcessTags,
+} from "../_shared/crmBridgeJP.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
