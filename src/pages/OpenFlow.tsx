@@ -417,12 +417,33 @@ export default function OpenFlow() {
             <div className="flex-1 overflow-y-auto">
               <div className="p-4 space-y-4 w-full">
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-secondary/10 p-4 rounded-2xl border border-white/5">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3 bg-secondary/10 p-4 rounded-2xl border border-white/5">
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Nome do Fluxo</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} className="h-9 bg-background/50 border-white/10" /></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Projeto</Label><Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="none">Todos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Trigger</Label><Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent></Select></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Produto</Label><Select value={editing.produto || "none"} onValueChange={v => setEditing({ ...editing, produto: v === "none" ? undefined : v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Todos</SelectItem>{allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Filtro por Tag</Label><Select value={editing.tag_filtro || "none"} onValueChange={v => setEditing({ ...editing, tag_filtro: v === "none" ? undefined : v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhuma</SelectItem>{allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Número de Disparo</Label>
+                    <Select
+                      value={editing.provider_id || "none"}
+                      onValueChange={v => setEditing({ ...editing, provider_id: v === "none" ? undefined : v })}
+                    >
+                      <SelectTrigger className="h-9 bg-background/50 border-white/10">
+                        <SelectValue placeholder="Padrão do sistema" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Padrão do sistema</SelectItem>
+                        {providers
+                          .filter(p => !p.project_id || p.project_id === editing.project_id)
+                          .map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from || p.id.slice(0, 12)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <FlowEditor 
