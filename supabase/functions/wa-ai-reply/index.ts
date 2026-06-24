@@ -9,6 +9,7 @@ import {
   jpBuildInstructionsBlock,
   jpProcessTags,
 } from "../_shared/crmBridgeJP.ts";
+import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -657,38 +658,30 @@ Deno.serve(async (req) => {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
       }
 
-      // 7.1. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
-      // Também detecta email digitado pelo lead na própria mensagem.
+      // 7.1. Extração universal de dados do lead a partir da mensagem (todos os projetos).
+      // Captura email/nome/profissão/dor/objeção/etc e persiste em imphq_leads sem sobrescrever.
+      let extractionResult: Awaited<ReturnType<typeof extractAndPersistLeadData>> | null = null;
+      const leadForExtraction = leadRow || lead;
+      if (leadForExtraction?.id && message) {
+        try {
+          extractionResult = await extractAndPersistLeadData(supabase, leadForExtraction, message);
+          // Reflete mudanças no objeto em memória para o resto do fluxo enxergar
+          if (extractionResult.detectedEmail && !leadForExtraction.email) {
+            if (leadRow) leadRow.email = extractionResult.detectedEmail;
+            if (lead) (lead as any).email = extractionResult.detectedEmail;
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] lead data extraction error: ${e?.message}`);
+        }
+      }
+
+      // 7.2. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
       let jpCrmContextBlock = "";
       let jpEmailKnown = false;
       let jpEffectiveEmail = "";
       if (isJPProject(project_id)) {
         const storedEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
-        // Detecta email na mensagem recém-recebida do lead
-        let detectedEmail = "";
-        try {
-          const m = (message || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/i);
-          if (m) detectedEmail = m[0].trim().toLowerCase();
-        } catch {}
-
-        // Se detectou email novo e o lead não tinha nenhum salvo → persiste no imphq_leads
-        if (detectedEmail && !storedEmail && (leadRow?.id || lead?.id)) {
-          const targetId = leadRow?.id || lead?.id;
-          try {
-            await supabase
-              .from("imphq_leads")
-              .update({ email: detectedEmail, updated_at: new Date().toISOString() })
-              .eq("id", targetId);
-            if (leadRow) leadRow.email = detectedEmail;
-            if (lead) (lead as any).email = detectedEmail;
-            console.log(`[wa-ai-reply] JP_FREITAS: email capturado da conversa e salvo no lead ${targetId}: ${detectedEmail}`);
-          } catch (e: any) {
-            console.warn(`[wa-ai-reply] JP_FREITAS: falha ao salvar email capturado: ${e?.message}`);
-          }
-        } else if (detectedEmail && storedEmail && detectedEmail !== storedEmail) {
-          console.log(`[wa-ai-reply] JP_FREITAS: lead digitou email diferente do cadastrado (cadastrado=${storedEmail}, novo=${detectedEmail}) — usando o novo apenas nesta resposta, sem sobrescrever`);
-        }
-
+        const detectedEmail = extractionResult?.detectedEmail || "";
         jpEffectiveEmail = detectedEmail || storedEmail || "";
         jpEmailKnown = !!jpEffectiveEmail;
 
