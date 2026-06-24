@@ -658,16 +658,45 @@ Deno.serve(async (req) => {
       }
 
       // 7.1. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
+      // Também detecta email digitado pelo lead na própria mensagem.
       let jpCrmContextBlock = "";
       let jpEmailKnown = false;
-      const jpLeadEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
+      let jpEffectiveEmail = "";
       if (isJPProject(project_id)) {
-        jpEmailKnown = !!jpLeadEmail;
+        const storedEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
+        // Detecta email na mensagem recém-recebida do lead
+        let detectedEmail = "";
+        try {
+          const m = (message || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/i);
+          if (m) detectedEmail = m[0].trim().toLowerCase();
+        } catch {}
+
+        // Se detectou email novo e o lead não tinha nenhum salvo → persiste no imphq_leads
+        if (detectedEmail && !storedEmail && (leadRow?.id || lead?.id)) {
+          const targetId = leadRow?.id || lead?.id;
+          try {
+            await supabase
+              .from("imphq_leads")
+              .update({ email: detectedEmail, updated_at: new Date().toISOString() })
+              .eq("id", targetId);
+            if (leadRow) leadRow.email = detectedEmail;
+            if (lead) (lead as any).email = detectedEmail;
+            console.log(`[wa-ai-reply] JP_FREITAS: email capturado da conversa e salvo no lead ${targetId}: ${detectedEmail}`);
+          } catch (e: any) {
+            console.warn(`[wa-ai-reply] JP_FREITAS: falha ao salvar email capturado: ${e?.message}`);
+          }
+        } else if (detectedEmail && storedEmail && detectedEmail !== storedEmail) {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead digitou email diferente do cadastrado (cadastrado=${storedEmail}, novo=${detectedEmail}) — usando o novo apenas nesta resposta, sem sobrescrever`);
+        }
+
+        jpEffectiveEmail = detectedEmail || storedEmail || "";
+        jpEmailKnown = !!jpEffectiveEmail;
+
         if (jpEmailKnown) {
           try {
-            const lookup = await jpLookupLead(jpLeadEmail);
-            jpCrmContextBlock = jpBuildContextBlock(lookup, jpLeadEmail);
-            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpLeadEmail}`);
+            const lookup = await jpLookupLead(jpEffectiveEmail);
+            jpCrmContextBlock = jpBuildContextBlock(lookup, jpEffectiveEmail);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpEffectiveEmail} (source=${detectedEmail ? "mensagem" : "cadastro"})`);
           } catch (e: any) {
             console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
           }
