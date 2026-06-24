@@ -815,7 +815,7 @@ function FlowSidebar({
   }
 
   return (
-    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-72 max-h-[calc(100vh-220px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-72 max-h-[calc(100vh-340px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
       {/* Header com tabs */}
       <div className="flex items-center border-b border-slate-800 bg-slate-950/40 shrink-0">
         <button
@@ -852,7 +852,7 @@ function FlowSidebar({
       </div>
 
       {/* Conteúdo scrollável */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3 pb-5">
         {tab === "elementos" && (
           <div className="space-y-4">
             <p className="text-[10px] text-slate-500 leading-snug px-1">
