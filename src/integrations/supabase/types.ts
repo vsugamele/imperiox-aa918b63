@@ -5386,9 +5386,10 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
-          lesson_id: string
+          lesson_id: string | null
           max_attempts: number | null
           pass_score: number
+          program_id: string | null
           show_explanations: boolean
           shuffle_options: boolean
           shuffle_questions: boolean
@@ -5400,9 +5401,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5414,9 +5416,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id?: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5429,6 +5432,13 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_quizzes_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -43312,6 +43322,10 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      amjp_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       amjp_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
@@ -43322,6 +43336,7 @@ export type Database = {
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      amjp_program_quiz_stats: { Args: { _program_id: string }; Returns: Json }
       amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
       areamembrojp_has_mini_app_access: {
