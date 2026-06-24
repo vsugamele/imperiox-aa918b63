@@ -1231,7 +1231,7 @@ Máximo 6 linhas no total.
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}${campaignContextBlock}
+${leadContextBlock}${campaignContextBlock}${jpCrmContextBlock}
 ${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
