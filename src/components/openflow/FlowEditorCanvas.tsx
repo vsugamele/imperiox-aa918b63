@@ -852,7 +852,7 @@ function FlowSidebar({
       </div>
 
       {/* Conteúdo scrollável */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-3 pb-5">
         {tab === "elementos" && (
           <div className="space-y-4">
             <p className="text-[10px] text-slate-500 leading-snug px-1">
