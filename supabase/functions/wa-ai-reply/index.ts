@@ -1519,7 +1519,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       // JP FREITAS — processa tags [JP_MAGIC_LINK:...], [JP_TAG:...], [JP_LOG:...], [JP_GRANT:...]
       if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
         try {
-          finalAiReply = await jpProcessTags(finalAiReply);
+          finalAiReply = await jpProcessTags(finalAiReply, jpEffectiveEmail);
         } catch (e: any) {
           console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
         }
