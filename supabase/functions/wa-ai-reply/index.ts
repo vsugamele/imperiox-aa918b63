@@ -9,6 +9,7 @@ import {
   jpBuildInstructionsBlock,
   jpProcessTags,
 } from "../_shared/crmBridgeJP.ts";
+import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
