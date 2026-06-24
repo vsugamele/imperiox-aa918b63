@@ -1487,6 +1487,15 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
       let finalAiReply = cleaned.trim();
 
+      // JP FREITAS — processa tags [JP_MAGIC_LINK:...], [JP_TAG:...], [JP_LOG:...], [JP_GRANT:...]
+      if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
+        try {
+          finalAiReply = await jpProcessTags(finalAiReply);
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
+        }
+      }
+
       // Prefixo "Bom dia" quando flush invoca esta função (lead mandou fora do horário)
       if (body.from_flush === true && finalAiReply) {
         const prefix = (aiConfig.back_to_hours_prefix || "Bom dia! Voltamos ao atendimento 👋\n\n").trim();
