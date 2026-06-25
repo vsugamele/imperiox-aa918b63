@@ -2024,9 +2024,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
         const { data: freshConv } = await supabase
           .from("imphq_wa_conversations")
-          .select("message_count")
+          .select("message_count, last_memory_extract_at, last_memory_extract_msg_count")
           .eq("id", conversation_id)
           .maybeSingle();
+
 
         // Detecta se a IA enviou link de checkout/pitch nesta resposta
         // para programar follow-up consultivo automático (wa-pitch-followup).
