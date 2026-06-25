@@ -243,11 +243,12 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-5 w-full">
               <TabsTrigger value="json" className="text-xs gap-1"><FileJson className="h-3 w-3" /> JSON</TabsTrigger>
               <TabsTrigger value="text" className="text-xs gap-1"><Type className="h-3 w-3" /> Texto</TabsTrigger>
               <TabsTrigger value="url" className="text-xs gap-1"><LinkIcon className="h-3 w-3" /> URL</TabsTrigger>
               <TabsTrigger value="vsl" className="text-xs gap-1"><Video className="h-3 w-3" /> VSL</TabsTrigger>
+              <TabsTrigger value="video" className="text-xs gap-1"><FileVideo className="h-3 w-3" /> Vídeo</TabsTrigger>
             </TabsList>
 
             <TabsContent value="json" className="space-y-2">
