@@ -63,6 +63,78 @@ function isVideoUrl(url?: string | null): boolean {
 const LS_KEY = "referencias.filters.v1";
 const loadLS = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; } };
 
+function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (patch: Partial<Ref>) => void }) {
+  const [busy, setBusy] = useState(false);
+  const status = refItem.transcribe_status || "idle";
+  const hasText = !!(refItem.transcricao && refItem.transcricao.trim());
+
+  const run = async () => {
+    setBusy(true);
+    onChange({ transcribe_status: "processing", transcribe_error: null });
+    try {
+      const { data, error } = await supabase.functions.invoke("referencia-video-transcribe", {
+        body: { referencia_id: refItem.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const transcript = (data as any)?.transcript || "";
+      onChange({ transcricao: transcript, transcribe_status: "done", transcribed_at: new Date().toISOString() });
+      toast.success("Transcrição concluída");
+    } catch (e: any) {
+      const msg = e?.message || "Falha ao transcrever";
+      onChange({ transcribe_status: "error", transcribe_error: msg });
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!refItem.transcricao) return;
+    await navigator.clipboard.writeText(refItem.transcricao);
+    toast.success("Transcrição copiada");
+  };
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-secondary/40 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <FileText className="h-3.5 w-3.5" />
+          Transcrição do vídeo
+          {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+          {status === "done" && <Badge variant="outline" className="h-4 text-[10px]">pronta</Badge>}
+          {status === "error" && <Badge variant="destructive" className="h-4 text-[10px]">erro</Badge>}
+        </div>
+        <div className="flex items-center gap-1">
+          {hasText && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={copy}>
+              Copiar
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy || status === "processing"} onClick={run}>
+            {busy || status === "processing"
+              ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Processando…</>
+              : hasText ? "Refazer" : "Transcrever"}
+          </Button>
+        </div>
+      </div>
+      {hasText ? (
+        <Textarea
+          value={refItem.transcricao || ""}
+          onChange={(e) => onChange({ transcricao: e.target.value })}
+          className="text-xs min-h-[120px] max-h-[240px] leading-6"
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {status === "error"
+            ? (refItem.transcribe_error || "Falha ao transcrever. Tente novamente.")
+            : "Gere a transcrição automática (áudio do vídeo) — limite 24MB."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Referencias() {
   const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
