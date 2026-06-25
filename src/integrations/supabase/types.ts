@@ -23079,13 +23079,16 @@ export type Database = {
       }
       imphq_swipes: {
         Row: {
+          audio_hash: string | null
           blocks: Json
           created_at: string
           criador: string | null
+          duration_s: number | null
           formato: string | null
           gatilhos: string[] | null
           id: string
           mecanismo: string | null
+          media_type: string | null
           media_urls: string[] | null
           nicho: string | null
           plataforma: string | null
@@ -23098,18 +23101,25 @@ export type Database = {
           source_url: string | null
           status: string
           tags: string[] | null
+          thumb_url: string | null
           title: string
+          transcribe_error: string | null
+          transcribe_status: string | null
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
+          audio_hash?: string | null
           blocks?: Json
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
           plataforma?: string | null
@@ -23122,18 +23132,25 @@ export type Database = {
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
+          audio_hash?: string | null
           blocks?: Json
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
           plataforma?: string | null
@@ -23146,9 +23163,13 @@ export type Database = {
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
