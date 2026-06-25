@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_referencias ADD COLUMN IF NOT EXISTS transcribe_provider TEXT;
