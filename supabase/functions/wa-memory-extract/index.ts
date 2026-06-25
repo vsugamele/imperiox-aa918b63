@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(30);
 
+    // Conta total de mensagens para gating de re-extração
+    const { count: totalMsgs } = await supabase
+      .from("imphq_wa_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation_id);
+
+
     if (!msgs || msgs.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: "no_messages" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -138,9 +145,14 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
     await Promise.all([
       supabase.from("imphq_leads").update(leadUpdate).eq("id", lead_id),
       supabase.from("imphq_wa_conversations")
-        .update({ conversation_summary: extracted.summary || null })
+        .update({
+          conversation_summary: extracted.summary || null,
+          last_memory_extract_at: new Date().toISOString(),
+          last_memory_extract_msg_count: totalMsgs ?? msgs.length,
+        })
         .eq("id", conversation_id),
     ]);
+
 
     // Persist key memory snippets as vector entries for semantic retrieval in wa-ai-reply
     if (project_id && LOVABLE_API_KEY) {
