@@ -127,7 +127,8 @@ export async function updateConversationAfterMessage(
     patch.unread_count = 0;
   }
   if (pauseAI) {
-    patch.ai_paused_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    // Pausa curta: se o lead voltar com pergunta nova, wa-ai-reply libera antes via heurística de auto-resume.
+    patch.ai_paused_until = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   }
   const { error } = await supabase
     .from("imphq_wa_conversations")

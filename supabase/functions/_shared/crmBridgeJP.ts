@@ -48,6 +48,31 @@ export async function jpLookupLead(email: string) {
   return callBridge("lookup_lead", { email });
 }
 
+export async function jpLookupLeadByPhone(phone: string) {
+  if (!phone) return null;
+  const clean = String(phone).replace(/\D/g, "");
+  if (!clean) return null;
+  return callBridge("lookup_lead", { phone: clean });
+}
+
+/** Resolve lead trying email first then phone. Returns { lookup, source, emailFound }. */
+export async function jpResolveLead(opts: { email?: string; phone?: string }): Promise<{ lookup: any; source: "email" | "phone" | "none"; emailFound: string }> {
+  const email = (opts.email || "").trim().toLowerCase();
+  if (email) {
+    const r = await jpLookupLead(email);
+    if (r && r.ok !== false) return { lookup: r, source: "email", emailFound: email };
+  }
+  if (opts.phone) {
+    const r = await jpLookupLeadByPhone(opts.phone);
+    if (r && r.ok !== false) {
+      const data = r?.data || r;
+      const found = (data?.email || data?.user?.email || "").toString().trim().toLowerCase();
+      return { lookup: r, source: "phone", emailFound: found };
+    }
+  }
+  return { lookup: null, source: "none", emailFound: email };
+}
+
 export async function jpIssueMagicLink(email: string, redirect_path = "/home", create_if_missing = true) {
   if (!email) return null;
   return callBridge("issue_magic_link", { email, redirect_path, create_if_missing });

@@ -5,6 +5,7 @@ import { getCachedEmbedding } from "../_shared/embeddings.ts";
 import {
   isJPProject,
   jpLookupLead,
+  jpResolveLead,
   jpBuildContextBlock,
   jpBuildInstructionsBlock,
   jpProcessTags,
@@ -455,7 +456,7 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection")
       .eq("id", conversation_id)
       .maybeSingle();
 
@@ -474,15 +475,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verifica pausa manual (humano respondeu recentemente)
+    // Verifica pausa manual (humano respondeu recentemente) — com auto-resume se lead voltou com pergunta nova
     if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
       if (pausedUntil > new Date()) {
-        const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
-        console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
-        return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Auto-resume: se já se passaram >=3min da resposta humana E o lead enviou nova msg
+        let autoResume = false;
+        try {
+          const { data: lastHuman } = await supabase
+            .from("imphq_wa_messages")
+            .select("created_at")
+            .eq("conversation_id", conversation_id)
+            .eq("direction", "outgoing")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastHuman?.created_at) {
+            const elapsedMin = (Date.now() - new Date(lastHuman.created_at).getTime()) / 60000;
+            const { count: newIncoming } = await supabase
+              .from("imphq_wa_messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conversation_id)
+              .eq("direction", "incoming")
+              .gt("created_at", lastHuman.created_at);
+            if (elapsedMin >= 3 && (newIncoming || 0) >= 1) {
+              autoResume = true;
+              await supabase
+                .from("imphq_wa_conversations")
+                .update({ ai_paused_until: null })
+                .eq("id", conversation_id);
+              console.log(`[wa-ai-reply] resume_reason=human_followup elapsed=${elapsedMin.toFixed(1)}min new_incoming=${newIncoming}`);
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] auto-resume check error: ${e?.message}`);
+        }
+        if (!autoResume) {
+          const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
+          console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
+          return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
@@ -679,24 +713,57 @@ Deno.serve(async (req) => {
       let jpCrmContextBlock = "";
       let jpEmailKnown = false;
       let jpEffectiveEmail = "";
+      let jpHasAccount = false;
       if (isJPProject(project_id)) {
         const storedEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
         const detectedEmail = extractionResult?.detectedEmail || "";
         jpEffectiveEmail = detectedEmail || storedEmail || "";
-        jpEmailKnown = !!jpEffectiveEmail;
 
-        if (jpEmailKnown) {
-          try {
-            const lookup = await jpLookupLead(jpEffectiveEmail);
-            jpCrmContextBlock = jpBuildContextBlock(lookup, jpEffectiveEmail);
-            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpEffectiveEmail} (source=${detectedEmail ? "mensagem" : "cadastro"})`);
-          } catch (e: any) {
-            console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        try {
+          const phoneForLookup = conv?.phone || phone || "";
+          const resolved = await jpResolveLead({ email: jpEffectiveEmail, phone: phoneForLookup });
+          if (resolved.lookup && resolved.lookup.ok !== false) {
+            // Se descobrimos email via phone, persiste no lead (sem sobrescrever)
+            if (resolved.source === "phone" && resolved.emailFound && !storedEmail && lead?.id) {
+              jpEffectiveEmail = resolved.emailFound;
+              try {
+                await supabase.from("imphq_leads").update({ email: resolved.emailFound }).eq("id", lead.id).is("email", null);
+              } catch {}
+            }
+            if (resolved.emailFound) jpEffectiveEmail = resolved.emailFound;
+            jpCrmContextBlock = jpBuildContextBlock(resolved.lookup, jpEffectiveEmail);
+            const data = resolved.lookup?.data || resolved.lookup;
+            jpHasAccount = !!(data?.has_account ?? data?.user_exists);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok via=${resolved.source} email=${jpEffectiveEmail}`);
+          } else {
+            console.log(`[wa-ai-reply] JP_FREITAS lookup vazio (email=${jpEffectiveEmail || "—"} phone=${phoneForLookup || "—"})`);
           }
-        } else {
-          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA pedirá no diálogo`);
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        }
+
+        jpEmailKnown = !!jpEffectiveEmail;
+        if (!jpEmailKnown) {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA deve pedir proativamente`);
         }
       }
+
+      // 7.2.1. Momento atual (lead OU aluna) — injeta o estado salvo da última conversa
+      let momentoBlock = "";
+      try {
+        const intent = (conv as any)?.current_intent || "";
+        const emotion = (conv as any)?.emotional_state || "";
+        const objection = (conv as any)?.last_objection || "";
+        if (intent || emotion || objection) {
+          const tipo = jpHasAccount ? "ALUNA" : "LEAD";
+          momentoBlock = `\n🧭 MOMENTO ATUAL DA ${tipo} (último estado lido):\n`;
+          if (intent) momentoBlock += `- Intenção: ${intent}\n`;
+          if (emotion) momentoBlock += `- Estado emocional: ${emotion}\n`;
+          if (objection) momentoBlock += `- Última objeção: ${objection}\n`;
+          momentoBlock += `Adapte tom e CTA: descoberta=educar curto; consideracao=mostrar prova; decisao=fechar; objecao=quebrar a barreira específica acima; pronto_para_comprar=enviar checkout direto; suporte=resolver problema sem vender.\n`;
+        }
+      } catch {}
+
 
       // 7.2. Busca contexto de campanha ativa
       let campaignContextBlock = "";
@@ -1253,7 +1320,7 @@ Máximo 6 linhas no total.
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}${campaignContextBlock}${jpCrmContextBlock}
+${leadContextBlock}${campaignContextBlock}${jpCrmContextBlock}${momentoBlock}
 ${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
