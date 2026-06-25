@@ -77,7 +77,70 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
     }
   };
 
+  const handleVideoUpload = async () => {
+    if (!videoFile) return toast.error("Selecione um arquivo de vídeo");
+    if (!videoTitle.trim()) return toast.error("Dê um título");
+    const sizeMB = videoFile.size / 1024 / 1024;
+    if (sizeMB > 24) {
+      return toast.error(`Arquivo ${sizeMB.toFixed(1)}MB excede 24MB. Comprima antes de subir.`);
+    }
+    setLoading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u.user?.id;
+      if (!userId) throw new Error("Não autenticado");
+
+      const ext = videoFile.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      setUploadProgress("Subindo vídeo...");
+      const { error: upErr } = await supabase.storage
+        .from("swipe-media")
+        .upload(path, videoFile, { contentType: videoFile.type || "video/mp4" });
+      if (upErr) throw upErr;
+
+      setUploadProgress("Criando registro...");
+      const { data: row, error: insErr } = await supabase
+        .from("imphq_swipes" as any)
+        .insert({
+          user_id: userId,
+          title: videoTitle,
+          formato: "vsl",
+          plataforma: "Upload",
+          nicho: nicho || null,
+          media_urls: [path],
+          media_type: "video",
+          transcribe_status: "queued",
+          tags: [`${sizeMB.toFixed(1)}MB`],
+          blocks: {},
+          gatilhos: [],
+        } as any)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      setUploadProgress("Transcrevendo (pode levar 30-90s)...");
+      const { error: tErr } = await supabase.functions.invoke("swipe-video-transcribe", {
+        body: { swipe_id: (row as any).id, storage_path: path, auto_engineer: videoAutoEng },
+      });
+      if (tErr) throw tErr;
+
+      toast.success(videoAutoEng ? "Vídeo transcrito! Engenharia reversa rodando em background." : "Vídeo transcrito!");
+      onImported();
+      onOpenChange(false);
+      setVideoFile(null);
+      setVideoTitle("");
+      setUploadProgress("");
+    } catch (e: any) {
+      toast.error(e.message || "Falha no upload");
+      setUploadProgress("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleImport = async () => {
+    if (tab === "video") return handleVideoUpload();
     setLoading(true);
     try {
       let payload: any;
