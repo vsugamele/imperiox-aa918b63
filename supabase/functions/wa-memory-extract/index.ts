@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(30);
 
+    // Conta total de mensagens para gating de re-extração
+    const { count: totalMsgs } = await supabase
+      .from("imphq_wa_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation_id);
+
+
     if (!msgs || msgs.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: "no_messages" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
