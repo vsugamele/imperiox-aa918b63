@@ -2154,7 +2154,35 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
           console.warn(`[wa-ai-reply] Intel update error:`, intelErr?.message);
         }
 
+
+        // ====== MEMÓRIA PERIÓDICA (fire-and-forget) ======
+        // Dispara wa-memory-extract sem bloquear, com gating:
+        //  - precisa de >=6 mensagens na conversa
+        //  - E (>=10 min desde última extração) OU (>=4 novas mensagens desde então)
+        try {
+          const msgCountNow = ((freshConv?.message_count as number) || 0) + 1;
+          const lastExtractAt = freshConv?.last_memory_extract_at ? new Date(freshConv.last_memory_extract_at as string).getTime() : 0;
+          const lastExtractCount = (freshConv?.last_memory_extract_msg_count as number) || 0;
+          const minutesSince = lastExtractAt ? (Date.now() - lastExtractAt) / 60000 : Infinity;
+          const newMsgsSince = msgCountNow - lastExtractCount;
+          const shouldExtract = msgCountNow >= 6 && (minutesSince >= 10 || newMsgsSince >= 4);
+          if (shouldExtract && leadRow?.id) {
+            fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/wa-memory-extract`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ conversation_id, lead_id: leadRow.id, project_id }),
+            }).catch((e) => console.warn("[wa-ai-reply] memory-extract dispatch failed:", e?.message));
+            console.log(`[wa-ai-reply] memory-extract dispatched (msgs=${msgCountNow}, since_last=${newMsgsSince})`);
+          }
+        } catch (memErr: any) {
+          console.warn("[wa-ai-reply] memory-extract gating error:", memErr?.message);
+        }
+
         console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
+
         return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
