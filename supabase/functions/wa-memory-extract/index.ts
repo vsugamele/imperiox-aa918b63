@@ -138,9 +138,14 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
     await Promise.all([
       supabase.from("imphq_leads").update(leadUpdate).eq("id", lead_id),
       supabase.from("imphq_wa_conversations")
-        .update({ conversation_summary: extracted.summary || null })
+        .update({
+          conversation_summary: extracted.summary || null,
+          last_memory_extract_at: new Date().toISOString(),
+          last_memory_extract_msg_count: msgs.length,
+        })
         .eq("id", conversation_id),
     ]);
+
 
     // Persist key memory snippets as vector entries for semantic retrieval in wa-ai-reply
     if (project_id && LOVABLE_API_KEY) {
