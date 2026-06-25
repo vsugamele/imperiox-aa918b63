@@ -42,24 +42,34 @@ Deno.serve(async (req) => {
   }
 
   const results: any[] = [];
+  console.log(`[wa-ai-pending-flush] Encontradas ${conversations?.length || 0} conversas com ai_pending_since`);
 
   for (const conv of conversations || []) {
     // TTL — descarta muito antigos
     if (conv.ai_pending_since && conv.ai_pending_since < cutoff) {
       await supabase.from("imphq_wa_conversations").update({ ai_pending_since: null }).eq("id", conv.id);
+      console.log(`[wa-ai-pending-flush] conv=${conv.id} expired (>${TTL_HOURS}h)`);
       results.push({ id: conv.id, action: "expired" });
       continue;
     }
 
-    // Carrega config de horário comercial do project
-    const { data: cfg } = await supabase
+    // Carrega TODAS configs do project (pode haver uma por provider + uma global).
+    // Prioriza a config específica do provider; fallback para a "global" (provider_id null);
+    // último recurso: primeira config encontrada.
+    const { data: cfgs } = await supabase
       .from("imphq_wa_ai_config")
-      .select("business_hours_only, business_hours_start, business_hours_end")
-      .eq("project_id", conv.project_id)
-      .maybeSingle();
+      .select("business_hours_only, business_hours_start, business_hours_end, provider_id")
+      .eq("project_id", conv.project_id);
+
+    const cfg =
+      cfgs?.find((c: any) => c.provider_id && c.provider_id === conv.provider_id) ??
+      cfgs?.find((c: any) => !c.provider_id) ??
+      cfgs?.[0] ??
+      null;
 
     if (cfg?.business_hours_only) {
       if (!isWithinHours(cfg.business_hours_start || "08:00", cfg.business_hours_end || "22:00")) {
+        console.log(`[wa-ai-pending-flush] conv=${conv.id} still_out_of_hours (${cfg.business_hours_start}-${cfg.business_hours_end})`);
         results.push({ id: conv.id, action: "still_out_of_hours" });
         continue;
       }
