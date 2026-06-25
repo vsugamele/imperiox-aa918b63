@@ -357,6 +357,51 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
                 Vai ser salvo como swipe com <code>formato="vsl"</code>. O player aparece no detalhe e você pode rodar engenharia reversa e gerar criativos atrelados.
               </p>
             </TabsContent>
+
+            <TabsContent value="video" className="space-y-3">
+              <div>
+                <Label className="text-xs">Título *</Label>
+                <Input
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                  placeholder="Ex: VSL concorrente — Carta a um estranho"
+                  className="bg-background h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Arquivo (mp4/webm/mov · até 24MB)</Label>
+                <Input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/x-m4v,audio/mp4,audio/mpeg,audio/wav,audio/webm"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  className="bg-background text-sm mt-1 file:text-xs"
+                />
+                {videoFile && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {videoFile.name} · {(videoFile.size / 1024 / 1024).toFixed(1)}MB
+                  </p>
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={videoAutoEng}
+                  onChange={(e) => setVideoAutoEng(e.target.checked)}
+                  className="accent-[hsl(var(--gold))]"
+                />
+                Rodar engenharia reversa automática após transcrever
+              </label>
+              {uploadProgress && (
+                <div className="text-xs text-[hsl(var(--gold))] flex items-center gap-2 bg-secondary/40 px-3 py-2 rounded-md">
+                  <Loader2 className="h-3 w-3 animate-spin" /> {uploadProgress}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground leading-5">
+                Sobe o arquivo no Storage privado e transcreve via Whisper (gpt-4o-mini-transcribe).
+                A transcrição vira o <code>raw_text</code> e o bloco <code>narrativa</code>.
+                Para arquivos &gt; 24MB, comprima antes (ffmpeg: <code>-vf scale=-2:480 -b:a 64k</code>).
+              </p>
+            </TabsContent>
           </Tabs>
         </div>
 
