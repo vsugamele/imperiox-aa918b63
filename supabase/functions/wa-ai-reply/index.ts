@@ -5,6 +5,7 @@ import { getCachedEmbedding } from "../_shared/embeddings.ts";
 import {
   isJPProject,
   jpLookupLead,
+  jpResolveLead,
   jpBuildContextBlock,
   jpBuildInstructionsBlock,
   jpProcessTags,
