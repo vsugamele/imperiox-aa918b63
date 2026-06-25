@@ -47,6 +47,10 @@ interface Ref {
   content_category?: string;
   project_name?: string;
   is_video?: boolean;
+  transcricao?: string | null;
+  transcribe_status?: string | null;
+  transcribe_error?: string | null;
+  transcribed_at?: string | null;
 }
 
 /** Check if a URL points to a video file */
