@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
 
     if (!lastMsg) {
       await supabase.from("imphq_wa_conversations").update({ ai_pending_since: null }).eq("id", conv.id);
+      console.log(`[wa-ai-pending-flush] conv=${conv.id} no_message`);
       results.push({ id: conv.id, action: "no_message" });
       continue;
     }
@@ -93,6 +94,7 @@ Deno.serve(async (req) => {
     // Lead já foi respondido por humano/IA
     if (lastMsg.direction === "outgoing") {
       await supabase.from("imphq_wa_conversations").update({ ai_pending_since: null }).eq("id", conv.id);
+      console.log(`[wa-ai-pending-flush] conv=${conv.id} already_replied`);
       results.push({ id: conv.id, action: "already_replied" });
       continue;
     }
@@ -102,6 +104,7 @@ Deno.serve(async (req) => {
 
     // Invoca wa-ai-reply
     try {
+      console.log(`[wa-ai-pending-flush] conv=${conv.id} invoking wa-ai-reply (msg="${String(lastMsg.content || "").slice(0,40)}")`);
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-ai-reply`, {
         method: "POST",
         headers: {
@@ -120,11 +123,15 @@ Deno.serve(async (req) => {
         }),
       });
       const json = await resp.json().catch(() => ({}));
+      console.log(`[wa-ai-pending-flush] conv=${conv.id} invoked status=${resp.status}`);
       results.push({ id: conv.id, action: "invoked", status: resp.status, response: json });
     } catch (e: any) {
+      console.error(`[wa-ai-pending-flush] conv=${conv.id} error: ${e?.message}`);
       results.push({ id: conv.id, action: "error", error: e?.message });
     }
   }
+
+  console.log(`[wa-ai-pending-flush] DONE processed=${results.length}`);
 
   return new Response(JSON.stringify({ processed: results.length, results }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
