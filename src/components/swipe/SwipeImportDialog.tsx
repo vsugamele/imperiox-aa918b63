@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileJson, Type, Link as LinkIcon, Video } from "lucide-react";
+import { Loader2, Upload, FileJson, Type, Link as LinkIcon, Video, FileVideo } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,6 +23,10 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [nicho, setNicho] = useState("");
   const [forceFormat, setForceFormat] = useState<"auto" | "vsl" | "short">("auto");
   const [loading, setLoading] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoAutoEng, setVideoAutoEng] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
 
 
   // VSL form
@@ -73,7 +77,70 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
     }
   };
 
+  const handleVideoUpload = async () => {
+    if (!videoFile) return toast.error("Selecione um arquivo de vídeo");
+    if (!videoTitle.trim()) return toast.error("Dê um título");
+    const sizeMB = videoFile.size / 1024 / 1024;
+    if (sizeMB > 24) {
+      return toast.error(`Arquivo ${sizeMB.toFixed(1)}MB excede 24MB. Comprima antes de subir.`);
+    }
+    setLoading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u.user?.id;
+      if (!userId) throw new Error("Não autenticado");
+
+      const ext = videoFile.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      setUploadProgress("Subindo vídeo...");
+      const { error: upErr } = await supabase.storage
+        .from("swipe-media")
+        .upload(path, videoFile, { contentType: videoFile.type || "video/mp4" });
+      if (upErr) throw upErr;
+
+      setUploadProgress("Criando registro...");
+      const { data: row, error: insErr } = await supabase
+        .from("imphq_swipes" as any)
+        .insert({
+          user_id: userId,
+          title: videoTitle,
+          formato: "vsl",
+          plataforma: "Upload",
+          nicho: nicho || null,
+          media_urls: [path],
+          media_type: "video",
+          transcribe_status: "queued",
+          tags: [`${sizeMB.toFixed(1)}MB`],
+          blocks: {},
+          gatilhos: [],
+        } as any)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      setUploadProgress("Transcrevendo (pode levar 30-90s)...");
+      const { error: tErr } = await supabase.functions.invoke("swipe-video-transcribe", {
+        body: { swipe_id: (row as any).id, storage_path: path, auto_engineer: videoAutoEng },
+      });
+      if (tErr) throw tErr;
+
+      toast.success(videoAutoEng ? "Vídeo transcrito! Engenharia reversa rodando em background." : "Vídeo transcrito!");
+      onImported();
+      onOpenChange(false);
+      setVideoFile(null);
+      setVideoTitle("");
+      setUploadProgress("");
+    } catch (e: any) {
+      toast.error(e.message || "Falha no upload");
+      setUploadProgress("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleImport = async () => {
+    if (tab === "video") return handleVideoUpload();
     setLoading(true);
     try {
       let payload: any;
@@ -176,11 +243,12 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-5 w-full">
               <TabsTrigger value="json" className="text-xs gap-1"><FileJson className="h-3 w-3" /> JSON</TabsTrigger>
               <TabsTrigger value="text" className="text-xs gap-1"><Type className="h-3 w-3" /> Texto</TabsTrigger>
               <TabsTrigger value="url" className="text-xs gap-1"><LinkIcon className="h-3 w-3" /> URL</TabsTrigger>
               <TabsTrigger value="vsl" className="text-xs gap-1"><Video className="h-3 w-3" /> VSL</TabsTrigger>
+              <TabsTrigger value="video" className="text-xs gap-1"><FileVideo className="h-3 w-3" /> Vídeo</TabsTrigger>
             </TabsList>
 
             <TabsContent value="json" className="space-y-2">
@@ -287,6 +355,51 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
               </div>
               <p className="text-[10px] text-muted-foreground">
                 Vai ser salvo como swipe com <code>formato="vsl"</code>. O player aparece no detalhe e você pode rodar engenharia reversa e gerar criativos atrelados.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="video" className="space-y-3">
+              <div>
+                <Label className="text-xs">Título *</Label>
+                <Input
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                  placeholder="Ex: VSL concorrente — Carta a um estranho"
+                  className="bg-background h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Arquivo (mp4/webm/mov · até 24MB)</Label>
+                <Input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/x-m4v,audio/mp4,audio/mpeg,audio/wav,audio/webm"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  className="bg-background text-sm mt-1 file:text-xs"
+                />
+                {videoFile && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {videoFile.name} · {(videoFile.size / 1024 / 1024).toFixed(1)}MB
+                  </p>
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={videoAutoEng}
+                  onChange={(e) => setVideoAutoEng(e.target.checked)}
+                  className="accent-[hsl(var(--gold))]"
+                />
+                Rodar engenharia reversa automática após transcrever
+              </label>
+              {uploadProgress && (
+                <div className="text-xs text-[hsl(var(--gold))] flex items-center gap-2 bg-secondary/40 px-3 py-2 rounded-md">
+                  <Loader2 className="h-3 w-3 animate-spin" /> {uploadProgress}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground leading-5">
+                Sobe o arquivo no Storage privado e transcreve via Whisper (gpt-4o-mini-transcribe).
+                A transcrição vira o <code>raw_text</code> e o bloco <code>narrativa</code>.
+                Para arquivos &gt; 24MB, comprima antes (ffmpeg: <code>-vf scale=-2:480 -b:a 64k</code>).
               </p>
             </TabsContent>
           </Tabs>
