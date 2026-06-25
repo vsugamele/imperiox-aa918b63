@@ -1271,11 +1271,19 @@ export default function Referencias() {
             </button>
           )}
           {editing && editing.is_video && (editing.url || editing.image_url) && (
-            <video
-              src={editing.url || editing.image_url}
-              controls
-              className="w-full max-h-48 rounded-lg border border-border"
-            />
+            <>
+              <video
+                src={editing.url || editing.image_url}
+                controls
+                className="w-full max-h-48 rounded-lg border border-border"
+              />
+              {editing.source === "manual" && (
+                <TranscriptionBlock
+                  refItem={editing}
+                  onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+                />
+              )}
+            </>
           )}
           {editing && editing.source === "library" ? (
             <div className="space-y-3">
