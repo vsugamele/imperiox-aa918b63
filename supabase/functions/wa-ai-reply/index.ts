@@ -475,15 +475,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verifica pausa manual (humano respondeu recentemente)
+    // Verifica pausa manual (humano respondeu recentemente) — com auto-resume se lead voltou com pergunta nova
     if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
       if (pausedUntil > new Date()) {
-        const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
-        console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
-        return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Auto-resume: se já se passaram >=3min da resposta humana E o lead enviou nova msg
+        let autoResume = false;
+        try {
+          const { data: lastHuman } = await supabase
+            .from("imphq_wa_messages")
+            .select("created_at")
+            .eq("conversation_id", conversation_id)
+            .eq("direction", "outgoing")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastHuman?.created_at) {
+            const elapsedMin = (Date.now() - new Date(lastHuman.created_at).getTime()) / 60000;
+            const { count: newIncoming } = await supabase
+              .from("imphq_wa_messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conversation_id)
+              .eq("direction", "incoming")
+              .gt("created_at", lastHuman.created_at);
+            if (elapsedMin >= 3 && (newIncoming || 0) >= 1) {
+              autoResume = true;
+              await supabase
+                .from("imphq_wa_conversations")
+                .update({ ai_paused_until: null })
+                .eq("id", conversation_id);
+              console.log(`[wa-ai-reply] resume_reason=human_followup elapsed=${elapsedMin.toFixed(1)}min new_incoming=${newIncoming}`);
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] auto-resume check error: ${e?.message}`);
+        }
+        if (!autoResume) {
+          const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
+          console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
+          return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
