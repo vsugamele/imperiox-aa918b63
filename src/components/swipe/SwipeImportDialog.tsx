@@ -23,6 +23,10 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
   const [nicho, setNicho] = useState("");
   const [forceFormat, setForceFormat] = useState<"auto" | "vsl" | "short">("auto");
   const [loading, setLoading] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoAutoEng, setVideoAutoEng] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
 
 
   // VSL form
