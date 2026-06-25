@@ -462,7 +462,8 @@ export default function Referencias() {
       image_url: editing.image_url, tags: editing.tags, notas: editing.notas,
       score: editing.score, plataforma: editing.plataforma, project_id: editing.project_id,
       pasta: editing.pasta || null, produto: editing.produto || null,
-    }).eq("id", editing.id);
+      transcricao: editing.transcricao ?? null,
+    } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
   };
