@@ -24689,6 +24689,7 @@ export type Database = {
           conversation_summary: string | null
           created_at: string
           current_intent: string | null
+          emotional_state: string | null
           escalation_confidence: number | null
           escalation_decided_at: string | null
           escalation_reason: string | null
@@ -24705,6 +24706,8 @@ export type Database = {
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
+          last_objection: string | null
+          last_objection_at: string | null
           last_pitch_at: string | null
           last_pitch_link: string | null
           last_pitch_produto: string | null
@@ -24746,6 +24749,7 @@ export type Database = {
           conversation_summary?: string | null
           created_at?: string
           current_intent?: string | null
+          emotional_state?: string | null
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
@@ -24762,6 +24766,8 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
           last_pitch_at?: string | null
           last_pitch_link?: string | null
           last_pitch_produto?: string | null
@@ -24803,6 +24809,7 @@ export type Database = {
           conversation_summary?: string | null
           created_at?: string
           current_intent?: string | null
+          emotional_state?: string | null
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
@@ -24819,6 +24826,8 @@ export type Database = {
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
           last_pitch_at?: string | null
           last_pitch_link?: string | null
           last_pitch_produto?: string | null
