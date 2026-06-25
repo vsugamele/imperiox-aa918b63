@@ -1,6 +1,6 @@
 // Referencia Video Transcribe — baixa o vídeo da URL salva em imphq_referencias e
-// envia para o Lovable AI Gateway (gpt-4o-mini-transcribe). Persiste em
-// `transcricao` + `transcribe_status` na linha correspondente.
+// envia para Lovable AI Gateway (default) OU OpenRouter (provider="openrouter").
+// Persiste em `transcricao` + `transcribe_status` + `transcribe_provider`.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -9,10 +9,20 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const MAX_BYTES = 24 * 1024 * 1024; // 24MB cap do Gateway
+const MAX_BYTES = 24 * 1024 * 1024; // 24MB
+
+function b64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -36,8 +46,17 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const refId: string | undefined = body.referencia_id;
+    const provider: "lovable" | "openrouter" =
+      body.provider === "openrouter" ? "openrouter" : "lovable";
+
     if (!refId) {
       return new Response(JSON.stringify({ error: "referencia_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (provider === "openrouter" && !OPENROUTER_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY ausente" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -65,10 +84,10 @@ Deno.serve(async (req) => {
 
     await supabase
       .from("imphq_referencias")
-      .update({ transcribe_status: "processing", transcribe_error: null })
+      .update({ transcribe_status: "processing", transcribe_error: null, transcribe_provider: provider })
       .eq("id", refId);
 
-    // Baixa o vídeo
+    // Download
     let bytes: Uint8Array;
     let contentType = "video/mp4";
     try {
@@ -101,36 +120,78 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Detecta extensão
-    const urlExt = (videoUrl.split("?")[0].split(".").pop() || "mp4").toLowerCase();
-    const safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac", "mov"].includes(urlExt)
-      ? (urlExt === "mov" ? "mp4" : urlExt)
-      : "mp4";
+    let transcript = "";
 
-    const upstream = new FormData();
-    upstream.append("model", "openai/gpt-4o-mini-transcribe");
-    upstream.append("file", new Blob([bytes], { type: contentType }), `video.${safeExt}`);
+    if (provider === "lovable") {
+      const urlExt = (videoUrl.split("?")[0].split(".").pop() || "mp4").toLowerCase();
+      const safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac", "mov"].includes(urlExt)
+        ? (urlExt === "mov" ? "mp4" : urlExt)
+        : "mp4";
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
-      body: upstream,
-    });
+      const upstream = new FormData();
+      upstream.append("model", "openai/gpt-4o-mini-transcribe");
+      upstream.append("file", new Blob([bytes], { type: contentType }), `video.${safeExt}`);
 
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
-      await supabase
-        .from("imphq_referencias")
-        .update({ transcribe_status: "error", transcribe_error: `${resp.status}: ${txt.slice(0, 400)}` })
-        .eq("id", refId);
-      return new Response(JSON.stringify({ error: `transcription failed: ${resp.status}`, detail: txt }), {
-        status: resp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
+        body: upstream,
       });
-    }
 
-    const json = await resp.json();
-    const transcript: string = json.text || "";
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => "");
+        await supabase
+          .from("imphq_referencias")
+          .update({ transcribe_status: "error", transcribe_error: `${resp.status}: ${txt.slice(0, 400)}` })
+          .eq("id", refId);
+        return new Response(JSON.stringify({ error: `transcription failed: ${resp.status}`, detail: txt }), {
+          status: resp.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const json = await resp.json();
+      transcript = json.text || "";
+    } else {
+      // OpenRouter — usa Gemini 2.0 Flash multimodal com áudio inline (data URL).
+      const dataUrl = `data:${contentType};base64,${b64(bytes)}`;
+      const orResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://imperiox.lovable.app",
+          "X-Title": "Imperiox Referencias",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.0-flash-001",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Transcreva integralmente o áudio deste vídeo em português brasileiro. Retorne APENAS o texto transcrito, sem comentários, sem títulos, sem marcações.",
+                },
+                { type: "image_url", image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!orResp.ok) {
+        const txt = await orResp.text().catch(() => "");
+        await supabase
+          .from("imphq_referencias")
+          .update({ transcribe_status: "error", transcribe_error: `openrouter ${orResp.status}: ${txt.slice(0, 400)}` })
+          .eq("id", refId);
+        return new Response(JSON.stringify({ error: `openrouter failed: ${orResp.status}`, detail: txt }), {
+          status: orResp.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const j = await orResp.json();
+      transcript = j?.choices?.[0]?.message?.content || "";
+    }
 
     await supabase
       .from("imphq_referencias")
@@ -138,11 +199,12 @@ Deno.serve(async (req) => {
         transcricao: transcript,
         transcribe_status: "done",
         transcribe_error: null,
+        transcribe_provider: provider,
         transcribed_at: new Date().toISOString(),
       })
       .eq("id", refId);
 
-    return new Response(JSON.stringify({ ok: true, transcript, length: transcript.length }), {
+    return new Response(JSON.stringify({ ok: true, provider, transcript, length: transcript.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
