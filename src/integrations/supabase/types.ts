@@ -24679,6 +24679,8 @@ export type Database = {
           intent_updated_at: string | null
           jid_suffix: string
           last_incoming_at: string | null
+          last_memory_extract_at: string | null
+          last_memory_extract_msg_count: number | null
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
@@ -24734,6 +24736,8 @@ export type Database = {
           intent_updated_at?: string | null
           jid_suffix?: string
           last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
@@ -24789,6 +24793,8 @@ export type Database = {
           intent_updated_at?: string | null
           jid_suffix?: string
           last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
