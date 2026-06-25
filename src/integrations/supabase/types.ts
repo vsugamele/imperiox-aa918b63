@@ -22247,6 +22247,7 @@ export type Database = {
           tipo: string | null
           titulo: string
           transcribe_error: string | null
+          transcribe_provider: string | null
           transcribe_status: string | null
           transcribed_at: string | null
           transcricao: string | null
@@ -22267,6 +22268,7 @@ export type Database = {
           tipo?: string | null
           titulo: string
           transcribe_error?: string | null
+          transcribe_provider?: string | null
           transcribe_status?: string | null
           transcribed_at?: string | null
           transcricao?: string | null
@@ -22287,6 +22289,7 @@ export type Database = {
           tipo?: string | null
           titulo?: string
           transcribe_error?: string | null
+          transcribe_provider?: string | null
           transcribe_status?: string | null
           transcribed_at?: string | null
           transcricao?: string | null
