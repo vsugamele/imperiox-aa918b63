@@ -713,24 +713,57 @@ Deno.serve(async (req) => {
       let jpCrmContextBlock = "";
       let jpEmailKnown = false;
       let jpEffectiveEmail = "";
+      let jpHasAccount = false;
       if (isJPProject(project_id)) {
         const storedEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
         const detectedEmail = extractionResult?.detectedEmail || "";
         jpEffectiveEmail = detectedEmail || storedEmail || "";
-        jpEmailKnown = !!jpEffectiveEmail;
 
-        if (jpEmailKnown) {
-          try {
-            const lookup = await jpLookupLead(jpEffectiveEmail);
-            jpCrmContextBlock = jpBuildContextBlock(lookup, jpEffectiveEmail);
-            console.log(`[wa-ai-reply] JP_FREITAS lookup ok=${lookup?.ok !== false} email=${jpEffectiveEmail} (source=${detectedEmail ? "mensagem" : "cadastro"})`);
-          } catch (e: any) {
-            console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        try {
+          const phoneForLookup = conv?.phone || phone || "";
+          const resolved = await jpResolveLead({ email: jpEffectiveEmail, phone: phoneForLookup });
+          if (resolved.lookup && resolved.lookup.ok !== false) {
+            // Se descobrimos email via phone, persiste no lead (sem sobrescrever)
+            if (resolved.source === "phone" && resolved.emailFound && !storedEmail && lead?.id) {
+              jpEffectiveEmail = resolved.emailFound;
+              try {
+                await supabase.from("imphq_leads").update({ email: resolved.emailFound }).eq("id", lead.id).is("email", null);
+              } catch {}
+            }
+            if (resolved.emailFound) jpEffectiveEmail = resolved.emailFound;
+            jpCrmContextBlock = jpBuildContextBlock(resolved.lookup, jpEffectiveEmail);
+            const data = resolved.lookup?.data || resolved.lookup;
+            jpHasAccount = !!(data?.has_account ?? data?.user_exists);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok via=${resolved.source} email=${jpEffectiveEmail}`);
+          } else {
+            console.log(`[wa-ai-reply] JP_FREITAS lookup vazio (email=${jpEffectiveEmail || "—"} phone=${phoneForLookup || "—"})`);
           }
-        } else {
-          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA pedirá no diálogo`);
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        }
+
+        jpEmailKnown = !!jpEffectiveEmail;
+        if (!jpEmailKnown) {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA deve pedir proativamente`);
         }
       }
+
+      // 7.2.1. Momento atual (lead OU aluna) — injeta o estado salvo da última conversa
+      let momentoBlock = "";
+      try {
+        const intent = (conv as any)?.current_intent || "";
+        const emotion = (conv as any)?.emotional_state || "";
+        const objection = (conv as any)?.last_objection || "";
+        if (intent || emotion || objection) {
+          const tipo = jpHasAccount ? "ALUNA" : "LEAD";
+          momentoBlock = `\n🧭 MOMENTO ATUAL DA ${tipo} (último estado lido):\n`;
+          if (intent) momentoBlock += `- Intenção: ${intent}\n`;
+          if (emotion) momentoBlock += `- Estado emocional: ${emotion}\n`;
+          if (objection) momentoBlock += `- Última objeção: ${objection}\n`;
+          momentoBlock += `Adapte tom e CTA: descoberta=educar curto; consideracao=mostrar prova; decisao=fechar; objecao=quebrar a barreira específica acima; pronto_para_comprar=enviar checkout direto; suporte=resolver problema sem vender.\n`;
+        }
+      } catch {}
+
 
       // 7.2. Busca contexto de campanha ativa
       let campaignContextBlock = "";
