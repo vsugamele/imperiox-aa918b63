@@ -148,7 +148,7 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
         .update({
           conversation_summary: extracted.summary || null,
           last_memory_extract_at: new Date().toISOString(),
-          last_memory_extract_msg_count: msgs.length,
+          last_memory_extract_msg_count: totalMsgs ?? msgs.length,
         })
         .eq("id", conversation_id),
     ]);
