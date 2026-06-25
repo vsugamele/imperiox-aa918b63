@@ -22246,6 +22246,10 @@ export type Database = {
           tags: string[] | null
           tipo: string | null
           titulo: string
+          transcribe_error: string | null
+          transcribe_status: string | null
+          transcribed_at: string | null
+          transcricao: string | null
           updated_at: string | null
           url: string | null
         }
@@ -22262,6 +22266,10 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
@@ -22278,6 +22286,10 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
