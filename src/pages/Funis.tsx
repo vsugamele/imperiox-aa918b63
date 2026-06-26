@@ -114,7 +114,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub">("hub");
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
   const [aiGenPrompt, setAiGenPrompt] = useState("");
