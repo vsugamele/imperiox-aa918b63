@@ -12,6 +12,7 @@ import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
+import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
+  const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
@@ -530,6 +532,18 @@ export function ProductHubCanvas({ projects }: Props) {
           <Sparkles className="h-3.5 w-3.5 text-amber-400" /> X1
         </Button>
 
+        {/* Botão Autopilot — script completo com skills + WA + imagens */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setAutopilotOpen(true)}
+          className="h-8 text-xs gap-1.5 bg-gradient-to-r from-amber-500/10 to-sky-500/10 border-amber-500/50 hover:from-amber-500/20 hover:to-sky-500/20"
+          title="Gera script de venda completo: blueprint + 7 manobras + blindagem de provas + imagens + atrela WhatsApp"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Script Completo
+        </Button>
+
+
 
 
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
@@ -799,6 +813,15 @@ export function ProductHubCanvas({ projects }: Props) {
         initialCanal={flowGenPreset?.canal}
         initialTom={flowGenPreset?.tom}
         titleOverride={flowGenPreset?.title}
+      />
+
+      <SalesScriptAutopilotDialog
+        open={autopilotOpen}
+        onClose={() => setAutopilotOpen(false)}
+        projectId={projectId}
+        produtoNome={currentProduct?.nome || currentProduct?.name}
+        produtoId={currentProduct?.id}
+        onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
       {openBlueprintId && (
