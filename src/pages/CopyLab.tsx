@@ -55,12 +55,15 @@ export default function CopyLab() {
     })();
   }, []);
 
+  const needsExistingCopy = (id: Intent) =>
+    id === "diagnostico_imperador" || id === "breakthrough_techniques" || id === "weaponized_credibility";
+
   const runGeneration = async () => {
-    if (activeTab === "diagnostico_imperador" && !copyParaDiagnostico.trim()) {
-      toast.error("Cole uma copy para diagnosticar.");
+    if (needsExistingCopy(activeTab) && !copyParaDiagnostico.trim()) {
+      toast.error("Cole uma copy/claim para o motor trabalhar.");
       return;
     }
-    if (activeTab !== "diagnostico_imperador" && !briefing.trim() && projectId === "__none__") {
+    if (!needsExistingCopy(activeTab) && !briefing.trim() && projectId === "__none__") {
       toast.error("Preencha o briefing ou selecione um projeto.");
       return;
     }
@@ -69,8 +72,10 @@ export default function CopyLab() {
     setOutput("");
 
     const inputParts: string[] = [];
-    if (activeTab === "diagnostico_imperador") {
-      inputParts.push("## COPY A DIAGNOSTICAR\n" + copyParaDiagnostico);
+    if (needsExistingCopy(activeTab)) {
+      const label = activeTab === "weaponized_credibility" ? "COPY/CLAIM A BLINDAR" : activeTab === "breakthrough_techniques" ? "COPY A POTENCIALIZAR" : "COPY A DIAGNOSTICAR";
+      inputParts.push(`## ${label}\n` + copyParaDiagnostico);
+      if (briefing.trim()) inputParts.push("## CONTEXTO ADICIONAL\n" + briefing);
     } else {
       if (briefing.trim()) inputParts.push("## BRIEFING\n" + briefing);
       if (crenca.trim()) inputParts.push("## CRENÇA-ÂNCORA MANUAL\n" + crenca);
