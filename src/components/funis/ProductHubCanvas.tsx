@@ -85,7 +85,7 @@ export function ProductHubCanvas({ projects }: Props) {
         nome: `Hub: ${currentProject?.name || ""}`.trim(),
         tipo: "hub",
         status: "Ativo",
-        data: { hub: { [key]: newAssets } },
+        data: { hub: { [key]: newAssets } } as any,
       }]).select("id").single();
       if (created) setFunilId(created.id);
     }
