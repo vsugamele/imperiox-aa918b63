@@ -17,11 +17,9 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const [breakthrough, credibility, vsl] = await Promise.all([
-      readPrompt("breakthrough"),
-      readPrompt("credibility"),
-      readPrompt("vsl"),
-    ]);
+    const breakthrough = breakthrough_md;
+    const credibility = credibility_md;
+    const vsl = vsl_md;
 
     const skills = [
       {
