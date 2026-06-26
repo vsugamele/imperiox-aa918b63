@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 
 export interface HubAsset {
   id: string;
