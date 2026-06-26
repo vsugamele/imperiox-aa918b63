@@ -3,7 +3,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
