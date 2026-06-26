@@ -67,7 +67,22 @@ export function ProductHubCanvas({ projects }: Props) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState<{ x: number; y: number } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [draggingProduct, setDraggingProduct] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const [productPosMap, setProductPosMap] = useState<Record<string, { x: number; y: number }>>(() => {
+    try { return JSON.parse(localStorage.getItem("hub:productPos") || "{}"); } catch { return {}; }
+  });
+  const productKey = `${projectId}:${productIdx}`;
+  const productPos = productPosMap[productKey] || { x: 80, y: 80 };
+  const setProductPos = (pos: { x: number; y: number }, persistNow = false) => {
+    setProductPosMap(prev => {
+      const next = { ...prev, [productKey]: pos };
+      if (persistNow) {
+        try { localStorage.setItem("hub:productPos", JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  };
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
@@ -295,6 +310,14 @@ export function ProductHubCanvas({ projects }: Props) {
       setPan({ x: e.clientX - panning.x, y: e.clientY - panning.y });
       return;
     }
+    if (draggingProduct) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = (e.clientX - rect.left - pan.x) / zoom - dragOffset.current.x;
+      const y = (e.clientY - rect.top - pan.y) / zoom - dragOffset.current.y;
+      setProductPos({ x, y });
+      return;
+    }
     if (dragId) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -310,6 +333,10 @@ export function ProductHubCanvas({ projects }: Props) {
       persist(snapped);
       setDragId(null);
     }
+    if (draggingProduct) {
+      setProductPos({ x: snap(productPos.x), y: snap(productPos.y) }, true);
+      setDraggingProduct(false);
+    }
     setPanning(null);
   };
 
@@ -323,7 +350,17 @@ export function ProductHubCanvas({ projects }: Props) {
     setDragId(a.id);
   };
 
-  const productCenter = { x: 80 + PRODUCT_NODE_W, y: 80 + PRODUCT_NODE_H / 2 };
+  const startDragProduct = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
+    dragOffset.current = { x: x - productPos.x, y: y - productPos.y };
+    setDraggingProduct(true);
+  };
+
+  const productCenter = { x: productPos.x + PRODUCT_NODE_W, y: productPos.y + PRODUCT_NODE_H / 2 };
 
   if (!projectId) {
     return <div className="p-6 text-center text-muted-foreground text-sm">Selecione um projeto.</div>;
@@ -506,9 +543,12 @@ export function ProductHubCanvas({ projects }: Props) {
             <div
               data-node
               className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl"
-              style={{ left: 80, top: 80, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
+              style={{ left: productPos.x, top: productPos.y, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
             >
-              <div className="bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40">
+              <div
+                onMouseDown={startDragProduct}
+                className={cn("bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40 select-none", draggingProduct ? "cursor-grabbing" : "cursor-grab")}
+              >
                 Produto
               </div>
               <ProductImageMenu
@@ -539,7 +579,7 @@ export function ProductHubCanvas({ projects }: Props) {
               data-node
               onClick={() => setPickerOpen(o => !o)}
               className="absolute h-7 w-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg z-10"
-              style={{ left: 80 + PRODUCT_NODE_W + 12, top: 80 + PRODUCT_NODE_H / 2 - 14 }}
+              style={{ left: productPos.x + PRODUCT_NODE_W + 12, top: productPos.y + PRODUCT_NODE_H / 2 - 14 }}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -547,7 +587,7 @@ export function ProductHubCanvas({ projects }: Props) {
 
           {/* Asset picker */}
           {pickerOpen && (
-            <div data-node className="absolute z-20" style={{ left: 80 + PRODUCT_NODE_W + 60, top: 80 }}>
+            <div data-node className="absolute z-20" style={{ left: productPos.x + PRODUCT_NODE_W + 60, top: productPos.y }}>
               <AssetPicker selectedItems={selectedKeys} onToggle={handleToggle} onAddAll={handleAddAll} />
             </div>
           )}
