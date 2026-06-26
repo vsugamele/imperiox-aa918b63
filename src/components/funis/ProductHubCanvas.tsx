@@ -661,6 +661,9 @@ export function ProductHubCanvas({ projects }: Props) {
               >
                 <div className={`${colors.header} text-xs font-semibold text-center py-1.5 border-b ${colors.border} flex items-center justify-center gap-1.5`}>
                   <span>{meta.cat.label}</span>
+                  {a.output && isDslOutputCheck(a.output) && (
+                    <span className="text-[9px] px-1 rounded bg-emerald-600/30 text-emerald-200 border border-emerald-500/40" title="Output em DSL executável">🔗 fluxo</span>
+                  )}
                 </div>
                 <div className="p-3 space-y-1">
                   <h4 className="text-sm font-semibold text-foreground leading-tight">{meta.item.label}</h4>
