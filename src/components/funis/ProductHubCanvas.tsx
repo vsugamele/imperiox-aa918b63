@@ -109,6 +109,19 @@ export function ProductHubCanvas({ projects }: Props) {
     })();
   }, [projectId, productIdx, currentProduct]);
 
+  const reloadBlueprints = async () => {
+    if (!projectId) { setBlueprints([]); return; }
+    const { data } = await supabase
+      .from("imphq_flow_blueprints")
+      .select("id, title, objetivo")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+    setBlueprints((data as any) || []);
+  };
+  useEffect(() => { reloadBlueprints(); }, [projectId]);
+
+
+
   const persist = async (newAssets: HubAsset[]) => {
     if (!projectId) return;
     const key = currentProduct?.nome || currentProduct?.name || "_";
