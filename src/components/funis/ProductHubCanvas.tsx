@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Play, Loader2, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter } from "lucide-react";
 import { AssetPicker } from "./AssetPicker";
-import { AssetDetailDrawer, HubAsset } from "./AssetDetailDrawer";
+import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
+import { ASSET_PACKAGES } from "./assetPackages";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
+
+export interface HubAsset extends BaseHubAsset {
+  status?: AssetStatus;
+}
 
 interface Project {
   id: string;
@@ -23,6 +31,24 @@ const PRODUCT_NODE_W = 260;
 const PRODUCT_NODE_H = 380;
 const ASSET_NODE_W = 220;
 const ASSET_NODE_H = 130;
+const GRID = 20;
+
+const STATUS_META: Record<AssetStatus, { label: string; color: string; icon: any; next: AssetStatus | null }> = {
+  pending:   { label: "Pendente",  color: "text-muted-foreground bg-muted/40 border-muted-foreground/40", icon: Circle, next: "generated" },
+  generated: { label: "Gerado",    color: "text-amber-300 bg-amber-500/15 border-amber-500/50",            icon: CircleDot, next: "reviewed" },
+  reviewed:  { label: "Revisado",  color: "text-sky-300 bg-sky-500/15 border-sky-500/50",                  icon: CircleDot, next: "approved" },
+  approved:  { label: "Aprovado",  color: "text-emerald-300 bg-emerald-500/15 border-emerald-500/50",      icon: CheckCircle2, next: null },
+};
+
+const STATUS_FILTERS: Array<{ id: "all" | AssetStatus; label: string }> = [
+  { id: "all", label: "Todos" },
+  { id: "pending", label: "Pendentes" },
+  { id: "generated", label: "Gerados" },
+  { id: "reviewed", label: "Revisados" },
+  { id: "approved", label: "Aprovados" },
+];
+
+function snap(n: number) { return Math.round(n / GRID) * GRID; }
 
 export function ProductHubCanvas({ projects }: Props) {
   const [projectId, setProjectId] = useState<string>("");
@@ -34,6 +60,9 @@ export function ProductHubCanvas({ projects }: Props) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState<{ x: number; y: number } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +79,6 @@ export function ProductHubCanvas({ projects }: Props) {
   }, [currentProject]);
   const currentProduct = products[productIdx];
 
-  // Load/save hub funil
   useEffect(() => {
     if (!projectId) return;
     (async () => {
@@ -63,7 +91,8 @@ export function ProductHubCanvas({ projects }: Props) {
       if (data) {
         setFunilId(data.id);
         const hub = (data.data as any)?.hub || {};
-        setAssets(hub[currentProduct?.nome || currentProduct?.name || "_"] || []);
+        const list = (hub[currentProduct?.nome || currentProduct?.name || "_"] || []) as HubAsset[];
+        setAssets(list.map(a => ({ ...a, status: a.status || (a.output ? "generated" : "pending") })));
       } else {
         setFunilId(null);
         setAssets([]);
@@ -104,8 +133,9 @@ export function ProductHubCanvas({ projects }: Props) {
         {
           id: crypto.randomUUID(),
           catId, itemId,
-          pos_x: 600 + (assets.length % 3) * 260,
-          pos_y: 80 + Math.floor(assets.length / 3) * 180,
+          pos_x: snap(600 + (assets.length % 3) * 260),
+          pos_y: snap(80 + Math.floor(assets.length / 3) * 180),
+          status: "pending",
         },
       ];
     }
@@ -114,8 +144,6 @@ export function ProductHubCanvas({ projects }: Props) {
   };
 
   const handleAddAll = (catId: string) => {
-    const cat = findItem(catId, "")?.cat;
-    // fallback: get from catalog directly
     import("./assetCatalog").then(({ ASSET_CATEGORIES }) => {
       const c = ASSET_CATEGORIES.find(x => x.id === catId);
       if (!c) return;
@@ -126,8 +154,9 @@ export function ProductHubCanvas({ projects }: Props) {
           id: crypto.randomUUID(),
           catId: c.id,
           itemId: i.id,
-          pos_x: 600 + ((assets.length + idx) % 3) * 260,
-          pos_y: 80 + Math.floor((assets.length + idx) / 3) * 180,
+          pos_x: snap(600 + ((assets.length + idx) % 3) * 260),
+          pos_y: snap(80 + Math.floor((assets.length + idx) / 3) * 180),
+          status: "pending",
         }));
       const next = [...assets, ...toAdd];
       setAssets(next);
@@ -136,11 +165,55 @@ export function ProductHubCanvas({ projects }: Props) {
     });
   };
 
+  const handleAddPackage = (pkgId: string) => {
+    const pkg = ASSET_PACKAGES.find(p => p.id === pkgId);
+    if (!pkg) return;
+    const existingKeys = new Set(assets.map(a => `${a.catId}:${a.itemId}`));
+    const toAdd: HubAsset[] = pkg.items
+      .filter(it => !existingKeys.has(`${it.catId}:${it.itemId}`))
+      .map((it, idx) => ({
+        id: crypto.randomUUID(),
+        catId: it.catId,
+        itemId: it.itemId,
+        pos_x: snap(600 + ((assets.length + idx) % 4) * 240),
+        pos_y: snap(80 + Math.floor((assets.length + idx) / 4) * 160),
+        status: "pending",
+      }));
+    if (toAdd.length === 0) {
+      toast.info("Todos os ativos deste pacote já estão no canvas");
+      return;
+    }
+    const next = [...assets, ...toAdd];
+    setAssets(next);
+    persist(next);
+    toast.success(`${pkg.emoji} ${pkg.label}: ${toAdd.length} ativos adicionados`);
+  };
+
   const handleSaveOutput = (assetId: string, output: string) => {
-    const next = assets.map(a => a.id === assetId ? { ...a, output, generated_at: new Date().toISOString() } : a);
+    const next = assets.map(a => a.id === assetId
+      ? { ...a, output, generated_at: new Date().toISOString(), status: (a.status === "approved" ? "approved" : "generated") as AssetStatus }
+      : a
+    );
     setAssets(next);
     persist(next);
     setDrawerAsset(next.find(a => a.id === assetId) || null);
+  };
+
+  const handleAdvanceStatus = (assetId: string) => {
+    const next = assets.map(a => {
+      if (a.id !== assetId) return a;
+      const cur: AssetStatus = a.status || (a.output ? "generated" : "pending");
+      const nxt = STATUS_META[cur].next || "pending";
+      return { ...a, status: nxt };
+    });
+    setAssets(next);
+    persist(next);
+  };
+
+  const handleSetStatus = (assetId: string, status: AssetStatus) => {
+    const next = assets.map(a => a.id === assetId ? { ...a, status } : a);
+    setAssets(next);
+    persist(next);
   };
 
   const handleDelete = (assetId: string) => {
@@ -154,36 +227,74 @@ export function ProductHubCanvas({ projects }: Props) {
     [assets]
   );
 
+  const visibleAssets = useMemo(() => {
+    if (statusFilter === "all") return assets;
+    return assets.filter(a => (a.status || (a.output ? "generated" : "pending")) === statusFilter);
+  }, [assets, statusFilter]);
+
   // Pan
   const onMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]") || (e.target as HTMLElement).closest("[data-ui]")) return;
     setPanning({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
   const onMouseMove = (e: React.MouseEvent) => {
-    if (panning) setPan({ x: e.clientX - panning.x, y: e.clientY - panning.y });
+    if (panning) {
+      setPan({ x: e.clientX - panning.x, y: e.clientY - panning.y });
+      return;
+    }
+    if (dragId) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = (e.clientX - rect.left - pan.x) / zoom - dragOffset.current.x;
+      const y = (e.clientY - rect.top - pan.y) / zoom - dragOffset.current.y;
+      setAssets(prev => prev.map(a => a.id === dragId ? { ...a, pos_x: x, pos_y: y } : a));
+    }
   };
-  const onMouseUp = () => setPanning(null);
+  const onMouseUp = () => {
+    if (dragId) {
+      const snapped = assets.map(a => a.id === dragId ? { ...a, pos_x: snap(a.pos_x), pos_y: snap(a.pos_y) } : a);
+      setAssets(snapped);
+      persist(snapped);
+      setDragId(null);
+    }
+    setPanning(null);
+  };
 
-  // SVG connections from product to assets
+  const startDrag = (e: React.MouseEvent, a: HubAsset) => {
+    e.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
+    dragOffset.current = { x: x - a.pos_x, y: y - a.pos_y };
+    setDragId(a.id);
+  };
+
   const productCenter = { x: 80 + PRODUCT_NODE_W, y: 80 + PRODUCT_NODE_H / 2 };
 
   if (!projectId) {
-    return (
-      <div className="p-6 text-center text-muted-foreground text-sm">Selecione um projeto.</div>
-    );
+    return <div className="p-6 text-center text-muted-foreground text-sm">Selecione um projeto.</div>;
   }
+
+  const counts = {
+    all: assets.length,
+    pending: assets.filter(a => (a.status || (a.output ? "generated" : "pending")) === "pending").length,
+    generated: assets.filter(a => a.status === "generated").length,
+    reviewed: assets.filter(a => a.status === "reviewed").length,
+    approved: assets.filter(a => a.status === "approved").length,
+  };
 
   return (
     <div className="relative h-[calc(100vh-180px)] bg-[#080607] rounded-xl border border-border/40 overflow-hidden">
       {/* Toolbar */}
-      <div data-ui className="absolute top-3 left-3 right-3 z-30 flex items-center gap-2">
+      <div data-ui className="absolute top-3 left-3 right-3 z-30 flex items-center gap-2 flex-wrap">
         <Select value={projectId} onValueChange={(v) => { setProjectId(v); setProductIdx(0); }}>
-          <SelectTrigger className="w-[220px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
         </Select>
         {products.length > 0 && (
           <Select value={String(productIdx)} onValueChange={(v) => setProductIdx(Number(v))}>
-            <SelectTrigger className="w-[240px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[220px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
             <SelectContent>
               {products.map((p: any, i) => (
                 <SelectItem key={i} value={String(i)}>{p.nome || p.name || `Produto ${i+1}`}</SelectItem>
@@ -191,6 +302,63 @@ export function ProductHubCanvas({ projects }: Props) {
             </SelectContent>
           </Select>
         )}
+
+        {/* Pacotes */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-pink-500/40 hover:bg-pink-500/10">
+              <Package className="h-3.5 w-3.5 text-pink-400" /> Pacotes
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-2 bg-[#0a0608] border-border/60" align="start">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5">Pacotes prontos</p>
+            <div className="flex flex-col gap-1">
+              {ASSET_PACKAGES.map(pkg => (
+                <button
+                  key={pkg.id}
+                  onClick={() => handleAddPackage(pkg.id)}
+                  className="text-left rounded-lg px-3 py-2 hover:bg-pink-500/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{pkg.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground/90 group-hover:text-pink-300">{pkg.label}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-1">{pkg.description}</p>
+                    </div>
+                    <span className="text-[9px] text-muted-foreground">{pkg.items.length}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Filtro status */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-border/60">
+              <Filter className="h-3.5 w-3.5" />
+              {STATUS_FILTERS.find(f => f.id === statusFilter)?.label}
+              <span className="text-[10px] text-muted-foreground">({counts[statusFilter]})</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-1 bg-[#0a0608] border-border/60" align="start">
+            {STATUS_FILTERS.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setStatusFilter(f.id)}
+                className={cn(
+                  "flex items-center justify-between w-full rounded-md px-2 py-1.5 text-xs transition-colors",
+                  statusFilter === f.id ? "bg-pink-500/20 text-pink-200" : "hover:bg-secondary/60 text-foreground/80"
+                )}
+              >
+                <span>{f.label}</span>
+                <span className="text-[10px] text-muted-foreground">{counts[f.id]}</span>
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
           <span className="text-[10px] text-muted-foreground w-9 text-center">{Math.round(zoom * 100)}%</span>
@@ -218,14 +386,14 @@ export function ProductHubCanvas({ projects }: Props) {
         >
           {/* SVG connections */}
           <svg className="absolute inset-0 pointer-events-none" width="4000" height="3000">
-            {currentProduct && assets.map(a => {
+            {currentProduct && visibleAssets.map(a => {
               const start = productCenter;
               const end = { x: a.pos_x, y: a.pos_y + ASSET_NODE_H / 2 };
               const midX = (start.x + end.x) / 2;
               const d = `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
               return (
                 <g key={a.id}>
-                  <path d={d} stroke="rgb(34 197 94 / 0.6)" strokeWidth="1.5" strokeDasharray="5 5" fill="none" />
+                  <path d={d} stroke="rgb(34 197 94 / 0.5)" strokeWidth="1.5" strokeDasharray="5 5" fill="none" />
                   <circle cx={start.x} cy={start.y} r="4" fill="rgb(34 197 94)" />
                   <circle cx={end.x} cy={end.y} r="4" fill="rgb(34 197 94)" />
                 </g>
@@ -256,14 +424,11 @@ export function ProductHubCanvas({ projects }: Props) {
                 {currentProduct.descricao && (
                   <p className="text-[10px] text-muted-foreground line-clamp-3 mt-1">{currentProduct.descricao}</p>
                 )}
-                {currentProduct.idioma && (
-                  <p className="text-[9px] text-muted-foreground mt-1">{currentProduct.idioma}</p>
-                )}
               </div>
             </div>
           )}
 
-          {/* + button next to product */}
+          {/* + button */}
           {currentProduct && (
             <button
               data-node
@@ -275,46 +440,60 @@ export function ProductHubCanvas({ projects }: Props) {
             </button>
           )}
 
-          {/* Asset picker (anchored to + button) */}
+          {/* Asset picker */}
           {pickerOpen && (
-            <div
-              data-node
-              className="absolute z-20"
-              style={{ left: 80 + PRODUCT_NODE_W + 60, top: 80 }}
-            >
-              <AssetPicker
-                selectedItems={selectedKeys}
-                onToggle={handleToggle}
-                onAddAll={handleAddAll}
-              />
+            <div data-node className="absolute z-20" style={{ left: 80 + PRODUCT_NODE_W + 60, top: 80 }}>
+              <AssetPicker selectedItems={selectedKeys} onToggle={handleToggle} onAddAll={handleAddAll} />
             </div>
           )}
 
           {/* Asset nodes */}
-          {assets.map(a => {
+          {visibleAssets.map(a => {
             const meta = findItem(a.catId, a.itemId);
             if (!meta) return null;
             const colors = COLOR_TOKENS[meta.cat.color];
+            const status: AssetStatus = a.status || (a.output ? "generated" : "pending");
+            const sMeta = STATUS_META[status];
+            const StatusIcon = sMeta.icon;
+            const isDragging = dragId === a.id;
             return (
               <div
                 key={a.id}
                 data-node
-                className={`absolute rounded-xl border-2 ${colors.border} bg-[#0a0608] overflow-hidden shadow-xl group cursor-pointer hover:scale-[1.02] transition-transform`}
+                className={cn(
+                  `absolute rounded-xl border-2 ${colors.border} bg-[#0a0608] overflow-hidden shadow-xl group transition-shadow`,
+                  isDragging ? "cursor-grabbing shadow-2xl ring-2 ring-pink-500/40 z-30" : "cursor-grab hover:shadow-2xl"
+                )}
                 style={{ left: a.pos_x, top: a.pos_y, width: ASSET_NODE_W }}
-                onClick={() => setDrawerAsset(a)}
+                onMouseDown={(e) => startDrag(e, a)}
+                onClick={(e) => { if (!isDragging) { e.stopPropagation(); setDrawerAsset(a); } }}
               >
-                <div className={`${colors.header} text-xs font-semibold text-center py-1.5 border-b ${colors.border}`}>
-                  {meta.cat.label}
+                <div className={`${colors.header} text-xs font-semibold text-center py-1.5 border-b ${colors.border} flex items-center justify-center gap-1.5`}>
+                  <span>{meta.cat.label}</span>
                 </div>
                 <div className="p-3 space-y-1">
                   <h4 className="text-sm font-semibold text-foreground leading-tight">{meta.item.label}</h4>
                   <p className="text-[10px] text-muted-foreground line-clamp-2">{meta.item.promptHint}</p>
-                  {a.output && (
-                    <p className="text-[9px] text-emerald-400 mt-1">✓ gerado</p>
-                  )}
+
+                  {/* Status badge */}
+                  <button
+                    data-node
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); handleAdvanceStatus(a.id); }}
+                    title="Avançar status"
+                    className={cn(
+                      "mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border transition-all hover:scale-105",
+                      sMeta.color
+                    )}
+                  >
+                    <StatusIcon className="h-2.5 w-2.5" />
+                    {sMeta.label}
+                  </button>
                 </div>
+
                 <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                   <button
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); setDrawerAsset(a); }}
                     className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-pink-600/40"
                     title="Abrir"
@@ -322,6 +501,15 @@ export function ProductHubCanvas({ projects }: Props) {
                     <Play className="h-3 w-3" />
                   </button>
                   <button
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); handleSetStatus(a.id, "approved"); }}
+                    className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-emerald-600/40"
+                    title="Aprovar"
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
                     className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-red-600/40"
                     title="Remover"
@@ -335,14 +523,12 @@ export function ProductHubCanvas({ projects }: Props) {
         </div>
       </div>
 
-      {/* Empty state */}
       {!currentProduct && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm text-muted-foreground">Adicione produtos no Briefing deste projeto.</p>
         </div>
       )}
 
-      {/* Drawer */}
       <AssetDetailDrawer
         open={!!drawerAsset}
         onClose={() => setDrawerAsset(null)}
