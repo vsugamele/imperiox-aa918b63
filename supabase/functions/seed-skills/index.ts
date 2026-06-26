@@ -2,6 +2,8 @@
 // em imphq_skills + imphq_copy_engine_prompts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
+import { breakthrough_md, credibility_md, vsl_md } from "./prompts.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -9,11 +11,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-async function readPrompt(name: string) {
-  const url = new URL(`./prompts/${name}.md`, import.meta.url);
-  return await Deno.readTextFile(url);
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
