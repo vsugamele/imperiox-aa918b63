@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
+import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
+
 
 export interface HubAsset {
   id: string;
