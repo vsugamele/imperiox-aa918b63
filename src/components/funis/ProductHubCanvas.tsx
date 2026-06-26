@@ -543,9 +543,12 @@ export function ProductHubCanvas({ projects }: Props) {
             <div
               data-node
               className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl"
-              style={{ left: 80, top: 80, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
+              style={{ left: productPos.x, top: productPos.y, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
             >
-              <div className="bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40">
+              <div
+                onMouseDown={startDragProduct}
+                className={cn("bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40 select-none", draggingProduct ? "cursor-grabbing" : "cursor-grab")}
+              >
                 Produto
               </div>
               <ProductImageMenu
