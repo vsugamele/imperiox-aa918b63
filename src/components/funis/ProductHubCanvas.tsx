@@ -145,6 +145,23 @@ export function ProductHubCanvas({ projects }: Props) {
     persist(next);
   };
 
+  const handleAddSuggested = (catId: string, itemId: string) => {
+    const key = `${catId}:${itemId}`;
+    if (assets.find(a => `${a.catId}:${a.itemId}` === key)) return;
+    const next: HubAsset[] = [
+      ...assets,
+      {
+        id: crypto.randomUUID(),
+        catId, itemId,
+        pos_x: snap(600 + (assets.length % 3) * 260),
+        pos_y: snap(80 + Math.floor(assets.length / 3) * 180),
+        status: "pending",
+      },
+    ];
+    setAssets(next);
+    persist(next);
+  };
+
   const handleAddAll = (catId: string) => {
     import("./assetCatalog").then(({ ASSET_CATEGORIES }) => {
       const c = ASSET_CATEGORIES.find(x => x.id === catId);
