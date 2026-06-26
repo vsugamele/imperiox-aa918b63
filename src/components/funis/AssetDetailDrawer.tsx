@@ -29,13 +29,15 @@ interface Props {
   onOpenBlueprint?: (blueprintId: string) => void;
 }
 
-export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput }: Props) {
+export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [converting, setConverting] = useState(false);
   if (!asset) return null;
   const meta = findItem(asset.catId, asset.itemId);
   if (!meta) return null;
   const { cat, item } = meta;
   const colors = COLOR_TOKENS[cat.color];
+  const hasDsl = isDslOutput(asset.output);
 
   const run = async () => {
     setGenerating(true);
