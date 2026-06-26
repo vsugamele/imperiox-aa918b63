@@ -8,18 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film } from "lucide-react";
+import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film, Zap, Shield } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
 type Project = { id: string; name: string };
-type Intent = "vsl_imperador" | "criativo_imperador" | "conversa_imperador" | "diagnostico_imperador";
+type Intent =
+  | "vsl_imperador"
+  | "criativo_imperador"
+  | "conversa_imperador"
+  | "diagnostico_imperador"
+  | "vsl_filemon_e3"
+  | "breakthrough_techniques"
+  | "weaponized_credibility";
 
 const TABS: Array<{ id: Intent; label: string; icon: any; subtitle: string }> = [
   { id: "vsl_imperador", label: "VSL Reversa", icon: Film, subtitle: "Engenharia reversa: mecanismo → provas → abertura" },
   { id: "criativo_imperador", label: "Criativo", icon: Sparkles, subtitle: "5 variações com mecanismo nomeado" },
   { id: "conversa_imperador", label: "Conversa WA", icon: MessageSquare, subtitle: "Sequência em cadeia de sins" },
   { id: "diagnostico_imperador", label: "Diagnóstico", icon: Stethoscope, subtitle: "Laudo nas 11 leis" },
+  { id: "vsl_filemon_e3", label: "VSL Filemon E3", icon: Film, subtitle: "Pipeline 6 blocos: Raio-X → Mecanismo → Tese → História → Lead → Oferta" },
+  { id: "breakthrough_techniques", label: "Breakthrough", icon: Zap, subtitle: "Aplica as 7 manobras de Schwartz sobre copy existente" },
+  { id: "weaponized_credibility", label: "Credibilidade", icon: Shield, subtitle: "Blinda copy com prova (Bencivenga) — mata ceticismo sem baixar o claim" },
 ];
 
 export default function CopyLab() {
@@ -45,12 +55,15 @@ export default function CopyLab() {
     })();
   }, []);
 
+  const needsExistingCopy = (id: Intent) =>
+    id === "diagnostico_imperador" || id === "breakthrough_techniques" || id === "weaponized_credibility";
+
   const runGeneration = async () => {
-    if (activeTab === "diagnostico_imperador" && !copyParaDiagnostico.trim()) {
-      toast.error("Cole uma copy para diagnosticar.");
+    if (needsExistingCopy(activeTab) && !copyParaDiagnostico.trim()) {
+      toast.error("Cole uma copy/claim para o motor trabalhar.");
       return;
     }
-    if (activeTab !== "diagnostico_imperador" && !briefing.trim() && projectId === "__none__") {
+    if (!needsExistingCopy(activeTab) && !briefing.trim() && projectId === "__none__") {
       toast.error("Preencha o briefing ou selecione um projeto.");
       return;
     }
@@ -59,8 +72,10 @@ export default function CopyLab() {
     setOutput("");
 
     const inputParts: string[] = [];
-    if (activeTab === "diagnostico_imperador") {
-      inputParts.push("## COPY A DIAGNOSTICAR\n" + copyParaDiagnostico);
+    if (needsExistingCopy(activeTab)) {
+      const label = activeTab === "weaponized_credibility" ? "COPY/CLAIM A BLINDAR" : activeTab === "breakthrough_techniques" ? "COPY A POTENCIALIZAR" : "COPY A DIAGNOSTICAR";
+      inputParts.push(`## ${label}\n` + copyParaDiagnostico);
+      if (briefing.trim()) inputParts.push("## CONTEXTO ADICIONAL\n" + briefing);
     } else {
       if (briefing.trim()) inputParts.push("## BRIEFING\n" + briefing);
       if (crenca.trim()) inputParts.push("## CRENÇA-ÂNCORA MANUAL\n" + crenca);
@@ -129,7 +144,7 @@ export default function CopyLab() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Intent); setOutput(""); }}>
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 w-full">
             {TABS.map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="gap-2">
                 <t.icon className="h-4 w-4" /> {t.label}
@@ -143,16 +158,27 @@ export default function CopyLab() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <Card className="p-4 space-y-3">
-                  {t.id === "diagnostico_imperador" ? (
-                    <div>
-                      <Label>Copy a diagnosticar</Label>
-                      <Textarea
-                        rows={14}
-                        placeholder="Cole aqui a VSL, anúncio, página ou mensagem que quer auditar..."
-                        value={copyParaDiagnostico}
-                        onChange={(e) => setCopyParaDiagnostico(e.target.value)}
-                      />
-                    </div>
+                  {needsExistingCopy(t.id) ? (
+                    <>
+                      <div>
+                        <Label>{t.id === "weaponized_credibility" ? "Copy / claim a blindar" : t.id === "breakthrough_techniques" ? "Copy a potencializar" : "Copy a diagnosticar"}</Label>
+                        <Textarea
+                          rows={12}
+                          placeholder="Cole aqui a copy, claim ou peça que o motor deve trabalhar..."
+                          value={copyParaDiagnostico}
+                          onChange={(e) => setCopyParaDiagnostico(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Contexto adicional (opcional)</Label>
+                        <Textarea
+                          rows={3}
+                          placeholder={t.id === "weaponized_credibility" ? "Provas brutas, dados, depoimentos, credenciais..." : "Briefing estratégico, diagnóstico, ângulo escolhido..."}
+                          value={briefing}
+                          onChange={(e) => setBriefing(e.target.value)}
+                        />
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div>

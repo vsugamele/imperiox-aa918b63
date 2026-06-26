@@ -3,7 +3,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
@@ -105,6 +105,33 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
       toast.error(e?.message || "Erro ao converter");
     } finally {
       setConverting(false);
+    }
+  };
+
+  const applySkill = async (intent: "breakthrough_techniques" | "weaponized_credibility") => {
+    if (!asset.output) {
+      toast.error("Gere a copy primeiro antes de aplicar a skill.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const label = intent === "breakthrough_techniques" ? "COPY A POTENCIALIZAR" : "COPY/CLAIM A BLINDAR";
+      const { data, error } = await supabase.functions.invoke("copy-engine", {
+        body: {
+          intent,
+          input: `## ${label}\n${asset.output}\n\n## CONTEXTO\nAtivo "${item.label}" do funil.`,
+          context: { project_id: projectId },
+        },
+      });
+      if (error) throw error;
+      const content = (data as any)?.content;
+      if (!content) throw new Error("Sem conteúdo retornado");
+      onSaveOutput(asset.id, content);
+      toast.success(intent === "breakthrough_techniques" ? "7 manobras aplicadas" : "Copy blindada com provas");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -296,6 +323,16 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                     </Button>
                     <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={exportTypebot}>
                       <Download className="h-3 w-3 mr-1" /> Typebot JSON
+                    </Button>
+                  </div>
+                )}
+                {asset.output && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-violet-700/50 text-violet-300 hover:bg-violet-900/30" onClick={() => applySkill("breakthrough_techniques")} disabled={generating}>
+                      <Zap className="h-3 w-3 mr-1" /> 7 Manobras
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-sky-700/50 text-sky-300 hover:bg-sky-900/30" onClick={() => applySkill("weaponized_credibility")} disabled={generating}>
+                      <Shield className="h-3 w-3 mr-1" /> Blindar Provas
                     </Button>
                   </div>
                 )}
