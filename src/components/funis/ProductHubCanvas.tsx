@@ -69,6 +69,9 @@ export function ProductHubCanvas({ projects }: Props) {
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
+  const [flowGenOpen, setFlowGenOpen] = useState(false);
+  const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
+  const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
