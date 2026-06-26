@@ -16,6 +16,7 @@ import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
+import { isChannelOutput, parseChannelConfig } from "@/lib/channel-config";
 
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
