@@ -263,6 +263,18 @@ export function ProductHubCanvas({ projects }: Props) {
     persist(next);
   };
 
+  const handleRemoveByKey = (catId: string, itemId: string) => {
+    const next = assets.filter(a => !(a.catId === catId && a.itemId === itemId));
+    setAssets(next);
+    persist(next);
+  };
+
+  const handleOpenAssetByKey = (catId: string, itemId: string) => {
+    const a = assets.find(x => x.catId === catId && x.itemId === itemId);
+    if (a) setDrawerAsset(a);
+  };
+
+
   const selectedKeys = useMemo(
     () => new Set(assets.map(a => `${a.catId}:${a.itemId}`)),
     [assets]
