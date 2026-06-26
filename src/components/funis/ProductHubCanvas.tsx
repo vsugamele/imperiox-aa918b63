@@ -532,6 +532,18 @@ export function ProductHubCanvas({ projects }: Props) {
           <Sparkles className="h-3.5 w-3.5 text-amber-400" /> X1
         </Button>
 
+        {/* Botão Autopilot — script completo com skills + WA + imagens */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setAutopilotOpen(true)}
+          className="h-8 text-xs gap-1.5 bg-gradient-to-r from-amber-500/10 to-sky-500/10 border-amber-500/50 hover:from-amber-500/20 hover:to-sky-500/20"
+          title="Gera script de venda completo: blueprint + 7 manobras + blindagem de provas + imagens + atrela WhatsApp"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Script Completo
+        </Button>
+
+
 
 
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
