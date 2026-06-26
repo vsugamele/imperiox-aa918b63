@@ -74,6 +74,44 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
       setGenerating(false);
     }
   };
+  const visualizarComoFluxo = async () => {
+    if (!asset.output) return;
+    setConverting(true);
+    try {
+      const bp = dslToBlueprint(asset.output, item.label);
+      const { data, error } = await supabase
+        .from("imphq_flow_blueprints")
+        .insert({
+          project_id: projectId,
+          produto_nome: product?.nome || product?.name || null,
+          title: `${item.label} (DSL)`,
+          source: "dsl",
+          blueprint: bp as any,
+        })
+        .select().single();
+      if (error) throw error;
+      toast.success(`Fluxo criado com ${bp.nodes.length} passos`);
+      onOpenBlueprint?.(data.id);
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao converter");
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const exportTypebot = () => {
+    if (!asset.output) return;
+    const bp = dslToBlueprint(asset.output, item.label);
+    const blob = new Blob([JSON.stringify(bp, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${item.id}-blueprint.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   const copy = () => {
     if (asset.output) {
