@@ -407,6 +407,33 @@ export function ProductHubCanvas({ projects }: Props) {
           <Sparkles className="h-3.5 w-3.5" /> Auditar funil
         </Button>
 
+        {/* Fluxos (Typebot Engine) */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-cyan-500/40 hover:bg-cyan-500/10">
+              <Workflow className="h-3.5 w-3.5 text-cyan-400" /> Fluxos
+              {blueprints.length > 0 && <span className="text-[9px] text-muted-foreground">({blueprints.length})</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-2 bg-[#0a0608] border-border/60" align="start">
+            <Button size="sm" onClick={() => setFlowGenOpen(true)} className="w-full mb-2 gap-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white">
+              <Sparkles className="h-3.5 w-3.5" /> Novo fluxo (IA ou Typebot)
+            </Button>
+            {blueprints.length === 0 && <p className="text-[10px] text-muted-foreground p-2 text-center">Nenhum fluxo ainda.</p>}
+            <div className="flex flex-col gap-1 max-h-[300px] overflow-y-auto">
+              {blueprints.map(bp => (
+                <button key={bp.id} onClick={() => setOpenBlueprintId(bp.id)}
+                  className="text-left rounded-lg px-3 py-2 hover:bg-cyan-500/10 transition-colors">
+                  <p className="text-xs font-semibold text-foreground/90">{bp.title}</p>
+                  {bp.objetivo && <p className="text-[10px] text-muted-foreground">{bp.objetivo}</p>}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+
+
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
           <span className="text-[10px] text-muted-foreground w-9 text-center">{Math.round(zoom * 100)}%</span>
