@@ -66,6 +66,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const dragOffset = useRef({ x: 0, y: 0 });
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
+  const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
