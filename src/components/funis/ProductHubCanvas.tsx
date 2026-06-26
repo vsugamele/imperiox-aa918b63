@@ -80,13 +80,13 @@ export function ProductHubCanvas({ projects }: Props) {
       hub[key] = newAssets;
       await supabase.from("imphq_funis").update({ data: { ...(row?.data as any || {}), hub } }).eq("id", funilId);
     } else {
-      const { data: created } = await supabase.from("imphq_funis").insert({
+      const { data: created } = await supabase.from("imphq_funis").insert([{
         project_id: projectId,
         nome: `Hub: ${currentProject?.name || ""}`.trim(),
         tipo: "hub",
         status: "Ativo",
         data: { hub: { [key]: newAssets } },
-      }).select("id").single();
+      }]).select("id").single();
       if (created) setFunilId(created.id);
     }
   };
