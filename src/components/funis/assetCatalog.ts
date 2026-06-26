@@ -116,7 +116,25 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
       { id: "email_vendas_auto", label: "Vendas no Automático", intent: "email_nutricao", promptHint: "Sequência completa de 7 emails de venda automática (nutrição → pitch → urgência)." },
     ]
   },
+  {
+    id: "canais", label: "Canais & Checkout", color: "cyan", items: [
+      { id: "checkout_principal", label: "Checkout Principal", intent: "_channel", promptHint: "Link do checkout principal (Hotmart, Kiwify, Eduzz, Stripe, Pagar.me...)." },
+      { id: "checkout_orderbump", label: "Checkout c/ Order Bump", intent: "_channel", promptHint: "Link do checkout com order bump habilitado." },
+      { id: "checkout_upsell", label: "Checkout Upsell (OTO1)", intent: "_channel", promptHint: "Link da página de upsell pós-compra." },
+      { id: "checkout_downsell", label: "Checkout Downsell", intent: "_channel", promptHint: "Link do downsell exibido após recusa do upsell." },
+      { id: "landing_page", label: "Landing Page", intent: "_channel", promptHint: "URL da landing page principal do produto." },
+      { id: "vsl_page", label: "Página da VSL", intent: "_channel", promptHint: "URL da VSL pública." },
+      { id: "obrigado", label: "Página de Obrigado", intent: "_channel", promptHint: "Página pós-compra com instruções de acesso." },
+      { id: "area_membros", label: "Área de Membros", intent: "_channel", promptHint: "URL da área de membros / curso." },
+      { id: "whatsapp_chip", label: "Chip WhatsApp", intent: "_channel", promptHint: "Instância/Chip WhatsApp responsável por este produto." },
+      { id: "grupo_wa", label: "Grupo WhatsApp", intent: "_channel", promptHint: "Link de convite para o grupo WhatsApp." },
+      { id: "telegram_canal", label: "Canal Telegram", intent: "_channel", promptHint: "Link público do canal Telegram." },
+      { id: "instagram_perfil", label: "Perfil Instagram", intent: "_channel", promptHint: "Perfil do Instagram que faz tráfego para o produto." },
+      { id: "email_provider", label: "Provedor de Email", intent: "_channel", promptHint: "Conta/lista do provedor de email (ActiveCampaign, MailerLite...)." },
+    ]
+  },
 ];
+
 
 
 export const COLOR_TOKENS: Record<ColorKey, { border: string; bg: string; text: string; header: string; soft: string }> = {

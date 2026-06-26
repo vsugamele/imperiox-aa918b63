@@ -16,6 +16,7 @@ import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
+import { isChannelOutput, parseChannelConfig } from "@/lib/channel-config";
 
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
@@ -662,13 +663,42 @@ export function ProductHubCanvas({ projects }: Props) {
               >
                 <div className={`${colors.header} text-xs font-semibold text-center py-1.5 border-b ${colors.border} flex items-center justify-center gap-1.5`}>
                   <span>{meta.cat.label}</span>
-                  {a.output && isDslOutputCheck(a.output) && (
+                  {a.output && !isChannelOutput(a.output) && isDslOutputCheck(a.output) && (
                     <span className="text-[9px] px-1 rounded bg-emerald-600/30 text-emerald-200 border border-emerald-500/40" title="Output em DSL executável">🔗 fluxo</span>
+                  )}
+                  {a.catId === "canais" && isChannelOutput(a.output) && (
+                    <span className="text-[9px] px-1 rounded bg-cyan-600/30 text-cyan-100 border border-cyan-500/40" title="Canal configurado">🔗 link</span>
                   )}
                 </div>
                 <div className="p-3 space-y-1">
                   <h4 className="text-sm font-semibold text-foreground leading-tight">{meta.item.label}</h4>
-                  <p className="text-[10px] text-muted-foreground line-clamp-2">{meta.item.promptHint}</p>
+                  {a.catId === "canais" && isChannelOutput(a.output) ? (() => {
+                    const ch = parseChannelConfig(a.output);
+                    const prioColor = ch.prioridade_ia === "preferida" ? "text-emerald-300" : ch.prioridade_ia === "evitar" ? "text-rose-300" : "text-muted-foreground";
+                    return (
+                      <>
+                        {ch.label && <p className="text-[10px] text-foreground/80 line-clamp-1">{ch.label}</p>}
+                        {ch.url && (
+                          <a
+                            href={ch.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            data-node
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="text-[10px] text-cyan-300 hover:text-cyan-200 underline line-clamp-1 block"
+                          >
+                            {ch.url.replace(/^https?:\/\//, "").slice(0, 36)}
+                          </a>
+                        )}
+                        <p className={cn("text-[9px] uppercase tracking-wider", prioColor)}>
+                          {ch.ativo === false ? "inativo • " : ""}{ch.prioridade_ia || "secundaria"}
+                        </p>
+                      </>
+                    );
+                  })() : (
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">{meta.item.promptHint}</p>
+                  )}
 
                   {/* Status badge */}
                   <button
@@ -685,6 +715,7 @@ export function ProductHubCanvas({ projects }: Props) {
                     {sMeta.label}
                   </button>
                 </div>
+
 
                 <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                   <button

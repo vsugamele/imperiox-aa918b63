@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
+import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
+
 
 export interface HubAsset {
   id: string;
@@ -32,12 +36,16 @@ interface Props {
 export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
   const [converting, setConverting] = useState(false);
+  const isChannel = asset?.catId === "canais";
+  const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
+  useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
   if (!asset) return null;
   const meta = findItem(asset.catId, asset.itemId);
   if (!meta) return null;
   const { cat, item } = meta;
   const colors = COLOR_TOKENS[cat.color];
-  const hasDsl = isDslOutput(asset.output);
+  const hasDsl = !isChannel && isDslOutput(asset.output);
+
 
   const run = async () => {
     setGenerating(true);
@@ -161,8 +169,72 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
               </div>
             )}
 
-            {/* Output */}
-            {asset.output ? (
+            {/* Channel editor */}
+            {isChannel ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">{item.promptHint}</p>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">URL / Link</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={channel.url || ""}
+                      onChange={(e) => setChannel({ ...channel, url: e.target.value })}
+                      placeholder="https://..."
+                      className="bg-[#0a0608] border-border/60"
+                    />
+                    {channel.url && (
+                      <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => window.open(channel.url, "_blank")}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Rótulo curto</label>
+                  <Input
+                    value={channel.label || ""}
+                    onChange={(e) => setChannel({ ...channel, label: e.target.value })}
+                    placeholder="Ex: Hotmart 12x sem juros"
+                    className="bg-[#0a0608] border-border/60"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Observação / Contexto para IA</label>
+                  <Textarea
+                    value={channel.observacao || ""}
+                    onChange={(e) => setChannel({ ...channel, observacao: e.target.value })}
+                    placeholder="Quando usar este link, restrições, regiões etc."
+                    rows={3}
+                    className="bg-[#0a0608] border-border/60"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Prioridade IA</label>
+                    <select
+                      value={channel.prioridade_ia || "secundaria"}
+                      onChange={(e) => setChannel({ ...channel, prioridade_ia: e.target.value as ChannelConfig["prioridade_ia"] })}
+                      className="w-full h-9 rounded-md bg-[#0a0608] border border-border/60 px-2 text-sm"
+                    >
+                      <option value="preferida">Preferida</option>
+                      <option value="secundaria">Secundária</option>
+                      <option value="evitar">Evitar</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Status</label>
+                    <select
+                      value={channel.ativo === false ? "inativo" : "ativo"}
+                      onChange={(e) => setChannel({ ...channel, ativo: e.target.value === "ativo" })}
+                      className="w-full h-9 rounded-md bg-[#0a0608] border border-border/60 px-2 text-sm"
+                    >
+                      <option value="ativo">Ativo</option>
+                      <option value="inativo">Inativo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : asset.output ? (
               <article className="prose prose-invert prose-sm max-w-none
                                   prose-headings:font-display prose-headings:text-pink-400
                                   prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base prose-h3:uppercase prose-h3:tracking-wider
@@ -186,38 +258,62 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
 
           {/* Footer */}
           <div className="border-t border-border/40 p-3 space-y-2">
-            {asset.output && (
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={copy}>
-                  <Copy className="h-3 w-3 mr-1" /> Copiar
+            {isChannel ? (
+              <>
+                {channel.url && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { navigator.clipboard.writeText(channel.url!); toast.success("Link copiado"); }}>
+                      <LinkIcon className="h-3 w-3 mr-1" /> Copiar link
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => window.open(channel.url, "_blank")}>
+                      <ExternalLink className="h-3 w-3 mr-1" /> Abrir
+                    </Button>
+                  </div>
+                )}
+                <Button
+                  onClick={() => { onSaveOutput(asset.id, serializeChannelConfig(channel)); toast.success("Canal salvo"); }}
+                  className="w-full h-11 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl"
+                >
+                  <Save className="h-4 w-4 mr-2" /> Salvar canal
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={run} disabled={generating}>
-                  <RefreshCw className={`h-3 w-3 mr-1 ${generating ? "animate-spin" : ""}`} /> Refazer
+              </>
+            ) : (
+              <>
+                {asset.output && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={copy}>
+                      <Copy className="h-3 w-3 mr-1" /> Copiar
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={run} disabled={generating}>
+                      <RefreshCw className={`h-3 w-3 mr-1 ${generating ? "animate-spin" : ""}`} /> Refazer
+                    </Button>
+                  </div>
+                )}
+                {hasDsl && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30" onClick={visualizarComoFluxo} disabled={converting}>
+                      <Workflow className="h-3 w-3 mr-1" /> {converting ? "Convertendo..." : "Visualizar como Fluxo"}
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={exportTypebot}>
+                      <Download className="h-3 w-3 mr-1" /> Typebot JSON
+                    </Button>
+                  </div>
+                )}
+                <Button
+                  onClick={run}
+                  disabled={generating}
+                  className="w-full h-11 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl"
+                >
+                  {generating ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Play className="h-4 w-4 mr-2 fill-white" /> {asset.output ? "Executar novamente" : "Executar"}</>
+                  )}
                 </Button>
-              </div>
+              </>
             )}
-            {hasDsl && (
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30" onClick={visualizarComoFluxo} disabled={converting}>
-                  <Workflow className="h-3 w-3 mr-1" /> {converting ? "Convertendo..." : "Visualizar como Fluxo"}
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={exportTypebot}>
-                  <Download className="h-3 w-3 mr-1" /> Typebot JSON
-                </Button>
-              </div>
-            )}
-            <Button
-              onClick={run}
-              disabled={generating}
-              className="w-full h-11 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl"
-            >
-              {generating ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando...</>
-              ) : (
-                <><Play className="h-4 w-4 mr-2 fill-white" /> {asset.output ? "Executar novamente" : "Executar"}</>
-              )}
-            </Button>
           </div>
+
         </div>
       </SheetContent>
     </Sheet>
