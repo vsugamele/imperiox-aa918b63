@@ -88,7 +88,7 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-secondary/40 border-border/60 max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-pink-200">Criar Fluxo (estilo Typebot)</DialogTitle>
+          <DialogTitle className="text-pink-200">{titleOverride || "Criar Fluxo (estilo Typebot)"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
