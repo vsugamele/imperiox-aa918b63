@@ -158,16 +158,27 @@ export default function CopyLab() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <Card className="p-4 space-y-3">
-                  {t.id === "diagnostico_imperador" ? (
-                    <div>
-                      <Label>Copy a diagnosticar</Label>
-                      <Textarea
-                        rows={14}
-                        placeholder="Cole aqui a VSL, anúncio, página ou mensagem que quer auditar..."
-                        value={copyParaDiagnostico}
-                        onChange={(e) => setCopyParaDiagnostico(e.target.value)}
-                      />
-                    </div>
+                  {needsExistingCopy(t.id) ? (
+                    <>
+                      <div>
+                        <Label>{t.id === "weaponized_credibility" ? "Copy / claim a blindar" : t.id === "breakthrough_techniques" ? "Copy a potencializar" : "Copy a diagnosticar"}</Label>
+                        <Textarea
+                          rows={12}
+                          placeholder="Cole aqui a copy, claim ou peça que o motor deve trabalhar..."
+                          value={copyParaDiagnostico}
+                          onChange={(e) => setCopyParaDiagnostico(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Contexto adicional (opcional)</Label>
+                        <Textarea
+                          rows={3}
+                          placeholder={t.id === "weaponized_credibility" ? "Provas brutas, dados, depoimentos, credenciais..." : "Briefing estratégico, diagnóstico, ângulo escolhido..."}
+                          value={briefing}
+                          onChange={(e) => setBriefing(e.target.value)}
+                        />
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div>
