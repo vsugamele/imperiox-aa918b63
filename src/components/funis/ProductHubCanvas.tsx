@@ -310,6 +310,14 @@ export function ProductHubCanvas({ projects }: Props) {
       setPan({ x: e.clientX - panning.x, y: e.clientY - panning.y });
       return;
     }
+    if (draggingProduct) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = (e.clientX - rect.left - pan.x) / zoom - dragOffset.current.x;
+      const y = (e.clientY - rect.top - pan.y) / zoom - dragOffset.current.y;
+      setProductPos({ x, y });
+      return;
+    }
     if (dragId) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -325,6 +333,10 @@ export function ProductHubCanvas({ projects }: Props) {
       persist(snapped);
       setDragId(null);
     }
+    if (draggingProduct) {
+      setProductPos({ x: snap(productPos.x), y: snap(productPos.y) }, true);
+      setDraggingProduct(false);
+    }
     setPanning(null);
   };
 
@@ -338,7 +350,17 @@ export function ProductHubCanvas({ projects }: Props) {
     setDragId(a.id);
   };
 
-  const productCenter = { x: 80 + PRODUCT_NODE_W, y: 80 + PRODUCT_NODE_H / 2 };
+  const startDragProduct = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top - pan.y) / zoom;
+    dragOffset.current = { x: x - productPos.x, y: y - productPos.y };
+    setDraggingProduct(true);
+  };
+
+  const productCenter = { x: productPos.x + PRODUCT_NODE_W, y: productPos.y + PRODUCT_NODE_H / 2 };
 
   if (!projectId) {
     return <div className="p-6 text-center text-muted-foreground text-sm">Selecione um projeto.</div>;
