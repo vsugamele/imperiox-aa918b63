@@ -198,9 +198,35 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
               style={{ left: n.x, top: n.y, width: NODE_W }}
               onMouseDown={(e) => startNodeDrag(e, n)}
             >
-              <div className="px-3 py-2 border-b border-border/40 text-xs font-semibold text-pink-200 flex items-center justify-between" style={{ height: HEADER_H }}>
+              <div className="px-3 py-2 border-b border-border/40 text-xs font-semibold text-pink-200 flex items-center justify-between gap-1" style={{ height: HEADER_H }}>
                 <span className="truncate">{n.title}</span>
-                {n.id === blueprint.start_node_id && <Badge className="h-4 text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">START</Badge>}
+                <div className="flex items-center gap-1">
+                  {(() => {
+                    const skillLog = ((blueprint as any).meta?.skill_log || []) as Array<{ node_id: string; skill: string; label: string; before: string; after: string }>;
+                    const applied = skillLog.filter(s => s.node_id === n.id);
+                    if (!applied.length) return null;
+                    return (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-0.5 rounded bg-amber-500/20 px-1 py-0.5 text-[9px] text-amber-200 border border-amber-500/40 hover:bg-amber-500/30">
+                            <Sparkles className="h-2.5 w-2.5" /> {applied.length}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="right" className="w-80 bg-secondary/95 border-border/60 text-xs leading-6 space-y-3">
+                          <p className="font-semibold text-amber-300">💡 Skills aplicadas neste node</p>
+                          {applied.map((s, i) => (
+                            <div key={i} className="space-y-1 border-l-2 border-amber-500/40 pl-2">
+                              <p className="text-[11px] font-semibold text-foreground">{s.label}</p>
+                              <p className="text-[10px] text-muted-foreground"><span className="text-rose-300">antes:</span> {s.before}…</p>
+                              <p className="text-[10px] text-muted-foreground"><span className="text-emerald-300">depois:</span> {s.after}…</p>
+                            </div>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  })()}
+                  {n.id === blueprint.start_node_id && <Badge className="h-4 text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">START</Badge>}
+                </div>
               </div>
               <div className="p-2 space-y-1">
                 {n.blocks.map(b => (
