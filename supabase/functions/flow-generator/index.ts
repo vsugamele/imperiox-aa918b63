@@ -12,6 +12,16 @@ const BRIEF_BY_OBJETIVO: Record<string, string> = {
   vsl: 'Roteiro de VSL em blocos sequenciais: Hook (3s), Quebra de padrão, História/Dor, Mecanismo único, Prova, Oferta, Urgência, CTA. Inclua 4-6 cenas com image_prompt para gerar visuais.',
   chat_qualificacao: 'Chat de qualificação consultivo. Saudação, descobre dor/momento, mapeia objeções (preço, tempo, ceticismo), sugere produto ideal, encaminha para humano se quente.',
   pitch: 'Pitch direto de venda: hook visual + dor amplificada + solução + prova + oferta + bônus + garantia + escassez + CTA. Tom Sugamele conversacional.',
+  x1_vendas: `Fluxo de atendimento 1:1 no WhatsApp para vendas consultivas (Sugamele). Estágios obrigatórios em sequência, cada um vira 1-2 nodes:
+1) ABERTURA — quebra-gelo curto, valida quem é, agradece interesse (sem ser comercial). Use input_text se faltar nome.
+2) DIAGNÓSTICO — 2-3 perguntas abertas via input_text/input_choice mapeando momento, dor principal e nível atual.
+3) DOR AMPLIFICADA — espelha a resposta com empatia, mostra custo de não agir, micro-história ou prova social curta.
+4) APRESENTAÇÃO DA SOLUÇÃO — conecta a dor ao mecanismo único do produto, ainda sem preço. 1 mensagem por ideia.
+5) PITCH + LINK — envia oferta (bônus/garantia/escassez se houver) e redirect com {{link_checkout}}.
+6) OBJEÇÕES — bifurcações (condition/choice) para preço, tempo, ceticismo, parcelamento. Cada objeção tem resposta curta + CTA reforçado.
+7) FOLLOW-UP — wait de 30min, pergunta consultiva ("ficou alguma dúvida?", "quer ver opção mais barata?"), oferta de produto de entrada.
+8) HANDOFF — webhook/redirect para humano se lead quente, ou tag fria se silêncio.
+Use blocos type:"wait" entre estágios. Inclua condition para variável "respondeu". Não use blocos image (canal WhatsApp 1:1 prioriza texto curto).`,
 };
 
 Deno.serve(async (req) => {

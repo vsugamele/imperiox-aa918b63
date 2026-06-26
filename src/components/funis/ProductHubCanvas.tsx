@@ -89,6 +89,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
+  const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -515,6 +516,20 @@ export function ProductHubCanvas({ projects }: Props) {
           </PopoverContent>
         </Popover>
 
+        {/* Botão dedicado X1 — atendimento 1:1 WhatsApp */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setFlowGenPreset({ objetivo: "x1_vendas", canal: "whatsapp", tom: "Sugamele, conversacional, pt-BR", title: "⚔️ Gerar Fluxo X1 (vendas 1:1)" });
+            setFlowGenOpen(true);
+          }}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-amber-500/40 hover:bg-amber-500/10"
+          title="Gera fluxo de atendimento 1:1 estilo Sugamele com diagnóstico, pitch, objeções e follow-up"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-400" /> X1
+        </Button>
+
 
 
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
@@ -776,10 +791,14 @@ export function ProductHubCanvas({ projects }: Props) {
 
       <FlowGeneratorDialog
         open={flowGenOpen}
-        onClose={() => setFlowGenOpen(false)}
+        onClose={() => { setFlowGenOpen(false); setFlowGenPreset(null); }}
         projectId={projectId}
         produtoNome={currentProduct?.nome || currentProduct?.name}
         onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
+        initialObjetivo={flowGenPreset?.objetivo}
+        initialCanal={flowGenPreset?.canal}
+        initialTom={flowGenPreset?.tom}
+        titleOverride={flowGenPreset?.title}
       />
 
       {openBlueprintId && (

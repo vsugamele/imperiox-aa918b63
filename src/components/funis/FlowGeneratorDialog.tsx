@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,26 @@ interface Props {
   projectId: string;
   produtoNome?: string;
   onCreated: (id: string) => void;
+  initialObjetivo?: string;
+  initialCanal?: string;
+  initialTom?: string;
+  titleOverride?: string;
 }
 
-export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onCreated }: Props) {
-  const [objetivo, setObjetivo] = useState("quiz");
-  const [tom, setTom] = useState("conversacional, consultivo");
-  const [canal, setCanal] = useState("web");
+export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onCreated, initialObjetivo, initialCanal, initialTom, titleOverride }: Props) {
+  const [objetivo, setObjetivo] = useState(initialObjetivo || "quiz");
+  const [tom, setTom] = useState(initialTom || "conversacional, consultivo");
+  const [canal, setCanal] = useState(initialCanal || "web");
   const [loading, setLoading] = useState(false);
+
+  // Atualiza quando o dialog abre com novos defaults
+  useEffect(() => {
+    if (open) {
+      if (initialObjetivo) setObjetivo(initialObjetivo);
+      if (initialCanal) setCanal(initialCanal);
+      if (initialTom) setTom(initialTom);
+    }
+  }, [open, initialObjetivo, initialCanal, initialTom]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -75,7 +88,7 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-secondary/40 border-border/60 max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-pink-200">Criar Fluxo (estilo Typebot)</DialogTitle>
+          <DialogTitle className="text-pink-200">{titleOverride || "Criar Fluxo (estilo Typebot)"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -94,6 +107,7 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
             <Select value={objetivo} onValueChange={setObjetivo}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="x1_vendas">⚔️ Atendimento X1 (vendas WhatsApp 1:1)</SelectItem>
                 <SelectItem value="quiz">Quiz interativo (qualificação)</SelectItem>
                 <SelectItem value="vsl">Roteiro de VSL</SelectItem>
                 <SelectItem value="chat_qualificacao">Chat de qualificação consultivo</SelectItem>
