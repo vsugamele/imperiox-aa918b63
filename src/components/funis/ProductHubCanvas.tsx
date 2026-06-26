@@ -67,7 +67,22 @@ export function ProductHubCanvas({ projects }: Props) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState<{ x: number; y: number } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [draggingProduct, setDraggingProduct] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const [productPosMap, setProductPosMap] = useState<Record<string, { x: number; y: number }>>(() => {
+    try { return JSON.parse(localStorage.getItem("hub:productPos") || "{}"); } catch { return {}; }
+  });
+  const productKey = `${projectId}:${productIdx}`;
+  const productPos = productPosMap[productKey] || { x: 80, y: 80 };
+  const setProductPos = (pos: { x: number; y: number }, persistNow = false) => {
+    setProductPosMap(prev => {
+      const next = { ...prev, [productKey]: pos };
+      if (persistNow) {
+        try { localStorage.setItem("hub:productPos", JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  };
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
