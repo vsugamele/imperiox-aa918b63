@@ -78,7 +78,7 @@ export function ProductHubCanvas({ projects }: Props) {
       const { data: row } = await supabase.from("imphq_funis").select("data").eq("id", funilId).maybeSingle();
       const hub = (row?.data as any)?.hub || {};
       hub[key] = newAssets;
-      await supabase.from("imphq_funis").update({ data: { ...(row?.data as any || {}), hub } }).eq("id", funilId);
+      await supabase.from("imphq_funis").update({ data: { ...(row?.data as any || {}), hub } as any }).eq("id", funilId);
     } else {
       const { data: created } = await supabase.from("imphq_funis").insert([{
         id: crypto.randomUUID(),
