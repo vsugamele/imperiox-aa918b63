@@ -224,25 +224,44 @@ export function ProductHubCanvas({ projects }: Props) {
   const handleAddPackage = (pkgId: string) => {
     const pkg = ASSET_PACKAGES.find(p => p.id === pkgId);
     if (!pkg) return;
-    const existingKeys = new Set(assets.map(a => `${a.catId}:${a.itemId}`));
-    const toAdd: HubAsset[] = pkg.items
-      .filter(it => !existingKeys.has(`${it.catId}:${it.itemId}`))
-      .map((it, idx) => ({
-        id: crypto.randomUUID(),
-        catId: it.catId,
-        itemId: it.itemId,
+    const existingKeyMap = new Map<string, string>();
+    assets.forEach(a => existingKeyMap.set(`${a.catId}:${a.itemId}`, a.id));
+    const toAdd: HubAsset[] = [];
+    pkg.items.forEach((it, idx) => {
+      const key = `${it.catId}:${it.itemId}`;
+      if (existingKeyMap.has(key)) return;
+      const id = crypto.randomUUID();
+      existingKeyMap.set(key, id);
+      toAdd.push({
+        id, catId: it.catId, itemId: it.itemId,
         pos_x: snap(600 + ((assets.length + idx) % 4) * 240),
         pos_y: snap(80 + Math.floor((assets.length + idx) / 4) * 160),
         status: "pending",
-      }));
+        edges: [],
+      });
+    });
     if (toAdd.length === 0) {
       toast.info("Todos os ativos deste pacote já estão no canvas");
       return;
     }
-    const next = [...assets, ...toAdd];
+    let next = [...assets, ...toAdd];
+    if (pkg.edges?.length) {
+      next = next.map(a => {
+        const fromKey = `${a.catId}:${a.itemId}`;
+        const newEdges = pkg.edges!
+          .filter(e => e.from === fromKey)
+          .map(e => ({ to: existingKeyMap.get(e.to)!, label: e.label }))
+          .filter(e => e.to);
+        if (newEdges.length === 0) return a;
+        const existing = a.edges || [];
+        const merged = [...existing];
+        newEdges.forEach(ne => { if (!merged.find(x => x.to === ne.to)) merged.push(ne); });
+        return { ...a, edges: merged };
+      });
+    }
     setAssets(next);
     persist(next);
-    toast.success(`${pkg.emoji} ${pkg.label}: ${toAdd.length} ativos adicionados`);
+    toast.success(`${pkg.emoji} ${pkg.label}: ${toAdd.length} ativos${pkg.edges?.length ? " + conexões" : ""}`);
   };
 
   const handleSaveOutput = (assetId: string, output: string) => {
