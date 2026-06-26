@@ -28,9 +28,13 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
   const [loading, setLoading] = useState(false);
 
   // Atualiza quando o dialog abre com novos defaults
-  if (open && initialObjetivo && objetivo !== initialObjetivo && !loading) {
-    // intencionalmente fora de useEffect para sincronizar no open
-  }
+  useEffect(() => {
+    if (open) {
+      if (initialObjetivo) setObjetivo(initialObjetivo);
+      if (initialCanal) setCanal(initialCanal);
+      if (initialTom) setTom(initialTom);
+    }
+  }, [open, initialObjetivo, initialCanal, initialTom]);
 
   const handleGenerate = async () => {
     setLoading(true);
