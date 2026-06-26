@@ -14,6 +14,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
@@ -114,7 +115,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub">("hub");
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
   const [aiGenPrompt, setAiGenPrompt] = useState("");
@@ -1400,6 +1401,9 @@ export default function Funis() {
         <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-secondary rounded-md p-0.5">
+            <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
+              <Sparkles className="h-3 w-3" /> Hub
+            </Button>
             <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
               <Layers className="h-3 w-3" /> Funis
             </Button>
@@ -1411,7 +1415,9 @@ export default function Funis() {
         </div>
       </div>
 
-      {viewMode === "funis" ? (
+      {viewMode === "hub" ? (
+        <ProductHubCanvas projects={projects} />
+      ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
