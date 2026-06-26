@@ -6,6 +6,8 @@ export interface AssetPackage {
   description: string;
   emoji: string;
   items: Array<{ catId: string; itemId: string }>;
+  // Conexões pré-definidas entre ativos (chaves catId:itemId)
+  edges?: Array<{ from: string; to: string; label?: string }>;
 }
 
 export const ASSET_PACKAGES: AssetPackage[] = [
