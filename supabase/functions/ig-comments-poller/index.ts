@@ -60,72 +60,72 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
   const zernioAccountId = creds?.zernio_account_id;
   if (!apiKey || !zernioAccountId) { result.errors.push("missing zernio credentials"); return; }
 
-  const auth = { "Authorization": `Bearer ${apiKey}` };
+  const auth = { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" };
 
-  // Tenta múltiplos endpoints de posts (a API do Zernio pode variar)
-  const postEndpoints = [
-    `${ZERNIO}/posts?accountId=${zernioAccountId}&limit=${opts.maxPosts}`,
-    `${ZERNIO}/media?accountId=${zernioAccountId}&limit=${opts.maxPosts}`,
-    `${ZERNIO}/accounts/${zernioAccountId}/posts?limit=${opts.maxPosts}`,
-  ];
-
-  let posts: any[] = [];
-  let lastErr = "";
-  for (const url of postEndpoints) {
-    try {
-      const r = await fetch(url, { headers: auth });
-      if (!r.ok) { lastErr = `${r.status} ${url}`; continue; }
-      const d = await r.json();
-      posts = d.posts || d.media || d.data || [];
-      if (posts.length >= 0) { lastErr = ""; break; }
-    } catch (e: any) { lastErr = e?.message || String(e); }
-  }
-  if (lastErr && posts.length === 0) {
-    result.errors.push(`zernio posts fetch failed: ${lastErr}`);
+  // 1) Listar posts com comentários — endpoint oficial: GET /v1/inbox/comments
+  const listUrl = `${ZERNIO}/inbox/comments?accountId=${encodeURIComponent(zernioAccountId)}&platform=instagram&limit=${opts.maxPosts}&sortBy=date&sortOrder=desc`;
+  const listRes = await fetch(listUrl, { headers: auth });
+  if (!listRes.ok) {
+    result.errors.push(`zernio list ${listRes.status}: ${(await listRes.text()).slice(0, 200)}`);
     return;
+  }
+  const listData = await listRes.json();
+  const posts: any[] = listData?.data || [];
+  const failed = listData?.meta?.failedAccounts;
+  if (Array.isArray(failed) && failed.length) {
+    result.errors.push(`zernio failedAccounts: ${JSON.stringify(failed).slice(0, 300)}`);
   }
 
   for (const post of posts) {
-    const postId = post.id || post._id || post.mediaId || post.postId;
+    const postId = post.id;
     if (!postId) continue;
     result.posts_scanned++;
 
-    const commentEndpoints = [
-      `${ZERNIO}/posts/${postId}/comments?limit=${opts.maxComments}`,
-      `${ZERNIO}/media/${postId}/comments?limit=${opts.maxComments}`,
-      `${ZERNIO}/comments?postId=${postId}&limit=${opts.maxComments}`,
-    ];
-    let comments: any[] = [];
-    let cErr = "";
-    for (const url of commentEndpoints) {
-      try {
-        const r = await fetch(url, { headers: auth });
-        if (!r.ok) { cErr = `${r.status}`; continue; }
-        const d = await r.json();
-        comments = d.comments || d.data || [];
-        cErr = ""; break;
-      } catch (e: any) { cErr = e?.message || String(e); }
-    }
-    if (cErr) { result.errors.push(`zernio comments ${postId}: ${cErr}`); continue; }
-
-    for (const c of comments) {
-      const rawId = c.id || c._id || c.commentId;
-      if (!rawId) continue;
-      const fromUserId = c.from?.id || c.user?.id || c.userId || c.authorId || null;
-      // pula comentários da própria conta
-      if (fromUserId && (fromUserId === account.ig_user_id || fromUserId === zernioAccountId)) continue;
-      const fromUsername = c.from?.username || c.user?.username || c.username || c.author?.username || null;
-      await upsertComment(supa, result, {
-        account_id: account.id,
-        media_id: String(postId),
-        comment_id: `zernio-${rawId}`,
-        parent_comment_id: c.parentId || c.parent_id || c.replyTo || null,
-        from_user_id: fromUserId,
-        from_username: fromUsername,
-        text: c.text || c.message || c.body || null,
-        created_at: c.createdAt || c.timestamp || c.created_at || new Date().toISOString(),
+    // 2) Buscar comentários do post — GET /v1/inbox/comments/{postId}?accountId=...
+    let cursor: string | undefined = undefined;
+    let fetched = 0;
+    let safety = 0;
+    do {
+      safety++;
+      const remaining = opts.maxComments - fetched;
+      if (remaining <= 0) break;
+      const pageLimit = Math.min(remaining, 100);
+      const qs = new URLSearchParams({
+        accountId: zernioAccountId,
+        limit: String(pageLimit),
       });
-    }
+      if (cursor) qs.set("cursor", cursor);
+      const cUrl = `${ZERNIO}/inbox/comments/${encodeURIComponent(postId)}?${qs.toString()}`;
+      const cRes = await fetch(cUrl, { headers: auth });
+      if (!cRes.ok) {
+        result.errors.push(`zernio comments ${postId} ${cRes.status}: ${(await cRes.text()).slice(0, 200)}`);
+        break;
+      }
+      const cData = await cRes.json();
+      const comments: any[] = cData?.data || cData?.comments || [];
+
+      for (const c of comments) {
+        const rawId = c.id || c.commentId || c._id;
+        if (!rawId) continue;
+        const fromUserId = c.authorId || c.from?.id || c.user?.id || c.userId || null;
+        if (fromUserId && (fromUserId === account.ig_user_id || fromUserId === zernioAccountId)) continue;
+        const fromUsername = c.authorUsername || c.from?.username || c.user?.username || c.username || c.author?.username || null;
+        await upsertComment(supa, result, {
+          account_id: account.id,
+          media_id: String(postId),
+          comment_id: `zernio-${rawId}`,
+          parent_comment_id: c.parentId || c.parent_id || c.replyTo || null,
+          from_user_id: fromUserId,
+          from_username: fromUsername,
+          text: c.content || c.text || c.message || c.body || null,
+          created_at: c.createdTime || c.createdAt || c.timestamp || c.created_at || new Date().toISOString(),
+        });
+        fetched++;
+      }
+
+      cursor = cData?.pagination?.nextCursor;
+      if (!cData?.pagination?.hasMore) cursor = undefined;
+    } while (cursor && safety < 10);
   }
 }
 
