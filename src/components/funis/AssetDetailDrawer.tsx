@@ -196,6 +196,16 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                 </Button>
               </div>
             )}
+            {hasDsl && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30" onClick={visualizarComoFluxo} disabled={converting}>
+                  <Workflow className="h-3 w-3 mr-1" /> {converting ? "Convertendo..." : "Visualizar como Fluxo"}
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={exportTypebot}>
+                  <Download className="h-3 w-3 mr-1" /> Typebot JSON
+                </Button>
+              </div>
+            )}
             <Button
               onClick={run}
               disabled={generating}
