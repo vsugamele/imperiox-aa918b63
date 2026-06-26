@@ -426,7 +426,24 @@ Deno.serve(async (req) => {
       if (!project_id || !comment_id || !message) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
       if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
-      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook. Sua conta está conectada apenas via Zernio.", needs_meta: true }, 200);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        const { data: row } = await supa.from("imphq_ig_comments").select("media_id").eq("comment_id", comment_id).maybeSingle();
+        if (!row?.media_id) return json({ error: "Post não encontrado para esse comentário" }, 400);
+        const rawCid = comment_id.startsWith("zernio-") ? comment_id.slice(7) : comment_id;
+        const r = await fetch(`https://zernio.com/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${creds.zernio_api_key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: creds.zernio_account_id, content: message, parentCommentId: rawCid }),
+        });
+        if (!r.ok) return json({ error: `Zernio reply ${r.status}: ${(await r.text()).slice(0, 200)}` }, 400);
+        const data = await r.json().catch(() => ({}));
+        await supa.from("imphq_ig_comments").update({ replied: true, reply_text: message }).eq("comment_id", comment_id);
+        return json({ success: true, id: data?.id || data?.commentId || null });
+      }
+
+      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook.", needs_meta: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}/replies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -444,7 +461,24 @@ Deno.serve(async (req) => {
       const hide = action === "hide_comment";
       const creds = await getCreds(supa, project_id);
       if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
-      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook. Sua conta está conectada apenas via Zernio.", needs_meta: true }, 200);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key) return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        const { data: row } = await supa.from("imphq_ig_comments").select("media_id").eq("comment_id", comment_id).maybeSingle();
+        if (!row?.media_id) return json({ error: "Post não encontrado para esse comentário" }, 400);
+        const rawCid = comment_id.startsWith("zernio-") ? comment_id.slice(7) : comment_id;
+        const url = `https://zernio.com/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}/${encodeURIComponent(rawCid)}/hide`;
+        const r = await fetch(url, {
+          method: hide ? "POST" : "DELETE",
+          headers: { "Authorization": `Bearer ${creds.zernio_api_key}`, "Content-Type": "application/json" },
+          body: hide ? JSON.stringify({ accountId: creds.zernio_account_id }) : undefined,
+        });
+        if (!r.ok) return json({ error: `Zernio hide ${r.status}: ${(await r.text()).slice(0, 200)}` }, 400);
+        await supa.from("imphq_ig_comments").update({ is_hidden: hide }).eq("comment_id", comment_id);
+        return json({ success: true });
+      }
+
+      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook.", needs_meta: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}?hide=${hide}&access_token=${creds.page_access_token}`, { method: "POST" });
       const data = await r.json();
       if (data.error) return json({ error: data.error.message }, 400);
@@ -457,7 +491,23 @@ Deno.serve(async (req) => {
       const { project_id, comment_id } = body;
       const creds = await getCreds(supa, project_id);
       if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
-      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook. Sua conta está conectada apenas via Zernio.", needs_meta: true }, 200);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key) return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        const { data: row } = await supa.from("imphq_ig_comments").select("media_id").eq("comment_id", comment_id).maybeSingle();
+        if (!row?.media_id) return json({ error: "Post não encontrado para esse comentário" }, 400);
+        const rawCid = comment_id.startsWith("zernio-") ? comment_id.slice(7) : comment_id;
+        const url = `https://zernio.com/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}?commentId=${encodeURIComponent(rawCid)}&accountId=${encodeURIComponent(creds.zernio_account_id || "")}`;
+        const r = await fetch(url, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${creds.zernio_api_key}` },
+        });
+        if (!r.ok) return json({ error: `Zernio delete ${r.status}: ${(await r.text()).slice(0, 200)}` }, 400);
+        await supa.from("imphq_ig_comments").delete().eq("comment_id", comment_id);
+        return json({ success: true });
+      }
+
+      if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook.", needs_meta: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}?access_token=${creds.page_access_token}`, { method: "DELETE" });
       const data = await r.json();
       if (data.error) return json({ error: data.error.message }, 400);
