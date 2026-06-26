@@ -81,9 +81,43 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
       { id: "mecanismo_vsl", label: "Mecanismo", intent: "vsl_imperador", promptHint: "Bloco Mecanismo único explicado em 3min." },
       { id: "prova", label: "Prova", intent: "vsl_imperador", promptHint: "Bloco Prova (cases, autoridade, escassez)." },
       { id: "cta", label: "CTA", intent: "vsl_imperador", promptHint: "Bloco CTA com fechamento devastador." },
+      { id: "vsl_upsell", label: "VSL de Upsell", intent: "vsl_imperador", promptHint: "VSL curta (3-5min) para upsell pós-compra: reforço + oferta complementar + CTA." },
+    ]
+  },
+  {
+    id: "eventos_wa", label: "Scripts de Evento (WhatsApp)", color: "emerald", items: [
+      { id: "pix_gerado", label: "Pix Gerado", intent: "conversa_imperador", promptHint: "Script WA para Pix gerado: confirma, lembra de pagar em X min, antecipa dúvidas. Use DSL WAIT:/SEND:/QUESTION:." },
+      { id: "boleto_gerado", label: "Boleto Gerado", intent: "conversa_imperador", promptHint: "Script WA para Boleto gerado: prazo de pagamento, lembrete D+1 e D+2." },
+      { id: "checkout_abandonado", label: "Checkout Abandonado", intent: "conversa_imperador", promptHint: "Script WA recuperação de carrinho abandonado: 3 toques (10min / 1h / 24h)." },
+      { id: "compra_aprovada", label: "Compra Aprovada", intent: "conversa_imperador", promptHint: "Script WA pós-venda: boas-vindas, acesso, próximos passos, upsell suave." },
+      { id: "pagamento_recusado", label: "Pagamento Recusado", intent: "conversa_imperador", promptHint: "Script WA recuperação cartão recusado: tentar outro cartão, Pix, parcelamento." },
+      { id: "downsell_evento", label: "Downsell", intent: "conversa_imperador", promptHint: "Script WA oferta de downsell quando recusar a oferta principal." },
+      { id: "envio_entregavel", label: "Envio de Entregável", intent: "conversa_imperador", promptHint: "Script WA envio do entregável digital com instruções de acesso." },
+      { id: "reembolso", label: "Reembolso Solicitado", intent: "conversa_imperador", promptHint: "Script WA para pedido de reembolso: empatia, descobre objeção, tenta reverter." },
+      { id: "assinatura_cancelada", label: "Assinatura Cancelada", intent: "conversa_imperador", promptHint: "Script WA retenção pós-cancelamento: descobre motivo, oferta de retenção." },
+      { id: "remarketing_wa", label: "Remarketing", intent: "conversa_imperador", promptHint: "Script WA reativação de lead frio (>30 dias sem interação)." },
+      { id: "upsell_evento", label: "Upsell Pós-Venda", intent: "conversa_imperador", promptHint: "Script WA upsell consultivo após compra principal." },
+      { id: "vendas_automatico", label: "Vendas no Automático", intent: "conversa_imperador", promptHint: "Script WA conversacional completo de qualificação→pitch→fechamento, dividido em grupos (CONEXÃO/DOR/CURIOSIDADE/PROVA/BENEFÍCIOS/OFERTA/CTA) usando DSL WAIT:X SEND:texto QUESTION:texto INPUT:variavel AUDIO:roteiro VIDEO:roteiro." },
+    ]
+  },
+  {
+    id: "eventos_email", label: "Emails de Evento", color: "indigo", items: [
+      { id: "email_pix", label: "Pix Gerado", intent: "email_nutricao", promptHint: "Email: Pix gerado, instruções e prazo." },
+      { id: "email_boleto", label: "Boleto Gerado", intent: "email_nutricao", promptHint: "Email: Boleto gerado, prazo e lembretes D+1/D+2." },
+      { id: "email_carrinho", label: "Checkout Abandonado", intent: "email_nutricao", promptHint: "Sequência de 3 emails de recuperação de carrinho (1h / 24h / 72h)." },
+      { id: "email_aprovado", label: "Compra Aprovada", intent: "email_nutricao", promptHint: "Email de boas-vindas + acesso + próximos passos." },
+      { id: "email_recusado", label: "Pagamento Recusado", intent: "email_nutricao", promptHint: "Email: cartão recusado, instruções para tentar outro método." },
+      { id: "email_downsell", label: "Downsell", intent: "email_nutricao", promptHint: "Email com oferta de downsell." },
+      { id: "email_entregavel", label: "Envio de Entregável", intent: "email_nutricao", promptHint: "Email entrega do produto digital." },
+      { id: "email_reembolso", label: "Reembolso", intent: "email_nutricao", promptHint: "Email confirmação de reembolso + pesquisa de saída." },
+      { id: "email_cancelada", label: "Assinatura Cancelada", intent: "email_nutricao", promptHint: "Email de retenção pós-cancelamento + oferta de win-back." },
+      { id: "email_remarketing", label: "Remarketing", intent: "email_nutricao", promptHint: "Email de reativação de lead frio." },
+      { id: "email_upsell", label: "Upsell Pós-Venda", intent: "email_nutricao", promptHint: "Email pitch de upsell pós-compra." },
+      { id: "email_vendas_auto", label: "Vendas no Automático", intent: "email_nutricao", promptHint: "Sequência completa de 7 emails de venda automática (nutrição → pitch → urgência)." },
     ]
   },
 ];
+
 
 export const COLOR_TOKENS: Record<ColorKey, { border: string; bg: string; text: string; header: string; soft: string }> = {
   emerald: { border: "border-emerald-500/50", bg: "bg-emerald-500/5", text: "text-emerald-300", header: "bg-emerald-900/40 text-emerald-200", soft: "bg-emerald-500/10" },

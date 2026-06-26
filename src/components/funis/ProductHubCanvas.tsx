@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter, Sparkles, Workflow } from "lucide-react";
 import { HubAuditPanel } from "./HubAuditPanel";
 import { AssetPicker } from "./AssetPicker";
+import { ChecklistSidebar } from "./ChecklistSidebar";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
@@ -60,6 +61,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [assets, setAssets] = useState<HubAsset[]>([]);
   const [funilId, setFunilId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(true);
   const [drawerAsset, setDrawerAsset] = useState<HubAsset | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -261,6 +263,18 @@ export function ProductHubCanvas({ projects }: Props) {
     persist(next);
   };
 
+  const handleRemoveByKey = (catId: string, itemId: string) => {
+    const next = assets.filter(a => !(a.catId === catId && a.itemId === itemId));
+    setAssets(next);
+    persist(next);
+  };
+
+  const handleOpenAssetByKey = (catId: string, itemId: string) => {
+    const a = assets.find(x => x.catId === catId && x.itemId === itemId);
+    if (a) setDrawerAsset(a);
+  };
+
+
   const selectedKeys = useMemo(
     () => new Set(assets.map(a => `${a.catId}:${a.itemId}`)),
     [assets]
@@ -325,8 +339,19 @@ export function ProductHubCanvas({ projects }: Props) {
 
   return (
     <div className="relative h-[calc(100vh-180px)] bg-[#080607] rounded-xl border border-border/40 overflow-hidden">
+      <ChecklistSidebar
+        open={checklistOpen}
+        onToggle={() => setChecklistOpen(o => !o)}
+        assets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status, output: a.output }))}
+        onAdd={handleToggle}
+        onRemove={handleRemoveByKey}
+        onAddAll={handleAddAll}
+        onOpenAsset={handleOpenAssetByKey}
+      />
+
       {/* Toolbar */}
-      <div data-ui className="absolute top-3 left-3 right-3 z-30 flex items-center gap-2 flex-wrap">
+      <div data-ui className={cn("absolute top-3 right-3 z-30 flex items-center gap-2 flex-wrap", checklistOpen ? "left-[320px]" : "left-16")}>
+
         <Select value={projectId} onValueChange={(v) => { setProjectId(v); setProductIdx(0); }}>
           <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
