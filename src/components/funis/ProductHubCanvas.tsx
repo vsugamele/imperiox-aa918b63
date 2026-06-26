@@ -815,6 +815,15 @@ export function ProductHubCanvas({ projects }: Props) {
         titleOverride={flowGenPreset?.title}
       />
 
+      <SalesScriptAutopilotDialog
+        open={autopilotOpen}
+        onClose={() => setAutopilotOpen(false)}
+        projectId={projectId}
+        produtoNome={currentProduct?.nome || currentProduct?.name}
+        produtoId={currentProduct?.id}
+        onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
+      />
+
       {openBlueprintId && (
         <FlowBlueprintCanvas
           blueprintId={openBlueprintId}
