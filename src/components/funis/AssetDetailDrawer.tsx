@@ -16,6 +16,7 @@ export interface HubAsset {
   pos_y: number;
   output?: string;
   generated_at?: string;
+  edges?: Array<{ to: string; label?: string }>;
 }
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
   product: any;
   projectId: string;
   onSaveOutput: (assetId: string, output: string) => void;
+  onOpenBlueprint?: (blueprintId: string) => void;
 }
 
 export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput }: Props) {
