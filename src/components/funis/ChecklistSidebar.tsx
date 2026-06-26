@@ -1,5 +1,17 @@
 import { useState, useMemo } from "react";
-import { ASSET_CATEGORIES, COLOR_TOKENS } from "./assetCatalog";
+import { ASSET_CATEGORIES, COLOR_TOKENS, type ColorKey } from "./assetCatalog";
+
+const PCT_BG: Record<ColorKey, string> = {
+  emerald: "bg-emerald-500/70",
+  amber: "bg-amber-500/70",
+  sky: "bg-sky-500/70",
+  violet: "bg-violet-500/70",
+  rose: "bg-rose-500/70",
+  pink: "bg-pink-500/70",
+  cyan: "bg-cyan-500/70",
+  indigo: "bg-indigo-500/70",
+  fuchsia: "bg-fuchsia-500/70",
+};
 import { ChevronDown, ChevronRight, Check, Plus, X, ListChecks, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
