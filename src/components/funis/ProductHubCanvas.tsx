@@ -554,8 +554,34 @@ export function ProductHubCanvas({ projects }: Props) {
                   <circle cx={end.x} cy={end.y} r="4" fill="rgb(34 197 94)" />
                 </g>
               );
+            {/* asset → asset edges */}
+            {visibleAssets.map(a => {
+              if (!a.edges?.length) return null;
+              return a.edges.map((edge, idx) => {
+                const target = visibleAssets.find(t => t.id === edge.to);
+                if (!target) return null;
+                const start = { x: a.pos_x + ASSET_NODE_W, y: a.pos_y + ASSET_NODE_H / 2 };
+                const end = { x: target.pos_x, y: target.pos_y + ASSET_NODE_H / 2 };
+                const midX = (start.x + end.x) / 2;
+                const d = `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+                const labelX = (start.x + end.x) / 2;
+                const labelY = (start.y + end.y) / 2 - 6;
+                return (
+                  <g key={`${a.id}-${edge.to}-${idx}`}>
+                    <path d={d} stroke="rgb(56 189 248 / 0.7)" strokeWidth="1.5" fill="none" />
+                    <circle cx={start.x} cy={start.y} r="3" fill="rgb(56 189 248)" />
+                    <circle cx={end.x} cy={end.y} r="3" fill="rgb(56 189 248)" />
+                    {edge.label && (
+                      <text x={labelX} y={labelY} textAnchor="middle" fill="rgb(186 230 253)" fontSize="10" className="select-none">
+                        {edge.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              });
             })}
           </svg>
+
 
           {/* Product node */}
           {currentProduct && (
