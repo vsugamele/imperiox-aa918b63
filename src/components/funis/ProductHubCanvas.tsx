@@ -12,6 +12,7 @@ import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
+import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
