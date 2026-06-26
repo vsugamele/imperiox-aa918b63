@@ -9,6 +9,7 @@ import { AssetPicker } from "./AssetPicker";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
+import { ProductImageMenu } from "./ProductImageMenu";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
