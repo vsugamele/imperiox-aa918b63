@@ -626,6 +626,21 @@ export function ProductHubCanvas({ projects }: Props) {
         existingAssets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status }))}
         onAddAsset={handleAddSuggested}
       />
+
+      <FlowGeneratorDialog
+        open={flowGenOpen}
+        onClose={() => setFlowGenOpen(false)}
+        projectId={projectId}
+        produtoNome={currentProduct?.nome || currentProduct?.name}
+        onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
+      />
+
+      {openBlueprintId && (
+        <FlowBlueprintCanvas
+          blueprintId={openBlueprintId}
+          onClose={() => { setOpenBlueprintId(null); reloadBlueprints(); }}
+        />
+      )}
     </div>
   );
 }
