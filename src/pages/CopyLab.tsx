@@ -8,18 +8,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film } from "lucide-react";
+import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film, Zap, Shield } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
 type Project = { id: string; name: string };
-type Intent = "vsl_imperador" | "criativo_imperador" | "conversa_imperador" | "diagnostico_imperador";
+type Intent =
+  | "vsl_imperador"
+  | "criativo_imperador"
+  | "conversa_imperador"
+  | "diagnostico_imperador"
+  | "vsl_filemon_e3"
+  | "breakthrough_techniques"
+  | "weaponized_credibility";
 
 const TABS: Array<{ id: Intent; label: string; icon: any; subtitle: string }> = [
   { id: "vsl_imperador", label: "VSL Reversa", icon: Film, subtitle: "Engenharia reversa: mecanismo → provas → abertura" },
   { id: "criativo_imperador", label: "Criativo", icon: Sparkles, subtitle: "5 variações com mecanismo nomeado" },
   { id: "conversa_imperador", label: "Conversa WA", icon: MessageSquare, subtitle: "Sequência em cadeia de sins" },
   { id: "diagnostico_imperador", label: "Diagnóstico", icon: Stethoscope, subtitle: "Laudo nas 11 leis" },
+  { id: "vsl_filemon_e3", label: "VSL Filemon E3", icon: Film, subtitle: "Pipeline 6 blocos: Raio-X → Mecanismo → Tese → História → Lead → Oferta" },
+  { id: "breakthrough_techniques", label: "Breakthrough", icon: Zap, subtitle: "Aplica as 7 manobras de Schwartz sobre copy existente" },
+  { id: "weaponized_credibility", label: "Credibilidade", icon: Shield, subtitle: "Blinda copy com prova (Bencivenga) — mata ceticismo sem baixar o claim" },
 ];
 
 export default function CopyLab() {
