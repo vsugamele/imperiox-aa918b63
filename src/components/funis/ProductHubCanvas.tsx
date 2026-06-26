@@ -15,6 +15,7 @@ import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
 
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
