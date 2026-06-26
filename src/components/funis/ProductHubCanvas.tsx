@@ -441,9 +441,14 @@ export function ProductHubCanvas({ projects }: Props) {
               <div className="bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40">
                 Produto
               </div>
-              {(currentProduct.imagem || currentProduct.image) && (
-                <img src={currentProduct.imagem || currentProduct.image} alt="" className="w-full h-44 object-cover" />
-              )}
+              <ProductImageMenu
+                projectId={projectId}
+                productIdx={productIdx}
+                product={currentProduct}
+                imageUrl={imageOverrides[`${projectId}:${productIdx}`] || currentProduct.imagem || currentProduct.image}
+                onSaved={(url) => setImageOverrides(prev => ({ ...prev, [`${projectId}:${productIdx}`]: url }))}
+              />
+
               <div className="p-3 space-y-1">
                 <h3 className="text-sm font-semibold text-foreground leading-tight">
                   {currentProduct.nome || currentProduct.name}
