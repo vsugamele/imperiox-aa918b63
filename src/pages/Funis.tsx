@@ -1400,6 +1400,9 @@ export default function Funis() {
         <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-secondary rounded-md p-0.5">
+            <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
+              <Sparkles className="h-3 w-3" /> Hub
+            </Button>
             <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
               <Layers className="h-3 w-3" /> Funis
             </Button>
@@ -1411,7 +1414,9 @@ export default function Funis() {
         </div>
       </div>
 
-      {viewMode === "funis" ? (
+      {viewMode === "hub" ? (
+        <ProductHubCanvas projects={projects} />
+      ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
