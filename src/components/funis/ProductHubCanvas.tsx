@@ -339,8 +339,19 @@ export function ProductHubCanvas({ projects }: Props) {
 
   return (
     <div className="relative h-[calc(100vh-180px)] bg-[#080607] rounded-xl border border-border/40 overflow-hidden">
+      <ChecklistSidebar
+        open={checklistOpen}
+        onToggle={() => setChecklistOpen(o => !o)}
+        assets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status, output: a.output }))}
+        onAdd={handleToggle}
+        onRemove={handleRemoveByKey}
+        onAddAll={handleAddAll}
+        onOpenAsset={handleOpenAssetByKey}
+      />
+
       {/* Toolbar */}
-      <div data-ui className="absolute top-3 left-3 right-3 z-30 flex items-center gap-2 flex-wrap">
+      <div data-ui className={cn("absolute top-3 right-3 z-30 flex items-center gap-2 flex-wrap", checklistOpen ? "left-[320px]" : "left-16")}>
+
         <Select value={projectId} onValueChange={(v) => { setProjectId(v); setProductIdx(0); }}>
           <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
