@@ -131,96 +131,142 @@ export default function ConversationIntelCard({ conversationId }: Props) {
     : "bg-blue-500/20 text-blue-300 border-blue-500/40";
 
   return (
-    <div className="space-y-2">
-      {handoffSummary && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Handoff para humano
-            </div>
-            {handoffSummary.score && (
-              <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${scoreColor}`}>
-                {handoffSummary.score}
-              </Badge>
-            )}
-          </div>
-          {handoffSummary.contexto && (
-            <p className="text-xs leading-5 text-foreground/90">{handoffSummary.contexto}</p>
-          )}
-          <div className="grid gap-1 pt-1 text-[11px] text-foreground/80">
-            {handoffSummary.dor && <div><span className="text-amber-300/80">Dor:</span> {handoffSummary.dor}</div>}
-            {handoffSummary.proxima_acao && <div><span className="text-amber-300/80">Próxima ação:</span> {handoffSummary.proxima_acao}</div>}
-          </div>
-          {handoffAt && (
-            <p className="text-[10px] text-amber-200/60 pt-0.5">
-              {formatDistanceToNow(new Date(handoffAt), { addSuffix: true, locale: ptBR })}
-            </p>
-          )}
+    <div className="rounded-lg border border-border bg-secondary/30 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50 bg-secondary/40">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+          <span>Handoff + Inteligência</span>
         </div>
-      )}
-
-      <div className="rounded-lg border bg-secondary/40 p-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Inteligência da conversa
-          </div>
+        <div className="flex items-center gap-0.5">
           <Button
-            size="sm" variant="ghost" className="h-6 px-2 text-xs"
+            size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs"
             onClick={() => load(true)} disabled={loading}
+            title="Atualizar inteligência"
           >
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           </Button>
+          <Button
+            size="sm" variant="ghost" className="h-6 w-6 p-0 text-xs"
+            onClick={toggleMinimized}
+            title={minimized ? "Expandir" : "Minimizar"}
+          >
+            {minimized ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+          </Button>
         </div>
-
-        {(currentIntent || emotional) && (
-          <div className="flex flex-wrap gap-1.5">
-            {currentIntent && (
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
-                <Target className="h-2.5 w-2.5" />
-                {intentLabel[currentIntent] || currentIntent}
-              </Badge>
-            )}
-            {emotional && (
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
-                <Heart className="h-2.5 w-2.5" />
-                {emotionEmoji[emotional] || ""} {emotional}
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {lastObjection && (
-          <div className="text-[11px] text-foreground/70 border-l-2 border-amber-500/40 pl-2">
-            <span className="text-amber-300/80">Última objeção:</span> {lastObjection}
-          </div>
-        )}
-
-        {summary ? (
-          <p className="text-xs leading-5 text-foreground/90 whitespace-pre-wrap">{summary}</p>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">
-            {loading ? "Gerando resumo..." : "Clique para gerar resumo."}
-          </p>
-        )}
-
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-1">
-            {tags.map((t) => (
-              <Badge key={t} variant="outline" className="text-[10px] py-0 px-1.5">
-                {t.replace(/_/g, " ")}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {updatedAt && (
-          <p className="text-[10px] text-muted-foreground">
-            Atualizado {formatDistanceToNow(new Date(updatedAt), { addSuffix: true, locale: ptBR })}
-          </p>
-        )}
       </div>
+
+      {minimized ? (
+        <div className="px-3 py-2 flex flex-wrap items-center gap-1.5">
+          {handoffSummary?.score && (
+            <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${scoreColor}`}>
+              {handoffSummary.score}
+            </Badge>
+          )}
+          {currentIntent && (
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
+              <Target className="h-2.5 w-2.5" />
+              {intentLabel[currentIntent] || currentIntent}
+            </Badge>
+          )}
+          {emotional && (
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
+              <Heart className="h-2.5 w-2.5" />
+              {emotionEmoji[emotional] || ""} {emotional}
+            </Badge>
+          )}
+          {!handoffSummary?.score && !currentIntent && !emotional && (
+            <span className="text-[11px] text-muted-foreground italic">
+              Clique para expandir.
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="p-3 space-y-2">
+          {handoffSummary && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Handoff para humano
+                </div>
+                {handoffSummary.score && (
+                  <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${scoreColor}`}>
+                    {handoffSummary.score}
+                  </Badge>
+                )}
+              </div>
+              {handoffSummary.contexto && (
+                <p className="text-xs leading-5 text-foreground/90">{handoffSummary.contexto}</p>
+              )}
+              <div className="grid gap-1 pt-1 text-[11px] text-foreground/80">
+                {handoffSummary.dor && <div><span className="text-amber-300/80">Dor:</span> {handoffSummary.dor}</div>}
+                {handoffSummary.proxima_acao && <div><span className="text-amber-300/80">Próxima ação:</span> {handoffSummary.proxima_acao}</div>}
+              </div>
+              {handoffAt && (
+                <p className="text-[10px] text-amber-200/60 pt-0.5">
+                  {formatDistanceToNow(new Date(handoffAt), { addSuffix: true, locale: ptBR })}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-lg border bg-secondary/40 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Inteligência da conversa
+              </div>
+            </div>
+
+            {(currentIntent || emotional) && (
+              <div className="flex flex-wrap gap-1.5">
+                {currentIntent && (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
+                    <Target className="h-2.5 w-2.5" />
+                    {intentLabel[currentIntent] || currentIntent}
+                  </Badge>
+                )}
+                {emotional && (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1">
+                    <Heart className="h-2.5 w-2.5" />
+                    {emotionEmoji[emotional] || ""} {emotional}
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {lastObjection && (
+              <div className="text-[11px] text-foreground/70 border-l-2 border-amber-500/40 pl-2">
+                <span className="text-amber-300/80">Última objeção:</span> {lastObjection}
+              </div>
+            )}
+
+            {summary ? (
+              <p className="text-xs leading-5 text-foreground/90 whitespace-pre-wrap">{summary}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                {loading ? "Gerando resumo..." : "Clique para gerar resumo."}
+              </p>
+            )}
+
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {tags.map((t) => (
+                  <Badge key={t} variant="outline" className="text-[10px] py-0 px-1.5">
+                    {t.replace(/_/g, " ")}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {updatedAt && (
+              <p className="text-[10px] text-muted-foreground">
+                Atualizado {formatDistanceToNow(new Date(updatedAt), { addSuffix: true, locale: ptBR })}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
