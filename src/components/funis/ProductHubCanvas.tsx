@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter, Sparkles, Workflow } from "lucide-react";
 import { HubAuditPanel } from "./HubAuditPanel";
 import { AssetPicker } from "./AssetPicker";
+import { ChecklistSidebar } from "./ChecklistSidebar";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
