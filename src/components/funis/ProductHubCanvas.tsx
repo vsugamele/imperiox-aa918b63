@@ -89,6 +89,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [auditOpen, setAuditOpen] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
+  const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
