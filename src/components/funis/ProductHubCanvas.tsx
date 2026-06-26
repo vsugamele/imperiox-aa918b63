@@ -516,6 +516,20 @@ export function ProductHubCanvas({ projects }: Props) {
           </PopoverContent>
         </Popover>
 
+        {/* Botão dedicado X1 — atendimento 1:1 WhatsApp */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setFlowGenPreset({ objetivo: "x1_vendas", canal: "whatsapp", tom: "Sugamele, conversacional, pt-BR", title: "⚔️ Gerar Fluxo X1 (vendas 1:1)" });
+            setFlowGenOpen(true);
+          }}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-amber-500/40 hover:bg-amber-500/10"
+          title="Gera fluxo de atendimento 1:1 estilo Sugamele com diagnóstico, pitch, objeções e follow-up"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-400" /> X1
+        </Button>
+
 
 
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
