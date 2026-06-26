@@ -19186,6 +19186,48 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_blueprints: {
+        Row: {
+          blueprint: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          objetivo: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          source: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          source?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          source?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_flow_executions: {
         Row: {
           automacao_id: string
@@ -19233,6 +19275,50 @@ export type Database = {
           waiting_for?: string | null
         }
         Relationships: []
+      }
+      imphq_flow_image_jobs: {
+        Row: {
+          block_id: string
+          blueprint_id: string
+          created_at: string
+          error: string | null
+          id: string
+          prompt: string
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          block_id: string
+          blueprint_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          prompt: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          block_id?: string
+          blueprint_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          prompt?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_image_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_flow_media: {
         Row: {
