@@ -108,6 +108,33 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
     }
   };
 
+  const applySkill = async (intent: "breakthrough_techniques" | "weaponized_credibility") => {
+    if (!asset.output) {
+      toast.error("Gere a copy primeiro antes de aplicar a skill.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const label = intent === "breakthrough_techniques" ? "COPY A POTENCIALIZAR" : "COPY/CLAIM A BLINDAR";
+      const { data, error } = await supabase.functions.invoke("copy-engine", {
+        body: {
+          intent,
+          input: `## ${label}\n${asset.output}\n\n## CONTEXTO\nAtivo "${item.label}" do funil.`,
+          context: { project_id: projectId },
+        },
+      });
+      if (error) throw error;
+      const content = (data as any)?.content;
+      if (!content) throw new Error("Sem conteúdo retornado");
+      onSaveOutput(asset.id, content);
+      toast.success(intent === "breakthrough_techniques" ? "7 manobras aplicadas" : "Copy blindada com provas");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const exportTypebot = () => {
     if (!asset.output) return;
     const bp = dslToBlueprint(asset.output, item.label);
