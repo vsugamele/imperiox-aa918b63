@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter } from "lucide-react";
+import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter, Sparkles } from "lucide-react";
+import { HubAuditPanel } from "./HubAuditPanel";
 import { AssetPicker } from "./AssetPicker";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
@@ -63,6 +64,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
+  const [auditOpen, setAuditOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
