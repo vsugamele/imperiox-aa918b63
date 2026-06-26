@@ -49,6 +49,24 @@ export default function ConversationIntelCard({ conversationId }: Props) {
   const [handoffAt, setHandoffAt] = useState<string | null>(null);
   const [emotional, setEmotional] = useState<string | null>(null);
   const [lastObjection, setLastObjection] = useState<string | null>(null);
+  const [minimized, setMinimized] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("imperiohq_intel_minimized") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleMinimized = () => {
+    setMinimized((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("imperiohq_intel_minimized", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const loadEmotional = async (lid: string) => {
     const { data } = await supabase
