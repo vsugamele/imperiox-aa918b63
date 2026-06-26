@@ -554,6 +554,7 @@ export function ProductHubCanvas({ projects }: Props) {
                   <circle cx={end.x} cy={end.y} r="4" fill="rgb(34 197 94)" />
                 </g>
               );
+            })}
             {/* asset → asset edges */}
             {visibleAssets.map(a => {
               if (!a.edges?.length) return null;
