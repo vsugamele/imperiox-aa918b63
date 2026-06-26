@@ -36,12 +36,16 @@ interface Props {
 export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
   const [converting, setConverting] = useState(false);
+  const isChannel = asset?.catId === "canais";
+  const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
+  useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
   if (!asset) return null;
   const meta = findItem(asset.catId, asset.itemId);
   if (!meta) return null;
   const { cat, item } = meta;
   const colors = COLOR_TOKENS[cat.color];
-  const hasDsl = isDslOutput(asset.output);
+  const hasDsl = !isChannel && isDslOutput(asset.output);
+
 
   const run = async () => {
     setGenerating(true);
