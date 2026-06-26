@@ -14,6 +14,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
