@@ -94,8 +94,9 @@ export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsse
                 <span className="text-[9px] tabular-nums opacity-80">{done}/{total}</span>
               </button>
               <div className="h-0.5 bg-secondary/30">
-                <div className={cn("h-full transition-all", `bg-${cat.color}-500/70`)} style={{ width: `${pct}%` }} />
+                <div className={cn("h-full transition-all", PCT_BG[cat.color])} style={{ width: `${pct}%` }} />
               </div>
+
 
               {isOpen && (
                 <div className="bg-[#080607]/60 p-1 space-y-0.5">
