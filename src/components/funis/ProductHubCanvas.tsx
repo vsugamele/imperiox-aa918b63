@@ -791,10 +791,14 @@ export function ProductHubCanvas({ projects }: Props) {
 
       <FlowGeneratorDialog
         open={flowGenOpen}
-        onClose={() => setFlowGenOpen(false)}
+        onClose={() => { setFlowGenOpen(false); setFlowGenPreset(null); }}
         projectId={projectId}
         produtoNome={currentProduct?.nome || currentProduct?.name}
         onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
+        initialObjetivo={flowGenPreset?.objetivo}
+        initialCanal={flowGenPreset?.canal}
+        initialTom={flowGenPreset?.tom}
+        titleOverride={flowGenPreset?.title}
       />
 
       {openBlueprintId && (
