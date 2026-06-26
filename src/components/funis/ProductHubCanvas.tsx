@@ -587,7 +587,7 @@ export function ProductHubCanvas({ projects }: Props) {
 
           {/* Asset picker */}
           {pickerOpen && (
-            <div data-node className="absolute z-20" style={{ left: 80 + PRODUCT_NODE_W + 60, top: 80 }}>
+            <div data-node className="absolute z-20" style={{ left: productPos.x + PRODUCT_NODE_W + 60, top: productPos.y }}>
               <AssetPicker selectedItems={selectedKeys} onToggle={handleToggle} onAddAll={handleAddAll} />
             </div>
           )}
