@@ -35,9 +35,10 @@ export function SalesScriptAutopilotDialog({ open, onClose, projectId, produtoNo
 
   useEffect(() => {
     if (!open) return;
-    supabase.from("imphq_wa_providers").select("id, name, instance_name").eq("active", true).then(({ data }) => {
-      setProviders((data as any[]) || []);
-    });
+    (supabase.from("imphq_wa_providers") as any)
+      .select("id, name, instance_name")
+      .eq("active", true)
+      .then(({ data }: any) => setProviders((data as Provider[]) || []));
   }, [open]);
 
   const addKw = () => {
