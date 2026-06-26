@@ -81,6 +81,7 @@ export function ProductHubCanvas({ projects }: Props) {
       await supabase.from("imphq_funis").update({ data: { ...(row?.data as any || {}), hub } }).eq("id", funilId);
     } else {
       const { data: created } = await supabase.from("imphq_funis").insert([{
+        id: crypto.randomUUID(),
         project_id: projectId,
         nome: `Hub: ${currentProject?.name || ""}`.trim(),
         tipo: "hub",
