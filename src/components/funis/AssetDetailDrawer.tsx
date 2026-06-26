@@ -326,6 +326,16 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                     </Button>
                   </div>
                 )}
+                {asset.output && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-violet-700/50 text-violet-300 hover:bg-violet-900/30" onClick={() => applySkill("breakthrough_techniques")} disabled={generating}>
+                      <Zap className="h-3 w-3 mr-1" /> 7 Manobras
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-sky-700/50 text-sky-300 hover:bg-sky-900/30" onClick={() => applySkill("weaponized_credibility")} disabled={generating}>
+                      <Shield className="h-3 w-3 mr-1" /> Blindar Provas
+                    </Button>
+                  </div>
+                )}
                 <Button
                   onClick={run}
                   disabled={generating}
