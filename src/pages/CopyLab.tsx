@@ -144,7 +144,7 @@ export default function CopyLab() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as Intent); setOutput(""); }}>
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 w-full">
             {TABS.map((t) => (
               <TabsTrigger key={t.id} value={t.id} className="gap-2">
                 <t.icon className="h-4 w-4" /> {t.label}
