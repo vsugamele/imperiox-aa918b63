@@ -681,6 +681,7 @@ export function ProductHubCanvas({ projects }: Props) {
         product={currentProduct}
         projectId={projectId}
         onSaveOutput={handleSaveOutput}
+        onOpenBlueprint={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
       <HubAuditPanel
