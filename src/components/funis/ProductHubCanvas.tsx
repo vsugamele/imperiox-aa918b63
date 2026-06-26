@@ -565,6 +565,15 @@ export function ProductHubCanvas({ projects }: Props) {
         projectId={projectId}
         onSaveOutput={handleSaveOutput}
       />
+
+      <HubAuditPanel
+        open={auditOpen}
+        onClose={() => setAuditOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        existingAssets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status }))}
+        onAddAsset={handleAddSuggested}
+      />
     </div>
   );
 }
