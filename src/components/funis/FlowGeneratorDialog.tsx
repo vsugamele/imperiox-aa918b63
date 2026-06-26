@@ -107,6 +107,7 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
             <Select value={objetivo} onValueChange={setObjetivo}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="x1_vendas">⚔️ Atendimento X1 (vendas WhatsApp 1:1)</SelectItem>
                 <SelectItem value="quiz">Quiz interativo (qualificação)</SelectItem>
                 <SelectItem value="vsl">Roteiro de VSL</SelectItem>
                 <SelectItem value="chat_qualificacao">Chat de qualificação consultivo</SelectItem>
