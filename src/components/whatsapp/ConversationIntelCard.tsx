@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, RefreshCw, Loader2, AlertTriangle, Target, Heart } from "lucide-react";
+import { Sparkles, RefreshCw, Loader2, AlertTriangle, Target, Heart, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
