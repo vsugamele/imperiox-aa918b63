@@ -19410,6 +19410,62 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_wa_triggers: {
+        Row: {
+          active: boolean
+          blueprint_id: string
+          created_at: string
+          id: string
+          keywords: string[]
+          notes: string | null
+          pitch_link: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          provider_id: string | null
+          times_matched: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_wa_triggers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_flows: {
         Row: {
           edges: Json | null
