@@ -378,6 +378,15 @@ export function ProductHubCanvas({ projects }: Props) {
           </PopoverContent>
         </Popover>
 
+        {/* Auditor IA */}
+        <Button
+          size="sm"
+          onClick={() => setAuditOpen(o => !o)}
+          className="h-8 text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-fuchsia-600 hover:from-pink-500 hover:to-fuchsia-500 text-white border-0"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Auditar funil
+        </Button>
+
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
           <span className="text-[10px] text-muted-foreground w-9 text-center">{Math.round(zoom * 100)}%</span>
