@@ -579,7 +579,7 @@ export function ProductHubCanvas({ projects }: Props) {
               data-node
               onClick={() => setPickerOpen(o => !o)}
               className="absolute h-7 w-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg z-10"
-              style={{ left: 80 + PRODUCT_NODE_W + 12, top: 80 + PRODUCT_NODE_H / 2 - 14 }}
+              style={{ left: productPos.x + PRODUCT_NODE_W + 12, top: productPos.y + PRODUCT_NODE_H / 2 - 14 }}
             >
               <Plus className="h-4 w-4" />
             </button>
