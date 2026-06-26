@@ -9,6 +9,7 @@ import { AssetPicker } from "./AssetPicker";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
+import { ProductImageMenu } from "./ProductImageMenu";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const dragOffset = useRef({ x: 0, y: 0 });
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
+  const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -439,9 +441,14 @@ export function ProductHubCanvas({ projects }: Props) {
               <div className="bg-emerald-900/40 text-emerald-200 text-xs font-semibold text-center py-1.5 border-b border-emerald-700/40">
                 Produto
               </div>
-              {(currentProduct.imagem || currentProduct.image) && (
-                <img src={currentProduct.imagem || currentProduct.image} alt="" className="w-full h-44 object-cover" />
-              )}
+              <ProductImageMenu
+                projectId={projectId}
+                productIdx={productIdx}
+                product={currentProduct}
+                imageUrl={imageOverrides[`${projectId}:${productIdx}`] || currentProduct.imagem || currentProduct.image}
+                onSaved={(url) => setImageOverrides(prev => ({ ...prev, [`${projectId}:${productIdx}`]: url }))}
+              />
+
               <div className="p-3 space-y-1">
                 <h3 className="text-sm font-semibold text-foreground leading-tight">
                   {currentProduct.nome || currentProduct.name}
