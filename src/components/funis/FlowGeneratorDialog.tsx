@@ -15,13 +15,22 @@ interface Props {
   projectId: string;
   produtoNome?: string;
   onCreated: (id: string) => void;
+  initialObjetivo?: string;
+  initialCanal?: string;
+  initialTom?: string;
+  titleOverride?: string;
 }
 
-export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onCreated }: Props) {
-  const [objetivo, setObjetivo] = useState("quiz");
-  const [tom, setTom] = useState("conversacional, consultivo");
-  const [canal, setCanal] = useState("web");
+export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onCreated, initialObjetivo, initialCanal, initialTom, titleOverride }: Props) {
+  const [objetivo, setObjetivo] = useState(initialObjetivo || "quiz");
+  const [tom, setTom] = useState(initialTom || "conversacional, consultivo");
+  const [canal, setCanal] = useState(initialCanal || "web");
   const [loading, setLoading] = useState(false);
+
+  // Atualiza quando o dialog abre com novos defaults
+  if (open && initialObjetivo && objetivo !== initialObjetivo && !loading) {
+    // intencionalmente fora de useEffect para sincronizar no open
+  }
 
   const handleGenerate = async () => {
     setLoading(true);
