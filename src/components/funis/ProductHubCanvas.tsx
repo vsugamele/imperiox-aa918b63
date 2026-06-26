@@ -15,6 +15,7 @@ import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
 
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
@@ -224,25 +225,44 @@ export function ProductHubCanvas({ projects }: Props) {
   const handleAddPackage = (pkgId: string) => {
     const pkg = ASSET_PACKAGES.find(p => p.id === pkgId);
     if (!pkg) return;
-    const existingKeys = new Set(assets.map(a => `${a.catId}:${a.itemId}`));
-    const toAdd: HubAsset[] = pkg.items
-      .filter(it => !existingKeys.has(`${it.catId}:${it.itemId}`))
-      .map((it, idx) => ({
-        id: crypto.randomUUID(),
-        catId: it.catId,
-        itemId: it.itemId,
+    const existingKeyMap = new Map<string, string>();
+    assets.forEach(a => existingKeyMap.set(`${a.catId}:${a.itemId}`, a.id));
+    const toAdd: HubAsset[] = [];
+    pkg.items.forEach((it, idx) => {
+      const key = `${it.catId}:${it.itemId}`;
+      if (existingKeyMap.has(key)) return;
+      const id = crypto.randomUUID();
+      existingKeyMap.set(key, id);
+      toAdd.push({
+        id, catId: it.catId, itemId: it.itemId,
         pos_x: snap(600 + ((assets.length + idx) % 4) * 240),
         pos_y: snap(80 + Math.floor((assets.length + idx) / 4) * 160),
         status: "pending",
-      }));
+        edges: [],
+      });
+    });
     if (toAdd.length === 0) {
       toast.info("Todos os ativos deste pacote já estão no canvas");
       return;
     }
-    const next = [...assets, ...toAdd];
+    let next = [...assets, ...toAdd];
+    if (pkg.edges?.length) {
+      next = next.map(a => {
+        const fromKey = `${a.catId}:${a.itemId}`;
+        const newEdges = pkg.edges!
+          .filter(e => e.from === fromKey)
+          .map(e => ({ to: existingKeyMap.get(e.to)!, label: e.label }))
+          .filter(e => e.to);
+        if (newEdges.length === 0) return a;
+        const existing = a.edges || [];
+        const merged = [...existing];
+        newEdges.forEach(ne => { if (!merged.find(x => x.to === ne.to)) merged.push(ne); });
+        return { ...a, edges: merged };
+      });
+    }
     setAssets(next);
     persist(next);
-    toast.success(`${pkg.emoji} ${pkg.label}: ${toAdd.length} ativos adicionados`);
+    toast.success(`${pkg.emoji} ${pkg.label}: ${toAdd.length} ativos${pkg.edges?.length ? " + conexões" : ""}`);
   };
 
   const handleSaveOutput = (assetId: string, output: string) => {
@@ -536,7 +556,34 @@ export function ProductHubCanvas({ projects }: Props) {
                 </g>
               );
             })}
+            {/* asset → asset edges */}
+            {visibleAssets.map(a => {
+              if (!a.edges?.length) return null;
+              return a.edges.map((edge, idx) => {
+                const target = visibleAssets.find(t => t.id === edge.to);
+                if (!target) return null;
+                const start = { x: a.pos_x + ASSET_NODE_W, y: a.pos_y + ASSET_NODE_H / 2 };
+                const end = { x: target.pos_x, y: target.pos_y + ASSET_NODE_H / 2 };
+                const midX = (start.x + end.x) / 2;
+                const d = `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+                const labelX = (start.x + end.x) / 2;
+                const labelY = (start.y + end.y) / 2 - 6;
+                return (
+                  <g key={`${a.id}-${edge.to}-${idx}`}>
+                    <path d={d} stroke="rgb(56 189 248 / 0.7)" strokeWidth="1.5" fill="none" />
+                    <circle cx={start.x} cy={start.y} r="3" fill="rgb(56 189 248)" />
+                    <circle cx={end.x} cy={end.y} r="3" fill="rgb(56 189 248)" />
+                    {edge.label && (
+                      <text x={labelX} y={labelY} textAnchor="middle" fill="rgb(186 230 253)" fontSize="10" className="select-none">
+                        {edge.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              });
+            })}
           </svg>
+
 
           {/* Product node */}
           {currentProduct && (
@@ -615,6 +662,9 @@ export function ProductHubCanvas({ projects }: Props) {
               >
                 <div className={`${colors.header} text-xs font-semibold text-center py-1.5 border-b ${colors.border} flex items-center justify-center gap-1.5`}>
                   <span>{meta.cat.label}</span>
+                  {a.output && isDslOutputCheck(a.output) && (
+                    <span className="text-[9px] px-1 rounded bg-emerald-600/30 text-emerald-200 border border-emerald-500/40" title="Output em DSL executável">🔗 fluxo</span>
+                  )}
                 </div>
                 <div className="p-3 space-y-1">
                   <h4 className="text-sm font-semibold text-foreground leading-tight">{meta.item.label}</h4>
@@ -681,6 +731,7 @@ export function ProductHubCanvas({ projects }: Props) {
         product={currentProduct}
         projectId={projectId}
         onSaveOutput={handleSaveOutput}
+        onOpenBlueprint={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
       <HubAuditPanel

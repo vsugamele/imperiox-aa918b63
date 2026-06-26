@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 
 export interface HubAsset {
   id: string;
@@ -15,6 +16,7 @@ export interface HubAsset {
   pos_y: number;
   output?: string;
   generated_at?: string;
+  edges?: Array<{ to: string; label?: string }>;
 }
 
 interface Props {
@@ -24,15 +26,18 @@ interface Props {
   product: any;
   projectId: string;
   onSaveOutput: (assetId: string, output: string) => void;
+  onOpenBlueprint?: (blueprintId: string) => void;
 }
 
-export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput }: Props) {
+export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [converting, setConverting] = useState(false);
   if (!asset) return null;
   const meta = findItem(asset.catId, asset.itemId);
   if (!meta) return null;
   const { cat, item } = meta;
   const colors = COLOR_TOKENS[cat.color];
+  const hasDsl = isDslOutput(asset.output);
 
   const run = async () => {
     setGenerating(true);
@@ -69,6 +74,44 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
       setGenerating(false);
     }
   };
+  const visualizarComoFluxo = async () => {
+    if (!asset.output) return;
+    setConverting(true);
+    try {
+      const bp = dslToBlueprint(asset.output, item.label);
+      const { data, error } = await supabase
+        .from("imphq_flow_blueprints")
+        .insert({
+          project_id: projectId,
+          produto_nome: product?.nome || product?.name || null,
+          title: `${item.label} (DSL)`,
+          source: "dsl",
+          blueprint: bp as any,
+        })
+        .select().single();
+      if (error) throw error;
+      toast.success(`Fluxo criado com ${bp.nodes.length} passos`);
+      onOpenBlueprint?.(data.id);
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao converter");
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const exportTypebot = () => {
+    if (!asset.output) return;
+    const bp = dslToBlueprint(asset.output, item.label);
+    const blob = new Blob([JSON.stringify(bp, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${item.id}-blueprint.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   const copy = () => {
     if (asset.output) {
@@ -150,6 +193,16 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={run} disabled={generating}>
                   <RefreshCw className={`h-3 w-3 mr-1 ${generating ? "animate-spin" : ""}`} /> Refazer
+                </Button>
+              </div>
+            )}
+            {hasDsl && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30" onClick={visualizarComoFluxo} disabled={converting}>
+                  <Workflow className="h-3 w-3 mr-1" /> {converting ? "Convertendo..." : "Visualizar como Fluxo"}
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={exportTypebot}>
+                  <Download className="h-3 w-3 mr-1" /> Typebot JSON
                 </Button>
               </div>
             )}
