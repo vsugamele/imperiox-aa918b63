@@ -14,6 +14,8 @@ import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
+import { EcosystemDrawer } from "./EcosystemDrawer";
+import { Globe } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
