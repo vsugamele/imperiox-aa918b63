@@ -193,19 +193,38 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
     if (exists) {
       next = assets.filter(a => a.id !== exists.id);
     } else {
+      const id = crypto.randomUUID();
+      const productLinked = isProductLinkedAsset(catId, itemId);
+      // auto-link se houver só 1 produto; caso 2+, abre dialog após inserir
+      const autoLinkNome = productLinked && products.length === 1
+        ? (products[0]?.nome || products[0]?.name || null)
+        : null;
       next = [
         ...assets,
         {
-          id: crypto.randomUUID(),
+          id,
           catId, itemId,
           pos_x: snap(600 + (assets.length % 3) * 260),
           pos_y: snap(80 + Math.floor(assets.length / 3) * 180),
           status: "pending",
+          linked_product_nome: autoLinkNome,
         },
       ];
+      if (productLinked && products.length > 1) {
+        setLinkDialog({ assetId: id, catId, itemId });
+      }
     }
     setAssets(next);
     persist(next);
+  };
+
+  const handleLinkProduct = (assetId: string, produtoNome: string | null) => {
+    const next = assets.map(a => a.id === assetId ? { ...a, linked_product_nome: produtoNome } : a);
+    setAssets(next);
+    persist(next);
+    if (drawerAsset?.id === assetId) {
+      setDrawerAsset(next.find(a => a.id === assetId) || null);
+    }
   };
 
   const handleAddSuggested = (catId: string, itemId: string) => {
