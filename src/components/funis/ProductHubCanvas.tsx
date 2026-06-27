@@ -1116,6 +1116,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           />
         );
       })()}
+
+      {flowLinkDialog && (
+        <LinkFlowDialog
+          open={true}
+          onClose={() => setFlowLinkDialog(null)}
+          projectId={projectId}
+          currentFlowId={flowLinkDialog.currentFlowId}
+          assetLabel={flowLinkDialog.label}
+          onPick={(flowId, flowNome) => handleLinkFlow(flowLinkDialog.assetId, flowId, flowNome)}
+        />
+      )}
     </div>
   );
 }
