@@ -173,9 +173,9 @@ export default function SaudeProdutos() {
     queryFn: async () => {
       const { data } = await supabase
         .from("imphq_projects")
-        .select("id, nome")
-        .order("nome");
-      return (data || []) as { id: string; nome: string }[];
+        .select("id, name")
+        .order("name");
+      return ((data || []) as any[]).map(p => ({ id: p.id as string, nome: p.name as string }));
     },
   });
 
