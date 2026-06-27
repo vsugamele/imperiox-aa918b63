@@ -154,3 +154,21 @@ export function findItem(catId: string, itemId: string) {
   const item = cat?.items.find(i => i.id === itemId);
   return cat && item ? { cat, item } : null;
 }
+
+/** Ativos que representam uma OFERTA monetizável — devem ser vinculados a um produto do briefing. */
+export const PRODUCT_LINKED_ASSETS: Record<string, { role: string; preferredLinkType?: string }> = {
+  "produto:order_bump":         { role: "order bump",  preferredLinkType: "checkout" },
+  "produto:upsell":             { role: "upsell",      preferredLinkType: "upsell" },
+  "produto:downsell":           { role: "downsell",    preferredLinkType: "downsell" },
+  "canais:checkout_principal":  { role: "checkout principal", preferredLinkType: "checkout" },
+  "canais:checkout_orderbump":  { role: "checkout c/ bump",   preferredLinkType: "checkout" },
+  "canais:checkout_upsell":     { role: "checkout upsell",    preferredLinkType: "upsell" },
+  "canais:checkout_downsell":   { role: "checkout downsell",  preferredLinkType: "downsell" },
+  "ofertas:tripwire":           { role: "tripwire" },
+  "ofertas:core":               { role: "core offer" },
+  "ofertas:premium":            { role: "premium" },
+};
+
+export function isProductLinkedAsset(catId: string, itemId: string) {
+  return !!PRODUCT_LINKED_ASSETS[`${catId}:${itemId}`];
+}

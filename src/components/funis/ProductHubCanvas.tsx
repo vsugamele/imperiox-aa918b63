@@ -8,7 +8,8 @@ import { HubAuditPanel } from "./HubAuditPanel";
 import { AssetPicker } from "./AssetPicker";
 import { ChecklistSidebar } from "./ChecklistSidebar";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
-import { findItem, COLOR_TOKENS } from "./assetCatalog";
+import { findItem, COLOR_TOKENS, isProductLinkedAsset, PRODUCT_LINKED_ASSETS } from "./assetCatalog";
+import { LinkProductDialog } from "./LinkProductDialog";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
@@ -98,6 +99,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
+  const [linkDialog, setLinkDialog] = useState<{ assetId: string; catId: string; itemId: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -191,19 +193,38 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
     if (exists) {
       next = assets.filter(a => a.id !== exists.id);
     } else {
+      const id = crypto.randomUUID();
+      const productLinked = isProductLinkedAsset(catId, itemId);
+      // auto-link se houver só 1 produto; caso 2+, abre dialog após inserir
+      const autoLinkNome = productLinked && products.length === 1
+        ? (products[0]?.nome || products[0]?.name || null)
+        : null;
       next = [
         ...assets,
         {
-          id: crypto.randomUUID(),
+          id,
           catId, itemId,
           pos_x: snap(600 + (assets.length % 3) * 260),
           pos_y: snap(80 + Math.floor(assets.length / 3) * 180),
           status: "pending",
+          linked_product_nome: autoLinkNome,
         },
       ];
+      if (productLinked && products.length > 1) {
+        setLinkDialog({ assetId: id, catId, itemId });
+      }
     }
     setAssets(next);
     persist(next);
+  };
+
+  const handleLinkProduct = (assetId: string, produtoNome: string | null) => {
+    const next = assets.map(a => a.id === assetId ? { ...a, linked_product_nome: produtoNome } : a);
+    setAssets(next);
+    persist(next);
+    if (drawerAsset?.id === assetId) {
+      setDrawerAsset(next.find(a => a.id === assetId) || null);
+    }
   };
 
   const handleAddSuggested = (catId: string, itemId: string) => {
@@ -775,7 +796,26 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
                     <StatusIcon className="h-2.5 w-2.5" />
                     {sMeta.label}
                   </button>
+
+                  {/* Produto vinculado */}
+                  {isProductLinkedAsset(a.catId, a.itemId) && (
+                    a.linked_product_nome ? (
+                      <p className="mt-1.5 text-[9px] text-amber-300 truncate" title={a.linked_product_nome}>
+                        🛒 {a.linked_product_nome}
+                      </p>
+                    ) : (
+                      <button
+                        data-node
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); setLinkDialog({ assetId: a.id, catId: a.catId, itemId: a.itemId }); }}
+                        className="mt-1.5 text-[9px] text-muted-foreground hover:text-amber-300 underline block"
+                      >
+                        🛒 Vincular produto
+                      </button>
+                    )
+                  )}
                 </div>
+
 
 
                 <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
@@ -820,9 +860,15 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         open={!!drawerAsset}
         onClose={() => setDrawerAsset(null)}
         asset={drawerAsset}
-        product={currentProduct}
+        product={
+          drawerAsset?.linked_product_nome
+            ? products.find((p: any) => (p?.nome || p?.name) === drawerAsset.linked_product_nome) || currentProduct
+            : currentProduct
+        }
+        products={products}
         projectId={projectId}
         onSaveOutput={handleSaveOutput}
+        onLinkProduct={handleLinkProduct}
         onOpenBlueprint={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
@@ -869,6 +915,22 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         projectId={projectId}
         onImported={handleImportedProduct}
       />
+
+      {linkDialog && (() => {
+        const role = PRODUCT_LINKED_ASSETS[`${linkDialog.catId}:${linkDialog.itemId}`];
+        const meta = findItem(linkDialog.catId, linkDialog.itemId);
+        return (
+          <LinkProductDialog
+            open={true}
+            onClose={() => setLinkDialog(null)}
+            products={products}
+            currentProductNome={currentProduct?.nome || currentProduct?.name}
+            assetLabel={meta?.item.label || "ativo"}
+            roleHint={role?.role}
+            onPick={(nome) => handleLinkProduct(linkDialog.assetId, nome)}
+          />
+        );
+      })()}
     </div>
   );
 }
