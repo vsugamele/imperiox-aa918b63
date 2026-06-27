@@ -523,6 +523,24 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
         </Button>
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            const nv = !pnlOpen;
+            setPnlOpen(nv);
+            localStorage.setItem("hub:pnlOpen", nv ? "1" : "0");
+          }}
+          disabled={!projectId}
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-emerald-500/40 hover:bg-emerald-500/10",
+            pnlOpen && "ring-1 ring-emerald-500/60"
+          )}
+          title="Mostrar receita real por produto e atividade ao vivo"
+        >
+          <DollarSign className="h-3.5 w-3.5 text-emerald-400" /> P&L Live
+        </Button>
+
 
 
 
