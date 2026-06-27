@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Plus, X, Minus, GripVertical, ExternalLink, AlertTriangle, Send } from "lucide-react";
+import { Check, Plus, X, Minus, GripVertical, ExternalLink, AlertTriangle, Send, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ChecklistPriority, productKey, useProductChecklist } from "@/hooks/useProductChecklist";
@@ -24,7 +24,7 @@ const STORAGE_POS = "hub:checklistBoxPos";
 const STORAGE_MIN = "hub:checklistBoxMin";
 
 export function ChecklistFloatingBox({ projectId, products, currentProductName, onSwitchProduct, onOpenFull, onClose }: Props) {
-  const { items, add, update, toKanban } = useProductChecklist(projectId);
+  const { items, add, update, remove, toKanban } = useProductChecklist(projectId);
   const [pos, setPos] = useState<{ x: number; y: number }>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_POS) || "") || { x: 24, y: 80 }; }
     catch { return { x: 24, y: 80 }; }
