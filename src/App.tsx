@@ -117,6 +117,7 @@ const App = () => (
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="ai-saude" element={<AISaude />} />
+                <Route path="ai-learning" element={<AILearning />} />
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
