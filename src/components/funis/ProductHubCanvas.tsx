@@ -866,7 +866,12 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
                     a.linked_product_nome ? (
                       <p className="mt-1.5 text-[9px] text-amber-300 truncate" title={a.linked_product_nome}>
                         🛒 {a.linked_product_nome}
-                      </p>
+                       </p>
+                     )
+                   )}
+                   {pnlOpen && isProductLinkedAsset(a.catId, a.itemId) && a.linked_product_nome && (
+                     <NodeRevenueBadge data={getProductRevenue(revenue, a.linked_product_nome)} />
+                   )}
                     ) : (
                       <button
                         data-node
