@@ -896,6 +896,22 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         projectId={projectId}
         onImported={handleImportedProduct}
       />
+
+      {linkDialog && (() => {
+        const role = PRODUCT_LINKED_ASSETS[`${linkDialog.catId}:${linkDialog.itemId}`];
+        const meta = findItem(linkDialog.catId, linkDialog.itemId);
+        return (
+          <LinkProductDialog
+            open={true}
+            onClose={() => setLinkDialog(null)}
+            products={products}
+            currentProductNome={currentProduct?.nome || currentProduct?.name}
+            assetLabel={meta?.item.label || "ativo"}
+            roleHint={role?.role}
+            onPick={(nome) => handleLinkProduct(linkDialog.assetId, nome)}
+          />
+        );
+      })()}
     </div>
   );
 }
