@@ -3,7 +3,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS, isProductLinkedAsset, PRODUCT_LINKED_ASSETS } from "./assetCatalog";
 import { normalizeProductLinks, pickBestLink, type ProductLinkTipo } from "@/lib/produto-links";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
+import { NodeCopyDialog } from "./NodeCopyDialog";
 
 
 export interface HubAsset {
