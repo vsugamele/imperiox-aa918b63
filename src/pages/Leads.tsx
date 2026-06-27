@@ -187,6 +187,7 @@ export default function Leads() {
   const [waProviders, setWaProviders] = useState<any[]>([]);
   const [waTemplates, setWaTemplates] = useState<any[]>([]);
   const [showWaDialog, setShowWaDialog] = useState(false);
+  const [journeyLead, setJourneyLead] = useState<Lead | null>(null);
   const [waTarget, setWaTarget] = useState<Lead | null>(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
