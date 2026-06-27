@@ -10,6 +10,7 @@ import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
+import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
 
 const NODE_W = 280;
 const HEADER_H = 36;
@@ -48,6 +49,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const dragOffset = useRef({ x: 0, y: 0 });
   const [editing, setEditing] = useState<{ nodeId: string; blockId: string } | null>(null);
   const [regenLoading, setRegenLoading] = useState<string | null>(null);
+  const [nodeStats, setNodeStats] = useState<Record<string, NodeStat>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,6 +156,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           onBlur={() => supabase.from("imphq_flow_blueprints").update({ title }).eq("id", blueprintId)}
           className="w-[340px] h-8 text-xs bg-[#0a0608] border-border/60" />
         <Badge variant="outline" className="text-[10px]">{blueprint.nodes.length} nodes</Badge>
+        <FlowLiveControl blueprintId={blueprintId} onStatsChange={setNodeStats} />
         <div className="ml-auto flex items-center gap-1 bg-[#0a0608]/90 border border-border/60 rounded-md p-0.5">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}><ZoomOut className="h-3.5 w-3.5" /></Button>
           <span className="text-[10px] text-muted-foreground w-9 text-center">{Math.round(zoom * 100)}%</span>
@@ -198,6 +201,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
               style={{ left: n.x, top: n.y, width: NODE_W }}
               onMouseDown={(e) => startNodeDrag(e, n)}
             >
+              <NodeStatsBadge stat={nodeStats[n.id]} />
               <div className="px-3 py-2 border-b border-border/40 text-xs font-semibold text-pink-200 flex items-center justify-between gap-1" style={{ height: HEADER_H }}>
                 <span className="truncate">{n.title}</span>
                 <div className="flex items-center gap-1">
