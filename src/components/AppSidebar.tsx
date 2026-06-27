@@ -49,6 +49,7 @@ const planejarItems = [
 const inteligenciaItems = [
   { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
   { title: "Memória Viva da IA",   url: "/ai-learning",    icon: Brain },
+  { title: "Saúde dos Produtos",   url: "/saude-produtos", icon: Activity },
   { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
   { title: "Skills",               url: "/skills",         icon: Zap },
