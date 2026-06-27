@@ -15,7 +15,8 @@ import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
-import { Globe } from "lucide-react";
+import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
+import { Globe, ListChecks } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
@@ -70,7 +71,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [assets, setAssets] = useState<HubAsset[]>([]);
   const [funilId, setFunilId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [checklistOpen, setChecklistOpen] = useState(true);
+  const [productChecklistOpen, setProductChecklistOpen] = useState(false);
   const [drawerAsset, setDrawerAsset] = useState<HubAsset | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -99,6 +100,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
@@ -491,6 +493,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           title="Ver fluxos OpenFlow, avatar, páginas e KPIs do projeto"
         >
           <Globe className="h-3.5 w-3.5 text-emerald-400" /> Ecossistema
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setProductChecklistOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10"
+          title="Checklist por produto + radar cross-produto"
+        >
+          <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
         </Button>
 
 
@@ -941,6 +954,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         briefing={currentProject?.briefing}
         onProjectReload={onProjectsReload}
       />
+
+      <ProductChecklistDrawer
+        open={productChecklistOpen}
+        onOpenChange={setProductChecklistOpen}
+        projectId={projectId}
+        products={products}
+        currentProductName={currentProduct?.nome || currentProduct?.name}
+        onSwitchProduct={(idx) => setProductIdx(idx)}
+      />
+
+
 
 
       {linkDialog && (() => {
