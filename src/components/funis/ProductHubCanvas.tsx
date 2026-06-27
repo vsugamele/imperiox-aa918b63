@@ -500,10 +500,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setProductChecklistOpen(true)}
+          onClick={() => {
+            const nv = !checklistBoxVisible;
+            setChecklistBoxVisible(nv);
+            localStorage.setItem("hub:checklistBoxVisible", nv ? "1" : "0");
+          }}
           disabled={!projectId}
-          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10"
-          title="Checklist por produto + radar cross-produto"
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10",
+            checklistBoxVisible && "ring-1 ring-violet-500/60"
+          )}
+          title="Mostrar/ocultar box de checklist no canvas"
         >
           <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
         </Button>
