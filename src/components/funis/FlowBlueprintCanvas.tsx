@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
 import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
+import { FlowVariantsPanel } from "./FlowVariantsPanel";
 
 const NODE_W = 280;
 const HEADER_H = 36;
