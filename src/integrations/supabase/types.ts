@@ -25518,6 +25518,7 @@ export type Database = {
           created_at: string
           embedding: string | null
           id: string
+          last_applied_at: string | null
           lead_id: string | null
           pergunta: string
           project_id: string
@@ -25533,6 +25534,7 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta: string
           project_id: string
@@ -25548,6 +25550,7 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta?: string
           project_id?: string
@@ -25819,6 +25822,7 @@ export type Database = {
           created_from_message_id: string | null
           embedding: string | null
           id: string
+          last_applied_at: string | null
           parent_id: string | null
           project_id: string
           rule_text: string
@@ -25839,6 +25843,7 @@ export type Database = {
           created_from_message_id?: string | null
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           parent_id?: string | null
           project_id: string
           rule_text: string
@@ -25859,6 +25864,7 @@ export type Database = {
           created_from_message_id?: string | null
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           parent_id?: string | null
           project_id?: string
           rule_text?: string
