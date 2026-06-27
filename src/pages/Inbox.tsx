@@ -273,6 +273,7 @@ export default function Inbox() {
   };
 
   const badgeCount: Record<InboxTab, number> = {
+    imperius: 0,
     whatsapp: badges?.inbox ?? 0,
     instagram: 0,
     hotleads: badges?.leads ?? 0,
