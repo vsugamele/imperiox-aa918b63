@@ -166,6 +166,20 @@ export default function OpenFlow() {
 
   useEffect(() => { load(); loadKpis(); }, []);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("automacao");
+    if (!id || automacoes.length === 0) return;
+    const found = automacoes.find(a => a.id === id);
+    if (found) {
+      setEditing(found);
+      // remove o param para não reabrir ao fechar
+      const next = new URLSearchParams(searchParams);
+      next.delete("automacao");
+      setSearchParams(next, { replace: true });
+    }
+  }, [automacoes, searchParams, setSearchParams]);
+
   const loadTemplates = async () => {
     if (!editing?.project_id) { setProjectTemplates([]); return; }
     const [projRes, waRes] = await Promise.all([

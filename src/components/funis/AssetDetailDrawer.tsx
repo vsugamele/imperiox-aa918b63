@@ -23,6 +23,8 @@ export interface HubAsset {
   generated_at?: string;
   edges?: Array<{ to: string; label?: string }>;
   linked_product_nome?: string | null;
+  linked_flow_id?: string | null;
+  linked_flow_nome?: string | null;
 }
 
 interface Props {

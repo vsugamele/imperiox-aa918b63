@@ -10,6 +10,10 @@ import { ChecklistSidebar } from "./ChecklistSidebar";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
 import { findItem, COLOR_TOKENS, isProductLinkedAsset, PRODUCT_LINKED_ASSETS } from "./assetCatalog";
 import { LinkProductDialog } from "./LinkProductDialog";
+import { LinkFlowDialog } from "./LinkFlowDialog";
+import { useFlowStats } from "@/hooks/useFlowStats";
+import { Link as RouterLink } from "react-router-dom";
+import { Zap } from "lucide-react";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
@@ -110,6 +114,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
   const [linkDialog, setLinkDialog] = useState<{ assetId: string; catId: string; itemId: string } | null>(null);
+  const [flowLinkDialog, setFlowLinkDialog] = useState<{ assetId: string; currentFlowId?: string | null; label: string } | null>(null);
   const [pnlOpen, setPnlOpen] = useState<boolean>(() => localStorage.getItem("hub:pnlOpen") === "1");
   const [pnlDays, setPnlDays] = useState<number>(() => Number(localStorage.getItem("hub:pnlDays") || 30));
   const [liveFeedOpen, setLiveFeedOpen] = useState<boolean>(() => localStorage.getItem("hub:liveFeed") !== "0");
@@ -241,6 +246,18 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
       setDrawerAsset(next.find(a => a.id === assetId) || null);
     }
   };
+
+  const handleLinkFlow = (assetId: string, flowId: string | null, flowNome: string | null) => {
+    const next = assets.map(a => a.id === assetId ? { ...a, linked_flow_id: flowId, linked_flow_nome: flowNome } : a);
+    setAssets(next);
+    persist(next);
+    if (drawerAsset?.id === assetId) setDrawerAsset(next.find(a => a.id === assetId) || null);
+  };
+
+  const linkedFlowIds = useMemo(() => assets.map(a => a.linked_flow_id).filter(Boolean) as string[], [assets]);
+  const flowStats = useFlowStats(linkedFlowIds);
+
+
 
   const handleAddSuggested = (catId: string, itemId: string) => {
     const key = `${catId}:${itemId}`;
@@ -881,7 +898,55 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
                   {pnlOpen && isProductLinkedAsset(a.catId, a.itemId) && a.linked_product_nome && (
                     <NodeRevenueBadge data={getProductRevenue(revenue, a.linked_product_nome)} />
                   )}
+
+                  {/* Fluxo OpenFlow vinculado */}
+                  {a.linked_flow_id ? (() => {
+                    const fs = flowStats.get(a.linked_flow_id);
+                    const nome = fs?.nome || a.linked_flow_nome || "Fluxo";
+                    const execs = fs?.execs24h ?? 0;
+                    const isActive = fs?.ativo !== false;
+                    return (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[9px]">
+                        <button
+                          data-node
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); setFlowLinkDialog({ assetId: a.id, currentFlowId: a.linked_flow_id, label: meta.item.label }); }}
+                          title={`${nome} • ${execs} execs 24h`}
+                          className={cn(
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border truncate max-w-full",
+                            isActive
+                              ? "text-cyan-300 bg-cyan-500/15 border-cyan-500/50 hover:bg-cyan-500/25"
+                              : "text-muted-foreground bg-muted/30 border-muted/40"
+                          )}
+                        >
+                          <Zap className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{nome}</span>
+                          {execs > 0 && <span className="opacity-70">· {execs}</span>}
+                        </button>
+                        <RouterLink
+                          to={`/openflow?automacao=${a.linked_flow_id}`}
+                          data-node
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Abrir no OpenFlow"
+                          className="text-cyan-300 hover:text-cyan-200"
+                        >
+                          ↗
+                        </RouterLink>
+                      </div>
+                    );
+                  })() : (
+                    <button
+                      data-node
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); setFlowLinkDialog({ assetId: a.id, currentFlowId: null, label: meta.item.label }); }}
+                      className="mt-1.5 text-[9px] text-muted-foreground hover:text-cyan-300 underline block"
+                    >
+                      ⚡ Vincular fluxo
+                    </button>
+                  )}
                 </div>
+
 
 
 
@@ -1051,6 +1116,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           />
         );
       })()}
+
+      {flowLinkDialog && (
+        <LinkFlowDialog
+          open={true}
+          onClose={() => setFlowLinkDialog(null)}
+          projectId={projectId}
+          currentFlowId={flowLinkDialog.currentFlowId}
+          assetLabel={flowLinkDialog.label}
+          onPick={(flowId, flowNome) => handleLinkFlow(flowLinkDialog.assetId, flowId, flowNome)}
+        />
+      )}
     </div>
   );
 }
