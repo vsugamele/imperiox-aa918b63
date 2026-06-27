@@ -16,6 +16,7 @@ import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
 import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
+import { ChecklistFloatingBox } from "./ChecklistFloatingBox";
 import { Globe, ListChecks } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
@@ -72,6 +73,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [funilId, setFunilId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [productChecklistOpen, setProductChecklistOpen] = useState(false);
+  const [checklistBoxVisible, setChecklistBoxVisible] = useState<boolean>(() => localStorage.getItem("hub:checklistBoxVisible") !== "0");
   const [drawerAsset, setDrawerAsset] = useState<HubAsset | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -498,10 +500,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setProductChecklistOpen(true)}
+          onClick={() => {
+            const nv = !checklistBoxVisible;
+            setChecklistBoxVisible(nv);
+            localStorage.setItem("hub:checklistBoxVisible", nv ? "1" : "0");
+          }}
           disabled={!projectId}
-          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10"
-          title="Checklist por produto + radar cross-produto"
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10",
+            checklistBoxVisible && "ring-1 ring-violet-500/60"
+          )}
+          title="Mostrar/ocultar box de checklist no canvas"
         >
           <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
         </Button>
@@ -954,6 +963,20 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         briefing={currentProject?.briefing}
         onProjectReload={onProjectsReload}
       />
+
+      {checklistBoxVisible && projectId && (
+        <ChecklistFloatingBox
+          projectId={projectId}
+          products={products}
+          currentProductName={currentProduct?.nome || currentProduct?.name}
+          onSwitchProduct={(idx) => setProductIdx(idx)}
+          onOpenFull={() => setProductChecklistOpen(true)}
+          onClose={() => {
+            setChecklistBoxVisible(false);
+            localStorage.setItem("hub:checklistBoxVisible", "0");
+          }}
+        />
+      )}
 
       <ProductChecklistDrawer
         open={productChecklistOpen}
