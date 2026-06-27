@@ -443,6 +443,9 @@ function NotificacoesTab() {
 
       {/* WhatsApp / Campaign Notification Preferences (DB-backed) */}
       <NotificationPreferencesTab />
+
+      {/* Daily Briefing por WhatsApp */}
+      <WaBriefingCard />
     </div>
   );
 }
