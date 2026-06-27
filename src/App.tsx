@@ -71,6 +71,7 @@ const Inbox = lazy(() => import("./pages/Inbox"));
 const CopyEngine = lazy(() => import("./pages/CopyEngine"));
 const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
+const AILearning = lazy(() => import("./pages/AILearning"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -116,6 +117,7 @@ const App = () => (
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="ai-saude" element={<AISaude />} />
+                <Route path="ai-learning" element={<AILearning />} />
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
