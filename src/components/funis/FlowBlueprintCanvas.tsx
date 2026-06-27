@@ -231,6 +231,17 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       </Popover>
                     );
                   })()}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const firstText = n.blocks.find(b => typeof b.content === "string" && b.content.length > 0);
+                      setVariantsNode({ id: n.id, title: n.title, copy: (firstText?.content as string) || "" });
+                    }}
+                    className="inline-flex items-center gap-0.5 rounded bg-sky-500/20 px-1 py-0.5 text-[9px] text-sky-200 border border-sky-500/40 hover:bg-sky-500/30"
+                    title="Testar variantes A/B"
+                  >
+                    <FlaskConical className="h-2.5 w-2.5" /> A/B
+                  </button>
                   {n.id === blueprint.start_node_id && <Badge className="h-4 text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">START</Badge>}
                 </div>
               </div>
