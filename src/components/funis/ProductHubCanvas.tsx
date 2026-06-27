@@ -14,6 +14,8 @@ import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
+import { EcosystemDrawer } from "./EcosystemDrawer";
+import { Globe } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
@@ -96,6 +98,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [ecosystemOpen, setEcosystemOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
@@ -478,6 +481,19 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         >
           <Download className="h-3.5 w-3.5 text-primary" /> Importar
         </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setEcosystemOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-emerald-500/40 hover:bg-emerald-500/10"
+          title="Ver fluxos OpenFlow, avatar, páginas e KPIs do projeto"
+        >
+          <Globe className="h-3.5 w-3.5 text-emerald-400" /> Ecossistema
+        </Button>
+
+
 
 
 
@@ -915,6 +931,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         projectId={projectId}
         onImported={handleImportedProduct}
       />
+
+      <EcosystemDrawer
+        open={ecosystemOpen}
+        onOpenChange={setEcosystemOpen}
+        projectId={projectId}
+        projectName={currentProject?.name}
+        produto={currentProduct}
+        briefing={currentProject?.briefing}
+        onProjectReload={onProjectsReload}
+      />
+
 
       {linkDialog && (() => {
         const role = PRODUCT_LINKED_ASSETS[`${linkDialog.catId}:${linkDialog.itemId}`];
