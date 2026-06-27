@@ -495,6 +495,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           <Globe className="h-3.5 w-3.5 text-emerald-400" /> Ecossistema
         </Button>
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setProductChecklistOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10"
+          title="Checklist por produto + radar cross-produto"
+        >
+          <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
+        </Button>
+
 
 
 
