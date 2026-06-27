@@ -964,6 +964,20 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onProjectReload={onProjectsReload}
       />
 
+      {checklistBoxVisible && projectId && (
+        <ChecklistFloatingBox
+          projectId={projectId}
+          products={products}
+          currentProductName={currentProduct?.nome || currentProduct?.name}
+          onSwitchProduct={(idx) => setProductIdx(idx)}
+          onOpenFull={() => setProductChecklistOpen(true)}
+          onClose={() => {
+            setChecklistBoxVisible(false);
+            localStorage.setItem("hub:checklistBoxVisible", "0");
+          }}
+        />
+      )}
+
       <ProductChecklistDrawer
         open={productChecklistOpen}
         onOpenChange={setProductChecklistOpen}
