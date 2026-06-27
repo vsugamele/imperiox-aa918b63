@@ -19853,6 +19853,45 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_funnel_node_copies: {
+        Row: {
+          asset_kind: string | null
+          copies: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          node_id: string
+          produto_id: string | null
+          projeto_id: string
+          selected_idx: number
+          updated_at: string
+        }
+        Insert: {
+          asset_kind?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id: string
+          produto_id?: string | null
+          projeto_id: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Update: {
+          asset_kind?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id?: string
+          produto_id?: string | null
+          projeto_id?: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_generated_contents: {
         Row: {
           approved_at: string | null
@@ -21507,6 +21546,9 @@ export type Database = {
           user_id: string
           venda_aprovada: boolean
           venda_recusada: boolean
+          wa_briefing_enabled: boolean
+          wa_briefing_hour: number
+          wa_briefing_phone: string | null
         }
         Insert: {
           checkout_abandonado?: boolean
@@ -21528,6 +21570,9 @@ export type Database = {
           user_id: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Update: {
           checkout_abandonado?: boolean
@@ -21549,6 +21594,9 @@ export type Database = {
           user_id?: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Relationships: [
           {
