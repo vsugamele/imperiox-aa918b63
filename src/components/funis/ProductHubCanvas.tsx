@@ -100,6 +100,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
