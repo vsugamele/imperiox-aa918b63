@@ -99,6 +99,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
+  const [linkDialog, setLinkDialog] = useState<{ assetId: string; catId: string; itemId: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
