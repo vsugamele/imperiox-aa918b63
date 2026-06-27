@@ -17321,6 +17321,30 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_alert_dismissals: {
+        Row: {
+          alert_key: string
+          dismissed_at: string
+          expires_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          alert_key: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          alert_key?: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_api_keys: {
         Row: {
           created_at: string | null
@@ -25816,6 +25840,8 @@ export type Database = {
           ab_started_at: string | null
           ab_status: string | null
           active: boolean
+          approved_at: string | null
+          approved_by: string | null
           conversion_count: number
           created_at: string
           created_by: string | null
@@ -25824,9 +25850,11 @@ export type Database = {
           id: string
           last_applied_at: string | null
           parent_id: string | null
+          pending_reason: string | null
           project_id: string
           rule_text: string
           rule_type: string
+          status: string
           times_applied: number
           updated_at: string
           version: number
@@ -25837,6 +25865,8 @@ export type Database = {
           ab_started_at?: string | null
           ab_status?: string | null
           active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           conversion_count?: number
           created_at?: string
           created_by?: string | null
@@ -25845,9 +25875,11 @@ export type Database = {
           id?: string
           last_applied_at?: string | null
           parent_id?: string | null
+          pending_reason?: string | null
           project_id: string
           rule_text: string
           rule_type?: string
+          status?: string
           times_applied?: number
           updated_at?: string
           version?: number
@@ -25858,6 +25890,8 @@ export type Database = {
           ab_started_at?: string | null
           ab_status?: string | null
           active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           conversion_count?: number
           created_at?: string
           created_by?: string | null
@@ -25866,9 +25900,11 @@ export type Database = {
           id?: string
           last_applied_at?: string | null
           parent_id?: string | null
+          pending_reason?: string | null
           project_id?: string
           rule_text?: string
           rule_type?: string
+          status?: string
           times_applied?: number
           updated_at?: string
           version?: number
