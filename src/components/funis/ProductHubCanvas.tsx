@@ -73,6 +73,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [funilId, setFunilId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [productChecklistOpen, setProductChecklistOpen] = useState(false);
+  const [checklistBoxVisible, setChecklistBoxVisible] = useState<boolean>(() => localStorage.getItem("hub:checklistBoxVisible") !== "0");
   const [drawerAsset, setDrawerAsset] = useState<HubAsset | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
