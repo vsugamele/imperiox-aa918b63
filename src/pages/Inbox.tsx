@@ -317,6 +317,11 @@ export default function Inbox() {
             </TabsList>
           </div>
 
+          <TabsContent value="imperius" className="mt-0 pt-0 h-full">
+            <Suspense fallback={<TabLoader />}>
+              <ImperiusSuggestionsTab />
+            </Suspense>
+          </TabsContent>
           <TabsContent value="whatsapp" className="mt-0 pt-0 h-full">
             <Suspense fallback={<TabLoader />}>
               <WhatsAppPage />
