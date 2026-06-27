@@ -805,7 +805,14 @@ export default function Leads() {
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
             <DialogHeader>
-              <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+                {editLead && (
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30" onClick={() => setJourneyLead(editLead)}>
+                    <Activity className="h-3.5 w-3.5" /> Replay Jornada
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
             {editLead && (
               <div className="space-y-4">
