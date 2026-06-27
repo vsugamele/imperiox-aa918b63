@@ -110,6 +110,11 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
   const [linkDialog, setLinkDialog] = useState<{ assetId: string; catId: string; itemId: string } | null>(null);
+  const [pnlOpen, setPnlOpen] = useState<boolean>(() => localStorage.getItem("hub:pnlOpen") === "1");
+  const [pnlDays, setPnlDays] = useState<number>(() => Number(localStorage.getItem("hub:pnlDays") || 30));
+  const [liveFeedOpen, setLiveFeedOpen] = useState<boolean>(() => localStorage.getItem("hub:liveFeed") !== "0");
+  const revenue = useFunnelRevenue(pnlOpen ? projectId : "", pnlDays);
+  const liveActivity = useFunnelLiveActivity(projectId);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
