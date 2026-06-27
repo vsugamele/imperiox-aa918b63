@@ -955,6 +955,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onProjectReload={onProjectsReload}
       />
 
+      <ProductChecklistDrawer
+        open={productChecklistOpen}
+        onOpenChange={setProductChecklistOpen}
+        projectId={projectId}
+        products={products}
+        currentProductName={currentProduct?.nome || currentProduct?.name}
+        onSwitchProduct={(idx) => setProductIdx(idx)}
+      />
+
+
+
 
       {linkDialog && (() => {
         const role = PRODUCT_LINKED_ASSETS[`${linkDialog.catId}:${linkDialog.itemId}`];
