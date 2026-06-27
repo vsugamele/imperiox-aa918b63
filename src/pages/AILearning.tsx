@@ -327,3 +327,101 @@ function Empty({ msg }: { msg: string }) {
     </div>
   );
 }
+
+function PendingTab({ projectId }: { projectId: string }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("imphq_wa_project_rules")
+      .select("id, rule_text, rule_type, pending_reason, created_at, active")
+      .eq("project_id", projectId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setRows(data || []);
+    setSelected(new Set());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [projectId]);
+
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected(selected.size === rows.length ? new Set() : new Set(rows.map(r => r.id)));
+  };
+
+  const bulk = async (action: "approve" | "reject") => {
+    if (selected.size === 0) return;
+    setBusy(true);
+    const ids = Array.from(selected);
+    const patch = action === "approve"
+      ? { status: "active", active: true, approved_at: new Date().toISOString() }
+      : { status: "archived", active: false };
+    const { error } = await supabase.from("imphq_wa_project_rules").update(patch).in("id", ids);
+    setBusy(false);
+    if (error) { toast.error("Falha ao atualizar"); return; }
+    toast.success(`${ids.length} ${action === "approve" ? "aprovadas" : "arquivadas"}`);
+    load();
+  };
+
+  return (
+    <Card className="p-4 bg-secondary/20 border-border/40">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold">Aprendizados pendentes ({rows.length})</p>
+          <p className="text-[11px] text-muted-foreground leading-5 mt-0.5">
+            Sugestões da IA aguardando revisão. Aprove para virar regra ativa.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={toggleAll} disabled={rows.length === 0} className="h-8 text-xs">
+            {selected.size === rows.length && rows.length > 0 ? "Limpar" : "Selecionar tudo"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => bulk("reject")} disabled={selected.size === 0 || busy} className="h-8 text-xs">
+            <X className="h-3 w-3 mr-1" /> Rejeitar ({selected.size})
+          </Button>
+          <Button size="sm" onClick={() => bulk("approve")} disabled={selected.size === 0 || busy} className="h-8 text-xs">
+            <Check className="h-3 w-3 mr-1" /> Aprovar ({selected.size})
+          </Button>
+        </div>
+      </div>
+      <ScrollArea className="h-[520px]">
+        {loading ? <Center><Loader2 className="h-4 w-4 animate-spin" /></Center>
+          : rows.length === 0 ? <Empty msg="Nada pendente. A IA registra aqui regras candidatas a partir das suas correções no chat." />
+          : (
+            <div className="divide-y divide-border/30">
+              {rows.map(r => (
+                <div key={r.id} className="py-3 px-1 flex items-start gap-3">
+                  <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} className="mt-1" />
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.rule_type && <Badge variant="outline" className="text-[10px] h-5">{r.rule_type}</Badge>}
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(r.created_at).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground leading-6">{r.rule_text}</p>
+                    {r.pending_reason && (
+                      <p className="text-xs text-muted-foreground italic leading-5">↳ {r.pending_reason}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+      </ScrollArea>
+    </Card>
+  );
+}
+
