@@ -862,6 +862,13 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           onClose={() => { setOpenBlueprintId(null); reloadBlueprints(); }}
         />
       )}
+
+      <ImportProductDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        projectId={projectId}
+        onImported={handleImportedProduct}
+      />
     </div>
   );
 }
