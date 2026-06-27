@@ -4,6 +4,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ProactiveAlertsBell } from "@/components/ProactiveAlertsBell";
+
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
@@ -157,8 +159,10 @@ export function AppLayout() {
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />
+              <ProactiveAlertsBell />
               <NotificationBell />
             </div>
+
             <div className="header-hairline" />
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-6">
