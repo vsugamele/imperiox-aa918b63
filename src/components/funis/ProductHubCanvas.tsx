@@ -917,6 +917,23 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         </div>
       </div>
 
+      {pnlOpen && (
+        <RevenueOverlayBar
+          revenue={revenue}
+          days={pnlDays}
+          onDaysChange={(d) => { setPnlDays(d); localStorage.setItem("hub:pnlDays", String(d)); }}
+          liveCount={liveActivity.count}
+          onClose={() => { setPnlOpen(false); localStorage.setItem("hub:pnlOpen", "0"); }}
+        />
+      )}
+
+      {liveFeedOpen && liveActivity.recent.length > 0 && (
+        <LiveActivityFeed
+          recent={liveActivity.recent}
+          onClose={() => { setLiveFeedOpen(false); localStorage.setItem("hub:liveFeed", "0"); }}
+        />
+      )}
+
       {!currentProduct && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm text-muted-foreground">Adicione produtos no Briefing deste projeto.</p>
