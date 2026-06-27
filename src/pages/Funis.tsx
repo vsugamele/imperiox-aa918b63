@@ -1416,7 +1416,7 @@ export default function Funis() {
       </div>
 
       {viewMode === "hub" ? (
-        <ProductHubCanvas projects={projects} />
+        <ProductHubCanvas projects={projects} onProjectsReload={load} />
       ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">

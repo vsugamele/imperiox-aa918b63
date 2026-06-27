@@ -12,6 +12,8 @@ import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
+import { ImportProductDialog } from "./ImportProductDialog";
+import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
@@ -33,6 +35,7 @@ interface Project {
 
 interface Props {
   projects: Project[];
+  onProjectsReload?: () => void | Promise<void>;
 }
 
 const PRODUCT_NODE_W = 260;
@@ -58,7 +61,7 @@ const STATUS_FILTERS: Array<{ id: "all" | AssetStatus; label: string }> = [
 
 function snap(n: number) { return Math.round(n / GRID) * GRID; }
 
-export function ProductHubCanvas({ projects }: Props) {
+export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [projectId, setProjectId] = useState<string>("");
   const [productIdx, setProductIdx] = useState(0);
   const [assets, setAssets] = useState<HubAsset[]>([]);
@@ -91,6 +94,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
@@ -164,6 +168,21 @@ export function ProductHubCanvas({ projects }: Props) {
       if (created) setFunilId(created.id);
     }
   };
+
+  const handleImportedProduct = async (produto: any) => {
+    if (!projectId) return;
+    const { data: row } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+    const d: any = (row?.data && typeof row.data === "object") ? row.data : {};
+    const briefing = (d.briefing && typeof d.briefing === "object") ? d.briefing : null;
+    const target = briefing || d;
+    const list = Array.isArray(target.produtos) ? target.produtos : [];
+    target.produtos = [...list, produto];
+    const newData = briefing ? { ...d, briefing: target } : { ...d, produtos: target.produtos };
+    await supabase.from("imphq_projects").update({ data: newData }).eq("id", projectId);
+    await onProjectsReload?.();
+    setProductIdx(list.length); // novo produto vira o atual
+  };
+
 
   const handleToggle = (catId: string, itemId: string) => {
     const key = `${catId}:${itemId}`;
@@ -427,6 +446,19 @@ export function ProductHubCanvas({ projects }: Props) {
             </SelectContent>
           </Select>
         )}
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-primary/40 hover:bg-primary/10"
+          title="Importar produto a partir de uma URL"
+        >
+          <Download className="h-3.5 w-3.5 text-primary" /> Importar
+        </Button>
+
+
 
         {/* Pacotes */}
         <Popover>
@@ -830,6 +862,13 @@ export function ProductHubCanvas({ projects }: Props) {
           onClose={() => { setOpenBlueprintId(null); reloadBlueprints(); }}
         />
       )}
+
+      <ImportProductDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        projectId={projectId}
+        onImported={handleImportedProduct}
+      />
     </div>
   );
 }
