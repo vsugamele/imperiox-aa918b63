@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
