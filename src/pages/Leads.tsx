@@ -1372,6 +1372,7 @@ export default function Leads() {
 
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
         <LeadWhatsAppDialog open={showWaDialog} onOpenChange={setShowWaDialog} target={waTarget} waProviders={waProviders} waTemplates={waTemplates} projects={projects} />
+        <LeadJourneyDrawer open={!!journeyLead} onClose={() => setJourneyLead(null)} lead={journeyLead} automations={automations} />
       </div>
     </div>
   );
