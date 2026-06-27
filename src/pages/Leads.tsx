@@ -36,6 +36,7 @@ import { useLeadTags } from "@/hooks/useLeadTags";
 
 
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
+import LeadJourneyDrawer from "@/components/leads/LeadJourneyDrawer";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
