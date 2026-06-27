@@ -71,6 +71,7 @@ const Inbox = lazy(() => import("./pages/Inbox"));
 const CopyEngine = lazy(() => import("./pages/CopyEngine"));
 const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
+const AILearning = lazy(() => import("./pages/AILearning"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
