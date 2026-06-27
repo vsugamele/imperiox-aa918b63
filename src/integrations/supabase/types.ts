@@ -19188,6 +19188,7 @@ export type Database = {
       }
       imphq_flow_blueprints: {
         Row: {
+          activated_at: string | null
           blueprint: Json
           created_at: string
           created_by: string | null
@@ -19197,10 +19198,12 @@ export type Database = {
           produto_nome: string | null
           project_id: string
           source: string
+          status: string
           title: string
           updated_at: string
         }
         Insert: {
+          activated_at?: string | null
           blueprint?: Json
           created_at?: string
           created_by?: string | null
@@ -19210,10 +19213,12 @@ export type Database = {
           produto_nome?: string | null
           project_id: string
           source?: string
+          status?: string
           title?: string
           updated_at?: string
         }
         Update: {
+          activated_at?: string | null
           blueprint?: Json
           created_at?: string
           created_by?: string | null
@@ -19223,6 +19228,7 @@ export type Database = {
           produto_nome?: string | null
           project_id?: string
           source?: string
+          status?: string
           title?: string
           updated_at?: string
         }
@@ -19370,6 +19376,88 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      imphq_flow_node_stats: {
+        Row: {
+          active: number
+          blueprint_id: string
+          completed: number
+          dropped: number
+          entered: number
+          id: string
+          node_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: number
+          blueprint_id: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: number
+          blueprint_id?: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_stats_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_runtime_events: {
+        Row: {
+          blueprint_id: string
+          conversation_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          lead_id: string | null
+          node_id: string
+          payload: Json
+        }
+        Insert: {
+          blueprint_id: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          node_id: string
+          payload?: Json
+        }
+        Update: {
+          blueprint_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          node_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_runtime_events_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_flow_templates: {
         Row: {
@@ -43838,6 +43926,15 @@ export type Database = {
       }
       increment_distributor_click: {
         Args: { _dist_id: string }
+        Returns: undefined
+      }
+      increment_flow_node_stat: {
+        Args: {
+          p_blueprint_id: string
+          p_delta?: number
+          p_field: string
+          p_node_id: string
+        }
         Returns: undefined
       }
       increment_trigger_dms: {
