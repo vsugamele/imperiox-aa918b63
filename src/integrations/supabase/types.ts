@@ -19697,6 +19697,72 @@ export type Database = {
           },
         ]
       }
+      imphq_funnel_checklist: {
+        Row: {
+          assigned_to: string | null
+          auto_generated: boolean
+          category: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          flow_blueprint_id: string | null
+          id: string
+          kanban_card_id: string | null
+          metadata: Json
+          priority: string
+          product_id: string | null
+          project_id: string
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id: string
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id?: string
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_funnel_events: {
         Row: {
           created_at: string
