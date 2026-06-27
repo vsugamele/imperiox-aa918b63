@@ -217,6 +217,18 @@ export function HubAuditPanel({ open, onClose, projectId, product, existingAsset
               </div>
             )}
 
+            {audit.ativos_faltantes && audit.ativos_faltantes.length > 0 && (
+              <Button
+                size="sm"
+                onClick={enqueueAll}
+                disabled={enqueueing}
+                className="w-full bg-pink-600/80 hover:bg-pink-500 text-white"
+              >
+                {enqueueing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                Enfileirar tudo no Imperius
+              </Button>
+            )}
+
             <Button size="sm" variant="outline" className="w-full" onClick={run}>
               <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Rodar novamente
             </Button>
