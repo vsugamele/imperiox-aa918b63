@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -36,6 +36,7 @@ import { useLeadTags } from "@/hooks/useLeadTags";
 
 
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
+import LeadJourneyDrawer from "@/components/leads/LeadJourneyDrawer";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
@@ -187,6 +188,7 @@ export default function Leads() {
   const [waProviders, setWaProviders] = useState<any[]>([]);
   const [waTemplates, setWaTemplates] = useState<any[]>([]);
   const [showWaDialog, setShowWaDialog] = useState(false);
+  const [journeyLead, setJourneyLead] = useState<Lead | null>(null);
   const [waTarget, setWaTarget] = useState<Lead | null>(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -803,7 +805,14 @@ export default function Leads() {
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
             <DialogHeader>
-              <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+                {editLead && (
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30" onClick={() => setJourneyLead(editLead)}>
+                    <Activity className="h-3.5 w-3.5" /> Replay Jornada
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
             {editLead && (
               <div className="space-y-4">
@@ -1363,6 +1372,7 @@ export default function Leads() {
 
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
         <LeadWhatsAppDialog open={showWaDialog} onOpenChange={setShowWaDialog} target={waTarget} waProviders={waProviders} waTemplates={waTemplates} projects={projects} />
+        <LeadJourneyDrawer open={!!journeyLead} onClose={() => setJourneyLead(null)} lead={journeyLead} automations={automations} />
       </div>
     </div>
   );

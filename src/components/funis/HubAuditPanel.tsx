@@ -30,6 +30,7 @@ interface Props {
 
 export function HubAuditPanel({ open, onClose, projectId, product, existingAssets, onAddAsset }: Props) {
   const [loading, setLoading] = useState(false);
+  const [enqueueing, setEnqueueing] = useState(false);
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [kpis, setKpis] = useState<any>(null);
 
@@ -46,6 +47,34 @@ export function HubAuditPanel({ open, onClose, projectId, product, existingAsset
       toast.error(e?.message || "Erro ao auditar");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const enqueueAll = async () => {
+    if (!audit?.ativos_faltantes?.length) return;
+    setEnqueueing(true);
+    try {
+      const rows = audit.ativos_faltantes.map((s) => {
+        const meta = findItem(s.catId, s.itemId);
+        return {
+          kind: "add_funnel_asset",
+          source: "hub_auditor",
+          projeto_id: projectId,
+          title: `Adicionar ${meta?.item.label || s.itemId}`,
+          reason: s.motivo,
+          confidence: Math.min(0.99, (s.score || 50) / 100),
+          risk_level: "low",
+          status: "pending",
+          payload: { catId: s.catId, itemId: s.itemId, projectId, product_nome: product?.nome },
+        };
+      });
+      const { error } = await supabase.from("imphq_ai_actions").insert(rows);
+      if (error) throw error;
+      toast.success(`${rows.length} ações enviadas para o Imperius`);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enfileirar");
+    } finally {
+      setEnqueueing(false);
     }
   };
 
@@ -186,6 +215,18 @@ export function HubAuditPanel({ open, onClose, projectId, product, existingAsset
                     );
                   })}
               </div>
+            )}
+
+            {audit.ativos_faltantes && audit.ativos_faltantes.length > 0 && (
+              <Button
+                size="sm"
+                onClick={enqueueAll}
+                disabled={enqueueing}
+                className="w-full bg-pink-600/80 hover:bg-pink-500 text-white"
+              >
+                {enqueueing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                Enfileirar tudo no Imperius
+              </Button>
             )}
 
             <Button size="sm" variant="outline" className="w-full" onClick={run}>

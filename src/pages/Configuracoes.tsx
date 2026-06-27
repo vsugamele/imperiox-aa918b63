@@ -17,6 +17,7 @@ import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStatusTab";
 import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
+import { WaBriefingCard } from "@/components/configuracoes/WaBriefingCard";
 import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
 import { ProductRoutingRulesTab } from "@/components/configuracoes/ProductRoutingRulesTab";
 import { OutboundWebhooksTab } from "@/components/configuracoes/OutboundWebhooksTab";
@@ -443,6 +444,9 @@ function NotificacoesTab() {
 
       {/* WhatsApp / Campaign Notification Preferences (DB-backed) */}
       <NotificationPreferencesTab />
+
+      {/* Daily Briefing por WhatsApp */}
+      <WaBriefingCard />
     </div>
   );
 }

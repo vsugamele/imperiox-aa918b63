@@ -3,7 +3,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap } from "lucide-react";
+import { ChevronLeft, Play, Loader2, Copy, RefreshCw, Workflow, Download, ExternalLink, Save, Link as LinkIcon, Shield, Zap, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { findItem, COLOR_TOKENS, isProductLinkedAsset, PRODUCT_LINKED_ASSETS } from "./assetCatalog";
 import { normalizeProductLinks, pickBestLink, type ProductLinkTipo } from "@/lib/produto-links";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
+import { NodeCopyDialog } from "./NodeCopyDialog";
 
 
 export interface HubAsset {
@@ -42,6 +43,7 @@ interface Props {
 export function AssetDetailDrawer({ open, onClose, asset, product, products = [], projectId, onSaveOutput, onLinkProduct, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const isChannel = asset?.catId === "canais";
   const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
   useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
@@ -399,23 +401,42 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                     </Button>
                   </div>
                 )}
-                <Button
-                  onClick={run}
-                  disabled={generating}
-                  className="w-full h-11 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl"
-                >
-                  {generating ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando...</>
-                  ) : (
-                    <><Play className="h-4 w-4 mr-2 fill-white" /> {asset.output ? "Executar novamente" : "Executar"}</>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={run}
+                    disabled={generating}
+                    className="flex-1 h-11 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded-xl"
+                  >
+                    {generating ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando...</>
+                    ) : (
+                      <><Play className="h-4 w-4 mr-2 fill-white" /> {asset.output ? "Executar novamente" : "Executar"}</>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => setCopyOpen(true)}
+                    variant="outline"
+                    className="h-11 border-pink-700/50 text-pink-300 hover:bg-pink-900/30 font-semibold rounded-xl"
+                    title="Gerar 3 variações curtas (headline/lead/CTA)"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1.5" /> Copy IA
+                  </Button>
+                </div>
               </>
             )}
           </div>
 
         </div>
       </SheetContent>
+      <NodeCopyDialog
+        open={copyOpen}
+        onClose={() => setCopyOpen(false)}
+        projectId={projectId}
+        nodeId={asset.id}
+        assetKind={asset.catId}
+        assetLabel={item.label}
+        product={product}
+      />
     </Sheet>
   );
 }
