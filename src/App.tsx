@@ -72,6 +72,7 @@ const CopyEngine = lazy(() => import("./pages/CopyEngine"));
 const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const AILearning = lazy(() => import("./pages/AILearning"));
+const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -118,6 +119,7 @@ const App = () => (
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="ai-saude" element={<AISaude />} />
                 <Route path="ai-learning" element={<AILearning />} />
+                <Route path="saude-produtos" element={<SaudeProdutos />} />
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
