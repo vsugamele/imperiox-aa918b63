@@ -200,6 +200,63 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
               </div>
             )}
 
+            {/* Produto vinculado (para nós de oferta/checkout) */}
+            {isProductLinkedAsset(asset.catId, asset.itemId) && (() => {
+              const role = PRODUCT_LINKED_ASSETS[`${asset.catId}:${asset.itemId}`];
+              const linkedNome = asset.linked_product_nome || null;
+              const linked = linkedNome ? products.find((p: any) => (p?.nome || p?.name) === linkedNome) : null;
+              const productLinks = linked ? normalizeProductLinks(linked) : [];
+              const best = linked ? pickBestLink(productLinks, { tipo: role.preferredLinkType as ProductLinkTipo | undefined }) : null;
+              return (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] uppercase tracking-wider text-amber-300 font-semibold">
+                      🛒 Produto vinculado · {role.role}
+                    </p>
+                    {linkedNome && onLinkProduct && (
+                      <button
+                        onClick={() => onLinkProduct(asset.id, null)}
+                        className="text-[10px] text-muted-foreground hover:text-rose-300 underline"
+                      >Desvincular</button>
+                    )}
+                  </div>
+                  <select
+                    value={linkedNome || ""}
+                    onChange={(e) => onLinkProduct?.(asset.id, e.target.value || null)}
+                    className="w-full h-9 rounded-md bg-[#0a0608] border border-border/60 px-2 text-sm"
+                  >
+                    <option value="">— Selecionar produto —</option>
+                    {products.map((p: any, i: number) => {
+                      const nome = p?.nome || p?.name || `Produto ${i + 1}`;
+                      return <option key={i} value={nome}>{nome}</option>;
+                    })}
+                  </select>
+                  {linked && (
+                    <div className="text-xs space-y-1 pt-1">
+                      {(linked.preco_por || linked.preco) && (
+                        <p className="text-emerald-400 font-semibold">R$ {linked.preco_por || linked.preco}</p>
+                      )}
+                      {best ? (
+                        <div className="flex items-center gap-1.5">
+                          <a href={best.url} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200 underline truncate flex-1">
+                            {best.label || best.url}
+                          </a>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(best.url); toast.success("Link copiado"); }}
+                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                          >copiar</button>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">Sem link configurado. Adicione em Briefing › Links do produto.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+
+
             {/* Channel editor */}
             {isChannel ? (
               <div className="space-y-3">
