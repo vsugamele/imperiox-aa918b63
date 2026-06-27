@@ -243,9 +243,10 @@ function InboxKpiStrip() {
 }
 
 // ── Main Inbox ─────────────────────────────────────────────────────────────────
-type InboxTab = "whatsapp" | "instagram" | "hotleads";
+type InboxTab = "whatsapp" | "instagram" | "hotleads" | "imperius";
 
 const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
+  { value: "imperius",  label: "Sugestões IA", icon: Sparkles },
   { value: "whatsapp",  label: "WhatsApp",  icon: MessageSquare },
   { value: "instagram", label: "Instagram", icon: Instagram },
   { value: "hotleads",  label: "Hot Leads", icon: Flame },
