@@ -841,9 +841,15 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         open={!!drawerAsset}
         onClose={() => setDrawerAsset(null)}
         asset={drawerAsset}
-        product={currentProduct}
+        product={
+          drawerAsset?.linked_product_nome
+            ? products.find((p: any) => (p?.nome || p?.name) === drawerAsset.linked_product_nome) || currentProduct
+            : currentProduct
+        }
+        products={products}
         projectId={projectId}
         onSaveOutput={handleSaveOutput}
+        onLinkProduct={handleLinkProduct}
         onOpenBlueprint={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
