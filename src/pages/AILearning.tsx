@@ -6,9 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Brain, BookOpen, Ban, MessagesSquare, TrendingUp } from "lucide-react";
+import { Loader2, Brain, BookOpen, Ban, MessagesSquare, TrendingUp, Inbox, Check, X } from "lucide-react";
 import AILearnedRulesPanel from "@/components/whatsapp/AILearnedRulesPanel";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+
 
 type Project = { id: string; name: string };
 type Knowledge = {
@@ -86,8 +89,11 @@ export default function AILearning() {
 
       {projectId && (
         <Tabs defaultValue="rules" className="w-full">
-          <TabsList className="grid grid-cols-4 w-full md:w-auto">
+          <TabsList className="grid grid-cols-5 w-full md:w-auto">
             <TabsTrigger value="rules">Regras</TabsTrigger>
+            <TabsTrigger value="pending" className="gap-1.5">
+              <Inbox className="h-3 w-3" /> Pendentes
+            </TabsTrigger>
             <TabsTrigger value="knowledge">Respostas</TabsTrigger>
             <TabsTrigger value="blocks">Bloqueios</TabsTrigger>
             <TabsTrigger value="memories">Memórias</TabsTrigger>
@@ -97,6 +103,10 @@ export default function AILearning() {
             <Card className="p-4 bg-secondary/20 border-border/40">
               <AILearnedRulesPanel projectId={projectId} />
             </Card>
+          </TabsContent>
+
+          <TabsContent value="pending" className="mt-4">
+            <PendingTab projectId={projectId} />
           </TabsContent>
 
           <TabsContent value="knowledge" className="mt-4">
@@ -111,6 +121,7 @@ export default function AILearning() {
             <MemoriesTab projectId={projectId} />
           </TabsContent>
         </Tabs>
+
       )}
     </div>
   );

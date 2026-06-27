@@ -46,13 +46,14 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
   // 2) Conversas paradas > 2h aguardando resposta nossa
   try {
     const cutoff = new Date(now - 2 * 3600_000).toISOString();
-    const { data: convs } = await supabase
+    const { data: convs } = await (supabase as any)
       .from("imphq_wa_conversations")
       .select("id, phone, nome, last_message_at, last_direction")
       .eq("last_direction", "in")
       .lte("last_message_at", cutoff)
       .order("last_message_at", { ascending: false })
       .limit(5);
+
     (convs || []).forEach((c: any) => {
       out.push({
         key: `stale:${c.id}`,
