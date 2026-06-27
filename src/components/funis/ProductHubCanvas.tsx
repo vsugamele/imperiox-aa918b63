@@ -482,6 +482,19 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           <Download className="h-3.5 w-3.5 text-primary" /> Importar
         </Button>
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setEcosystemOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-emerald-500/40 hover:bg-emerald-500/10"
+          title="Ver fluxos OpenFlow, avatar, páginas e KPIs do projeto"
+        >
+          <Globe className="h-3.5 w-3.5 text-emerald-400" /> Ecossistema
+        </Button>
+
+
+
 
 
         {/* Pacotes */}
