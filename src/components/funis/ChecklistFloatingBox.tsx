@@ -182,15 +182,28 @@ export function ChecklistFloatingBox({ projectId, products, currentProductName, 
                   </button>
                   <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIO_DOT[it.priority])} />
                   <span className={cn("flex-1 min-w-0 truncate", it.status === "done" && "line-through")}>{it.title}</span>
-                  {!it.kanban_card_id && it.status !== "done" && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    {!it.kanban_card_id && it.status !== "done" && (
+                      <button
+                        onClick={() => toKanban(it)}
+                        title="Enviar para Kanban"
+                        className="text-muted-foreground hover:text-primary"
+                      >
+                        <Send className="h-2.5 w-2.5" />
+                      </button>
+                    )}
                     <button
-                      onClick={() => toKanban(it)}
-                      title="Enviar para Kanban"
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition"
+                      onClick={() => {
+                        if (confirm("Tem certeza que deseja excluir esta tarefa?")) {
+                          remove(it.id);
+                        }
+                      }}
+                      title="Excluir tarefa"
+                      className="text-muted-foreground hover:text-rose-400"
                     >
-                      <Send className="h-2.5 w-2.5" />
+                      <Trash2 className="h-2.5 w-2.5" />
                     </button>
-                  )}
+                  </div>
                 </div>
               );
             })}
