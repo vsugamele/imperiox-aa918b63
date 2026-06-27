@@ -10,7 +10,7 @@ import { Loader2, Brain, BookOpen, Ban, MessagesSquare, TrendingUp } from "lucid
 import AILearnedRulesPanel from "@/components/whatsapp/AILearnedRulesPanel";
 import { toast } from "sonner";
 
-type Project = { id: string; nome: string };
+type Project = { id: string; name: string };
 type Knowledge = {
   id: string; pergunta: string; resposta: string; source: string | null;
   score_uso: number | null; last_applied_at: string | null; aprovada: boolean | null; created_at: string;
