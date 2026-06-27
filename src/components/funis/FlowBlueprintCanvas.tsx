@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
 import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
+import { FlowVariantsPanel } from "./FlowVariantsPanel";
 
 const NODE_W = 280;
 const HEADER_H = 36;
@@ -50,6 +51,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [editing, setEditing] = useState<{ nodeId: string; blockId: string } | null>(null);
   const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const [nodeStats, setNodeStats] = useState<Record<string, NodeStat>>({});
+  const [variantsNode, setVariantsNode] = useState<{ id: string; title: string; copy: string } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -229,6 +231,17 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       </Popover>
                     );
                   })()}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const firstText = n.blocks.find(b => typeof b.text === "string" && b.text.length > 0);
+                      setVariantsNode({ id: n.id, title: n.title, copy: firstText?.text || "" });
+                    }}
+                    className="inline-flex items-center gap-0.5 rounded bg-sky-500/20 px-1 py-0.5 text-[9px] text-sky-200 border border-sky-500/40 hover:bg-sky-500/30"
+                    title="Testar variantes A/B"
+                  >
+                    <FlaskConical className="h-2.5 w-2.5" /> A/B
+                  </button>
                   {n.id === blueprint.start_node_id && <Badge className="h-4 text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">START</Badge>}
                 </div>
               </div>
@@ -356,6 +369,17 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      {variantsNode && (
+        <FlowVariantsPanel
+          open={!!variantsNode}
+          onClose={() => setVariantsNode(null)}
+          blueprintId={blueprintId}
+          nodeId={variantsNode.id}
+          nodeTitle={variantsNode.title}
+          originalCopy={variantsNode.copy}
+        />
+      )}
     </div>
   );
 }
