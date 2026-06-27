@@ -447,6 +447,19 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           </Select>
         )}
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-primary/40 hover:bg-primary/10"
+          title="Importar produto a partir de uma URL"
+        >
+          <Download className="h-3.5 w-3.5 text-primary" /> Importar
+        </Button>
+
+
+
         {/* Pacotes */}
         <Popover>
           <PopoverTrigger asChild>
