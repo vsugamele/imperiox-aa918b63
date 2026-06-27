@@ -796,7 +796,26 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
                     <StatusIcon className="h-2.5 w-2.5" />
                     {sMeta.label}
                   </button>
+
+                  {/* Produto vinculado */}
+                  {isProductLinkedAsset(a.catId, a.itemId) && (
+                    a.linked_product_nome ? (
+                      <p className="mt-1.5 text-[9px] text-amber-300 truncate" title={a.linked_product_nome}>
+                        🛒 {a.linked_product_nome}
+                      </p>
+                    ) : (
+                      <button
+                        data-node
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); setLinkDialog({ assetId: a.id, catId: a.catId, itemId: a.itemId }); }}
+                        className="mt-1.5 text-[9px] text-muted-foreground hover:text-amber-300 underline block"
+                      >
+                        🛒 Vincular produto
+                      </button>
+                    )
+                  )}
                 </div>
+
 
 
                 <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
