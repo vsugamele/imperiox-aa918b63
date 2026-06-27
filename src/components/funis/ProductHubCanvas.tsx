@@ -169,6 +169,21 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
     }
   };
 
+  const handleImportedProduct = async (produto: any) => {
+    if (!projectId) return;
+    const { data: row } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+    const d: any = (row?.data && typeof row.data === "object") ? row.data : {};
+    const briefing = (d.briefing && typeof d.briefing === "object") ? d.briefing : null;
+    const target = briefing || d;
+    const list = Array.isArray(target.produtos) ? target.produtos : [];
+    target.produtos = [...list, produto];
+    const newData = briefing ? { ...d, briefing: target } : { ...d, produtos: target.produtos };
+    await supabase.from("imphq_projects").update({ data: newData }).eq("id", projectId);
+    await onProjectsReload?.();
+    setProductIdx(list.length); // novo produto vira o atual
+  };
+
+
   const handleToggle = (catId: string, itemId: string) => {
     const key = `${catId}:${itemId}`;
     const exists = assets.find(a => `${a.catId}:${a.itemId}` === key);
