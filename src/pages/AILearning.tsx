@@ -30,7 +30,7 @@ export default function AILearning() {
       const { data } = await supabase
         .from("imphq_projects")
         .select("id, name")
-        .order("nome");
+        .order("name");
       const list = (data || []) as Project[];
       setProjects(list);
       if (list[0]) setProjectId(list[0].id);
