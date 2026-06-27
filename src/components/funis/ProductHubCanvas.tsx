@@ -16,6 +16,7 @@ import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
 import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
+import { ChecklistFloatingBox } from "./ChecklistFloatingBox";
 import { Globe, ListChecks } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
