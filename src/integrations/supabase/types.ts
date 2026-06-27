@@ -19418,6 +19418,62 @@ export type Database = {
           },
         ]
       }
+      imphq_flow_node_variants: {
+        Row: {
+          block_id: string | null
+          blueprint_id: string
+          conversions: number
+          copy: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          impressions: number
+          node_id: string
+          status: string
+          updated_at: string
+          variant_key: string
+          weight: number
+        }
+        Insert: {
+          block_id?: string | null
+          blueprint_id: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id: string
+          status?: string
+          updated_at?: string
+          variant_key: string
+          weight?: number
+        }
+        Update: {
+          block_id?: string | null
+          blueprint_id?: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id?: string
+          status?: string
+          updated_at?: string
+          variant_key?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_flow_runtime_events: {
         Row: {
           blueprint_id: string
@@ -19428,6 +19484,7 @@ export type Database = {
           lead_id: string | null
           node_id: string
           payload: Json
+          variant_id: string | null
         }
         Insert: {
           blueprint_id: string
@@ -19438,6 +19495,7 @@ export type Database = {
           lead_id?: string | null
           node_id: string
           payload?: Json
+          variant_id?: string | null
         }
         Update: {
           blueprint_id?: string
@@ -19448,6 +19506,7 @@ export type Database = {
           lead_id?: string | null
           node_id?: string
           payload?: Json
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -43935,6 +43994,10 @@ export type Database = {
           p_field: string
           p_node_id: string
         }
+        Returns: undefined
+      }
+      increment_flow_variant_stat: {
+        Args: { p_delta: number; p_field: string; p_variant_id: string }
         Returns: undefined
       }
       increment_trigger_dms: {
