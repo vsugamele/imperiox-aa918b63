@@ -43,6 +43,7 @@ interface Props {
 export function AssetDetailDrawer({ open, onClose, asset, product, products = [], projectId, onSaveOutput, onLinkProduct, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const isChannel = asset?.catId === "canais";
   const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
   useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
