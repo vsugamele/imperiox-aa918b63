@@ -234,8 +234,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const firstText = n.blocks.find(b => typeof b.content === "string" && b.content.length > 0);
-                      setVariantsNode({ id: n.id, title: n.title, copy: (firstText?.content as string) || "" });
+                      const firstText = n.blocks.find(b => typeof b.text === "string" && b.text.length > 0);
+                      setVariantsNode({ id: n.id, title: n.title, copy: firstText?.text || "" });
                     }}
                     className="inline-flex items-center gap-0.5 rounded bg-sky-500/20 px-1 py-0.5 text-[9px] text-sky-200 border border-sky-500/40 hover:bg-sky-500/30"
                     title="Testar variantes A/B"
