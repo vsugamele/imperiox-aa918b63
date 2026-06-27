@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail } from "lucide-react";
+import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 
 const WhatsAppPage = lazy(() => import("./WhatsAppPage"));
 const InstagramPage = lazy(() => import("./InstagramPage"));
+const ImperiusSuggestionsTab = lazy(() => import("@/components/inbox/ImperiusSuggestionsTab"));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh] w-full">
@@ -242,9 +243,10 @@ function InboxKpiStrip() {
 }
 
 // ── Main Inbox ─────────────────────────────────────────────────────────────────
-type InboxTab = "whatsapp" | "instagram" | "hotleads";
+type InboxTab = "whatsapp" | "instagram" | "hotleads" | "imperius";
 
 const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
+  { value: "imperius",  label: "Sugestões IA", icon: Sparkles },
   { value: "whatsapp",  label: "WhatsApp",  icon: MessageSquare },
   { value: "instagram", label: "Instagram", icon: Instagram },
   { value: "hotleads",  label: "Hot Leads", icon: Flame },
@@ -271,6 +273,7 @@ export default function Inbox() {
   };
 
   const badgeCount: Record<InboxTab, number> = {
+    imperius: 0,
     whatsapp: badges?.inbox ?? 0,
     instagram: 0,
     hotleads: badges?.leads ?? 0,
@@ -314,6 +317,11 @@ export default function Inbox() {
             </TabsList>
           </div>
 
+          <TabsContent value="imperius" className="mt-0 pt-0 h-full">
+            <Suspense fallback={<TabLoader />}>
+              <ImperiusSuggestionsTab />
+            </Suspense>
+          </TabsContent>
           <TabsContent value="whatsapp" className="mt-0 pt-0 h-full">
             <Suspense fallback={<TabLoader />}>
               <WhatsAppPage />
