@@ -12,6 +12,8 @@ import { findItem, COLOR_TOKENS } from "./assetCatalog";
 import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
+import { ImportProductDialog } from "./ImportProductDialog";
+import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { toast } from "sonner";
@@ -33,6 +35,7 @@ interface Project {
 
 interface Props {
   projects: Project[];
+  onProjectsReload?: () => void | Promise<void>;
 }
 
 const PRODUCT_NODE_W = 260;
@@ -91,6 +94,7 @@ export function ProductHubCanvas({ projects }: Props) {
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
