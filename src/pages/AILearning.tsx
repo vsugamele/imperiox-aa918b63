@@ -29,7 +29,7 @@ export default function AILearning() {
     (async () => {
       const { data } = await supabase
         .from("imphq_projects")
-        .select("id, nome")
+        .select("id, name")
         .order("nome");
       const list = (data || []) as Project[];
       setProjects(list);
@@ -71,7 +71,7 @@ export default function AILearning() {
           <Select value={projectId} onValueChange={setProjectId}>
             <SelectTrigger><SelectValue placeholder="Selecione um projeto" /></SelectTrigger>
             <SelectContent>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
