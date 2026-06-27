@@ -932,6 +932,17 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onImported={handleImportedProduct}
       />
 
+      <EcosystemDrawer
+        open={ecosystemOpen}
+        onOpenChange={setEcosystemOpen}
+        projectId={projectId}
+        projectName={currentProject?.name}
+        produto={currentProduct}
+        briefing={currentProject?.briefing}
+        onProjectReload={onProjectsReload}
+      />
+
+
       {linkDialog && (() => {
         const role = PRODUCT_LINKED_ASSETS[`${linkDialog.catId}:${linkDialog.itemId}`];
         const meta = findItem(linkDialog.catId, linkDialog.itemId);
