@@ -21,19 +21,22 @@ export interface HubAsset {
   output?: string;
   generated_at?: string;
   edges?: Array<{ to: string; label?: string }>;
+  linked_product_nome?: string | null;
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
   asset: HubAsset | null;
-  product: any;
+  product: any; // produto resolvido (vinculado OU produto atual do canvas)
+  products?: any[]; // todos produtos do projeto, p/ seletor de vínculo
   projectId: string;
   onSaveOutput: (assetId: string, output: string) => void;
+  onLinkProduct?: (assetId: string, produtoNome: string | null) => void;
   onOpenBlueprint?: (blueprintId: string) => void;
 }
 
-export function AssetDetailDrawer({ open, onClose, asset, product, projectId, onSaveOutput, onOpenBlueprint }: Props) {
+export function AssetDetailDrawer({ open, onClose, asset, product, products = [], projectId, onSaveOutput, onLinkProduct, onOpenBlueprint }: Props) {
   const [generating, setGenerating] = useState(false);
   const [converting, setConverting] = useState(false);
   const isChannel = asset?.catId === "canais";
