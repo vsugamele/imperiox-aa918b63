@@ -369,6 +369,17 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      {variantsNode && (
+        <FlowVariantsPanel
+          open={!!variantsNode}
+          onClose={() => setVariantsNode(null)}
+          blueprintId={blueprintId}
+          nodeId={variantsNode.id}
+          nodeTitle={variantsNode.title}
+          originalCopy={variantsNode.copy}
+        />
+      )}
     </div>
   );
 }
