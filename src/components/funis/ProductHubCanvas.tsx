@@ -247,6 +247,18 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
     }
   };
 
+  const handleLinkFlow = (assetId: string, flowId: string | null, flowNome: string | null) => {
+    const next = assets.map(a => a.id === assetId ? { ...a, linked_flow_id: flowId, linked_flow_nome: flowNome } : a);
+    setAssets(next);
+    persist(next);
+    if (drawerAsset?.id === assetId) setDrawerAsset(next.find(a => a.id === assetId) || null);
+  };
+
+  const linkedFlowIds = useMemo(() => assets.map(a => a.linked_flow_id).filter(Boolean) as string[], [assets]);
+  const flowStats = useFlowStats(linkedFlowIds);
+
+
+
   const handleAddSuggested = (catId: string, itemId: string) => {
     const key = `${catId}:${itemId}`;
     if (assets.find(a => `${a.catId}:${a.itemId}` === key)) return;
