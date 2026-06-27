@@ -105,12 +105,12 @@ export function useProductChecklist(projectId: string | null) {
       .insert({
         column_id: colId,
         project_id: item.project_id,
-        user_id: u.user.id,
         title: item.title,
-        description: `[checklist:${item.id}] ${item.description || ""}${item.product_id ? `\n🛒 ${item.product_id}` : ""}`,
+        description: `[checklist:${item.id}] ${item.description || ""}${item.product_id ? `\n🛒 ${item.product_id}` : ""}`.trim(),
         due_date: item.due_date,
         priority: item.priority,
-      })
+        tags: item.product_id ? [item.product_id] : null,
+      } as any)
       .select()
       .single();
     if (error) { toast.error(error.message); return; }
