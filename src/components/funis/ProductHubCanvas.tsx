@@ -71,7 +71,7 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [assets, setAssets] = useState<HubAsset[]>([]);
   const [funilId, setFunilId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [checklistOpen, setChecklistOpen] = useState(true);
+  const [productChecklistOpen, setProductChecklistOpen] = useState(false);
   const [drawerAsset, setDrawerAsset] = useState<HubAsset | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
