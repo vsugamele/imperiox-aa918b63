@@ -21,6 +21,9 @@ import { Globe, ListChecks } from "lucide-react";
 import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
+import { useFunnelRevenue, getProductRevenue } from "@/hooks/useFunnelRevenue";
+import { RevenueOverlayBar, NodeRevenueBadge, LiveActivityFeed, useFunnelLiveActivity } from "./RevenueOverlay";
+import { DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
@@ -107,6 +110,11 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const [openBlueprintId, setOpenBlueprintId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<Array<{ id: string; title: string; objetivo?: string }>>([]);
   const [linkDialog, setLinkDialog] = useState<{ assetId: string; catId: string; itemId: string } | null>(null);
+  const [pnlOpen, setPnlOpen] = useState<boolean>(() => localStorage.getItem("hub:pnlOpen") === "1");
+  const [pnlDays, setPnlDays] = useState<number>(() => Number(localStorage.getItem("hub:pnlDays") || 30));
+  const [liveFeedOpen, setLiveFeedOpen] = useState<boolean>(() => localStorage.getItem("hub:liveFeed") !== "0");
+  const revenue = useFunnelRevenue(pnlOpen ? projectId : "", pnlDays);
+  const liveActivity = useFunnelLiveActivity(projectId);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -515,6 +523,24 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           <ListChecks className="h-3.5 w-3.5 text-violet-400" /> Checklist
         </Button>
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            const nv = !pnlOpen;
+            setPnlOpen(nv);
+            localStorage.setItem("hub:pnlOpen", nv ? "1" : "0");
+          }}
+          disabled={!projectId}
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-emerald-500/40 hover:bg-emerald-500/10",
+            pnlOpen && "ring-1 ring-emerald-500/60"
+          )}
+          title="Mostrar receita real por produto e atividade ao vivo"
+        >
+          <DollarSign className="h-3.5 w-3.5 text-emerald-400" /> P&L Live
+        </Button>
+
 
 
 
@@ -852,6 +878,9 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
                       </button>
                     )
                   )}
+                  {pnlOpen && isProductLinkedAsset(a.catId, a.itemId) && a.linked_product_nome && (
+                    <NodeRevenueBadge data={getProductRevenue(revenue, a.linked_product_nome)} />
+                  )}
                 </div>
 
 
@@ -887,6 +916,23 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
           })}
         </div>
       </div>
+
+      {pnlOpen && (
+        <RevenueOverlayBar
+          revenue={revenue}
+          days={pnlDays}
+          onDaysChange={(d) => { setPnlDays(d); localStorage.setItem("hub:pnlDays", String(d)); }}
+          liveCount={liveActivity.count}
+          onClose={() => { setPnlOpen(false); localStorage.setItem("hub:pnlOpen", "0"); }}
+        />
+      )}
+
+      {liveFeedOpen && liveActivity.recent.length > 0 && (
+        <LiveActivityFeed
+          recent={liveActivity.recent}
+          onClose={() => { setLiveFeedOpen(false); localStorage.setItem("hub:liveFeed", "0"); }}
+        />
+      )}
 
       {!currentProduct && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
