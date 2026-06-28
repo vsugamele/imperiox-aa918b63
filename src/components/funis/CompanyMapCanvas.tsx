@@ -38,6 +38,7 @@ interface MapNode {
   description?: string | null; notes?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
+  show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
 }
 
