@@ -18304,22 +18304,28 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          label: string | null
           map_id: string
           source_id: string
+          style: string | null
           target_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          label?: string | null
           map_id: string
           source_id: string
+          style?: string | null
           target_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          label?: string | null
           map_id?: string
           source_id?: string
+          style?: string | null
           target_id?: string
         }
         Relationships: [
@@ -18361,6 +18367,7 @@ export type Database = {
           map_id: string
           notes: string | null
           position: Json
+          show_live_kpis: boolean | null
           size: string
           updated_at: string
         }
@@ -18378,6 +18385,7 @@ export type Database = {
           map_id: string
           notes?: string | null
           position?: Json
+          show_live_kpis?: boolean | null
           size?: string
           updated_at?: string
         }
@@ -18395,6 +18403,7 @@ export type Database = {
           map_id?: string
           notes?: string | null
           position?: Json
+          show_live_kpis?: boolean | null
           size?: string
           updated_at?: string
         }
@@ -18413,6 +18422,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_node_id: string | null
           updated_at: string
           viewport: Json
         }
@@ -18420,6 +18430,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_node_id?: string | null
           updated_at?: string
           viewport?: Json
         }
@@ -18427,10 +18438,19 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_node_id?: string | null
           updated_at?: string
           viewport?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_maps_parent_node_id_fkey"
+            columns: ["parent_node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_competitors: {
         Row: {
