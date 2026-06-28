@@ -39,7 +39,12 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
       const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
       const sb: any = supabase;
       const queries: PromiseLike<any>[] = [
-        sb.from("imphq_automacoes").select("id, nome, ativo, trigger, updated_at").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(20),
+        sb.from("imphq_automacoes")
+          .select("id, nome, ativo, trigger_tipo, updated_at, project_id")
+          .or(`project_id.eq.${projectId},project_id.is.null`)
+          .order("ativo", { ascending: false })
+          .order("updated_at", { ascending: false })
+          .limit(100),
         sb.from("imphq_project_sites").select("id, url, label, tipo").eq("project_id", projectId).limit(20),
         sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("data_venda", since),
         sb.from("imphq_leads").select("id, score").eq("project_id", projectId).gte("created_at", since),
