@@ -15,8 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp } from "lucide-react";
+import { MAP_TEMPLATES } from "./mapTemplates";
+import { applyTemplate, autopopulateFromBusiness, autoLayout, exportMapPng } from "./companyMapHelpers";
+import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
   vertical:   { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
