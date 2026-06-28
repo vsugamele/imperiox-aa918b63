@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
     });
     waCamp.slice(0, 2).forEach((c: any) => {
       etapas.push({
-        nome: c.nome || "Campanha WA",
+        nome: c.name || "Campanha WA",
         tipo: "whatsapp",
         visitantes: 0,
         conversoes: 0,
