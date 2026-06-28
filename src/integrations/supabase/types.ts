@@ -19892,6 +19892,93 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_funnel_snapshots: {
+        Row: {
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          funil_id: string | null
+          id: string
+          label: string | null
+          motivo: string
+          produto_id: string | null
+          projeto_id: string
+        }
+        Insert: {
+          canvas: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id: string
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_templates: {
+        Row: {
+          autor: string | null
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          is_official: boolean
+          nicho: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url: string | null
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome?: string
+          objetivo?: string
+          slug?: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
       imphq_generated_contents: {
         Row: {
           approved_at: string | null
