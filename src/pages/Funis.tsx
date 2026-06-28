@@ -1437,6 +1437,9 @@ export default function Funis() {
             <Button size="sm" variant={viewMode === "ecossistema" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("ecossistema")}>
               <Network className="h-3 w-3" /> Ecossistema
             </Button>
+            <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
+              <Building2 className="h-3 w-3" /> Mapa da Empresa
+            </Button>
           </div>
           {viewMode === "funis" && (
             <>
