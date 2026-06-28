@@ -123,11 +123,7 @@ Deno.serve(async (req) => {
     }
 
 
-    // Detecta extensão
-    const ext = (storagePath.split(".").pop() || "mp4").toLowerCase();
-    const safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac"].includes(ext)
-      ? ext
-      : "mp4";
+    // safeExt já foi definido acima conforme storage_path ou video_url
 
     const upstream = new FormData();
     upstream.append("model", "openai/gpt-4o-mini-transcribe");
