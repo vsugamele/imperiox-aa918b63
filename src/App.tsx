@@ -73,6 +73,7 @@ const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const AILearning = lazy(() => import("./pages/AILearning"));
 const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
+const Atribuicao = lazy(() => import("./pages/Atribuicao"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
