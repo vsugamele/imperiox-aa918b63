@@ -1454,6 +1454,8 @@ export default function Funis() {
 
       {viewMode === "hub" ? (
         <ProductHubCanvas projects={projects} onProjectsReload={load} />
+      ) : viewMode === "mapa" ? (
+        <CompanyMapCanvas projects={projects} />
       ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">
