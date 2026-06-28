@@ -51,7 +51,23 @@ function tryRecover(msg: string) {
     window.location.reload();
   }
 }
-window.addEventListener("error", (e) => tryRecover(e?.message || ""));
+window.addEventListener(
+  "error",
+  (e) => {
+    // Resource load errors (e.g. <script src="/assets/vendor-react-XXX.js"> 404 after deploy)
+    // come through as ErrorEvents with an empty message but a target pointing at the element.
+    const target = e?.target as HTMLElement | null;
+    if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
+      const src = (target as HTMLScriptElement).src || (target as HTMLLinkElement).href || "";
+      if (/\/assets\/.+\.(js|css)/.test(src)) {
+        tryRecover("Importing a module script failed");
+        return;
+      }
+    }
+    tryRecover(e?.message || "");
+  },
+  true, // capture: resource errors don't bubble
+);
 window.addEventListener("unhandledrejection", (e) => tryRecover(String((e as any)?.reason?.message || (e as any)?.reason || "")));
 
 createRoot(document.getElementById("root")!).render(<App />);
