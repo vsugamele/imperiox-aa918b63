@@ -15,6 +15,7 @@ import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, Externa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
