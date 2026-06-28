@@ -378,6 +378,14 @@ function InnerMap({ projects }: { projects: any[] }) {
                   </Select>
                 </div>
               </div>
+              {selected.linked_project_id && (
+                <label className="flex items-center gap-2 text-xs cursor-pointer p-2 rounded bg-emerald-500/5 border border-emerald-500/20">
+                  <Checkbox checked={!!selected.show_live_kpis}
+                    onCheckedChange={(v) => setSelected({ ...selected, show_live_kpis: !!v })} />
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Mostrar KPIs ao vivo (faturamento 30d + leads abertos)</span>
+                </label>
+              )}
               <div>
                 <Label className="text-xs">Fluxo (OpenFlow)</Label>
                 <Select value={selected.linked_flow_id || "none"}
