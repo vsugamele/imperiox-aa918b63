@@ -17,6 +17,9 @@ import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
+import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
+import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
+import { Calendar as CalendarIcon, Brain } from "lucide-react";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
@@ -99,6 +102,7 @@ export default function Funis() {
   const [showNew, setShowNew] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
@@ -773,6 +777,9 @@ export default function Funis() {
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
             <History className="h-3 w-3" /> Versões
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
+            <CalendarIcon className="h-3 w-3" /> Cronograma
           </Button>
 
 
@@ -1580,6 +1587,17 @@ export default function Funis() {
           setSelectedFunil({ ...selectedFunil, data: canvas });
         }}
       />
+
+      {selectedFunil?.project_id && (
+        <LaunchTimelineDialog
+          open={showTimeline}
+          onClose={() => setShowTimeline(false)}
+          projectId={selectedFunil.project_id}
+          funilId={selectedFunil.id}
+        />
+      )}
+
+      {selectedFunil && <FunnelBrainCard projectId={selectedFunil.project_id} />}
     </div>
   );
 }
