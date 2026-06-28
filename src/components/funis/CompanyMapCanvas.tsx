@@ -124,9 +124,28 @@ function InnerMap({ projects }: { projects: any[] }) {
     })));
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
-      animated: true, style: { stroke: "#c9922a", strokeWidth: 2 },
+      animated: e.style !== "dashed",
+      label: e.label || undefined,
+      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
   }, []);
+
+  // live KPIs for project-linked nodes
+  const liveProjectIds = useMemo(
+    () => rawNodes.filter(n => n.show_live_kpis && n.linked_project_id).map(n => n.linked_project_id!),
+    [rawNodes]
+  );
+  const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
+
+  // re-inject stats into node data
+  useEffect(() => {
+    if (!liveStats) return;
+    setNodes(nds => nds.map(n => {
+      const raw = rawNodes.find(r => r.id === n.id);
+      const stats = raw?.linked_project_id ? liveStats[raw.linked_project_id] : null;
+      return { ...n, data: { ...n.data, liveStats: stats } };
+    }));
+  }, [liveStats, rawNodes]);
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
