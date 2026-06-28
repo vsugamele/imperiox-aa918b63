@@ -127,11 +127,16 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{f.nome || "Sem nome"}</p>
-                      <p className="text-[10px] text-muted-foreground">{f.trigger || "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">{f.trigger_tipo || "—"}</p>
                     </div>
-                    <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
-                      {f.ativo ? "Ativo" : "Pausado"}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      {f.project_id == null && (
+                        <Badge variant="outline" className="text-[9px]">Global</Badge>
+                      )}
+                      <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
+                        {f.ativo ? "Ativo" : "Pausado"}
+                      </Badge>
+                    </div>
                   </div>
                   <Button size="sm" variant="ghost" className="h-7 text-[10px] mt-2 gap-1"
                     onClick={() => window.open(`/openflow?id=${f.id}`, "_blank")}>
