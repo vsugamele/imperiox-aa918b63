@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
         tipo: "pagina",
         visitantes: 0,
         conversoes: 0,
-        url: c.url,
+        url: undefined,
         pos_x: lpX,
         pos_y: Y_LP,
         descricao: "Formulário de captura",
