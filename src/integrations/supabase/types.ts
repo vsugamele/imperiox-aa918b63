@@ -18602,6 +18602,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_copy_sync_bindings: {
+        Row: {
+          auto_apply: boolean
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          last_value: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id?: string
+          source_field?: string
+          source_id?: string
+          source_type?: string
+          target_field?: string
+          target_ref_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_creative_assets: {
         Row: {
           angulo: string
@@ -44057,6 +44105,53 @@ export type Database = {
           pix_key?: never
         }
         Relationships: []
+      }
+      vw_attribution_unified: {
+        Row: {
+          canal_atribuido: string | null
+          data_venda: string | null
+          first_click_at: string | null
+          lead_id: string | null
+          plataforma_venda: string | null
+          produto_nome: string | null
+          project_id: string | null
+          tipo_venda: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor: number | null
+          valor_liquido: number | null
+          venda_id: string | null
+          wa_clicked_at: string | null
+          wa_source: string | null
+          wa_source_detail: string | null
+          wa_template: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_vendas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
       }
       vw_financas_resumo: {
         Row: {
