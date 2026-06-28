@@ -122,6 +122,16 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const liveActivity = useFunnelLiveActivity(projectId);
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  // Auto-Pilot batch generation
+  const [autopilotState, setAutopilotState] = useState<{
+    running: boolean;
+    done: number;
+    total: number;
+    currentLabel: string;
+    failed: number;
+  }>({ running: false, done: 0, total: 0, currentLabel: "", failed: 0 });
+  const autopilotAbortRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
   }, [projects, projectId]);
