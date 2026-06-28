@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       flows: flows.length,
       wa_campaigns: waCamp.length,
       email_sequences: emailSeq.length,
-      sites: sites.length + projSites.length,
+      sites: sites.length,
       ads_campaigns: adsCampaigns.length,
       capture_forms: capForms.length,
     };
