@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
+import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
