@@ -25901,6 +25901,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          cross_shareable: boolean
           embedding: string | null
           emotional_state: string | null
           id: string
@@ -25914,6 +25915,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          cross_shareable?: boolean
           embedding?: string | null
           emotional_state?: string | null
           id?: string
@@ -25927,6 +25929,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          cross_shareable?: boolean
           embedding?: string | null
           emotional_state?: string | null
           id?: string
@@ -44321,6 +44324,10 @@ export type Database = {
         }[]
       }
       get_lead_360: { Args: { p_lead_id: string }; Returns: Json }
+      get_lead_cross_memory: {
+        Args: { p_current_project_id?: string; p_phone: string }
+        Returns: Json
+      }
       get_lead_tag_counts: {
         Args: { p_limit?: number; p_project_id?: string }
         Returns: {
@@ -44602,7 +44609,7 @@ export type Database = {
         Args: { p_drop_id: string; p_keep_id: string }
         Returns: Json
       }
-      normalize_br_phone: { Args: { p_phone: string }; Returns: string }
+      normalize_br_phone: { Args: { p_phone: string }; Returns: string[] }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
