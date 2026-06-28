@@ -19721,6 +19721,123 @@ export type Database = {
           },
         ]
       }
+      imphq_funnel_audit_actions: {
+        Row: {
+          action_type: string
+          audit_run_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          executed_at: string | null
+          executed_result: Json | null
+          funil_id: string | null
+          id: string
+          payload: Json
+          projeto_id: string | null
+          rejected_reason: string | null
+          risk_level: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_brain_signals: {
+        Row: {
+          created_at: string
+          evidence: Json | null
+          executed_at: string | null
+          expires_at: string | null
+          funil_id: string | null
+          id: string
+          node_id: string | null
+          produto_id: string | null
+          projeto_id: string
+          reasoning: string | null
+          severity: string
+          signal_type: string
+          snoozed_until: string | null
+          status: string
+          suggested_action: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id: string
+          reasoning?: string | null
+          severity?: string
+          signal_type: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id?: string
+          reasoning?: string | null
+          severity?: string
+          signal_type?: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_funnel_checklist: {
         Row: {
           assigned_to: string | null
@@ -21028,6 +21145,66 @@ export type Database = {
           section_key?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imphq_launch_timeline: {
+        Row: {
+          color: string | null
+          created_at: string
+          depends_on: string[] | null
+          description: string | null
+          duration_min: number | null
+          funil_id: string | null
+          id: string
+          is_milestone: boolean | null
+          meta: Json | null
+          owner: string | null
+          peca_ref_id: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo?: string
+          projeto_id?: string
+          scheduled_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
