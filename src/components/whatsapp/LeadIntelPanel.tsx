@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink, FolderKanban } from "lucide-react";
+import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink, FolderKanban, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brPhoneVariants } from "@/lib/phoneVariants";
+import { LeadMemoryEditor } from "./LeadMemoryEditor";
+
 
 interface LeadIntelPanelProps {
   leadId?: string | null;
