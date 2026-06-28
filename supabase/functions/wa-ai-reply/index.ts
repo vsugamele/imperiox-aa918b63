@@ -744,6 +744,81 @@ Deno.serve(async (req) => {
         console.warn("[wa-ai-reply] long memory block error:", memErr?.message);
       }
 
+      // ====== MEMÓRIA CROSS-PROJETO (mesmo telefone em outros projetos) ======
+      let crossProjectMemoryBlock = "";
+      try {
+        if (phone) {
+          const { data: cross, error: crossErr } = await supabase.rpc("get_lead_cross_memory", {
+            p_phone: phone,
+            p_current_project_id: project_id ? String(project_id) : null,
+          });
+          if (crossErr) {
+            console.warn("[wa-ai-reply] get_lead_cross_memory error:", crossErr.message);
+          } else if (cross && typeof cross === "object") {
+            const otherLeads = Array.isArray((cross as any).leads) ? (cross as any).leads : [];
+            const otherVendas = Array.isArray((cross as any).vendas) ? (cross as any).vendas : [];
+            const otherMems = Array.isArray((cross as any).memories) ? (cross as any).memories : [];
+            const xLines: string[] = [];
+
+            // Map project_id -> nome (best-effort, leve)
+            const projIds = Array.from(new Set([
+              ...otherLeads.map((l: any) => l.project_id),
+              ...otherVendas.map((v: any) => v.project_id),
+              ...otherMems.map((m: any) => m.project_id),
+            ].filter(Boolean).map(String)));
+            const projMap: Record<string, string> = {};
+            if (projIds.length) {
+              try {
+                const { data: projs } = await supabase
+                  .from("imphq_projects")
+                  .select("id,name")
+                  .in("id", projIds);
+                (projs || []).forEach((p: any) => { projMap[String(p.id)] = p.name; });
+              } catch (_) { /* non-critical */ }
+            }
+            const projName = (id: any) => projMap[String(id)] || `projeto ${String(id).slice(0,6)}`;
+
+            if (otherVendas.length) {
+              const compras = otherVendas.slice(0, 5).map((v: any) => {
+                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+                return `${v.produto_nome || "produto"} (${projName(v.project_id)}${dt ? `, ${dt}` : ""})`;
+              }).join(" | ");
+              xLines.push(`- 🌐 Já comprou em OUTROS projetos: ${compras} — esse lead já confia em nós; trate com proximidade e ofereça upgrade alinhado ao histórico.`);
+            }
+            if (otherLeads.length) {
+              const dores = otherLeads
+                .map((l: any) => l.dor_principal)
+                .filter(Boolean)
+                .slice(0, 3);
+              if (dores.length) xLines.push(`- 🌐 Dores conhecidas em outros projetos: ${dores.join(" | ")}`);
+              const objs = otherLeads
+                .map((l: any) => l.objecao_atual)
+                .filter(Boolean)
+                .slice(0, 3);
+              if (objs.length) xLines.push(`- 🌐 Objeções já registradas em outros projetos: ${objs.join(" | ")}`);
+              const niveis = otherLeads
+                .map((l: any) => l.nivel_qualificacao)
+                .filter(Boolean);
+              if (niveis.length) xLines.push(`- 🌐 Já foi classificado como: ${Array.from(new Set(niveis)).join(", ").toUpperCase()}`);
+            }
+            if (otherMems.length) {
+              const insights = otherMems.slice(0, 4).map((m: any) => {
+                const c = String(m.content || "").slice(0, 140);
+                return `[${m.memory_type || "obs"} · ${projName(m.project_id)}] ${c}`;
+              });
+              xLines.push(`- 🌐 Insights de IA em outros projetos:\n  • ${insights.join("\n  • ")}`);
+            }
+
+            if (xLines.length) {
+              crossProjectMemoryBlock = `\n🌐 MEMÓRIA CROSS-PROJETO (mesmo número em outros funis — use com discrição, NÃO mencione os outros projetos pelo nome, mas use o contexto para personalizar):\n${xLines.join("\n")}\n`;
+            }
+          }
+        }
+      } catch (xErr: any) {
+        console.warn("[wa-ai-reply] cross-project memory error:", xErr?.message);
+      }
+
+
       // 7.1. Extração universal de dados do lead a partir da mensagem (todos os projetos).
       // Captura email/nome/profissão/dor/objeção/etc e persiste em imphq_leads sem sobrescrever.
       let extractionResult: Awaited<ReturnType<typeof extractAndPersistLeadData>> | null = null;
@@ -1372,7 +1447,7 @@ Máximo 6 linhas no total.
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}${leadLongMemoryBlock}${campaignContextBlock}${jpCrmContextBlock}${momentoBlock}
+${leadContextBlock}${leadLongMemoryBlock}${crossProjectMemoryBlock}${campaignContextBlock}${jpCrmContextBlock}${momentoBlock}
 ${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
