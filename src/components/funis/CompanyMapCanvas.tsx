@@ -106,7 +106,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       }
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
-    supabase.from("imphq_flows").select("id,name").then(({ data }) => setFlows((data || []) as any));
+    supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
   }, []);
 
   // load nodes/edges
