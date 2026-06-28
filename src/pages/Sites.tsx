@@ -144,6 +144,7 @@ export default function Sites() {
               onArchive={() => handleArchive(s)}
               onDelete={() => handleDelete(s)}
               onRescrape={() => handleRescrape(s)}
+              onCreateEcosystem={() => setEcoSite(s)}
             />
           ))}
         </div>
@@ -152,6 +153,7 @@ export default function Sites() {
       <AddSiteModal open={addOpen} onOpenChange={setAddOpen} onCreated={load} />
       <AttachToProjectModal site={attachSite} onOpenChange={(o) => !o && setAttachSite(null)} />
       <UseAsBaseModal site={baseSite} onOpenChange={(o) => !o && setBaseSite(null)} />
+      <CreateEcosystemModal site={ecoSite} onOpenChange={(o) => !o && setEcoSite(null)} />
     </div>
   );
 }
