@@ -188,6 +188,50 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     }
   };
 
+  const transcribeNow = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    const first = data?.media_urls?.[0];
+    if (!first) return toast.error("Sem vídeo/URL para transcrever");
+    setTranscribing(true);
+    try {
+      const isStoragePath = !/^https?:\/\//i.test(first);
+      const body: any = { swipe_id: data.id, auto_engineer: false };
+      if (isStoragePath) body.storage_path = first;
+      else body.video_url = first;
+      const { data: res, error } = await supabase.functions.invoke("swipe-video-transcribe", { body });
+      if (error) throw error;
+      toast.success("Transcrição concluída");
+      // recarrega
+      const { data: fresh } = await supabase.from("imphq_swipes" as any).select("*").eq("id", data.id).single();
+      if (fresh) setData(fresh);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao transcrever");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const saveTranscript = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setSaving(true);
+    try {
+      const blocks = { ...(data.blocks || {}) };
+      if (!blocks.narrativa) blocks.narrativa = data.raw_text || "";
+      const { error } = await supabase
+        .from("imphq_swipes" as any)
+        .update({ raw_text: data.raw_text || null, blocks } as any)
+        .eq("id", data.id);
+      if (error) throw error;
+      toast.success("Transcrição salva");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   const re = data.reverse_engineering || {};
 
