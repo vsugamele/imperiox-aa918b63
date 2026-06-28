@@ -39,11 +39,14 @@ export async function autopopulateFromBusiness(mapId: string) {
   await supabase.from("imphq_company_map_edges").delete().eq("map_id", mapId);
   await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
 
-  const [{ data: projects }, { data: flows }, { data: providers }] = await Promise.all([
-    supabase.from("imphq_projects").select("id,nome").limit(20),
-    supabase.from("imphq_flows").select("id,name").limit(20),
-    supabase.from("imphq_wa_providers").select("id,nome").limit(10),
+  const [projectsR, flowsR, providersR] = await Promise.all([
+    supabase.from("imphq_projects").select("id,name").limit(20),
+    supabase.from("imphq_flows").select("id,nome").limit(20),
+    supabase.from("imphq_wa_providers").select("id,display_name,instance_name").limit(10),
   ]);
+  const projects = (projectsR.data || []) as any[];
+  const flows = (flowsR.data || []) as any[];
+  const providers = (providersR.data || []) as any[];
 
   // raiz: "Império"
   const { data: root } = await supabase.from("imphq_company_map_nodes").insert({
@@ -52,10 +55,10 @@ export async function autopopulateFromBusiness(mapId: string) {
   }).select("id").single();
 
   let x = 50;
-  for (const p of projects || []) {
+  for (const p of projects) {
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind: "oferta", color: KIND_COLORS.oferta,
-      label: p.nome || "Projeto", linked_project_id: p.id,
+      label: p.name || "Projeto", linked_project_id: p.id,
       show_live_kpis: true,
       position: { x, y: 220 },
     }).select("id").single();
@@ -64,10 +67,10 @@ export async function autopopulateFromBusiness(mapId: string) {
   }
 
   x = 50;
-  for (const f of flows || []) {
+  for (const f of flows) {
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind: "processo", color: KIND_COLORS.processo,
-      label: f.name || "Fluxo", linked_flow_id: f.id, position: { x, y: 420 },
+      label: f.nome || "Fluxo", linked_flow_id: f.id, position: { x, y: 420 },
     }).select("id").single();
     if (data && root) await supabase.from("imphq_company_map_edges").insert({
       map_id: mapId, source_id: root.id, target_id: data.id, style: "dashed",
@@ -76,10 +79,10 @@ export async function autopopulateFromBusiness(mapId: string) {
   }
 
   x = 50;
-  for (const w of providers || []) {
+  for (const w of providers) {
     await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind: "canal", color: KIND_COLORS.canal,
-      label: `WA: ${w.nome}`, position: { x, y: 620 },
+      label: `WA: ${w.display_name || w.instance_name || "Chip"}`, position: { x, y: 620 },
     });
     x += 200;
   }
