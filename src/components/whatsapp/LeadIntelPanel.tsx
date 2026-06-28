@@ -346,19 +346,35 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
         )}
 
         {/* Memória do Lead */}
-        {intel.lead_memory && (
-          <div className="p-4 space-y-1.5">
+        <div className="p-4 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <Cpu className="h-3.5 w-3.5 text-blue-400" />
               <span className="text-muted-foreground font-medium">Memória Persistida IA</span>
             </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] gap-1"
+              onClick={() => setEditorOpen(true)}
+              disabled={!resolvedLeadIdState && !leadId}
+            >
+              <Pencil className="h-3 w-3" /> Editar
+            </Button>
+          </div>
+          {intel.lead_memory ? (
             <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-2.5 max-h-36 overflow-y-auto">
               <p className="text-muted-foreground text-[10px] leading-relaxed whitespace-pre-wrap">
                 {intel.lead_memory}
               </p>
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-[10px] text-muted-foreground/70 italic">
+              Nenhuma memória ainda. Clique em Editar para adicionar manualmente.
+            </p>
+          )}
+        </div>
+
 
         {/* Histórico de Compras */}
         <div className="p-4 space-y-2">
