@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink, FileText, Mic } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
