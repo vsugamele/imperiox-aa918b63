@@ -28,7 +28,7 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export function SiteCard({
-  site, onAttach, onUseAsBase, onArchive, onDelete, onRescrape,
+  site, onAttach, onUseAsBase, onArchive, onDelete, onRescrape, onCreateEcosystem,
 }: {
   site: Site;
   onAttach: () => void;
@@ -36,6 +36,7 @@ export function SiteCard({
   onArchive: () => void;
   onDelete: () => void;
   onRescrape: () => void;
+  onCreateEcosystem?: () => void;
 }) {
   const colors: string[] = site.branding_json?.colors
     ? Object.values(site.branding_json.colors).filter((v): v is string => typeof v === "string").slice(0, 5)
