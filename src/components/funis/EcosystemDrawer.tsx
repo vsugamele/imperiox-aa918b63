@@ -121,7 +121,7 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
 
           <TabsContent value="flows" className="mt-4 space-y-2">
             {loading ? <p className="text-xs text-muted-foreground">Carregando…</p> : flows.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum fluxo no OpenFlow para este projeto.</p>
+              <p className="text-xs text-muted-foreground">Nenhum fluxo vinculado a este projeto. Crie um em /openflow e selecione este projeto.</p>
             ) : (
               flows.map(f => (
                 <div key={f.id} className="rounded-md border border-border/40 bg-secondary/20 p-3">
