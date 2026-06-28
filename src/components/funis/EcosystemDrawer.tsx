@@ -41,10 +41,11 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
       const queries: PromiseLike<any>[] = [
         sb.from("imphq_automacoes")
           .select("id, nome, ativo, trigger_tipo, updated_at, project_id")
-          .or(`project_id.eq.${projectId},project_id.is.null`)
+          .eq("project_id", projectId)
           .order("ativo", { ascending: false })
           .order("updated_at", { ascending: false })
           .limit(100),
+
         sb.from("imphq_project_sites").select("id, url, label, tipo").eq("project_id", projectId).limit(20),
         sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("data_venda", since),
         sb.from("imphq_leads").select("id, score").eq("project_id", projectId).gte("created_at", since),
@@ -120,7 +121,7 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
 
           <TabsContent value="flows" className="mt-4 space-y-2">
             {loading ? <p className="text-xs text-muted-foreground">Carregando…</p> : flows.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum fluxo no OpenFlow para este projeto.</p>
+              <p className="text-xs text-muted-foreground">Nenhum fluxo vinculado a este projeto. Crie um em /openflow e selecione este projeto.</p>
             ) : (
               flows.map(f => (
                 <div key={f.id} className="rounded-md border border-border/40 bg-secondary/20 p-3">
@@ -130,9 +131,6 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                       <p className="text-[10px] text-muted-foreground">{f.trigger_tipo || "—"}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      {f.project_id == null && (
-                        <Badge variant="outline" className="text-[9px]">Global</Badge>
-                      )}
                       <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
                         {f.ativo ? "Ativo" : "Pausado"}
                       </Badge>
