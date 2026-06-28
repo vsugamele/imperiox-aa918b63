@@ -15,6 +15,8 @@ import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, Externa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
+import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
@@ -95,6 +97,8 @@ export default function Funis() {
   const [filterProject, setFilterProject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
@@ -1411,7 +1415,14 @@ export default function Funis() {
               <Network className="h-3 w-3" /> Ecossistema
             </Button>
           </div>
-          {viewMode === "funis" && <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>}
+          {viewMode === "funis" && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
+                <Sparkles className="h-4 w-4" /> Templates
+              </Button>
+              <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
+            </>
+          )}
         </div>
       </div>
 
