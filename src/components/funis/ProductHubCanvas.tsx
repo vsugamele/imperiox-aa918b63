@@ -602,7 +602,11 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onRemove={handleRemoveByKey}
         onAddAll={handleAddAll}
         onOpenAsset={handleOpenAssetByKey}
+        onRunAutoPilotAll={runAutoPilotAll}
+        onRunAutoPilotCategory={runAutoPilotCategory}
+        autopilot={autopilotState}
       />
+
 
       {/* Toolbar */}
       <div data-ui className={cn("absolute top-3 right-3 z-30 flex items-center gap-2 flex-wrap", checklistOpen ? "left-[320px]" : "left-16")}>
