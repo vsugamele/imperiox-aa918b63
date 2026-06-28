@@ -477,7 +477,15 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
           </div>
         </div>
       </div>
+      <LeadMemoryEditor
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        leadId={resolvedLeadIdState || leadId || null}
+        projectId={projectId || intel?.project_id || null}
+        phone={phone || null}
+      />
     </div>
   );
 }
+
 
