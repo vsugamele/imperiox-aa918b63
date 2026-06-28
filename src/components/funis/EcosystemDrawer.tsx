@@ -39,7 +39,12 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
       const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
       const sb: any = supabase;
       const queries: PromiseLike<any>[] = [
-        sb.from("imphq_automacoes").select("id, nome, ativo, trigger, updated_at").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(20),
+        sb.from("imphq_automacoes")
+          .select("id, nome, ativo, trigger_tipo, updated_at, project_id")
+          .or(`project_id.eq.${projectId},project_id.is.null`)
+          .order("ativo", { ascending: false })
+          .order("updated_at", { ascending: false })
+          .limit(100),
         sb.from("imphq_project_sites").select("id, url, label, tipo").eq("project_id", projectId).limit(20),
         sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("data_venda", since),
         sb.from("imphq_leads").select("id, score").eq("project_id", projectId).gte("created_at", since),
@@ -122,11 +127,16 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{f.nome || "Sem nome"}</p>
-                      <p className="text-[10px] text-muted-foreground">{f.trigger || "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">{f.trigger_tipo || "—"}</p>
                     </div>
-                    <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
-                      {f.ativo ? "Ativo" : "Pausado"}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      {f.project_id == null && (
+                        <Badge variant="outline" className="text-[9px]">Global</Badge>
+                      )}
+                      <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
+                        {f.ativo ? "Ativo" : "Pausado"}
+                      </Badge>
+                    </div>
                   </div>
                   <Button size="sm" variant="ghost" className="h-7 text-[10px] mt-2 gap-1"
                     onClick={() => window.open(`/openflow?id=${f.id}`, "_blank")}>
