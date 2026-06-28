@@ -9,6 +9,7 @@ import { SiteCard, type Site } from "@/components/sites/SiteCard";
 import { AddSiteModal } from "@/components/sites/AddSiteModal";
 import { AttachToProjectModal } from "@/components/sites/AttachToProjectModal";
 import { UseAsBaseModal } from "@/components/sites/UseAsBaseModal";
+import { CreateEcosystemModal } from "@/components/sites/CreateEcosystemModal";
 
 const TIPOS = [
   { value: "lp", label: "Landing Page" },
@@ -28,6 +29,7 @@ export default function Sites() {
   const [addOpen, setAddOpen] = useState(false);
   const [attachSite, setAttachSite] = useState<Site | null>(null);
   const [baseSite, setBaseSite] = useState<Site | null>(null);
+  const [ecoSite, setEcoSite] = useState<Site | null>(null);
 
   async function load() {
     setLoading(true);
@@ -142,6 +144,7 @@ export default function Sites() {
               onArchive={() => handleArchive(s)}
               onDelete={() => handleDelete(s)}
               onRescrape={() => handleRescrape(s)}
+              onCreateEcosystem={() => setEcoSite(s)}
             />
           ))}
         </div>
@@ -150,6 +153,7 @@ export default function Sites() {
       <AddSiteModal open={addOpen} onOpenChange={setAddOpen} onCreated={load} />
       <AttachToProjectModal site={attachSite} onOpenChange={(o) => !o && setAttachSite(null)} />
       <UseAsBaseModal site={baseSite} onOpenChange={(o) => !o && setBaseSite(null)} />
+      <CreateEcosystemModal site={ecoSite} onOpenChange={(o) => !o && setEcoSite(null)} />
     </div>
   );
 }

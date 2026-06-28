@@ -28,7 +28,7 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export function SiteCard({
-  site, onAttach, onUseAsBase, onArchive, onDelete, onRescrape,
+  site, onAttach, onUseAsBase, onArchive, onDelete, onRescrape, onCreateEcosystem,
 }: {
   site: Site;
   onAttach: () => void;
@@ -36,6 +36,7 @@ export function SiteCard({
   onArchive: () => void;
   onDelete: () => void;
   onRescrape: () => void;
+  onCreateEcosystem?: () => void;
 }) {
   const colors: string[] = site.branding_json?.colors
     ? Object.values(site.branding_json.colors).filter((v): v is string => typeof v === "string").slice(0, 5)
@@ -125,10 +126,17 @@ export function SiteCard({
           <Button size="sm" variant="outline" className="flex-1" onClick={onAttach}>
             <Link2 className="h-3.5 w-3.5 mr-1.5" />Anexar
           </Button>
-          <Button size="sm" className="flex-1" onClick={onUseAsBase}>
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" />Usar de base
+          <Button size="sm" variant="outline" className="flex-1" onClick={onUseAsBase}>
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" />Copy
           </Button>
         </div>
+        {onCreateEcosystem && (
+          <div onClick={stop}>
+            <Button size="sm" className="w-full gap-1.5" onClick={onCreateEcosystem}>
+              <Sparkles className="h-3.5 w-3.5" />⚡ Criar Ecossistema
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );
