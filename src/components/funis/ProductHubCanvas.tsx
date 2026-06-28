@@ -305,7 +305,9 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
       setAssets(next);
       persist(next);
       toast.success(`${toAdd.length} ativos adicionados`);
+    });
   };
+
 
   // ⚡ AUTO-PILOT: gera N ativos em paralelo (3 por vez) chamando copy-engine
   const runAutoPilot = async (assetIds: string[]) => {
