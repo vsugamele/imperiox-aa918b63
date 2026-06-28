@@ -12,7 +12,7 @@ const PCT_BG: Record<ColorKey, string> = {
   indigo: "bg-indigo-500/70",
   fuchsia: "bg-fuchsia-500/70",
 };
-import { ChevronDown, ChevronRight, Check, Plus, X, ListChecks, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Plus, X, ListChecks, Search, Zap, Loader2, StopCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -31,9 +31,13 @@ interface Props {
   onOpenAsset?: (catId: string, itemId: string) => void;
   open: boolean;
   onToggle: () => void;
+  // Auto-Pilot
+  onRunAutoPilotAll?: () => void;
+  onRunAutoPilotCategory?: (catId: string) => void;
+  autopilot?: { running: boolean; done: number; total: number; currentLabel: string; failed: number };
 }
 
-export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsset, open, onToggle }: Props) {
+export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsset, open, onToggle, onRunAutoPilotAll, onRunAutoPilotCategory, autopilot }: Props) {
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
 
@@ -71,7 +75,7 @@ export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsse
         </button>
       </div>
 
-      <div className="p-2 border-b border-border/40">
+      <div className="p-2 border-b border-border/40 space-y-2">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <Input
@@ -81,7 +85,48 @@ export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsse
             className="h-7 pl-7 text-xs bg-secondary/40 border-border/40"
           />
         </div>
+        {/* ⚡ Auto-Pilot — Gerar tudo */}
+        {onRunAutoPilotAll && (
+          <button
+            onClick={onRunAutoPilotAll}
+            disabled={autopilot?.running && false /* sempre clicável: clicar de novo cancela */}
+            className={cn(
+              "w-full h-8 rounded-md flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-colors border",
+              autopilot?.running
+                ? "bg-rose-500/15 border-rose-500/50 text-rose-200 hover:bg-rose-500/25"
+                : "bg-gradient-to-r from-pink-500/20 to-violet-500/20 border-pink-500/50 text-pink-200 hover:from-pink-500/30 hover:to-violet-500/30"
+            )}
+            title={autopilot?.running ? "Cancelar auto-pilot" : "Gera todos os ativos pendentes que estão no canvas"}
+          >
+            {autopilot?.running ? (
+              <>
+                <StopCircle className="h-3.5 w-3.5" />
+                Cancelar ({autopilot.done}/{autopilot.total})
+              </>
+            ) : (
+              <>
+                <Zap className="h-3.5 w-3.5" />
+                Gerar todos os pendentes
+              </>
+            )}
+          </button>
+        )}
+        {autopilot?.running && (
+          <div className="space-y-1">
+            <div className="h-1 bg-secondary/40 rounded overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-pink-500 to-violet-500 transition-all"
+                style={{ width: `${autopilot.total > 0 ? (autopilot.done / autopilot.total) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
+              <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+              <span className="truncate">{autopilot.currentLabel || "Processando…"}</span>
+            </p>
+          </div>
+        )}
       </div>
+
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {ASSET_CATEGORIES.map(cat => {
@@ -112,14 +157,34 @@ export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsse
 
               {isOpen && (
                 <div className="bg-[#080607]/60 p-1 space-y-0.5">
-                  {done < total && !query && (
-                    <button
-                      onClick={() => onAddAll(cat.id)}
-                      className="w-full text-[10px] px-2 py-1 rounded text-pink-300 hover:bg-pink-500/10 text-left"
-                    >
-                      + Adicionar todos
-                    </button>
+                  {!query && (
+                    <div className="flex gap-1">
+                      {done < total && (
+                        <button
+                          onClick={() => onAddAll(cat.id)}
+                          className="flex-1 text-[10px] px-2 py-1 rounded text-pink-300 hover:bg-pink-500/10 text-left"
+                        >
+                          + Adicionar todos
+                        </button>
+                      )}
+                      {onRunAutoPilotCategory && (
+                        <button
+                          onClick={() => onRunAutoPilotCategory(cat.id)}
+                          disabled={autopilot?.running}
+                          className={cn(
+                            "px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors border",
+                            autopilot?.running
+                              ? "bg-secondary/30 border-border/40 text-muted-foreground cursor-not-allowed"
+                              : "bg-violet-500/15 border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
+                          )}
+                          title="Adiciona pendentes e gera tudo desta categoria"
+                        >
+                          <Zap className="h-2.5 w-2.5" /> Gerar
+                        </button>
+                      )}
+                    </div>
                   )}
+
                   {filteredItems.map(item => {
                     const key = `${cat.id}:${item.id}`;
                     const state = keyMap.get(key);

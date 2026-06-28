@@ -122,6 +122,16 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   const liveActivity = useFunnelLiveActivity(projectId);
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  // Auto-Pilot batch generation
+  const [autopilotState, setAutopilotState] = useState<{
+    running: boolean;
+    done: number;
+    total: number;
+    currentLabel: string;
+    failed: number;
+  }>({ running: false, done: 0, total: 0, currentLabel: "", failed: 0 });
+  const autopilotAbortRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
   }, [projects, projectId]);
@@ -297,6 +307,118 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
       toast.success(`${toAdd.length} ativos adicionados`);
     });
   };
+
+
+  // ⚡ AUTO-PILOT: gera N ativos em paralelo (3 por vez) chamando copy-engine
+  const runAutoPilot = async (assetIds: string[]) => {
+    if (autopilotState.running) {
+      autopilotAbortRef.current = true;
+      toast.info("Cancelando auto-pilot…");
+      return;
+    }
+    if (assetIds.length === 0) {
+      toast.info("Nada para gerar — todos os ativos já estão prontos.");
+      return;
+    }
+    const product = currentProduct;
+    const productSummary = product
+      ? `PRODUTO: ${product.nome || product.name}\nPREÇO: ${product.preco_por || product.preco || product.price || "—"}\nDESCRIÇÃO: ${product.descricao || product.description || "—"}\nNICHO: ${product.nicho || "—"}\nPÚBLICO: ${product.publico || product.avatar || "—"}`
+      : "Sem produto vinculado.";
+
+    autopilotAbortRef.current = false;
+    setAutopilotState({ running: true, done: 0, total: assetIds.length, currentLabel: "Iniciando…", failed: 0 });
+
+    // mapeia id->asset atual via state
+    const idSet = new Set(assetIds);
+    let working = [...assets];
+    const targets = working.filter(a => idSet.has(a.id));
+
+    let done = 0;
+    let failed = 0;
+    const CONCURRENCY = 3;
+
+    const runOne = async (asset: HubAsset) => {
+      if (autopilotAbortRef.current) return;
+      const meta = (await import("./assetCatalog")).findItem(asset.catId, asset.itemId);
+      if (!meta) { failed++; done++; return; }
+      const { item } = meta;
+      setAutopilotState(s => ({ ...s, currentLabel: item.label }));
+      try {
+        const input = `${item.promptHint}\n\n${productSummary}\n\nFormato: markdown organizado em blocos com títulos H3 (###) para cada seção. Cada bloco com 3-7 linhas práticas e específicas. Pt-BR.`;
+        const { data, error } = await supabase.functions.invoke("copy-engine", {
+          body: { intent: item.intent, input, context: { project_id: projectId } },
+        });
+        if (error) throw error;
+        const content = (data as any)?.content || "";
+        if (!content) throw new Error("vazio");
+        working = working.map(a => a.id === asset.id
+          ? { ...a, output: content, generated_at: new Date().toISOString(), status: (a.status === "approved" ? "approved" : "generated") as AssetStatus }
+          : a
+        );
+        setAssets(working);
+      } catch (e) {
+        failed++;
+      } finally {
+        done++;
+        setAutopilotState(s => ({ ...s, done, failed }));
+      }
+    };
+
+    // pool de workers
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+      if (autopilotAbortRef.current) break;
+      const batch = targets.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(runOne));
+    }
+
+    await persist(working);
+    setAutopilotState({ running: false, done, total: assetIds.length, currentLabel: "", failed });
+    if (autopilotAbortRef.current) {
+      toast.info(`Auto-pilot cancelado em ${done}/${assetIds.length}`);
+    } else if (failed === 0) {
+      toast.success(`⚡ ${done} ativos gerados!`);
+    } else {
+      toast.warning(`Gerados ${done - failed}/${assetIds.length} — ${failed} falharam`);
+    }
+  };
+
+  // adiciona todos os pendentes de uma categoria E gera
+  const runAutoPilotCategory = async (catId: string) => {
+    const { ASSET_CATEGORIES } = await import("./assetCatalog");
+    const c = ASSET_CATEGORIES.find(x => x.id === catId);
+    if (!c) return;
+    const existingByKey = new Map(assets.map(a => [`${a.catId}:${a.itemId}`, a]));
+    const toAdd: HubAsset[] = [];
+    c.items.forEach((i, idx) => {
+      if (existingByKey.has(`${c.id}:${i.id}`)) return;
+      toAdd.push({
+        id: crypto.randomUUID(),
+        catId: c.id,
+        itemId: i.id,
+        pos_x: snap(600 + ((assets.length + idx) % 3) * 260),
+        pos_y: snap(80 + Math.floor((assets.length + idx) / 3) * 180),
+        status: "pending",
+      });
+    });
+    let next = assets;
+    if (toAdd.length > 0) {
+      next = [...assets, ...toAdd];
+      setAssets(next);
+      await persist(next);
+    }
+    // ids da categoria que ainda precisam gerar (sem output)
+    const targetIds = next
+      .filter(a => a.catId === catId && !a.output)
+      .map(a => a.id);
+    await runAutoPilot(targetIds);
+  };
+
+  // gera todos os pendentes já no canvas (sem output)
+  const runAutoPilotAll = async () => {
+    const targetIds = assets.filter(a => !a.output && a.catId !== "canais").map(a => a.id);
+    await runAutoPilot(targetIds);
+  };
+
 
   const handleAddPackage = (pkgId: string) => {
     const pkg = ASSET_PACKAGES.find(p => p.id === pkgId);
@@ -480,7 +602,11 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onRemove={handleRemoveByKey}
         onAddAll={handleAddAll}
         onOpenAsset={handleOpenAssetByKey}
+        onRunAutoPilotAll={runAutoPilotAll}
+        onRunAutoPilotCategory={runAutoPilotCategory}
+        autopilot={autopilotState}
       />
+
 
       {/* Toolbar */}
       <div data-ui className={cn("absolute top-3 right-3 z-30 flex items-center gap-2 flex-wrap", checklistOpen ? "left-[320px]" : "left-16")}>
