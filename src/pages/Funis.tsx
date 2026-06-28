@@ -771,6 +771,10 @@ export default function Funis() {
           <h1 className="font-display text-2xl font-bold text-primary">{selectedFunil.nome}</h1>
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
+            <History className="h-3 w-3" /> Versões
+          </Button>
+
 
           {/* Project selector in editor */}
           <Select
