@@ -38,10 +38,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const swipeId: string | undefined = body.swipe_id;
     const storagePath: string | undefined = body.storage_path;
+    const videoUrl: string | undefined = body.video_url;
     const autoEngineer: boolean = !!body.auto_engineer;
 
-    if (!swipeId || !storagePath) {
-      return new Response(JSON.stringify({ error: "swipe_id and storage_path are required" }), {
+    if (!swipeId || (!storagePath && !videoUrl)) {
+      return new Response(JSON.stringify({ error: "swipe_id and (storage_path or video_url) are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -65,17 +66,48 @@ Deno.serve(async (req) => {
       .update({ transcribe_status: "processing", transcribe_error: null })
       .eq("id", swipeId);
 
-    // Baixa do Storage
-    const { data: file, error: dErr } = await supabase.storage.from("swipe-media").download(storagePath);
-    if (dErr || !file) {
-      await supabase
-        .from("imphq_swipes")
-        .update({ transcribe_status: "error", transcribe_error: dErr?.message || "download failed" })
-        .eq("id", swipeId);
-      return new Response(JSON.stringify({ error: dErr?.message || "download failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Carrega bytes: storage ou URL
+    let file: Blob;
+    let safeExt = "mp4";
+    if (storagePath) {
+      const { data: f, error: dErr } = await supabase.storage.from("swipe-media").download(storagePath);
+      if (dErr || !f) {
+        await supabase
+          .from("imphq_swipes")
+          .update({ transcribe_status: "error", transcribe_error: dErr?.message || "download failed" })
+          .eq("id", swipeId);
+        return new Response(JSON.stringify({ error: dErr?.message || "download failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      file = f;
+      const ext = (storagePath.split(".").pop() || "mp4").toLowerCase();
+      safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac"].includes(ext) ? ext : "mp4";
+    } else {
+      try {
+        const dl = await fetch(videoUrl!);
+        if (!dl.ok) throw new Error(`download ${dl.status}`);
+        const ct = dl.headers.get("content-type") || "video/mp4";
+        const buf = new Uint8Array(await dl.arrayBuffer());
+        if (!buf.byteLength) throw new Error("arquivo vazio");
+        if (buf.byteLength > MAX_BYTES) throw new Error(`Arquivo ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB excede 24MB.`);
+        file = new Blob([buf], { type: ct });
+        const urlExt = (videoUrl!.split("?")[0].split(".").pop() || "mp4").toLowerCase();
+        safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac", "mov"].includes(urlExt)
+          ? (urlExt === "mov" ? "mp4" : urlExt)
+          : "mp4";
+      } catch (e: any) {
+        const msg = e?.message || "download failed";
+        await supabase
+          .from("imphq_swipes")
+          .update({ transcribe_status: "error", transcribe_error: msg })
+          .eq("id", swipeId);
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (file.size > MAX_BYTES) {
@@ -90,11 +122,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Detecta extensão
-    const ext = (storagePath.split(".").pop() || "mp4").toLowerCase();
-    const safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac"].includes(ext)
-      ? ext
-      : "mp4";
+
+    // safeExt já foi definido acima conforme storage_path ou video_url
 
     const upstream = new FormData();
     upstream.append("model", "openai/gpt-4o-mini-transcribe");

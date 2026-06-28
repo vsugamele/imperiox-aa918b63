@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink, FileText, Mic } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -67,6 +67,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [engineering, setEngineering] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
   const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
@@ -187,6 +188,50 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     }
   };
 
+  const transcribeNow = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    const first = data?.media_urls?.[0];
+    if (!first) return toast.error("Sem vídeo/URL para transcrever");
+    setTranscribing(true);
+    try {
+      const isStoragePath = !/^https?:\/\//i.test(first);
+      const body: any = { swipe_id: data.id, auto_engineer: false };
+      if (isStoragePath) body.storage_path = first;
+      else body.video_url = first;
+      const { data: res, error } = await supabase.functions.invoke("swipe-video-transcribe", { body });
+      if (error) throw error;
+      toast.success("Transcrição concluída");
+      // recarrega
+      const { data: fresh } = await supabase.from("imphq_swipes" as any).select("*").eq("id", data.id).single();
+      if (fresh) setData(fresh);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao transcrever");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const saveTranscript = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setSaving(true);
+    try {
+      const blocks = { ...(data.blocks || {}) };
+      if (!blocks.narrativa) blocks.narrativa = data.raw_text || "";
+      const { error } = await supabase
+        .from("imphq_swipes" as any)
+        .update({ raw_text: data.raw_text || null, blocks } as any)
+        .eq("id", data.id);
+      if (error) throw error;
+      toast.success("Transcrição salva");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   const re = data.reverse_engineering || {};
 
@@ -220,13 +265,55 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
           </div>
         )}
 
-        <Tabs defaultValue="anatomia" className="mt-4">
-          <TabsList className={`grid w-full ${isVsl ? "grid-cols-4" : "grid-cols-3"}`}>
+        <Tabs defaultValue={data.raw_text ? "transcricao" : "anatomia"} className="mt-4">
+          <TabsList className={`grid w-full ${isVsl ? "grid-cols-5" : "grid-cols-4"}`}>
+            <TabsTrigger value="transcricao" className="text-xs gap-1"><FileText className="h-3 w-3" /> Roteiro</TabsTrigger>
             <TabsTrigger value="anatomia" className="text-xs">Anatomia</TabsTrigger>
             <TabsTrigger value="reverse" className="text-xs gap-1"><FlaskConical className="h-3 w-3" /> Eng. Reversa</TabsTrigger>
             <TabsTrigger value="motor" className="text-xs gap-1"><Wand2 className="h-3 w-3" /> Motor</TabsTrigger>
             {isVsl && <TabsTrigger value="criativos" className="text-xs gap-1"><ImageIcon className="h-3 w-3" /> Criativos</TabsTrigger>}
           </TabsList>
+
+          <TabsContent value="transcricao" className="space-y-3 mt-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">
+                Transcrição / roteiro completo
+                {data.transcribe_status && (
+                  <Badge variant="outline" className="ml-2 text-[9px] uppercase">{data.transcribe_status}</Badge>
+                )}
+              </Label>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(data.raw_text || ""); toast.success("Copiado"); }} disabled={!data.raw_text}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+                {data?.media_urls?.[0] && (
+                  <Button size="sm" variant="outline" onClick={transcribeNow} disabled={transcribing} className="gap-1">
+                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mic className="h-3 w-3" />}
+                    {data.raw_text ? "Re-transcrever" : "Transcrever vídeo"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <Textarea
+              value={data.raw_text || ""}
+              onChange={(e) => setData({ ...data, raw_text: e.target.value })}
+              placeholder="Cole aqui o roteiro/transcrição completa, ou clique em 'Transcrever vídeo' para extrair automaticamente."
+              className="bg-secondary text-sm min-h-[420px] leading-7 font-mono"
+            />
+            {data.transcribe_error && (
+              <p className="text-[11px] text-destructive">Erro última transcrição: {data.transcribe_error}</p>
+            )}
+            <div className="flex gap-2">
+              <Button onClick={saveTranscript} disabled={saving} className="flex-1 gap-1">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar roteiro
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-5">
+              Esta é a fonte de verdade que alimenta a engenharia reversa, o Motor (geração de variações) e a anatomia dos blocos.
+            </p>
+          </TabsContent>
+
 
           <TabsContent value="anatomia" className="space-y-3 mt-3">
             <div className="grid grid-cols-2 gap-2">
