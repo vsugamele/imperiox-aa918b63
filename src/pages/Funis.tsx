@@ -1562,6 +1562,24 @@ export default function Funis() {
           <DialogFooter><Button onClick={createFunil}>Criar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FunnelTemplatesDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        projects={projects}
+        onCreated={load}
+      />
+
+      <FunnelSnapshotsDialog
+        open={showSnapshots}
+        onOpenChange={setShowSnapshots}
+        funil={selectedFunil}
+        onRestore={async (canvas) => {
+          if (!selectedFunil) return;
+          await supabase.from("imphq_funis").update({ data: canvas as any }).eq("id", selectedFunil.id);
+          setSelectedFunil({ ...selectedFunil, data: canvas });
+        }}
+      />
     </div>
   );
 }
