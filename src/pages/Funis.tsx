@@ -1609,6 +1609,18 @@ export default function Funis() {
       )}
 
       {selectedFunil && <FunnelBrainCard projectId={selectedFunil.project_id} />}
+
+      {selectedFunil && (
+        <AutoBuildDialog
+          open={showAutoBuild}
+          onOpenChange={setShowAutoBuild}
+          projectId={selectedFunil.project_id}
+          funilId={selectedFunil.id}
+          onApplied={(etapas) => {
+            setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+          }}
+        />
+      )}
     </div>
   );
 }
