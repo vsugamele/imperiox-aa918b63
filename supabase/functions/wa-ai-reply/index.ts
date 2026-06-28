@@ -2284,7 +2284,7 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
           const lastExtractCount = (freshConv?.last_memory_extract_msg_count as number) || 0;
           const minutesSince = lastExtractAt ? (Date.now() - lastExtractAt) / 60000 : Infinity;
           const newMsgsSince = msgCountNow - lastExtractCount;
-          const shouldExtract = msgCountNow >= 6 && (minutesSince >= 10 || newMsgsSince >= 4);
+          const shouldExtract = msgCountNow >= 5 && (minutesSince >= 8 || newMsgsSince >= 3);
           if (shouldExtract && leadRow?.id) {
             fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/wa-memory-extract`, {
               method: "POST",
