@@ -157,14 +157,34 @@ export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsse
 
               {isOpen && (
                 <div className="bg-[#080607]/60 p-1 space-y-0.5">
-                  {done < total && !query && (
-                    <button
-                      onClick={() => onAddAll(cat.id)}
-                      className="w-full text-[10px] px-2 py-1 rounded text-pink-300 hover:bg-pink-500/10 text-left"
-                    >
-                      + Adicionar todos
-                    </button>
+                  {!query && (
+                    <div className="flex gap-1">
+                      {done < total && (
+                        <button
+                          onClick={() => onAddAll(cat.id)}
+                          className="flex-1 text-[10px] px-2 py-1 rounded text-pink-300 hover:bg-pink-500/10 text-left"
+                        >
+                          + Adicionar todos
+                        </button>
+                      )}
+                      {onRunAutoPilotCategory && (
+                        <button
+                          onClick={() => onRunAutoPilotCategory(cat.id)}
+                          disabled={autopilot?.running}
+                          className={cn(
+                            "px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 transition-colors border",
+                            autopilot?.running
+                              ? "bg-secondary/30 border-border/40 text-muted-foreground cursor-not-allowed"
+                              : "bg-violet-500/15 border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
+                          )}
+                          title="Adiciona pendentes e gera tudo desta categoria"
+                        >
+                          <Zap className="h-2.5 w-2.5" /> Gerar
+                        </button>
+                      )}
+                    </div>
                   )}
+
                   {filteredItems.map(item => {
                     const key = `${cat.id}:${item.id}`;
                     const state = keyMap.get(key);
