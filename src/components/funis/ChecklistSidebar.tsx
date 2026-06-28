@@ -12,7 +12,7 @@ const PCT_BG: Record<ColorKey, string> = {
   indigo: "bg-indigo-500/70",
   fuchsia: "bg-fuchsia-500/70",
 };
-import { ChevronDown, ChevronRight, Check, Plus, X, ListChecks, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Plus, X, ListChecks, Search, Zap, Loader2, StopCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -31,9 +31,13 @@ interface Props {
   onOpenAsset?: (catId: string, itemId: string) => void;
   open: boolean;
   onToggle: () => void;
+  // Auto-Pilot
+  onRunAutoPilotAll?: () => void;
+  onRunAutoPilotCategory?: (catId: string) => void;
+  autopilot?: { running: boolean; done: number; total: number; currentLabel: string; failed: number };
 }
 
-export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsset, open, onToggle }: Props) {
+export function ChecklistSidebar({ assets, onAdd, onRemove, onAddAll, onOpenAsset, open, onToggle, onRunAutoPilotAll, onRunAutoPilotCategory, autopilot }: Props) {
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
 
