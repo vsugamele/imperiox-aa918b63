@@ -11,10 +11,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
@@ -125,7 +126,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub">("hub");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa">("hub");
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
   const [aiGenPrompt, setAiGenPrompt] = useState("");
@@ -1436,6 +1437,9 @@ export default function Funis() {
             <Button size="sm" variant={viewMode === "ecossistema" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("ecossistema")}>
               <Network className="h-3 w-3" /> Ecossistema
             </Button>
+            <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
+              <Building2 className="h-3 w-3" /> Mapa da Empresa
+            </Button>
           </div>
           {viewMode === "funis" && (
             <>
@@ -1450,6 +1454,8 @@ export default function Funis() {
 
       {viewMode === "hub" ? (
         <ProductHubCanvas projects={projects} onProjectsReload={load} />
+      ) : viewMode === "mapa" ? (
+        <CompanyMapCanvas projects={projects} />
       ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">

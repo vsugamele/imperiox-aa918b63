@@ -18300,6 +18300,138 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_company_map_edges: {
+        Row: {
+          created_at: string
+          id: string
+          map_id: string
+          source_id: string
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_id: string
+          source_id: string
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_id?: string
+          source_id?: string
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_edges_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_company_map_edges_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_company_map_edges_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_map_nodes: {
+        Row: {
+          checklist: Json
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          label: string
+          linked_flow_id: string | null
+          linked_funnel_id: string | null
+          linked_project_id: string | null
+          map_id: string
+          notes: string | null
+          position: Json
+          size: string
+          updated_at: string
+        }
+        Insert: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          map_id: string
+          notes?: string | null
+          position?: Json
+          size?: string
+          updated_at?: string
+        }
+        Update: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          map_id?: string
+          notes?: string | null
+          position?: Json
+          size?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_nodes_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_maps: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          viewport: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          viewport?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          viewport?: Json
+        }
+        Relationships: []
+      }
       imphq_competitors: {
         Row: {
           ads_ativos: boolean | null
