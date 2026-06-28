@@ -30,6 +30,8 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
   const [presence, setPresence] = useState<ProjectPresence[]>([]);
   const [resolvedLeadIdState, setResolvedLeadIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+
 
   useEffect(() => {
     if (!leadId && !phone) return;
