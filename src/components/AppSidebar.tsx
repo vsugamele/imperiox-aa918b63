@@ -37,6 +37,7 @@ const venderItems = [
 const adsFinancasItems = [
   { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
+  { title: "Atribuição",           url: "/atribuicao", icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
 ];
 
