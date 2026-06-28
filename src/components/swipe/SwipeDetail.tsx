@@ -67,6 +67,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [engineering, setEngineering] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
   const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
