@@ -126,10 +126,17 @@ export function SiteCard({
           <Button size="sm" variant="outline" className="flex-1" onClick={onAttach}>
             <Link2 className="h-3.5 w-3.5 mr-1.5" />Anexar
           </Button>
-          <Button size="sm" className="flex-1" onClick={onUseAsBase}>
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" />Usar de base
+          <Button size="sm" variant="outline" className="flex-1" onClick={onUseAsBase}>
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" />Copy
           </Button>
         </div>
+        {onCreateEcosystem && (
+          <div onClick={stop}>
+            <Button size="sm" className="w-full gap-1.5" onClick={onCreateEcosystem}>
+              <Sparkles className="h-3.5 w-3.5" />⚡ Criar Ecossistema
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );
