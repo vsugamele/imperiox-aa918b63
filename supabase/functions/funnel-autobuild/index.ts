@@ -115,12 +115,12 @@ Deno.serve(async (req) => {
     // === LP / Captura (y=240) ===
     let lpX = 80;
     const lpStartIdx = etapas.length;
-    const lpSites = [...sites, ...projSites].slice(0, 4);
+    const lpSites = sites.slice(0, 4);
     lpSites.forEach((s: any) => {
       const tipo = String(s.tipo || "").toLowerCase();
       const mappedTipo = tipo.includes("vsl") ? "vsl" : tipo.includes("check") ? "checkout" : "pagina";
       etapas.push({
-        nome: s.nome || s.title || "Página",
+        nome: s.titulo || s.url || "Página",
         tipo: mappedTipo,
         visitantes: 0,
         conversoes: 0,
