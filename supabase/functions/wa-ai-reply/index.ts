@@ -692,6 +692,58 @@ Deno.serve(async (req) => {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
       }
 
+      // ====== MEMÓRIA DE LONGO PRAZO DO LEAD (lead_memory + histórico de compras) ======
+      let leadLongMemoryBlock = "";
+      try {
+        const mem: any = lead?.lead_memory || {};
+        const lines: string[] = [];
+        if (mem.nome_preferido) lines.push(`- Prefere ser chamado(a) de: ${String(mem.nome_preferido).slice(0, 80)}`);
+        if (mem.interesse_principal) lines.push(`- Interesse principal: ${String(mem.interesse_principal).slice(0, 150)}`);
+        if (mem.informacoes_pessoais?.profissao) lines.push(`- Profissão: ${String(mem.informacoes_pessoais.profissao).slice(0, 100)}`);
+        if (mem.informacoes_pessoais?.objetivo) lines.push(`- Objetivo declarado: ${String(mem.informacoes_pessoais.objetivo).slice(0, 200)}`);
+        const dorMem = mem.informacoes_pessoais?.dor_principal || lead?.dor_principal;
+        if (dorMem) lines.push(`- Dor principal: ${String(dorMem).slice(0, 200)}`);
+        if (mem.objecao_atual || lead?.objecao_atual) lines.push(`- ⚠️ Objeção ATUAL travando a venda: "${String(mem.objecao_atual || lead.objecao_atual).slice(0, 200)}" — sua resposta DEVE endereçá-la.`);
+        if (Array.isArray(mem.objecoes_recorrentes) && mem.objecoes_recorrentes.length) {
+          lines.push(`- Objeções recorrentes: ${mem.objecoes_recorrentes.slice(-5).join(" | ")}`);
+        }
+        if (Array.isArray(mem.gatilhos_positivos) && mem.gatilhos_positivos.length) {
+          lines.push(`- Gatilhos que funcionam com este lead: ${mem.gatilhos_positivos.slice(-5).join(" | ")}`);
+        }
+        if (Array.isArray(mem.produtos_mencionados) && mem.produtos_mencionados.length) {
+          lines.push(`- Produtos já mencionados pelo lead: ${mem.produtos_mencionados.slice(-5).join(" | ")}`);
+        }
+        if (mem.proximo_passo_sugerido) lines.push(`- 🎯 Próximo passo sugerido (da memória): ${String(mem.proximo_passo_sugerido).slice(0, 200)}`);
+        if (mem.notas_ia) lines.push(`- Notas internas: ${String(mem.notas_ia).slice(0, 250)}`);
+        if (lead?.nivel_qualificacao) lines.push(`- Nível de qualificação: ${lead.nivel_qualificacao.toUpperCase()}`);
+
+        // Histórico de compras (últimas 3 pagas)
+        if (lead?.id) {
+          try {
+            const { data: pastVendas } = await supabase
+              .from("imphq_vendas")
+              .select("produto_nome, status, valor, created_at")
+              .eq("lead_id", lead.id)
+              .in("status", ["paga", "aprovada", "approved", "paid"])
+              .order("created_at", { ascending: false })
+              .limit(3);
+            if (pastVendas && pastVendas.length) {
+              const compras = pastVendas.map((v: any) => {
+                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+                return `${v.produto_nome || "produto"}${dt ? ` em ${dt}` : ""}`;
+              }).join(" | ");
+              lines.push(`- 💰 Já comprou: ${compras} — NUNCA reofereça esses produtos; foque em upsell/cross.`);
+            }
+          } catch (_) { /* non-critical */ }
+        }
+
+        if (lines.length > 0) {
+          leadLongMemoryBlock = `\n📌 MEMÓRIA DE LONGO PRAZO DO LEAD (use SEM perguntar de novo o que já está aqui):\n${lines.join("\n")}\n`;
+        }
+      } catch (memErr: any) {
+        console.warn("[wa-ai-reply] long memory block error:", memErr?.message);
+      }
+
       // 7.1. Extração universal de dados do lead a partir da mensagem (todos os projetos).
       // Captura email/nome/profissão/dor/objeção/etc e persiste em imphq_leads sem sobrescrever.
       let extractionResult: Awaited<ReturnType<typeof extractAndPersistLeadData>> | null = null;
