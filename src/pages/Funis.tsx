@@ -103,6 +103,7 @@ export default function Funis() {
   const [showNew, setShowNew] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showAutoBuild, setShowAutoBuild] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
