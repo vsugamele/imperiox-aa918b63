@@ -151,6 +151,7 @@ const App = () => (
                 <Route path="ab-tests" element={<Navigate to="/campanhas?tab=ab-tests" replace />} />
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />
                 <Route path="tracker" element={<Tracker />} />
+                <Route path="atribuicao" element={<Atribuicao />} />
                 <Route path="referencias" element={<Referencias />} />
                 <Route path="sites" element={<Sites />} />
                 <Route path="skills" element={<Skills />} />
