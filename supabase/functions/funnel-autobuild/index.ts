@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
     const mxStartIdx = etapas.length;
     flows.slice(0, 4).forEach((f: any) => {
       etapas.push({
-        nome: f.name || "Fluxo",
+        nome: f.nome || "Fluxo",
         tipo: "whatsapp",
         visitantes: 0,
         conversoes: 0,
