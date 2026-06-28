@@ -15,8 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp } from "lucide-react";
+import { MAP_TEMPLATES } from "./mapTemplates";
+import { applyTemplate, autopopulateFromBusiness, autoLayout, exportMapPng } from "./companyMapHelpers";
+import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
   vertical:   { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
@@ -34,6 +38,7 @@ interface MapNode {
   description?: string | null; notes?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
+  show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
 }
 
@@ -60,6 +65,14 @@ function MapNodeCard({ data }: { data: any }) {
         <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[10px]">
           <span className="text-muted-foreground">Checklist</span>
           <Badge variant="outline" className="text-[9px] h-4 px-1">{done}/{total}</Badge>
+        </div>
+      )}
+      {data.show_live_kpis && data.liveStats && (
+        <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
+          <span className="text-emerald-400 font-medium">
+            R$ {(data.liveStats.revenue30d || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+          </span>
+          <span className="text-muted-foreground">{data.liveStats.leadsAbertos || 0} leads</span>
         </div>
       )}
       <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
@@ -93,7 +106,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       }
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
-    supabase.from("imphq_flows").select("id,name").then(({ data }) => setFlows((data || []) as any));
+    supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
   }, []);
 
   // load nodes/edges
@@ -111,9 +124,28 @@ function InnerMap({ projects }: { projects: any[] }) {
     })));
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
-      animated: true, style: { stroke: "#c9922a", strokeWidth: 2 },
+      animated: e.style !== "dashed",
+      label: e.label || undefined,
+      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
   }, []);
+
+  // live KPIs for project-linked nodes
+  const liveProjectIds = useMemo(
+    () => rawNodes.filter(n => n.show_live_kpis && n.linked_project_id).map(n => n.linked_project_id!),
+    [rawNodes]
+  );
+  const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
+
+  // re-inject stats into node data
+  useEffect(() => {
+    if (!liveStats) return;
+    setNodes(nds => nds.map(n => {
+      const raw = rawNodes.find(r => r.id === n.id);
+      const stats = raw?.linked_project_id ? liveStats[raw.linked_project_id] : null;
+      return { ...n, data: { ...n.data, liveStats: stats } };
+    }));
+  }, [liveStats, rawNodes]);
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
@@ -172,6 +204,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     const { error } = await supabase.from("imphq_company_map_nodes").update({
       label: selected.label, description: selected.description, notes: selected.notes,
       color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
+      show_live_kpis: !!selected.show_live_kpis,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
@@ -181,6 +214,39 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (mapId) await loadMap(mapId);
     setSelected(null);
   };
+
+  const runAutoLayout = async () => {
+    const next = autoLayout(nodes, edges);
+    setNodes(next);
+    await Promise.all(next.map(n =>
+      supabase.from("imphq_company_map_nodes").update({ position: n.position }).eq("id", n.id)
+    ));
+    toast.success("Organizado");
+  };
+
+  const handleTemplate = async (tplId: string) => {
+    if (!mapId) return;
+    const tpl = MAP_TEMPLATES.find(t => t.id === tplId);
+    if (!tpl) return;
+    if (!confirm(`Carregar template "${tpl.name}"? Os nós atuais deste mapa serão substituídos.`)) return;
+    await applyTemplate(mapId, tpl);
+    await loadMap(mapId);
+    toast.success("Template carregado");
+  };
+
+  const handleAutopopulate = async () => {
+    if (!mapId) return;
+    if (!confirm("Gerar mapa a partir dos seus projetos, fluxos e canais? Os nós atuais serão substituídos.")) return;
+    const t = toast.loading("Gerando mapa...");
+    try { await autopopulateFromBusiness(mapId); await loadMap(mapId); toast.success("Mapa gerado", { id: t }); }
+    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+  };
+
+  const handleExport = async () => {
+    try { await exportMapPng(); toast.success("PNG baixado"); }
+    catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
+  };
+
 
   const deleteNode = async () => {
     if (!selected) return;
@@ -202,6 +268,31 @@ function InnerMap({ projects }: { projects: any[] }) {
         </Select>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={createMap}>
           <Plus className="h-3 w-3" /> Novo mapa
+        </Button>
+        <div className="w-px h-5 bg-border/40 mx-1" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Sparkles className="h-3 w-3" /> Template
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[260px]">
+            {MAP_TEMPLATES.map(t => (
+              <DropdownMenuItem key={t.id} onClick={() => handleTemplate(t.id)} className="flex-col items-start gap-0.5">
+                <span className="text-sm font-medium">{t.name}</span>
+                <span className="text-[10px] text-muted-foreground">{t.description}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleAutopopulate}>
+          <Wand2 className="h-3 w-3" /> Gerar do meu negócio
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
+          <LayoutGrid className="h-3 w-3" /> Organizar
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
+          <Download className="h-3 w-3" /> PNG
         </Button>
       </div>
 
@@ -287,6 +378,14 @@ function InnerMap({ projects }: { projects: any[] }) {
                   </Select>
                 </div>
               </div>
+              {selected.linked_project_id && (
+                <label className="flex items-center gap-2 text-xs cursor-pointer p-2 rounded bg-emerald-500/5 border border-emerald-500/20">
+                  <Checkbox checked={!!selected.show_live_kpis}
+                    onCheckedChange={(v) => setSelected({ ...selected, show_live_kpis: !!v })} />
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Mostrar KPIs ao vivo (faturamento 30d + leads abertos)</span>
+                </label>
+              )}
               <div>
                 <Label className="text-xs">Fluxo (OpenFlow)</Label>
                 <Select value={selected.linked_flow_id || "none"}
