@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
+import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
@@ -102,6 +103,7 @@ export default function Funis() {
   const [showNew, setShowNew] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showAutoBuild, setShowAutoBuild] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
@@ -780,6 +782,15 @@ export default function Funis() {
           </Button>
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
             <CalendarIcon className="h-3 w-3" /> Cronograma
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 gap-1 text-xs bg-primary/90 hover:bg-primary"
+            onClick={() => setShowAutoBuild(true)}
+            disabled={!selectedFunil.project_id}
+            title={selectedFunil.project_id ? "Monta o funil a partir de produtos, fluxos, WA, e-mails, sites e anúncios do projeto" : "Selecione um projeto"}
+          >
+            <Sparkles className="h-3 w-3" /> Montar Automático
           </Button>
 
 
@@ -1598,6 +1609,18 @@ export default function Funis() {
       )}
 
       {selectedFunil && <FunnelBrainCard projectId={selectedFunil.project_id} />}
+
+      {selectedFunil && (
+        <AutoBuildDialog
+          open={showAutoBuild}
+          onOpenChange={setShowAutoBuild}
+          projectId={selectedFunil.project_id}
+          funilId={selectedFunil.id}
+          onApplied={(etapas) => {
+            setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+          }}
+        />
+      )}
     </div>
   );
 }
