@@ -783,6 +783,15 @@ export default function Funis() {
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
             <CalendarIcon className="h-3 w-3" /> Cronograma
           </Button>
+          <Button
+            size="sm"
+            className="h-7 gap-1 text-xs bg-primary/90 hover:bg-primary"
+            onClick={() => setShowAutoBuild(true)}
+            disabled={!selectedFunil.project_id}
+            title={selectedFunil.project_id ? "Monta o funil a partir de produtos, fluxos, WA, e-mails, sites e anúncios do projeto" : "Selecione um projeto"}
+          >
+            <Sparkles className="h-3 w-3" /> Montar Automático
+          </Button>
 
 
           {/* Project selector in editor */}
