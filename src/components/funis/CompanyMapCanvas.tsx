@@ -204,6 +204,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     const { error } = await supabase.from("imphq_company_map_nodes").update({
       label: selected.label, description: selected.description, notes: selected.notes,
       color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
+      show_live_kpis: !!selected.show_live_kpis,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
@@ -213,6 +214,39 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (mapId) await loadMap(mapId);
     setSelected(null);
   };
+
+  const runAutoLayout = async () => {
+    const next = autoLayout(nodes, edges);
+    setNodes(next);
+    await Promise.all(next.map(n =>
+      supabase.from("imphq_company_map_nodes").update({ position: n.position }).eq("id", n.id)
+    ));
+    toast.success("Organizado");
+  };
+
+  const handleTemplate = async (tplId: string) => {
+    if (!mapId) return;
+    const tpl = MAP_TEMPLATES.find(t => t.id === tplId);
+    if (!tpl) return;
+    if (!confirm(`Carregar template "${tpl.name}"? Os nós atuais deste mapa serão substituídos.`)) return;
+    await applyTemplate(mapId, tpl);
+    await loadMap(mapId);
+    toast.success("Template carregado");
+  };
+
+  const handleAutopopulate = async () => {
+    if (!mapId) return;
+    if (!confirm("Gerar mapa a partir dos seus projetos, fluxos e canais? Os nós atuais serão substituídos.")) return;
+    const t = toast.loading("Gerando mapa...");
+    try { await autopopulateFromBusiness(mapId); await loadMap(mapId); toast.success("Mapa gerado", { id: t }); }
+    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+  };
+
+  const handleExport = async () => {
+    try { await exportMapPng(); toast.success("PNG baixado"); }
+    catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
+  };
+
 
   const deleteNode = async () => {
     if (!selected) return;
