@@ -38,16 +38,15 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
     // Coletar dados em paralelo
-    const [projRes, flowsRes, waCampRes, emailSeqRes, sitesRes, projSitesRes, adsRes, capFormsRes] =
+    const [projRes, flowsRes, waCampRes, emailSeqRes, projSitesRes, adsRes, capFormsRes] =
       await Promise.all([
         sb.from("imphq_projects").select("id,name,briefing").eq("id", project_id).maybeSingle(),
-        sb.from("imphq_flows").select("id,name,description").eq("project_id", project_id),
-        sb.from("imphq_wa_campaigns").select("id,nome,status").eq("project_id", project_id),
+        sb.from("imphq_flows").select("id,nome").eq("project_id", project_id),
+        sb.from("imphq_wa_campaigns").select("id,name,status").eq("project_id", project_id),
         sb.from("imphq_nurture_sequences").select("id,nome").eq("project_id", project_id),
-        sb.from("imphq_sites").select("id,nome,url,tipo,screenshot_url,project_id").eq("project_id", project_id),
-        sb.from("imphq_project_sites").select("*").eq("project_id", project_id),
+        sb.from("imphq_project_sites").select("site_id,papel").eq("projeto_id", project_id),
         sb.from("imphq_ads_spend").select("campaign_name,project_id").eq("project_id", project_id).limit(20),
-        sb.from("imphq_capture_forms").select("id,nome,url").eq("project_id", project_id),
+        sb.from("imphq_capture_forms").select("id,nome").eq("project_id", project_id),
       ]);
 
     const project = projRes.data;
@@ -58,8 +57,18 @@ Deno.serve(async (req) => {
     const flows = flowsRes.data || [];
     const waCamp = waCampRes.data || [];
     const emailSeq = emailSeqRes.data || [];
-    const sites = sitesRes.data || [];
     const projSites = projSitesRes.data || [];
+
+    // Hidratar sites a partir dos site_ids
+    const siteIds = projSites.map((p: any) => p.site_id).filter(Boolean);
+    let sites: any[] = [];
+    if (siteIds.length > 0) {
+      const { data } = await sb
+        .from("imphq_sites")
+        .select("id,titulo,url,tipo")
+        .in("id", siteIds);
+      sites = data || [];
+    }
     const adsCampaigns = Array.from(
       new Set((adsRes.data || []).map((a: any) => a.campaign_name).filter(Boolean))
     ).slice(0, 5);
