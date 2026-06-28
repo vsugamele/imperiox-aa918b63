@@ -131,9 +131,6 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                       <p className="text-[10px] text-muted-foreground">{f.trigger_tipo || "—"}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      {f.project_id == null && (
-                        <Badge variant="outline" className="text-[9px]">Global</Badge>
-                      )}
                       <Badge variant={f.ativo ? "default" : "outline"} className="text-[9px]">
                         {f.ativo ? "Ativo" : "Pausado"}
                       </Badge>
