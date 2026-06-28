@@ -269,6 +269,31 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={createMap}>
           <Plus className="h-3 w-3" /> Novo mapa
         </Button>
+        <div className="w-px h-5 bg-border/40 mx-1" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Sparkles className="h-3 w-3" /> Template
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[260px]">
+            {MAP_TEMPLATES.map(t => (
+              <DropdownMenuItem key={t.id} onClick={() => handleTemplate(t.id)} className="flex-col items-start gap-0.5">
+                <span className="text-sm font-medium">{t.name}</span>
+                <span className="text-[10px] text-muted-foreground">{t.description}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleAutopopulate}>
+          <Wand2 className="h-3 w-3" /> Gerar do meu negócio
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
+          <LayoutGrid className="h-3 w-3" /> Organizar
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
+          <Download className="h-3 w-3" /> PNG
+        </Button>
       </div>
 
       {/* Palette */}
