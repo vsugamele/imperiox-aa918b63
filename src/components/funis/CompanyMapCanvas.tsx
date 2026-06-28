@@ -171,7 +171,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (!selected) return;
     const { error } = await supabase.from("imphq_company_map_nodes").update({
       label: selected.label, description: selected.description, notes: selected.notes,
-      color: selected.color, kind: selected.kind, checklist: selected.checklist,
+      color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
