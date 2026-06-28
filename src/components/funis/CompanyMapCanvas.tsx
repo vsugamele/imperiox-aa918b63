@@ -67,6 +67,14 @@ function MapNodeCard({ data }: { data: any }) {
           <Badge variant="outline" className="text-[9px] h-4 px-1">{done}/{total}</Badge>
         </div>
       )}
+      {data.show_live_kpis && data.liveStats && (
+        <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
+          <span className="text-emerald-400 font-medium">
+            R$ {(data.liveStats.revenue30d || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+          </span>
+          <span className="text-muted-foreground">{data.liveStats.leadsAbertos || 0} leads</span>
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
     </div>
   );
