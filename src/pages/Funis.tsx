@@ -11,10 +11,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
+import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
@@ -95,6 +97,8 @@ export default function Funis() {
   const [filterProject, setFilterProject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
@@ -767,6 +771,10 @@ export default function Funis() {
           <h1 className="font-display text-2xl font-bold text-primary">{selectedFunil.nome}</h1>
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
+            <History className="h-3 w-3" /> Versões
+          </Button>
+
 
           {/* Project selector in editor */}
           <Select
@@ -1411,7 +1419,14 @@ export default function Funis() {
               <Network className="h-3 w-3" /> Ecossistema
             </Button>
           </div>
-          {viewMode === "funis" && <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>}
+          {viewMode === "funis" && (
+            <>
+              <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
+                <Sparkles className="h-4 w-4" /> Templates
+              </Button>
+              <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1547,6 +1562,24 @@ export default function Funis() {
           <DialogFooter><Button onClick={createFunil}>Criar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FunnelTemplatesDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        projects={projects}
+        onCreated={load}
+      />
+
+      <FunnelSnapshotsDialog
+        open={showSnapshots}
+        onOpenChange={setShowSnapshots}
+        funil={selectedFunil}
+        onRestore={async (canvas) => {
+          if (!selectedFunil) return;
+          await supabase.from("imphq_funis").update({ data: canvas as any }).eq("id", selectedFunil.id);
+          setSelectedFunil({ ...selectedFunil, data: canvas });
+        }}
+      />
     </div>
   );
 }
