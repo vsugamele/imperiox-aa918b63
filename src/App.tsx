@@ -74,6 +74,7 @@ const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const AILearning = lazy(() => import("./pages/AILearning"));
 const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
 const Atribuicao = lazy(() => import("./pages/Atribuicao"));
+const FunilSimulador = lazy(() => import("./pages/FunilSimulador"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -138,6 +139,7 @@ const App = () => (
                 <Route path="market-intel" element={<MarketIntel />} />
                 <Route path="mentes" element={<Mentes />} />
                 <Route path="funis" element={<Funis />} />
+                <Route path="funis/simulador" element={<FunilSimulador />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
                 {/* Unified Inbox */}

@@ -15,6 +15,9 @@ import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, Externa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
+import { Link as RouterLink } from "react-router-dom";
+import { Copy, Calculator } from "lucide-react";
 import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
@@ -106,6 +109,7 @@ export default function Funis() {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showAutoBuild, setShowAutoBuild] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [cloneFunil, setCloneFunil] = useState<Funil | null>(null);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
@@ -1443,6 +1447,9 @@ export default function Funis() {
           </div>
           {viewMode === "funis" && (
             <>
+              <Button size="sm" variant="outline" asChild className="gap-1">
+                <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
                 <Sparkles className="h-4 w-4" /> Templates
               </Button>
@@ -1487,7 +1494,12 @@ export default function Funis() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-medium text-sm">{f.nome}</h3>
-                      <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Clonar funil" onClick={() => setCloneFunil(f)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
                     {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
@@ -1593,6 +1605,16 @@ export default function Funis() {
         projects={projects}
         onCreated={load}
       />
+
+      <CloneFunnelDialog
+        open={!!cloneFunil}
+        onOpenChange={(o) => !o && setCloneFunil(null)}
+        funil={cloneFunil}
+        projects={projects}
+        onDone={load}
+      />
+
+
 
       <FunnelSnapshotsDialog
         open={showSnapshots}
