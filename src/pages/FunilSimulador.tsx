@@ -47,7 +47,7 @@ export default function FunilSimulador() {
       .gte("data_ref", dateFrom);
     const vendasQ: any = supabase.from("imphq_vendas")
       .select("valor, status")
-      .eq("projeto_id", projectId)
+      .eq("project_id", projectId)
       .gte("data_venda", dateFrom);
     const [adsR, vendasR] = await Promise.all([adsQ, vendasQ]);
 
