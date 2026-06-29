@@ -413,6 +413,19 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                     </Button>
                   </div>
                 )}
+                {isAds && (
+                  <CreativeAdsActions
+                    projectId={projectId}
+                    productName={product?.nome || product?.name}
+                    itemId={asset.itemId}
+                    itemLabel={item.label}
+                    intent={item.intent}
+                    output={asset.output || ""}
+                    promptHint={item.promptHint}
+                    context={creativeCtx}
+                    onAppendOutput={(text) => onSaveOutput(asset.id, (asset.output || "") + text)}
+                  />
+                )}
                 <div className="flex gap-2">
                   <Button
                     onClick={run}
