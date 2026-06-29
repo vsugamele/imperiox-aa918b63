@@ -333,6 +333,11 @@ export default function Referencias() {
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
 
+  // Subpath relative to the project segment. The `pasta` column stores the path
+  // WITHOUT the project prefix — getVirtualPath() re-adds the project segment.
+  // currentFolder[0] is always the project name segment ("Sem Projeto" or the project's name).
+  const currentSubPath = currentFolder.length > 1 ? currentFolder.slice(1).join("/") : "";
+
   // Normalize a segment for use in a path (no slashes)
   const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
 
