@@ -41,7 +41,7 @@ export default function FunilSimulador() {
     setLoading(true);
     const dateFrom = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-    const [adsR, vendasR] = await Promise.all([
+    const queries: PromiseLike<any>[] = [
       supabase.from("imphq_ads_spend")
         .select("valor, impressoes, cliques, checkouts_iniciados")
         .eq("project_id", projectId)
@@ -50,7 +50,8 @@ export default function FunilSimulador() {
         .select("valor, status")
         .eq("projeto_id", projectId)
         .gte("data_venda", dateFrom),
-    ] as any);
+    ];
+    const [adsR, vendasR] = await Promise.all(queries);
 
     const spend = (adsR.data || []).reduce((s: number, r: any) => s + (+r.valor || 0), 0);
     const impressoes = (adsR.data || []).reduce((s: number, r: any) => s + (+r.impressoes || 0), 0);
