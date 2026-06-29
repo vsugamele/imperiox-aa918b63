@@ -1606,6 +1606,16 @@ export default function Funis() {
         onCreated={load}
       />
 
+      <CloneFunnelDialog
+        open={!!cloneFunil}
+        onOpenChange={(o) => !o && setCloneFunil(null)}
+        funil={cloneFunil}
+        projects={projects}
+        onDone={load}
+      />
+
+
+
       <FunnelSnapshotsDialog
         open={showSnapshots}
         onOpenChange={setShowSnapshots}
