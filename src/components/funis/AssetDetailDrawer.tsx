@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
 import { NodeCopyDialog } from "./NodeCopyDialog";
+import { CreativeAdsActions } from "./CreativeAdsActions";
+import { useCreativeContext } from "@/hooks/useCreativeContext";
 
 
 export interface HubAsset {
@@ -45,6 +47,8 @@ export function AssetDetailDrawer({ open, onClose, asset, product, products = []
   const [converting, setConverting] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const isChannel = asset?.catId === "canais";
+  const isAds = asset?.catId === "ads";
+  const creativeCtx = useCreativeContext(isAds ? projectId : undefined);
   const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
   useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
   if (!asset) return null;
@@ -66,9 +70,17 @@ NICHO: ${product.nicho || "—"}
 PÚBLICO: ${product.publico || product.avatar || "—"}`
         : "Sem produto vinculado.";
 
+      const ctxBlock = isAds ? [
+        creativeCtx.avatar && `### AVATAR DO PROJETO\n${creativeCtx.avatar}`,
+        creativeCtx.branding && `### BRANDING (use no visual/tom)\n${creativeCtx.branding}`,
+        creativeCtx.winners && `### CRIATIVOS VENCEDORES (referência de estilo)\n${creativeCtx.winners}`,
+      ].filter(Boolean).join("\n\n") : "";
+
       const input = `${item.promptHint}
 
 ${productSummary}
+
+${ctxBlock}
 
 Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. Cada bloco com 3-7 linhas práticas e específicas. Pt-BR.`;
 
@@ -400,6 +412,19 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                       <Shield className="h-3 w-3 mr-1" /> Blindar Provas
                     </Button>
                   </div>
+                )}
+                {isAds && (
+                  <CreativeAdsActions
+                    projectId={projectId}
+                    productName={product?.nome || product?.name}
+                    itemId={asset.itemId}
+                    itemLabel={item.label}
+                    intent={item.intent}
+                    output={asset.output || ""}
+                    promptHint={item.promptHint}
+                    context={creativeCtx}
+                    onAppendOutput={(text) => onSaveOutput(asset.id, (asset.output || "") + text)}
+                  />
                 )}
                 <div className="flex gap-2">
                   <Button
