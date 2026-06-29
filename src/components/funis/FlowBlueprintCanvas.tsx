@@ -60,6 +60,10 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const [nodeStats, setNodeStats] = useState<Record<string, NodeStat>>({});
   const [variantsNode, setVariantsNode] = useState<{ id: string; title: string; copy: string } | null>(null);
+  const [ctxTipo, setCtxTipo] = useState<ImageTipo>("mockup_pagina");
+  const [ctxExtra, setCtxExtra] = useState("");
+  const [ctxRefUrl, setCtxRefUrl] = useState("");
+  const [ctxLoading, setCtxLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
