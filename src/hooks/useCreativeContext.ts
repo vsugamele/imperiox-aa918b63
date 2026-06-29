@@ -27,11 +27,11 @@ export function useCreativeContext(projectId?: string): CreativeContext {
     let cancel = false;
     (async () => {
       try {
-        const [{ data: proj }, { data: ads }] = await Promise.all([
-          supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle() as any,
-          supabase.from("imphq_meta_ads_insights").select("ad_name, ctr, conversions")
-            .eq("project_id", projectId).order("ctr", { ascending: false }).limit(3) as any,
-        ]);
+        const { data: proj } = await (supabase
+          .from("imphq_projects")
+          .select("data")
+          .eq("id", projectId)
+          .maybeSingle() as any);
 
         const d: any = (() => {
           const raw = proj?.data;
@@ -41,10 +41,7 @@ export function useCreativeContext(projectId?: string): CreativeContext {
         const briefing = d?.briefing || d || {};
         const avatar = formatAvatar(briefing);
         const branding = formatBranding(briefing);
-        const winners = (ads || [])
-          .filter((a: any) => (a.ctr ?? 0) > 0.02)
-          .map((a: any) => `• ${a.ad_name} (CTR ${(a.ctr * 100).toFixed(2)}%)`)
-          .join("\n") || "";
+        const winners = "";
 
         if (!cancel) setCtx({ avatar, branding, winners, loading: false });
       } catch {
