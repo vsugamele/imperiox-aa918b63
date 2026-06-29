@@ -504,7 +504,7 @@ export default function Referencias() {
         image_url: isVid ? null : url,
         url: isVid ? url : null,
         project_id: filterProject !== "all" ? filterProject : null,
-        pasta: currentFolder.length > 0 ? currentFolderPath : (filterPasta !== "all" ? filterPasta : null),
+        pasta: currentSubPath || (filterPasta !== "all" ? filterPasta : null),
         tags: [],
         score: 0,
       } as any);
