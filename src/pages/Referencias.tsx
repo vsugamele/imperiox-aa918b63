@@ -444,7 +444,7 @@ export default function Referencias() {
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
-    const pastaValue = form.pasta || (currentFolder.length > 0 ? currentFolderPath : null);
+    const pastaValue = form.pasta || (currentSubPath || null);
     const { error } = await supabase.from("imphq_referencias").insert({
       id, titulo: form.titulo, tipo: form.tipo || "criativo",
       url: form.url || null, image_url: form.image_url || null,
