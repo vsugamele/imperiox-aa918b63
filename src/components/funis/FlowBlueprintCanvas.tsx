@@ -12,6 +12,14 @@ import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
 import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
 import { FlowVariantsPanel } from "./FlowVariantsPanel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type ImageTipo = "mockup_pagina" | "mensagem_autoridade" | "icone";
+const TIPO_LABEL: Record<ImageTipo, string> = {
+  mockup_pagina: "🖥️ Mockup de página (LP/VSL/checkout)",
+  mensagem_autoridade: "💎 Mensagem de autoridade (WhatsApp)",
+  icone: "✨ Ícone/ilustração do passo",
+};
 
 const NODE_W = 280;
 const HEADER_H = 36;
@@ -52,6 +60,10 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const [nodeStats, setNodeStats] = useState<Record<string, NodeStat>>({});
   const [variantsNode, setVariantsNode] = useState<{ id: string; title: string; copy: string } | null>(null);
+  const [ctxTipo, setCtxTipo] = useState<ImageTipo>("mockup_pagina");
+  const [ctxExtra, setCtxExtra] = useState("");
+  const [ctxRefUrl, setCtxRefUrl] = useState("");
+  const [ctxLoading, setCtxLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -105,6 +117,32 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       toast.success("Gerando imagem...");
     }
     setTimeout(() => setRegenLoading(null), 8000);
+  };
+
+  const genWithContext = async (blockId: string) => {
+    setCtxLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("flow-image-context", {
+        body: { blueprint_id: blueprintId, block_id: blockId, tipo: ctxTipo, extra: ctxExtra, reference_url: ctxRefUrl || undefined },
+      });
+      if (error) throw error;
+      toast.success("Imagem gerada com contexto!");
+      const { data: bp } = await supabase.from("imphq_flow_blueprints").select("blueprint").eq("id", blueprintId).maybeSingle();
+      if (bp) setBlueprint(bp.blueprint as any);
+      setCtxExtra(""); setCtxRefUrl("");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar");
+    } finally {
+      setCtxLoading(false);
+    }
+  };
+
+  const uploadRef = async (file: File) => {
+    const path = `refs/${blueprintId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("flow-media").upload(path, file, { upsert: true });
+    if (error) { toast.error(error.message); return; }
+    const { data: signed } = await supabase.storage.from("flow-media").createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (signed?.signedUrl) { setCtxRefUrl(signed.signedUrl); toast.success("Referência anexada"); }
   };
 
   const onCanvasMouseDown = (e: React.MouseEvent) => {
@@ -342,9 +380,38 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       rows={4}
                     />
                   </div>
-                  <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5">
-                    <ImagePlus className="h-3.5 w-3.5" /> Gerar/regenerar imagem
+                  <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5" variant="outline">
+                    <ImagePlus className="h-3.5 w-3.5" /> Gerar do prompt cru
                   </Button>
+
+                  <div className="mt-4 rounded-md border border-pink-500/30 bg-pink-500/5 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-pink-200 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Gerar com contexto do funil</p>
+                    <p className="text-[10px] text-muted-foreground">Usa branding, avatar e sites de referência vinculados ao projeto.</p>
+                    <div>
+                      <Label className="text-[10px]">Tipo</Label>
+                      <Select value={ctxTipo} onValueChange={(v) => setCtxTipo(v as ImageTipo)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(TIPO_LABEL) as ImageTipo[]).map(k => (
+                            <SelectItem key={k} value={k} className="text-xs">{TIPO_LABEL[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Instruções extras (opcional)</Label>
+                      <Textarea value={ctxExtra} onChange={(e) => setCtxExtra(e.target.value)} rows={2} placeholder="ex: destaque o depoimento da Maria, paleta mais escura..." className="text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">Imagem de referência (opcional)</Label>
+                      <Input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRef(f); }} className="text-xs h-8" />
+                      {ctxRefUrl && <p className="text-[10px] text-emerald-300 mt-1 truncate">✓ {ctxRefUrl.split("/").pop()}</p>}
+                    </div>
+                    <Button size="sm" onClick={() => genWithContext(editing.blockId)} disabled={ctxLoading} className="w-full gap-1.5 bg-pink-600 hover:bg-pink-700">
+                      {ctxLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Gerar com contexto
+                    </Button>
+                  </div>
                 </>
               )}
               {editingBlock.type === "redirect" && (
