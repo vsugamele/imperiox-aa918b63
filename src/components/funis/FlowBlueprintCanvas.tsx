@@ -12,6 +12,14 @@ import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
 import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
 import { FlowVariantsPanel } from "./FlowVariantsPanel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type ImageTipo = "mockup_pagina" | "mensagem_autoridade" | "icone";
+const TIPO_LABEL: Record<ImageTipo, string> = {
+  mockup_pagina: "🖥️ Mockup de página (LP/VSL/checkout)",
+  mensagem_autoridade: "💎 Mensagem de autoridade (WhatsApp)",
+  icone: "✨ Ícone/ilustração do passo",
+};
 
 const NODE_W = 280;
 const HEADER_H = 36;
