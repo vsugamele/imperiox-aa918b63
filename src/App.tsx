@@ -139,6 +139,7 @@ const App = () => (
                 <Route path="market-intel" element={<MarketIntel />} />
                 <Route path="mentes" element={<Mentes />} />
                 <Route path="funis" element={<Funis />} />
+                <Route path="funis/simulador" element={<FunilSimulador />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
                 {/* Unified Inbox */}
