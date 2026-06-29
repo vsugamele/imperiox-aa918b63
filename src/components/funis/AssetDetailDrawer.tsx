@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isDslOutput, dslToBlueprint } from "@/lib/dsl-parser";
 import { isChannelOutput, parseChannelConfig, serializeChannelConfig, type ChannelConfig } from "@/lib/channel-config";
 import { NodeCopyDialog } from "./NodeCopyDialog";
+import { CreativeAdsActions } from "./CreativeAdsActions";
+import { useCreativeContext } from "@/hooks/useCreativeContext";
 
 
 export interface HubAsset {
