@@ -242,11 +242,29 @@ export default function Referencias() {
     setProjects(projs);
     const projMap = Object.fromEntries(projs.map((p: any) => [p.id, p.name]));
 
-    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => ({
-      ...r,
-      source: "manual" as SourceType,
-      is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
-    }));
+    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => {
+      // Auto-repair legacy rows where `pasta` was saved with the project segment
+      // prefix (bug pré-fix). Strip the leading "<ProjectName>/" or "Sem Projeto/".
+      let pasta = r.pasta as string | null;
+      if (pasta) {
+        const projSeg = (projMap[r.project_id] || "").replace(/\//g, "-").trim() || (r.project_id ? "Projeto" : "Sem Projeto");
+        if (pasta === projSeg) {
+          pasta = null;
+        } else if (pasta.startsWith(projSeg + "/")) {
+          pasta = pasta.slice(projSeg.length + 1);
+        }
+        if (pasta !== r.pasta) {
+          // Fire-and-forget DB cleanup
+          supabase.from("imphq_referencias").update({ pasta }).eq("id", r.id).then(() => {});
+        }
+      }
+      return {
+        ...r,
+        pasta,
+        source: "manual" as SourceType,
+        is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
+      };
+    });
 
     const libraryRefs: Ref[] = ((lRes.data || []) as any[])
       .filter((m: any) => m.file_type === "image" || m.file_type === "video")
