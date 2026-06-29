@@ -242,11 +242,29 @@ export default function Referencias() {
     setProjects(projs);
     const projMap = Object.fromEntries(projs.map((p: any) => [p.id, p.name]));
 
-    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => ({
-      ...r,
-      source: "manual" as SourceType,
-      is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
-    }));
+    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => {
+      // Auto-repair legacy rows where `pasta` was saved with the project segment
+      // prefix (bug pré-fix). Strip the leading "<ProjectName>/" or "Sem Projeto/".
+      let pasta = r.pasta as string | null;
+      if (pasta) {
+        const projSeg = (projMap[r.project_id] || "").replace(/\//g, "-").trim() || (r.project_id ? "Projeto" : "Sem Projeto");
+        if (pasta === projSeg) {
+          pasta = null;
+        } else if (pasta.startsWith(projSeg + "/")) {
+          pasta = pasta.slice(projSeg.length + 1);
+        }
+        if (pasta !== r.pasta) {
+          // Fire-and-forget DB cleanup
+          supabase.from("imphq_referencias").update({ pasta }).eq("id", r.id).then(() => {});
+        }
+      }
+      return {
+        ...r,
+        pasta,
+        source: "manual" as SourceType,
+        is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
+      };
+    });
 
     const libraryRefs: Ref[] = ((lRes.data || []) as any[])
       .filter((m: any) => m.file_type === "image" || m.file_type === "video")
@@ -332,6 +350,11 @@ export default function Referencias() {
 
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
+
+  // Subpath relative to the project segment. The `pasta` column stores the path
+  // WITHOUT the project prefix — getVirtualPath() re-adds the project segment.
+  // currentFolder[0] is always the project name segment ("Sem Projeto" or the project's name).
+  const currentSubPath = currentFolder.length > 1 ? currentFolder.slice(1).join("/") : "";
 
   // Normalize a segment for use in a path (no slashes)
   const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
@@ -439,7 +462,7 @@ export default function Referencias() {
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
-    const pastaValue = form.pasta || (currentFolder.length > 0 ? currentFolderPath : null);
+    const pastaValue = form.pasta || (currentSubPath || null);
     const { error } = await supabase.from("imphq_referencias").insert({
       id, titulo: form.titulo, tipo: form.tipo || "criativo",
       url: form.url || null, image_url: form.image_url || null,
@@ -499,7 +522,7 @@ export default function Referencias() {
         image_url: isVid ? null : url,
         url: isVid ? url : null,
         project_id: filterProject !== "all" ? filterProject : null,
-        pasta: currentFolder.length > 0 ? currentFolderPath : (filterPasta !== "all" ? filterPasta : null),
+        pasta: currentSubPath || (filterPasta !== "all" ? filterPasta : null),
         tags: [],
         score: 0,
       } as any);
