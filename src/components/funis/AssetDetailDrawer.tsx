@@ -47,6 +47,8 @@ export function AssetDetailDrawer({ open, onClose, asset, product, products = []
   const [converting, setConverting] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const isChannel = asset?.catId === "canais";
+  const isAds = asset?.catId === "ads";
+  const creativeCtx = useCreativeContext(isAds ? projectId : undefined);
   const [channel, setChannel] = useState<ChannelConfig>(parseChannelConfig(asset?.output));
   useEffect(() => { setChannel(parseChannelConfig(asset?.output)); }, [asset?.id, asset?.output]);
   if (!asset) return null;
