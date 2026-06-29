@@ -1447,6 +1447,9 @@ export default function Funis() {
           </div>
           {viewMode === "funis" && (
             <>
+              <Button size="sm" variant="outline" asChild className="gap-1">
+                <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
                 <Sparkles className="h-4 w-4" /> Templates
               </Button>
