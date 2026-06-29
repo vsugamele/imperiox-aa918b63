@@ -70,9 +70,17 @@ NICHO: ${product.nicho || "—"}
 PÚBLICO: ${product.publico || product.avatar || "—"}`
         : "Sem produto vinculado.";
 
+      const ctxBlock = isAds ? [
+        creativeCtx.avatar && `### AVATAR DO PROJETO\n${creativeCtx.avatar}`,
+        creativeCtx.branding && `### BRANDING (use no visual/tom)\n${creativeCtx.branding}`,
+        creativeCtx.winners && `### CRIATIVOS VENCEDORES (referência de estilo)\n${creativeCtx.winners}`,
+      ].filter(Boolean).join("\n\n") : "";
+
       const input = `${item.promptHint}
 
 ${productSummary}
+
+${ctxBlock}
 
 Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. Cada bloco com 3-7 linhas práticas e específicas. Pt-BR.`;
 
