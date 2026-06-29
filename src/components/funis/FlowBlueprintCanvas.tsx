@@ -119,6 +119,32 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     setTimeout(() => setRegenLoading(null), 8000);
   };
 
+  const genWithContext = async (blockId: string) => {
+    setCtxLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("flow-image-context", {
+        body: { blueprint_id: blueprintId, block_id: blockId, tipo: ctxTipo, extra: ctxExtra, reference_url: ctxRefUrl || undefined },
+      });
+      if (error) throw error;
+      toast.success("Imagem gerada com contexto!");
+      const { data: bp } = await supabase.from("imphq_flow_blueprints").select("blueprint").eq("id", blueprintId).maybeSingle();
+      if (bp) setBlueprint(bp.blueprint as any);
+      setCtxExtra(""); setCtxRefUrl("");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar");
+    } finally {
+      setCtxLoading(false);
+    }
+  };
+
+  const uploadRef = async (file: File) => {
+    const path = `refs/${blueprintId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("flow-media").upload(path, file, { upsert: true });
+    if (error) { toast.error(error.message); return; }
+    const { data: signed } = await supabase.storage.from("flow-media").createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (signed?.signedUrl) { setCtxRefUrl(signed.signedUrl); toast.success("Referência anexada"); }
+  };
+
   const onCanvasMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
     setPanning({ x: e.clientX - pan.x, y: e.clientY - pan.y });
