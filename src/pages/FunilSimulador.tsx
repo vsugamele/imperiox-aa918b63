@@ -41,17 +41,15 @@ export default function FunilSimulador() {
     setLoading(true);
     const dateFrom = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-    const queries: PromiseLike<any>[] = [
-      supabase.from("imphq_ads_spend")
-        .select("valor, impressoes, cliques, checkouts_iniciados")
-        .eq("project_id", projectId)
-        .gte("data_ref", dateFrom),
-      supabase.from("imphq_vendas")
-        .select("valor, status")
-        .eq("projeto_id", projectId)
-        .gte("data_venda", dateFrom),
-    ];
-    const [adsR, vendasR] = await Promise.all(queries);
+    const adsQ: any = supabase.from("imphq_ads_spend")
+      .select("valor, impressoes, cliques, checkouts_iniciados")
+      .eq("project_id", projectId)
+      .gte("data_ref", dateFrom);
+    const vendasQ: any = supabase.from("imphq_vendas")
+      .select("valor, status")
+      .eq("projeto_id", projectId)
+      .gte("data_venda", dateFrom);
+    const [adsR, vendasR] = await Promise.all([adsQ, vendasQ]);
 
     const spend = (adsR.data || []).reduce((s: number, r: any) => s + (+r.valor || 0), 0);
     const impressoes = (adsR.data || []).reduce((s: number, r: any) => s + (+r.impressoes || 0), 0);
