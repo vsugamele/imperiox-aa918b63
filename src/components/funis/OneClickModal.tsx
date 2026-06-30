@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 
-type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda";
+type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda"|"hub";
 
 const STEP_LABELS: Record<Step, string> = {
   avatar: "🧠 Avatar (4 camadas)",
@@ -20,9 +20,11 @@ const STEP_LABELS: Record<Step, string> = {
   imagens: "🖼️ Imagens (5 mockups)",
   whatsapp_x1: "💬 Sequência WhatsApp X1",
   fluxos_pos_venda: "⚙️ Fluxos pós-venda (3 OpenFlow)",
+  hub: "🗺️ Montar funil no Hub",
 };
 
 const ALL_STEPS: Step[] = ["avatar","vsl","lp","angulos","reels","imagens","whatsapp_x1","fluxos_pos_venda"];
+const DISPLAY_STEPS: Step[] = [...ALL_STEPS, "hub"];
 
 type StepState = "pending" | "running" | "done" | "error";
 
