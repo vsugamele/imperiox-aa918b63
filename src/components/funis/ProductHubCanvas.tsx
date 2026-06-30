@@ -48,6 +48,7 @@ interface Project {
 interface Props {
   projects: Project[];
   onProjectsReload?: () => void | Promise<void>;
+  initialProjectId?: string | null;
 }
 
 const PRODUCT_NODE_W = 260;
