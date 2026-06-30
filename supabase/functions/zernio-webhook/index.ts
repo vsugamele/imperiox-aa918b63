@@ -1,5 +1,6 @@
 // Webhook do Zernio — recebe DMs/comentários do Zernio, traduz para Meta e encaminha para instagram-webhook
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { runCommentTrigger, runDmTrigger } from "../_shared/ig-trigger-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
