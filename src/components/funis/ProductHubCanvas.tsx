@@ -108,6 +108,9 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   };
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const [hackingOpen, setHackingOpen] = useState(false);
+  const [copyDialog, setCopyDialog] = useState<{ nodeId: string; assetKind?: string; assetLabel?: string } | null>(null);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
