@@ -1448,11 +1448,11 @@ export default function Funis() {
               <Building2 className="h-3 w-3" /> Mapa da Empresa
             </Button>
           </div>
+          <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
+            <Zap className="h-4 w-4" /> One Click
+          </Button>
           {viewMode === "funis" && (
             <>
-              <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
-                <Zap className="h-4 w-4" /> Corte Express
-              </Button>
               <Button size="sm" variant="outline" asChild className="gap-1">
                 <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
               </Button>
