@@ -1656,7 +1656,16 @@ export default function Funis() {
         />
       )}
 
-      <CorteExpressModal open={showCorteExpress} onOpenChange={setShowCorteExpress} />
+      <OneClickModal
+        open={showCorteExpress}
+        onOpenChange={setShowCorteExpress}
+        onComplete={(pid) => {
+          setHubProjectId(pid);
+          setViewMode("hub");
+          load();
+          setTimeout(() => setShowCorteExpress(false), 1200);
+        }}
+      />
     </div>
   );
 }
