@@ -147,6 +147,21 @@ Deno.serve(async (req) => {
       } else if (logEntry) {
         await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
       }
+
+      // 🔥 Dispara automação de comentário (reply público + DM privado)
+      try {
+        await runCommentTrigger({
+          supa,
+          projectId,
+          accountId: accId,
+          mediaId: mediaId || null,
+          commentId,
+          commentText: text || "",
+          fromUsername,
+        });
+      } catch (e: any) {
+        console.warn(`[zernio-webhook] runCommentTrigger err: ${e?.message || e}`);
+      }
       return new Response("OK", { status: 200 });
     }
 
