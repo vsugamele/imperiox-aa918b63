@@ -1110,6 +1110,8 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
             );
           })}
         </div>
+          );
+        })()}
       </div>
 
       {pnlOpen && (
