@@ -67,7 +67,7 @@ async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPo
         from_username: c.username || c.from?.username || null,
         text: c.text || null,
         created_at: c.timestamp || new Date().toISOString(),
-      });
+      }, { projectId: account.project_id, accountId: account.id });
     }
   }
 }
