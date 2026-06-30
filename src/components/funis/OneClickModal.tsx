@@ -183,6 +183,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       setAudit(null);
       setAuditState("pending");
       setInventario(null);
+      setInvScore(null); setInvBlocos(null); setTopGaps([]); setOndas(null); setNextAction("");
       setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
