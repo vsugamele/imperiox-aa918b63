@@ -156,7 +156,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow. O funil gerado aparece direto no Hub do projeto.
+            Digite o nome do produto. O Avatar roda primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp X1 rodam <strong>em paralelo</strong> (3x mais rápido). Por fim o funil é montado direto no <strong>Hub</strong> do projeto, com cada ativo posicionado em sua faixa (Aquisição / Conversão / Retenção).
           </DialogDescription>
         </DialogHeader>
 
