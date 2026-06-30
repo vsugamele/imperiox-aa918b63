@@ -109,6 +109,7 @@ export default function Funis() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showAutoBuild, setShowAutoBuild] = useState(false);
+  const [showCorteExpress, setShowCorteExpress] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [cloneFunil, setCloneFunil] = useState<Funil | null>(null);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
