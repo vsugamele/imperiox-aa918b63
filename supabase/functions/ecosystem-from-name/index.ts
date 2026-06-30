@@ -251,19 +251,17 @@ Deno.serve(async (req) => {
               },
             },
           });
-          const rows = (reels.reels || []).map((r: any) => ({
-            user_id: userId, project_id: projectId, formato: "video_script",
-            angulo: r.estrutura, headline_copy: r.hook,
-            prompt_usado: `${r.roteiro_completo}\n\nCTA: ${r.cta}`,
-            aprovado: false, metadata: { origem: "corte-express", skill: "roteiros-virais-reels" },
-          }));
-          let ids: string[] = [];
-          if (rows.length) {
-            const { data } = await sb.from("imphq_creative_assets").insert(rows).select("id");
-            ids = (data || []).map((r: any) => r.id);
-          }
-          resultado.etapas.reels = { ok: true, count: ids.length, ids };
-          emit({ type: "step_done", step: "reels", preview: `${ids.length} roteiros de Reels` });
+          const consolidado = (reels.reels || []).map((r: any, i: number) =>
+            `## Reel ${i + 1} — ${r.estrutura}\n**Hook (3s):** ${r.hook}\n\n${r.roteiro_completo}\n\n**CTA:** ${r.cta}`
+          ).join("\n\n---\n\n");
+          const { data: swipe } = await sb.from("imphq_swipes").insert({
+            user_id: userId, project_id: projectId,
+            title: `5 Roteiros Reels — ${produto_nome}`, formato: "reels",
+            plataforma: "instagram", status: "rascunho",
+            raw_text: consolidado, media_type: "text", blocks: reels.reels || [],
+          }).select("id").maybeSingle();
+          resultado.etapas.reels = { ok: true, swipe_id: swipe?.id, count: (reels.reels || []).length };
+          emit({ type: "step_done", step: "reels", preview: `${(reels.reels || []).length} roteiros de Reels` });
         } catch (e: any) {
           resultado.etapas.reels = { ok: false, error: String(e?.message || e) };
           emit({ type: "step_error", step: "reels", error: String(e?.message || e) });
