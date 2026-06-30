@@ -445,8 +445,76 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                     )}
                   </div>
                 )}
+                {inventario && invScore !== null && (
+                  <div className="space-y-3 border-t border-primary/20 pt-3">
+                    {/* Score */}
+                    <div className="flex items-center gap-3">
+                      <div className={`text-3xl font-bold ${invScore >= 70 ? "text-green-400" : invScore >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                        {invScore}<span className="text-sm text-muted-foreground">/100</span>
+                      </div>
+                      <div className="flex-1 grid grid-cols-3 gap-1 text-[10px]">
+                        {invBlocos && (Object.entries(invBlocos)).map(([b, v]) => (
+                          <div key={b} className="rounded bg-background/40 p-1.5 text-center">
+                            <div className="text-muted-foreground">{b}</div>
+                            <div className="font-semibold">{v.score}%</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {nextAction && <div className="text-xs text-primary">🎯 {nextAction}</div>}
+
+                    {/* Top gaps */}
+                    {topGaps.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Top gaps prioritários:</div>
+                        {topGaps.slice(0, 5).map((g, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-background/40">
+                            <span>{g.partial ? "⚠️" : "❌"} {g.label}</span>
+                            <span className="text-muted-foreground text-[10px]">{g.bloco} • esforço {g.esforco}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 3 ondas */}
+                    {ondas && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        {[
+                          { key: "onda1", label: "⚡ Onda 1 — Quick wins", items: ondas.onda1 },
+                          { key: "onda2", label: "🏗️ Onda 2 — Estrutura", items: ondas.onda2 },
+                          { key: "onda3", label: "🎯 Onda 3 — Otimização", items: ondas.onda3 },
+                        ].map((o) => (
+                          <div key={o.key} className="rounded border border-border/40 bg-background/40 p-2 space-y-1">
+                            <div className="font-medium">{o.label}</div>
+                            {o.items.length === 0 && <div className="text-muted-foreground text-[10px]">Nada pendente</div>}
+                            {o.items.map((it: any, i: number) => (
+                              <div key={i} className="text-[11px] text-muted-foreground">• {it.label}</div>
+                            ))}
+                            {o.items.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-7 text-[11px] mt-1"
+                                onClick={() => {
+                                  const steps = new Set<Step>();
+                                  o.items.forEach((it: any) => {
+                                    if (ALL_STEPS.includes(it.etapa as Step)) steps.add(it.etapa as Step);
+                                  });
+                                  setEtapasSel(steps);
+                                  toast.success(`${steps.size} etapas selecionadas para esta onda`);
+                                }}
+                              >
+                                Selecionar esta onda
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {inventario && (
-                  <p className="text-xs text-muted-foreground">Etapas marcadas abaixo serão geradas para preencher os gaps. Avatar existente é reaproveitado automaticamente.</p>
+                  <p className="text-xs text-muted-foreground">Etapas marcadas abaixo serão geradas para preencher os gaps. Avatar existente é reaproveitado.</p>
                 )}
               </div>
             )}
