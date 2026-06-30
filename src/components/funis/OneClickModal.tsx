@@ -72,6 +72,12 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
   // Inventário (modo organizar)
   const [inventario, setInventario] = useState<Record<string, InvStatus> | null>(null);
+  const [estrategia, setEstrategia] = useState<Estrategia>("perpetuo");
+  const [invScore, setInvScore] = useState<number | null>(null);
+  const [invBlocos, setInvBlocos] = useState<Record<string, { score: number }> | null>(null);
+  const [topGaps, setTopGaps] = useState<any[]>([]);
+  const [ondas, setOndas] = useState<{ onda1: any[]; onda2: any[]; onda3: any[] } | null>(null);
+  const [nextAction, setNextAction] = useState<string>("");
   const [loadingInv, setLoadingInv] = useState(false);
 
   const [rodando, setRodando] = useState(false);
