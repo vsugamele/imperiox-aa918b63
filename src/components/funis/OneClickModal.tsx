@@ -151,10 +151,10 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       <DialogContent className="bg-secondary/40 max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl font-serif text-primary">
-            <Zap className="h-5 w-5" /> Corte Express — Funil em 1 clique
+            <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow para entregar um funil completo.
+            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow. O funil gerado aparece direto no Hub do projeto.
           </DialogDescription>
         </DialogHeader>
 
