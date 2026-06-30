@@ -45,7 +45,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [etapasSel, setEtapasSel] = useState<Set<Step>>(new Set(ALL_STEPS));
   const [rodando, setRodando] = useState(false);
   const [progresso, setProgresso] = useState<Record<Step, { state: StepState; preview?: string; error?: string }>>(
-    Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any
+    Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any
   );
   const [finalProjectId, setFinalProjectId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
