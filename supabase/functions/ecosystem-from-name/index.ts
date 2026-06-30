@@ -34,6 +34,7 @@ interface Input {
   etapas?: Step[];
   swipe_id?: string;       // referência opcional de Swipefiles para inspirar VSL/LP
   skip_audit?: boolean;    // pular auditoria automática no final
+  modo?: "criar" | "complementar"; // complementar: reaproveita avatar existente
 }
 
 Deno.serve(async (req) => {
