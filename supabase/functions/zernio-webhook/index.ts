@@ -1,5 +1,6 @@
 // Webhook do Zernio — recebe DMs/comentários do Zernio, traduz para Meta e encaminha para instagram-webhook
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { runCommentTrigger, runDmTrigger } from "../_shared/ig-trigger-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -145,6 +146,21 @@ Deno.serve(async (req) => {
         if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: upErr.message }).eq("id", logEntry.id);
       } else if (logEntry) {
         await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      }
+
+      // 🔥 Dispara automação de comentário (reply público + DM privado)
+      try {
+        await runCommentTrigger({
+          supa,
+          projectId,
+          accountId: accId,
+          mediaId: mediaId || null,
+          commentId,
+          commentText: text || "",
+          fromUsername,
+        });
+      } catch (e: any) {
+        console.warn(`[zernio-webhook] runCommentTrigger err: ${e?.message || e}`);
       }
       return new Response("OK", { status: 200 });
     }
@@ -426,6 +442,31 @@ Deno.serve(async (req) => {
       await supa.from("imphq_ig_accounts")
         .update({ updated_at: new Date().toISOString() } as any)
         .eq("id", dbAccId);
+    }
+
+    // 🔥 Dispara automação de DM/Story (story_reply, story_mention ou DM normal)
+    if (!isOutbound && dbAccId && senderId) {
+      try {
+        const att = attachments[0] || null;
+        const attType = String(att?.type || "").toLowerCase();
+        const isStoryMention = attType === "story_mention" || attType === "story";
+        const isStoryReply = !!(message?.replyTo?.story || message?.reply_to?.story || conversation?.replyTo?.story);
+        const evt: "dm" | "story" | "story_mention" = isStoryMention
+          ? "story_mention"
+          : isStoryReply ? "story" : "dm";
+        await runDmTrigger({
+          supa,
+          projectId,
+          accountId: dbAccId,
+          participantId: senderId,
+          content: text || "",
+          eventType: evt,
+          dedupKey: messageId,
+          username: senderUsername,
+        });
+      } catch (e: any) {
+        console.warn(`[zernio-webhook] runDmTrigger err: ${e?.message || e}`);
+      }
     }
 
     // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead

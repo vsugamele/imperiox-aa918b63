@@ -2,6 +2,7 @@
 // Rede de segurança: garante recuperação de comentários que o webhook da Meta tenha perdido.
 // Varre os últimos N posts de cada conta IG conectada e faz upsert em imphq_ig_comments por comment_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { runCommentTrigger } from "../_shared/ig-trigger-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,10 +17,26 @@ function json(d: any, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function upsertComment(supa: any, result: any, row: any) {
+async function upsertComment(supa: any, result: any, row: any, ctx: { projectId: string; accountId: string }) {
   const { error } = await supa.from("imphq_ig_comments").upsert(row, { onConflict: "comment_id" });
-  if (error) result.errors.push(`upsert ${row.comment_id}: ${error.message}`);
-  else result.comments_upserted++;
+  if (error) { result.errors.push(`upsert ${row.comment_id}: ${error.message}`); return; }
+  result.comments_upserted++;
+  // Dispara matcher (idempotente via imphq_ig_trigger_executions)
+  if (row.text && row.from_user_id) {
+    try {
+      await runCommentTrigger({
+        supa,
+        projectId: ctx.projectId,
+        accountId: ctx.accountId,
+        mediaId: row.media_id || null,
+        commentId: row.comment_id,
+        commentText: row.text,
+        fromUsername: row.from_username || null,
+      });
+    } catch (e: any) {
+      result.errors.push(`trigger ${row.comment_id}: ${e?.message || e}`);
+    }
+  }
 }
 
 async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
@@ -50,7 +67,7 @@ async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPo
         from_username: c.username || c.from?.username || null,
         text: c.text || null,
         created_at: c.timestamp || new Date().toISOString(),
-      });
+      }, { projectId: account.project_id, accountId: account.id });
     }
   }
 }
@@ -119,7 +136,7 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
           from_username: fromUsername,
           text: c.content || c.text || c.message || c.body || null,
           created_at: c.createdTime || c.createdAt || c.timestamp || c.created_at || new Date().toISOString(),
-        });
+        }, { projectId: account.project_id, accountId: account.id });
         fetched++;
       }
 
