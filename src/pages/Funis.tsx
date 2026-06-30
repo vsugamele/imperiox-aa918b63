@@ -22,7 +22,7 @@ import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
-import { CorteExpressModal } from "@/components/funis/CorteExpressModal";
+import { OneClickModal } from "@/components/funis/OneClickModal";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
