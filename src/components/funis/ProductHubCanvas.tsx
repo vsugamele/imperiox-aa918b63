@@ -1212,6 +1212,34 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         onAddAsset={handleAddSuggested}
       />
 
+      <FunnelScorePanel
+        open={scoreOpen}
+        onClose={() => setScoreOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        existingAssets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status }))}
+      />
+
+      <FunnelHackingDialog
+        open={hackingOpen}
+        onClose={() => setHackingOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        onAddAsset={handleAddSuggested}
+      />
+
+      {copyDialog && (
+        <NodeCopyDialog
+          open={!!copyDialog}
+          onClose={() => setCopyDialog(null)}
+          projectId={projectId}
+          nodeId={copyDialog.nodeId}
+          assetKind={copyDialog.assetKind}
+          assetLabel={copyDialog.assetLabel}
+          product={currentProduct}
+        />
+      )}
+
       <FlowGeneratorDialog
         open={flowGenOpen}
         onClose={() => { setFlowGenOpen(false); setFlowGenPreset(null); }}
