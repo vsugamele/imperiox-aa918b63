@@ -1654,6 +1654,8 @@ export default function Funis() {
           }}
         />
       )}
+
+      <CorteExpressModal open={showCorteExpress} onOpenChange={setShowCorteExpress} />
     </div>
   );
 }
