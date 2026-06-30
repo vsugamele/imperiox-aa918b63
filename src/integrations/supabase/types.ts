@@ -27344,6 +27344,42 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jonathan_cancellation_notices: {
         Row: {
           created_at: string
@@ -28016,6 +28052,268 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          from_email: string | null
+          html: string | null
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          body_static_html: string | null
+          created_at: string
+          delay_hours: number
+          dynamic_reason: string | null
+          id: string
+          render_mode: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+          subject_static: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       jonathan_events: {
         Row: {
           created_at: string
@@ -28082,6 +28380,47 @@ export type Database = {
           },
         ]
       }
+      jonathan_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jonathan_hair_types: {
         Row: {
           code: string
@@ -28109,6 +28448,66 @@ export type Database = {
           short_label?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
         }
         Relationships: []
       }
@@ -28174,6 +28573,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      jonathan_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jonathan_lesson_likes: {
         Row: {
@@ -28341,6 +28814,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -28348,8 +28822,11 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           transcript: string | null
+          transcript_error: string | null
           transcript_fetched_at: string | null
           transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
           video_url: string | null
         }
         Insert: {
@@ -28361,6 +28838,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -28368,8 +28846,11 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Update: {
@@ -28381,6 +28862,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -28388,8 +28870,11 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -28639,27 +29124,168 @@ export type Database = {
         }
         Relationships: []
       }
-      jonathan_modules: {
+      jonathan_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_apps: {
         Row: {
           cover_url: string | null
           created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
           id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_modules: {
+        Row: {
+          author_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
         }
         Insert: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
         }
         Update: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
@@ -28847,6 +29473,36 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       jonathan_payment_webhooks: {
         Row: {
           created_at: string
@@ -28891,7 +29547,9 @@ export type Database = {
       }
       jonathan_plan_external_products: {
         Row: {
+          access_duration_days: number | null
           created_at: string
+          delivery_name: string | null
           external_product_id: string
           id: string
           is_active: boolean
@@ -28899,11 +29557,15 @@ export type Database = {
           plan_id: string | null
           program_id: string | null
           provider: string
+          sale_mode: string
           scope: string
+          tag_ids: string[]
           updated_at: string
         }
         Insert: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id: string
           id?: string
           is_active?: boolean
@@ -28911,11 +29573,15 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Update: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id?: string
           id?: string
           is_active?: boolean
@@ -28923,7 +29589,9 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider?: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -29439,6 +30107,7 @@ export type Database = {
           blocked_at: string | null
           blocked_reason: string | null
           created_at: string
+          email: string | null
           id: string
           is_blocked: boolean
           last_seen_at: string | null
@@ -29452,6 +30121,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -29465,6 +30135,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -29515,6 +30186,7 @@ export type Database = {
           avatar: string | null
           model: string
           name: string
+          persona_id: string | null
           program_id: string
           provider: string
           suggestions: Json
@@ -29525,6 +30197,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name: string
+          persona_id?: string | null
           program_id: string
           provider?: string
           suggestions?: Json
@@ -29535,6 +30208,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name?: string
+          persona_id?: string | null
           program_id?: string
           provider?: string
           suggestions?: Json
@@ -29542,6 +30216,13 @@ export type Database = {
           welcome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_brand_personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_program_ai_config_program_id_fkey"
             columns: ["program_id"]
@@ -29585,6 +30266,7 @@ export type Database = {
           language: string
           learnings: Json
           long_description: string | null
+          paywall_config: Json | null
           position: number
           price_brl: number | null
           reactivation_url: string | null
@@ -29629,6 +30311,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -29673,6 +30356,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -30147,6 +30831,8 @@ export type Database = {
           author_photo: string | null
           country: string | null
           created_at: string
+          featured_on_home: boolean
+          home_order: number | null
           id: string
           media_type: string
           profession: string | null
@@ -30160,6 +30846,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -30173,6 +30861,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -30381,6 +31071,8 @@ export type Database = {
           landing_signup_label: string
           landing_subtitle: string
           landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
           logo_url: string | null
           meditations_label: string
           meditations_label_singular: string
@@ -30489,6 +31181,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -30597,6 +31291,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -30804,6 +31500,7 @@ export type Database = {
           name: string
           priority: number
           sales_url: string | null
+          source_lesson_id: string | null
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
@@ -30820,6 +31517,7 @@ export type Database = {
           name: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
@@ -30836,6 +31534,7 @@ export type Database = {
           name?: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
@@ -30843,6 +31542,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_upsell_offers_source_program_id_fkey"
             columns: ["source_program_id"]
@@ -31011,6 +31717,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      jonathan_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       jonathan_user_onboarding: {
         Row: {
@@ -44706,9 +45439,17 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      jonathan_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       jonathan_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
+      }
+      jonathan_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
       }
       jonathan_has_program_access: {
         Args: { _program_id: string; _user_id: string }
@@ -44725,6 +45466,14 @@ export type Database = {
           }
       jonathan_is_admin: { Args: { _uid: string }; Returns: boolean }
       jonathan_issue_certificate: {
+        Args: { _program_id: string }
+        Returns: Json
+      }
+      jonathan_program_metrics: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      jonathan_program_quiz_stats: {
         Args: { _program_id: string }
         Returns: Json
       }
@@ -44963,6 +45712,20 @@ export type Database = {
       diri_post_status: "draft" | "published" | "scheduled"
       goal_priority: "urgent" | "important" | "strategic"
       jonathan_app_role: "admin" | "member"
+      jonathan_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      jonathan_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
+        | "lessons_completed_count"
       jonathan_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       jonathan_upsell_trigger: "lesson_preview_complete" | "program_complete"
       mission_status: "pending" | "submitted" | "approved" | "rejected"
@@ -45147,6 +45910,22 @@ export const Constants = {
       diri_post_status: ["draft", "published", "scheduled"],
       goal_priority: ["urgent", "important", "strategic"],
       jonathan_app_role: ["admin", "member"],
+      jonathan_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      jonathan_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+        "lessons_completed_count",
+      ],
       jonathan_upsell_event_type: ["view", "click", "dismiss", "convert"],
       jonathan_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       mission_status: ["pending", "submitted", "approved", "rejected"],
