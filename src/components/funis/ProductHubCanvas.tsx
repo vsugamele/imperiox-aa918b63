@@ -74,7 +74,7 @@ const STATUS_FILTERS: Array<{ id: "all" | AssetStatus; label: string }> = [
 
 function snap(n: number) { return Math.round(n / GRID) * GRID; }
 
-export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
+export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId }: Props) {
   const [projectId, setProjectId] = useState<string>("");
   const [productIdx, setProductIdx] = useState(0);
   const [assets, setAssets] = useState<HubAsset[]>([]);
