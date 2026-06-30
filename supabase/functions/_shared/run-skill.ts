@@ -56,18 +56,37 @@ export async function runSkill(opts: {
   if (opts.jsonSchema) {
     body.response_format = { type: "json_schema", json_schema: { name: "out", strict: true, schema: opts.jsonSchema } };
   }
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const txt = await res.text();
-  if (!res.ok) throw new Error(`AI ${res.status}: ${txt.slice(0, 300)}`);
-  const j = JSON.parse(txt);
-  const content = j.choices?.[0]?.message?.content || "";
-  if (opts.jsonSchema) {
-    try { return JSON.parse(content); }
-    catch { return JSON.parse(content.replace(/```json|```/g, "").trim()); }
+  const TIMEOUT_MS = 90_000;
+  const MAX_ATTEMPTS = 2;
+  const fallbackModel = body.model?.includes("2.5-pro") ? "google/gemini-2.5-flash" : null;
+
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const useBody = attempt === MAX_ATTEMPTS && fallbackModel ? { ...body, model: fallbackModel } : body;
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(useBody),
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      const txt = await res.text();
+      if (!res.ok) throw new Error(`AI ${res.status}: ${txt.slice(0, 300)}`);
+      const j = JSON.parse(txt);
+      const content = j.choices?.[0]?.message?.content || "";
+      if (opts.jsonSchema) {
+        try { return JSON.parse(content); }
+        catch { return JSON.parse(content.replace(/```json|```/g, "").trim()); }
+      }
+      return content;
+    } catch (e: any) {
+      clearTimeout(t);
+      lastErr = e;
+      if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
   }
-  return content;
+  throw lastErr || new Error("runSkill falhou");
 }

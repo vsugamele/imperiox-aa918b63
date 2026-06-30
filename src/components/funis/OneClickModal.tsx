@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 
-type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda";
+type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda"|"hub";
 
 const STEP_LABELS: Record<Step, string> = {
   avatar: "🧠 Avatar (4 camadas)",
@@ -20,9 +20,11 @@ const STEP_LABELS: Record<Step, string> = {
   imagens: "🖼️ Imagens (5 mockups)",
   whatsapp_x1: "💬 Sequência WhatsApp X1",
   fluxos_pos_venda: "⚙️ Fluxos pós-venda (3 OpenFlow)",
+  hub: "🗺️ Montar funil no Hub",
 };
 
 const ALL_STEPS: Step[] = ["avatar","vsl","lp","angulos","reels","imagens","whatsapp_x1","fluxos_pos_venda"];
+const DISPLAY_STEPS: Step[] = [...ALL_STEPS, "hub"];
 
 type StepState = "pending" | "running" | "done" | "error";
 
@@ -43,7 +45,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [etapasSel, setEtapasSel] = useState<Set<Step>>(new Set(ALL_STEPS));
   const [rodando, setRodando] = useState(false);
   const [progresso, setProgresso] = useState<Record<Step, { state: StepState; preview?: string; error?: string }>>(
-    Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any
+    Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any
   );
   const [finalProjectId, setFinalProjectId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -60,7 +62,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       abortRef.current?.abort();
       setRodando(false);
       setFinalProjectId(null);
-      setProgresso(Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any);
+      setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
 
@@ -76,7 +78,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     if (etapasSel.size === 0) return toast.error("Selecione pelo menos uma etapa");
 
     setRodando(true);
-    setProgresso(Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any);
+    setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setRodando(false); return toast.error("Sessão expirada"); }
@@ -154,7 +156,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow. O funil gerado aparece direto no Hub do projeto.
+            Digite o nome do produto. O Avatar roda primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp X1 rodam <strong>em paralelo</strong> (3x mais rápido). Por fim o funil é montado direto no <strong>Hub</strong> do projeto, com cada ativo posicionado em sua faixa (Aquisição / Conversão / Retenção).
           </DialogDescription>
         </DialogHeader>
 
@@ -220,7 +222,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           <div className="space-y-2 py-2">
             <div className="text-sm text-muted-foreground">Progresso:</div>
             <ul className="space-y-2">
-              {Array.from(etapasSel).map(s => {
+              {[...Array.from(etapasSel), "hub" as Step].map(s => {
                 const st = progresso[s];
                 return (
                   <li key={s} className="flex items-start gap-3 p-3 rounded bg-background/40 border border-border/30">
