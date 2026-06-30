@@ -75,6 +75,7 @@ const AILearning = lazy(() => import("./pages/AILearning"));
 const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
 const Atribuicao = lazy(() => import("./pages/Atribuicao"));
 const FunilSimulador = lazy(() => import("./pages/FunilSimulador"));
+const OpenRouterCustos = lazy(() => import("./pages/OpenRouterCustos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -154,6 +155,7 @@ const App = () => (
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="atribuicao" element={<Atribuicao />} />
+                <Route path="openrouter-custos" element={<OpenRouterCustos />} />
                 <Route path="referencias" element={<Referencias />} />
                 <Route path="sites" element={<Sites />} />
                 <Route path="skills" element={<Skills />} />
