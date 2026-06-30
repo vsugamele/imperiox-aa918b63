@@ -370,41 +370,15 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
     if (!answerDraft.trim()) return;
     setSavingAnswer(true);
     try {
-      // Gera embedding para a resposta via Lovable AI
-      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY || "";
-      let embedding: number[] | null = null;
-
-      if (LOVABLE_API_KEY) {
-        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "google/gemini-embedding-001", input: pergunta, dimensions: 768 }),
-        });
-        if (embRes.ok) {
-          const embData = await embRes.json();
-          embedding = embData?.data?.[0]?.embedding || null;
-        }
-      }
-
-      // Atualiza o registro existente com a resposta e aprova
-      const { error } = await supabase
-        .from("imphq_wa_knowledge")
-        .update({
-          resposta: answerDraft.trim(),
-          aprovada: true,
-          answered: true,
-          source: "admin_answer",
-          ...(embedding ? { embedding: embedding as any } : {}),
-        } as any)
-        .eq("id", questionId);
-
+      const { error } = await supabase.functions.invoke("rag-embed-answer", {
+        body: { questionId, pergunta, resposta: answerDraft.trim() },
+      });
       if (error) throw error;
 
       toast.success("Resposta salva! A IA vai usar isso nas próximas conversas.");
       setAnsweringId(null);
       setAnswerDraft("");
 
-      // Atualiza lista local
       if (healthData) {
         setHealthData(prev => prev ? {
           ...prev,
@@ -412,6 +386,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           totalKnowledge: prev.totalKnowledge + 1,
         } : prev);
       }
+
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
     } finally {
