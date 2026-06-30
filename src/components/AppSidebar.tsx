@@ -4,7 +4,7 @@ import {
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow, Globe,
+  Inbox, Pencil, Workflow, Globe, Coins,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +39,7 @@ const adsFinancasItems = [
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
   { title: "Atribuição",           url: "/atribuicao", icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
+  { title: "Custos IA",            url: "/openrouter-custos", icon: Coins },
 ];
 
 const planejarItems = [
