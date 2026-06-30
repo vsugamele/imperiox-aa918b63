@@ -133,13 +133,29 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
+    const fallbackProjectId = url.searchParams.get("project");
+
     for (const entry of payload.entry || []) {
       const igUserId = entry.id;
-      const { data: account } = await supa
-        .from("imphq_ig_accounts")
-        .select("id, project_id")
-        .eq("ig_user_id", igUserId)
-        .maybeSingle();
+      let account: any = null;
+      if (igUserId) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("ig_user_id", igUserId)
+          .maybeSingle();
+        account = data || null;
+      }
+      // Fallback: payloads sem entry.id (ex: forward Zernio) — resolve pela query string
+      if (!account && fallbackProjectId) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("project_id", fallbackProjectId)
+          .limit(1)
+          .maybeSingle();
+        account = data || null;
+      }
       if (!account) continue;
 
       // --- MENSAGENS (DMs) ---
