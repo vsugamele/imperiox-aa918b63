@@ -411,6 +411,31 @@ Deno.serve(async (req) => {
         emit({ type: "step_error", step: "hub" as any, error: String(e?.message || e) });
       }
 
+      // ===== Auditoria automática (Imperius Funnel Auditor) =====
+      if (!body.skip_audit) {
+        emit({ type: "audit_start" });
+        try {
+          const ar = await fetch(`${SUPABASE_URL}/functions/v1/hub-auditor`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project_id: projectId,
+              product: { nome: produto_nome, preco: ticket, promessa },
+              existing_assets: hubSeeds.map(s => ({ catId: s.catId, itemId: s.itemId, status: "generated" })),
+            }),
+          });
+          if (ar.ok) {
+            const audit = await ar.json().catch(() => ({}));
+            resultado.audit = audit;
+            emit({ type: "audit_done", audit });
+          } else {
+            emit({ type: "audit_error", error: `HTTP ${ar.status}` });
+          }
+        } catch (e: any) {
+          emit({ type: "audit_error", error: String(e?.message || e) });
+        }
+      }
+
       emit({ type: "done", resultado });
     } catch (e: any) {
       console.error("[corte-express] fatal", e);
