@@ -62,7 +62,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       abortRef.current?.abort();
       setRodando(false);
       setFinalProjectId(null);
-      setProgresso(Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any);
+      setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
 
@@ -78,7 +78,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     if (etapasSel.size === 0) return toast.error("Selecione pelo menos uma etapa");
 
     setRodando(true);
-    setProgresso(Object.fromEntries(ALL_STEPS.map(s => [s, { state: "pending" }])) as any);
+    setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setRodando(false); return toast.error("Sessão expirada"); }
