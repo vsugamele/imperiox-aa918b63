@@ -324,15 +324,16 @@ Deno.serve(async (req) => {
               },
             },
           });
-          const { data: tpl } = await sb.from("imphq_wa_campaign_templates").insert({
+          const textoConsolidado = (wa.mensagens || []).sort((a:any,b:any)=>a.ordem-b.ordem).map((m: any) =>
+            `### Toque ${m.ordem} — ${m.objetivo} (após ${m.delay_minutos}min)\n${m.texto}`
+          ).join("\n\n");
+          const { data: swipe } = await sb.from("imphq_swipes").insert({
             user_id: userId, project_id: projectId,
-            nome: `X1 Consultivo — ${produto_nome}`,
-            descricao: "Sequência 7 toques gerada pelo Corte Express (Sugamele)",
-            tipo: "sequencia",
-            mensagens: wa.mensagens,
-            ativo: false,
+            title: `WhatsApp X1 — ${produto_nome}`, formato: "whatsapp_sequence",
+            plataforma: "whatsapp", status: "rascunho",
+            raw_text: textoConsolidado, media_type: "text", blocks: wa.mensagens || [],
           }).select("id").maybeSingle();
-          resultado.etapas.whatsapp_x1 = { ok: true, template_id: tpl?.id, count: wa.mensagens?.length || 0 };
+          resultado.etapas.whatsapp_x1 = { ok: true, swipe_id: swipe?.id, count: wa.mensagens?.length || 0 };
           emit({ type: "step_done", step: "whatsapp_x1", preview: `${wa.mensagens?.length || 0} mensagens` });
         } catch (e: any) {
           resultado.etapas.whatsapp_x1 = { ok: false, error: String(e?.message || e) };
