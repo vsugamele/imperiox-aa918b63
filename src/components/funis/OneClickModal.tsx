@@ -222,7 +222,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           <div className="space-y-2 py-2">
             <div className="text-sm text-muted-foreground">Progresso:</div>
             <ul className="space-y-2">
-              {Array.from(etapasSel).map(s => {
+              {[...Array.from(etapasSel), "hub" as Step].map(s => {
                 const st = progresso[s];
                 return (
                   <li key={s} className="flex items-start gap-3 p-3 rounded bg-background/40 border border-border/30">
