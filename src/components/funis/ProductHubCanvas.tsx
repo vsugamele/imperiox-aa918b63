@@ -761,11 +761,39 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         {/* Auditor IA */}
         <Button
           size="sm"
-          onClick={() => setAuditOpen(o => !o)}
+          onClick={() => { setAuditOpen(o => !o); setScoreOpen(false); }}
           className="h-8 text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-fuchsia-600 hover:from-pink-500 hover:to-fuchsia-500 text-white border-0"
         >
           <Sparkles className="h-3.5 w-3.5" /> Auditar funil
         </Button>
+
+        {/* Score 10 dimensões */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => { setScoreOpen(o => !o); setAuditOpen(false); }}
+          disabled={!projectId}
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-sky-500/40 hover:bg-sky-500/10",
+            scoreOpen && "ring-1 ring-sky-500/60"
+          )}
+          title="Avalia 10 dimensões do funil (copy, CTAs, confiança, urgência...)"
+        >
+          <Gauge className="h-3.5 w-3.5 text-sky-400" /> Score
+        </Button>
+
+        {/* Funnel Hacking — clonar concorrente */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setHackingOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-fuchsia-500/40 hover:bg-fuchsia-500/10"
+          title="Cole URL do concorrente → IA extrai dossiê + sugere ativos espelho"
+        >
+          <Search className="h-3.5 w-3.5 text-fuchsia-400" /> Clonar Concorrente
+        </Button>
+
 
         {/* Fluxos (Typebot Engine) */}
         <Popover>
