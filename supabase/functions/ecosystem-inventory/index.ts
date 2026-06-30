@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { projeto_id, produto_nome } = await req.json();
+    const body = await req.json();
+    const { projeto_id, produto_nome } = body;
     if (!projeto_id) throw new Error("projeto_id obrigatório");
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
