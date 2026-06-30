@@ -210,7 +210,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={rodar} className="gap-2">
-                <Zap className="h-4 w-4" /> Rodar Corte Express
+                <Zap className="h-4 w-4" /> Rodar One Click
               </Button>
             </div>
           </div>
