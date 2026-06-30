@@ -1449,6 +1449,9 @@ export default function Funis() {
           </div>
           {viewMode === "funis" && (
             <>
+              <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
+                <Zap className="h-4 w-4" /> Corte Express
+              </Button>
               <Button size="sm" variant="outline" asChild className="gap-1">
                 <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
               </Button>
