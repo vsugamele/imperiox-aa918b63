@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
           const { data: swipe } = await sb.from("imphq_swipes").insert({
             user_id: userId, project_id: projectId,
             title: `VSL — ${produto_nome}`, formato: "vsl", plataforma: "youtube",
-            status: "rascunho", raw_text: vsl, media_type: "text",
+            status: "rascunho", raw_text: vsl, media_type: "text", blocks: [],
           }).select("id").maybeSingle();
           resultado.etapas.vsl = { ok: true, swipe_id: swipe?.id };
           emit({ type: "step_done", step: "vsl", preview: "Roteiro VSL salvo em Swipefiles" });
