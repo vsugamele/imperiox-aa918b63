@@ -159,6 +159,18 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ===== Referência opcional de Swipefile =====
+      let swipeRef = "";
+      if (body.swipe_id) {
+        const { data: sw } = await sb.from("imphq_swipes")
+          .select("title, raw_text, formato, blocks")
+          .eq("id", body.swipe_id).maybeSingle();
+        if (sw?.raw_text) {
+          const trecho = String(sw.raw_text).slice(0, 4000);
+          swipeRef = `\n\n## REFERÊNCIA INSPIRADORA (Swipefile "${sw.title}")\nUse a estrutura, ritmo e gatilhos abaixo como inspiração — adapte para o nicho/produto, NUNCA copie literal:\n---\n${trecho}\n---`;
+        }
+      }
+
       // ===== Etapas paralelas (após o avatar) =====
       const parallelJobs: Promise<void>[] = [];
 
@@ -166,7 +178,7 @@ Deno.serve(async (req) => {
         const vsl = await runSkill({
           systemPrompt: prompts["vsl-filemon-e3"] || "",
           ctx: ctxComAvatar,
-          instruction: `Gere uma VSL completa de 15-25 min seguindo o Método E3 (Raio-X → Mechanism Lab → Logic Points → Story Architect → Lead → Offer Builder). Output em markdown com 7 blocos: ## HOOK (90s), ## HISTÓRIA (4min), ## PROBLEMA (3min), ## NOVO MECANISMO (4min), ## PROVAS (3min), ## OFERTA (4min), ## CTA + URGÊNCIA (2min). Densidade alta, sem fluff.`,
+          instruction: `Gere uma VSL completa de 15-25 min seguindo o Método E3 (Raio-X → Mechanism Lab → Logic Points → Story Architect → Lead → Offer Builder). Output em markdown com 7 blocos: ## HOOK (90s), ## HISTÓRIA (4min), ## PROBLEMA (3min), ## NOVO MECANISMO (4min), ## PROVAS (3min), ## OFERTA (4min), ## CTA + URGÊNCIA (2min). Densidade alta, sem fluff.${swipeRef}`,
           model: "google/gemini-2.5-pro",
         });
         await sb.from("imphq_swipes").insert({
@@ -181,7 +193,7 @@ Deno.serve(async (req) => {
         const lp = await runSkill({
           systemPrompt: prompts["lp-persuasiva"] || "",
           ctx: ctxComAvatar,
-          instruction: `Gere a estrutura COMPLETA de uma Landing Page de alta conversão em markdown. Blocos: # Headline + Sub, ## Hero (cópia + CTA), ## Problema (3 bullets), ## História de Transformação, ## Solução / Novo Mecanismo, ## O que você recebe (bullets), ## Prova social (3 depoimentos placeholder), ## Oferta (preço, parcelamento, bônus), ## Garantia, ## FAQ (5 perguntas), ## CTA final + escassez.`,
+          instruction: `Gere a estrutura COMPLETA de uma Landing Page de alta conversão em markdown. Blocos: # Headline + Sub, ## Hero (cópia + CTA), ## Problema (3 bullets), ## História de Transformação, ## Solução / Novo Mecanismo, ## O que você recebe (bullets), ## Prova social (3 depoimentos placeholder), ## Oferta (preço, parcelamento, bônus), ## Garantia, ## FAQ (5 perguntas), ## CTA final + escassez.${swipeRef}`,
           model: "google/gemini-2.5-pro",
         });
         await sb.from("imphq_swipes").insert({
