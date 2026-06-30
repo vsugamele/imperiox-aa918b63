@@ -37,6 +37,14 @@ const PRESETS: Record<string, { label: string; steps: Step[]; hint: string; modo
 const STATUS_ICON: Record<InvStatus, string> = { ok: "✅", fraco: "⚠️", faltando: "❌" };
 const STATUS_LABEL: Record<InvStatus, string> = { ok: "OK", fraco: "Fraco/Antigo", faltando: "Faltando" };
 
+type Estrategia = "lancamento" | "perpetuo" | "webinar" | "x1";
+const ESTRATEGIAS: Record<Estrategia, { label: string; emoji: string; hint: string }> = {
+  lancamento: { label: "Lançamento", emoji: "🚀", hint: "CPL + carrinho aberto + recovery" },
+  perpetuo: { label: "Perpétuo", emoji: "♻️", hint: "VSL evergreen + order bump + upsell" },
+  webinar: { label: "Webinar", emoji: "🎤", hint: "Inscrição + lembretes + pitch ao vivo" },
+  x1: { label: "X1 / DM", emoji: "💬", hint: "Venda 1:1 no WhatsApp/Instagram" },
+};
+
 type StepState = "pending" | "running" | "done" | "error";
 
 interface Props {
