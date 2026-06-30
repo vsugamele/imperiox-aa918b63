@@ -129,8 +129,10 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             } else if (evt.type === "step_error") {
               setProgresso(p => ({ ...p, [evt.step]: { state: "error", error: evt.error } }));
             } else if (evt.type === "done") {
-              setFinalProjectId(evt.resultado?.projeto_id || null);
-              toast.success("Corte Express concluído!");
+              const pid = evt.resultado?.projeto_id || finalProjectId;
+              setFinalProjectId(pid);
+              toast.success("One Click concluído! Abrindo no Hub…");
+              if (pid) onComplete?.(pid);
             } else if (evt.type === "fatal") {
               toast.error(evt.error);
             }
