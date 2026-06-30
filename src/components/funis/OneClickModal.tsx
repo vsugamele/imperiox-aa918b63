@@ -307,6 +307,24 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
         {!rodando && (
           <div className="space-y-4 py-2">
+            {/* Estratégia */}
+            <div className="space-y-2">
+              <Label className="text-sm">Estratégia do funil</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {(Object.entries(ESTRATEGIAS) as [Estrategia, typeof ESTRATEGIAS[Estrategia]][]).map(([k, e]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { setEstrategia(k); if (modoOrganizar) setInventario(null); }}
+                    className={`p-2 rounded text-left text-xs border transition ${estrategia === k ? "border-primary bg-primary/10" : "border-border/40 hover:bg-background/40"}`}
+                  >
+                    <div className="text-sm font-medium">{e.emoji} {e.label}</div>
+                    <div className="text-[10px] text-muted-foreground leading-4 mt-0.5">{e.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Presets */}
             <div className="space-y-2">
               <Label className="text-sm">Preset rápido</Label>
