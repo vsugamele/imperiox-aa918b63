@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Zap, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Zap, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 
 type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda"|"hub";
 
@@ -26,6 +26,12 @@ const STEP_LABELS: Record<Step, string> = {
 const ALL_STEPS: Step[] = ["avatar","vsl","lp","angulos","reels","imagens","whatsapp_x1","fluxos_pos_venda"];
 const DISPLAY_STEPS: Step[] = [...ALL_STEPS, "hub"];
 
+const PRESETS: Record<string, { label: string; steps: Step[]; hint: string }> = {
+  completo: { label: "🏛️ Completo", steps: ALL_STEPS, hint: "Tudo: avatar + VSL + LP + ads + reels + imagens + WhatsApp + fluxos" },
+  vsl_launch: { label: "🎬 VSL Launch", steps: ["avatar","vsl","lp","angulos","reels","imagens"], hint: "Foco em VSL + LP + ads (sem WhatsApp/fluxos)" },
+  x1_only: { label: "💬 X1 Express", steps: ["avatar","whatsapp_x1","imagens","fluxos_pos_venda"], hint: "Só venda 1:1 no WhatsApp + 1 mockup + pós-venda" },
+};
+
 type StepState = "pending" | "running" | "done" | "error";
 
 interface Props {
@@ -36,17 +42,22 @@ interface Props {
 
 export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [swipes, setSwipes] = useState<{ id: string; title: string; formato: string }[]>([]);
   const [destino, setDestino] = useState<string>("__new__");
   const [novoNome, setNovoNome] = useState("");
   const [produtoNome, setProdutoNome] = useState("");
   const [ticket, setTicket] = useState("");
   const [promessa, setPromessa] = useState("");
   const [nicho, setNicho] = useState("");
+  const [swipeId, setSwipeId] = useState<string>("__none__");
+  const [preset, setPreset] = useState<string>("completo");
   const [etapasSel, setEtapasSel] = useState<Set<Step>>(new Set(ALL_STEPS));
   const [rodando, setRodando] = useState(false);
   const [progresso, setProgresso] = useState<Record<Step, { state: StepState; preview?: string; error?: string }>>(
     Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any
   );
+  const [audit, setAudit] = useState<any>(null);
+  const [auditState, setAuditState] = useState<StepState>("pending");
   const [finalProjectId, setFinalProjectId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -55,6 +66,12 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
       setProjects((data || []) as any);
     });
+    supabase.from("imphq_swipes")
+      .select("id, title, formato")
+      .in("formato", ["vsl","lp","webinar"])
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setSwipes((data || []) as any));
   }, [open]);
 
   useEffect(() => {
@@ -62,14 +79,23 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       abortRef.current?.abort();
       setRodando(false);
       setFinalProjectId(null);
+      setAudit(null);
+      setAuditState("pending");
       setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
+
+  function applyPreset(key: string) {
+    setPreset(key);
+    const p = PRESETS[key];
+    if (p) setEtapasSel(new Set(p.steps));
+  }
 
   function toggleStep(s: Step) {
     const ns = new Set(etapasSel);
     ns.has(s) ? ns.delete(s) : ns.add(s);
     setEtapasSel(ns);
+    setPreset("custom");
   }
 
   async function rodar() {
@@ -78,6 +104,8 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     if (etapasSel.size === 0) return toast.error("Selecione pelo menos uma etapa");
 
     setRodando(true);
+    setAudit(null);
+    setAuditState("pending");
     setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -92,6 +120,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     };
     if (destino === "__new__") body.novo_projeto_nome = novoNome.trim();
     else body.projeto_id = destino;
+    if (swipeId !== "__none__") body.swipe_id = swipeId;
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -130,6 +159,13 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
               setProgresso(p => ({ ...p, [evt.step]: { state: "done", preview: evt.preview } }));
             } else if (evt.type === "step_error") {
               setProgresso(p => ({ ...p, [evt.step]: { state: "error", error: evt.error } }));
+            } else if (evt.type === "audit_start") {
+              setAuditState("running");
+            } else if (evt.type === "audit_done") {
+              setAudit(evt.audit);
+              setAuditState("done");
+            } else if (evt.type === "audit_error") {
+              setAuditState("error");
             } else if (evt.type === "done") {
               const pid = evt.resultado?.projeto_id || finalProjectId;
               setFinalProjectId(pid);
@@ -148,6 +184,9 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     }
   }
 
+  const score = audit?.score ?? audit?.diagnostico?.score ?? audit?.audit?.score;
+  const gaps: string[] = audit?.gaps ?? audit?.diagnostico?.gaps ?? audit?.recomendacoes ?? [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-secondary/40 max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -156,12 +195,33 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Digite o nome do produto. O Avatar roda primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp X1 rodam <strong>em paralelo</strong> (3x mais rápido). Por fim o funil é montado direto no <strong>Hub</strong> do projeto, com cada ativo posicionado em sua faixa (Aquisição / Conversão / Retenção).
+            Avatar primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp rodam <strong>em paralelo</strong> (3x mais rápido). Funil é montado no <strong>Hub</strong> e o <strong>Auditor Imperius</strong> roda automático no final.
           </DialogDescription>
         </DialogHeader>
 
         {!rodando && (
           <div className="space-y-4 py-2">
+            {/* Presets */}
+            <div className="space-y-2">
+              <Label className="text-sm">Preset rápido</Label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(PRESETS).map(([k, p]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => applyPreset(k)}
+                    className={`px-3 py-2 rounded text-sm border transition ${preset === k ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-background/40"}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                {preset === "custom" && (
+                  <span className="px-3 py-2 rounded text-sm border border-border/40 text-muted-foreground">✏️ Personalizado</span>
+                )}
+              </div>
+              {PRESETS[preset] && <div className="text-xs text-muted-foreground">{PRESETS[preset].hint}</div>}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
                 <Label>Nome do produto *</Label>
@@ -195,6 +255,17 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                   <Input value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: Corte Express — JP" />
                 </div>
               )}
+              <div className="space-y-2 md:col-span-2">
+                <Label>Inspirar-se em Swipefile (opcional)</Label>
+                <Select value={swipeId} onValueChange={setSwipeId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem referência</SelectItem>
+                    {swipes.map(s => <SelectItem key={s.id} value={s.id}>[{s.formato}] {s.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Injeta estrutura/ritmo do swipe nas instruções de VSL e LP.</p>
+              </div>
             </div>
 
             <div className="space-y-2 border-t border-border/40 pt-4">
@@ -240,6 +311,32 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                   </li>
                 );
               })}
+              {auditState !== "pending" && (
+                <li className="flex items-start gap-3 p-3 rounded bg-background/40 border border-primary/30">
+                  <div className="mt-0.5">
+                    {auditState === "running" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                    {auditState === "done" && <Sparkles className="h-4 w-4 text-primary" />}
+                    {auditState === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">🔮 Auditor Imperius</div>
+                    {auditState === "running" && <div className="text-xs text-muted-foreground mt-1">Analisando funil…</div>}
+                    {auditState === "done" && (
+                      <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                        {typeof score !== "undefined" && <div>Score: <strong className="text-primary">{score}</strong></div>}
+                        {Array.isArray(gaps) && gaps.length > 0 && (
+                          <ul className="list-disc ml-4 space-y-0.5">
+                            {gaps.slice(0, 3).map((g: any, i: number) => (
+                              <li key={i}>{typeof g === "string" ? g : (g?.titulo || g?.gap || JSON.stringify(g))}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                    {auditState === "error" && <div className="text-xs text-destructive mt-1">Falha ao auditar</div>}
+                  </div>
+                </li>
+              )}
             </ul>
 
             {!rodando && finalProjectId && (
