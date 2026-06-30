@@ -32,6 +32,8 @@ interface Input {
   projeto_id?: string;
   novo_projeto_nome?: string;
   etapas?: Step[];
+  swipe_id?: string;       // referência opcional de Swipefiles para inspirar VSL/LP
+  skip_audit?: boolean;    // pular auditoria automática no final
 }
 
 Deno.serve(async (req) => {
