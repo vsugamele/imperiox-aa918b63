@@ -29,9 +29,10 @@ type StepState = "pending" | "running" | "done" | "error";
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onComplete?: (projectId: string) => void;
 }
 
-export function CorteExpressModal({ open, onOpenChange }: Props) {
+export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [destino, setDestino] = useState<string>("__new__");
   const [novoNome, setNovoNome] = useState("");
