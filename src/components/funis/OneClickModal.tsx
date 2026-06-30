@@ -37,6 +37,14 @@ const PRESETS: Record<string, { label: string; steps: Step[]; hint: string; modo
 const STATUS_ICON: Record<InvStatus, string> = { ok: "✅", fraco: "⚠️", faltando: "❌" };
 const STATUS_LABEL: Record<InvStatus, string> = { ok: "OK", fraco: "Fraco/Antigo", faltando: "Faltando" };
 
+type Estrategia = "lancamento" | "perpetuo" | "webinar" | "x1";
+const ESTRATEGIAS: Record<Estrategia, { label: string; emoji: string; hint: string }> = {
+  lancamento: { label: "Lançamento", emoji: "🚀", hint: "CPL + carrinho aberto + recovery" },
+  perpetuo: { label: "Perpétuo", emoji: "♻️", hint: "VSL evergreen + order bump + upsell" },
+  webinar: { label: "Webinar", emoji: "🎤", hint: "Inscrição + lembretes + pitch ao vivo" },
+  x1: { label: "X1 / DM", emoji: "💬", hint: "Venda 1:1 no WhatsApp/Instagram" },
+};
+
 type StepState = "pending" | "running" | "done" | "error";
 
 interface Props {
@@ -64,6 +72,12 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
   // Inventário (modo organizar)
   const [inventario, setInventario] = useState<Record<string, InvStatus> | null>(null);
+  const [estrategia, setEstrategia] = useState<Estrategia>("perpetuo");
+  const [invScore, setInvScore] = useState<number | null>(null);
+  const [invBlocos, setInvBlocos] = useState<Record<string, { score: number }> | null>(null);
+  const [topGaps, setTopGaps] = useState<any[]>([]);
+  const [ondas, setOndas] = useState<{ onda1: any[]; onda2: any[]; onda3: any[] } | null>(null);
+  const [nextAction, setNextAction] = useState<string>("");
   const [loadingInv, setLoadingInv] = useState(false);
 
   const [rodando, setRodando] = useState(false);
@@ -136,19 +150,24 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           Authorization: `Bearer ${session?.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ projeto_id: destino, produto_nome: nome }),
+        body: JSON.stringify({ projeto_id: destino, produto_nome: nome, estrategia }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Falha inventário");
       const inv = j.inventario as Record<string, InvStatus>;
       setInventario(inv);
+      setInvScore(typeof j.score === "number" ? j.score : null);
+      setInvBlocos(j.scores_por_bloco || null);
+      setTopGaps(Array.isArray(j.top_gaps) ? j.top_gaps : []);
+      setOndas(j.ondas || null);
+      setNextAction(j.next_action || "");
       // pré-seleciona só os que faltam ou estão fracos
       const sel = new Set<Step>();
       ALL_STEPS.forEach(s => {
         if (inv[s] === "faltando" || inv[s] === "fraco") sel.add(s);
       });
       setEtapasSel(sel);
-      toast.success(`Inventário pronto: ${Object.values(inv).filter(v => v === "ok").length} ok, ${Object.values(inv).filter(v => v === "faltando").length} faltando`);
+      toast.success(`Score ${j.score}/100 — ${(j.top_gaps || []).length} gaps detectados`);
     } catch (e: any) {
       toast.error(e?.message || "Falha ao inventariar");
     } finally {
@@ -164,6 +183,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       setAudit(null);
       setAuditState("pending");
       setInventario(null);
+      setInvScore(null); setInvBlocos(null); setTopGaps([]); setOndas(null); setNextAction("");
       setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
@@ -287,6 +307,24 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
         {!rodando && (
           <div className="space-y-4 py-2">
+            {/* Estratégia */}
+            <div className="space-y-2">
+              <Label className="text-sm">Estratégia do funil</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {(Object.entries(ESTRATEGIAS) as [Estrategia, typeof ESTRATEGIAS[Estrategia]][]).map(([k, e]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { setEstrategia(k); if (modoOrganizar) setInventario(null); }}
+                    className={`p-2 rounded text-left text-xs border transition ${estrategia === k ? "border-primary bg-primary/10" : "border-border/40 hover:bg-background/40"}`}
+                  >
+                    <div className="text-sm font-medium">{e.emoji} {e.label}</div>
+                    <div className="text-[10px] text-muted-foreground leading-4 mt-0.5">{e.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Presets */}
             <div className="space-y-2">
               <Label className="text-sm">Preset rápido</Label>
@@ -407,8 +445,76 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                     )}
                   </div>
                 )}
+                {inventario && invScore !== null && (
+                  <div className="space-y-3 border-t border-primary/20 pt-3">
+                    {/* Score */}
+                    <div className="flex items-center gap-3">
+                      <div className={`text-3xl font-bold ${invScore >= 70 ? "text-green-400" : invScore >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                        {invScore}<span className="text-sm text-muted-foreground">/100</span>
+                      </div>
+                      <div className="flex-1 grid grid-cols-3 gap-1 text-[10px]">
+                        {invBlocos && (Object.entries(invBlocos)).map(([b, v]) => (
+                          <div key={b} className="rounded bg-background/40 p-1.5 text-center">
+                            <div className="text-muted-foreground">{b}</div>
+                            <div className="font-semibold">{v.score}%</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {nextAction && <div className="text-xs text-primary">🎯 {nextAction}</div>}
+
+                    {/* Top gaps */}
+                    {topGaps.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Top gaps prioritários:</div>
+                        {topGaps.slice(0, 5).map((g, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-background/40">
+                            <span>{g.partial ? "⚠️" : "❌"} {g.label}</span>
+                            <span className="text-muted-foreground text-[10px]">{g.bloco} • esforço {g.esforco}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 3 ondas */}
+                    {ondas && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        {[
+                          { key: "onda1", label: "⚡ Onda 1 — Quick wins", items: ondas.onda1 },
+                          { key: "onda2", label: "🏗️ Onda 2 — Estrutura", items: ondas.onda2 },
+                          { key: "onda3", label: "🎯 Onda 3 — Otimização", items: ondas.onda3 },
+                        ].map((o) => (
+                          <div key={o.key} className="rounded border border-border/40 bg-background/40 p-2 space-y-1">
+                            <div className="font-medium">{o.label}</div>
+                            {o.items.length === 0 && <div className="text-muted-foreground text-[10px]">Nada pendente</div>}
+                            {o.items.map((it: any, i: number) => (
+                              <div key={i} className="text-[11px] text-muted-foreground">• {it.label}</div>
+                            ))}
+                            {o.items.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-7 text-[11px] mt-1"
+                                onClick={() => {
+                                  const steps = new Set<Step>();
+                                  o.items.forEach((it: any) => {
+                                    if (ALL_STEPS.includes(it.etapa as Step)) steps.add(it.etapa as Step);
+                                  });
+                                  setEtapasSel(steps);
+                                  toast.success(`${steps.size} etapas selecionadas para esta onda`);
+                                }}
+                              >
+                                Selecionar esta onda
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {inventario && (
-                  <p className="text-xs text-muted-foreground">Etapas marcadas abaixo serão geradas para preencher os gaps. Avatar existente é reaproveitado automaticamente.</p>
+                  <p className="text-xs text-muted-foreground">Etapas marcadas abaixo serão geradas para preencher os gaps. Avatar existente é reaproveitado.</p>
                 )}
               </div>
             )}
