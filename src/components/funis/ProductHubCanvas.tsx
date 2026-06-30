@@ -3,8 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter, Sparkles, Workflow } from "lucide-react";
+import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle, CircleDot, CheckCircle2, Filter, Sparkles, Workflow, Gauge, Search, Pencil } from "lucide-react";
 import { HubAuditPanel } from "./HubAuditPanel";
+import { FunnelScorePanel } from "./FunnelScorePanel";
+import { FunnelHackingDialog } from "./FunnelHackingDialog";
+import { NodeCopyDialog } from "./NodeCopyDialog";
 import { AssetPicker } from "./AssetPicker";
 import { ChecklistSidebar } from "./ChecklistSidebar";
 import { AssetDetailDrawer, HubAsset as BaseHubAsset } from "./AssetDetailDrawer";
@@ -105,6 +108,9 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   };
   const [statusFilter, setStatusFilter] = useState<"all" | AssetStatus>("all");
   const [auditOpen, setAuditOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const [hackingOpen, setHackingOpen] = useState(false);
+  const [copyDialog, setCopyDialog] = useState<{ nodeId: string; assetKind?: string; assetLabel?: string } | null>(null);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
@@ -755,11 +761,39 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         {/* Auditor IA */}
         <Button
           size="sm"
-          onClick={() => setAuditOpen(o => !o)}
+          onClick={() => { setAuditOpen(o => !o); setScoreOpen(false); }}
           className="h-8 text-xs gap-1.5 bg-gradient-to-r from-pink-600 to-fuchsia-600 hover:from-pink-500 hover:to-fuchsia-500 text-white border-0"
         >
           <Sparkles className="h-3.5 w-3.5" /> Auditar funil
         </Button>
+
+        {/* Score 10 dimensões */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => { setScoreOpen(o => !o); setAuditOpen(false); }}
+          disabled={!projectId}
+          className={cn(
+            "h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-sky-500/40 hover:bg-sky-500/10",
+            scoreOpen && "ring-1 ring-sky-500/60"
+          )}
+          title="Avalia 10 dimensões do funil (copy, CTAs, confiança, urgência...)"
+        >
+          <Gauge className="h-3.5 w-3.5 text-sky-400" /> Score
+        </Button>
+
+        {/* Funnel Hacking — clonar concorrente */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setHackingOpen(true)}
+          disabled={!projectId}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-fuchsia-500/40 hover:bg-fuchsia-500/10"
+          title="Cole URL do concorrente → IA extrai dossiê + sugere ativos espelho"
+        >
+          <Search className="h-3.5 w-3.5 text-fuchsia-400" /> Clonar Concorrente
+        </Button>
+
 
         {/* Fluxos (Typebot Engine) */}
         <Popover>
@@ -1099,6 +1133,14 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                   </button>
                   <button
                     onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); setCopyDialog({ nodeId: a.id, assetKind: a.itemId, assetLabel: meta.item.label }); }}
+                    className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-sky-600/40"
+                    title="Gerar copy IA"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); handleSetStatus(a.id, "approved"); }}
                     className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-emerald-600/40"
                     title="Aprovar"
@@ -1169,6 +1211,34 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         existingAssets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status }))}
         onAddAsset={handleAddSuggested}
       />
+
+      <FunnelScorePanel
+        open={scoreOpen}
+        onClose={() => setScoreOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        existingAssets={assets.map(a => ({ catId: a.catId, itemId: a.itemId, status: a.status }))}
+      />
+
+      <FunnelHackingDialog
+        open={hackingOpen}
+        onClose={() => setHackingOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        onAddAsset={handleAddSuggested}
+      />
+
+      {copyDialog && (
+        <NodeCopyDialog
+          open={!!copyDialog}
+          onClose={() => setCopyDialog(null)}
+          projectId={projectId}
+          nodeId={copyDialog.nodeId}
+          assetKind={copyDialog.assetKind}
+          assetLabel={copyDialog.assetLabel}
+          product={currentProduct}
+        />
+      )}
 
       <FlowGeneratorDialog
         open={flowGenOpen}
