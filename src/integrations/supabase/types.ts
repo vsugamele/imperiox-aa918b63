@@ -21016,6 +21016,27 @@ export type Database = {
           },
         ]
       }
+      imphq_ig_trigger_executions: {
+        Row: {
+          comment_id: string
+          event_type: string
+          executed_at: string
+          trigger_id: string
+        }
+        Insert: {
+          comment_id: string
+          event_type?: string
+          executed_at?: string
+          trigger_id: string
+        }
+        Update: {
+          comment_id?: string
+          event_type?: string
+          executed_at?: string
+          trigger_id?: string
+        }
+        Relationships: []
+      }
       imphq_ig_webhook_logs: {
         Row: {
           account_id: string | null
