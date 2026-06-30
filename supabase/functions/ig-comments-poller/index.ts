@@ -17,10 +17,26 @@ function json(d: any, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function upsertComment(supa: any, result: any, row: any) {
+async function upsertComment(supa: any, result: any, row: any, ctx: { projectId: string; accountId: string }) {
   const { error } = await supa.from("imphq_ig_comments").upsert(row, { onConflict: "comment_id" });
-  if (error) result.errors.push(`upsert ${row.comment_id}: ${error.message}`);
-  else result.comments_upserted++;
+  if (error) { result.errors.push(`upsert ${row.comment_id}: ${error.message}`); return; }
+  result.comments_upserted++;
+  // Dispara matcher (idempotente via imphq_ig_trigger_executions)
+  if (row.text && row.from_user_id) {
+    try {
+      await runCommentTrigger({
+        supa,
+        projectId: ctx.projectId,
+        accountId: ctx.accountId,
+        mediaId: row.media_id || null,
+        commentId: row.comment_id,
+        commentText: row.text,
+        fromUsername: row.from_username || null,
+      });
+    } catch (e: any) {
+      result.errors.push(`trigger ${row.comment_id}: ${e?.message || e}`);
+    }
+  }
 }
 
 async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
