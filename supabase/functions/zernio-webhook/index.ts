@@ -444,6 +444,31 @@ Deno.serve(async (req) => {
         .eq("id", dbAccId);
     }
 
+    // 🔥 Dispara automação de DM/Story (story_reply, story_mention ou DM normal)
+    if (!isOutbound && dbAccId && senderId) {
+      try {
+        const att = attachments[0] || null;
+        const attType = String(att?.type || "").toLowerCase();
+        const isStoryMention = attType === "story_mention" || attType === "story";
+        const isStoryReply = !!(message?.replyTo?.story || message?.reply_to?.story || conversation?.replyTo?.story);
+        const evt: "dm" | "story" | "story_mention" = isStoryMention
+          ? "story_mention"
+          : isStoryReply ? "story" : "dm";
+        await runDmTrigger({
+          supa,
+          projectId,
+          accountId: dbAccId,
+          participantId: senderId,
+          content: text || "",
+          eventType: evt,
+          dedupKey: messageId,
+          username: senderUsername,
+        });
+      } catch (e: any) {
+        console.warn(`[zernio-webhook] runDmTrigger err: ${e?.message || e}`);
+      }
+    }
+
     // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
     let convQuery = supa
       .from("imphq_ig_conversations")
