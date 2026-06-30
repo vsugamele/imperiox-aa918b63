@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Zap, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 
-type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda";
+type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda"|"hub";
 
 const STEP_LABELS: Record<Step, string> = {
   avatar: "🧠 Avatar (4 camadas)",
