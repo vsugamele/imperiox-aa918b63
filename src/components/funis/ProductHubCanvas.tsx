@@ -1133,6 +1133,14 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                   </button>
                   <button
                     onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); setCopyDialog({ nodeId: a.id, assetKind: a.itemId, assetLabel: meta.item.label }); }}
+                    className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-sky-600/40"
+                    title="Gerar copy IA"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); handleSetStatus(a.id, "approved"); }}
                     className="h-6 w-6 rounded-md bg-card border border-border/60 flex items-center justify-center hover:bg-emerald-600/40"
                     title="Aprovar"
