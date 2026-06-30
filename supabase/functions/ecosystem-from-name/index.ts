@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
       if (etapas.includes("fluxos_pos_venda")) {
         emit({ type: "step_start", step: "fluxos_pos_venda" });
         try {
-          const bps = buildPostSaleBlueprints({ project_id: projectId, produto_nome, user_id: userId });
+          const bps = buildPostSaleBlueprints({ project_id: projectId, produto_nome, created_by: userId });
           const { data, error } = await sb.from("imphq_flow_blueprints").insert(bps).select("id, title");
           if (error) throw error;
           resultado.etapas.fluxos_pos_venda = { ok: true, blueprints: data };
