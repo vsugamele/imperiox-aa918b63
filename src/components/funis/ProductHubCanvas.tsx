@@ -7,6 +7,8 @@ import { Plus, Trash2, Play, ZoomIn, ZoomOut, Maximize2, Package, Check, Circle,
 import { HubAuditPanel } from "./HubAuditPanel";
 import { FunnelScorePanel } from "./FunnelScorePanel";
 import { FunnelHackingDialog } from "./FunnelHackingDialog";
+import { TripwireEngineDialog } from "./TripwireEngineDialog";
+import { FunnelByAvatarDialog } from "./FunnelByAvatarDialog";
 import { NodeCopyDialog } from "./NodeCopyDialog";
 import { AssetPicker } from "./AssetPicker";
 import { ChecklistSidebar } from "./ChecklistSidebar";
@@ -110,6 +112,8 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   const [auditOpen, setAuditOpen] = useState(false);
   const [scoreOpen, setScoreOpen] = useState(false);
   const [hackingOpen, setHackingOpen] = useState(false);
+  const [tripwireOpen, setTripwireOpen] = useState(false);
+  const [avatarFunnelOpen, setAvatarFunnelOpen] = useState(false);
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; assetKind?: string; assetLabel?: string } | null>(null);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [flowGenOpen, setFlowGenOpen] = useState(false);
@@ -794,6 +798,32 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           <Search className="h-3.5 w-3.5 text-fuchsia-400" /> Clonar Concorrente
         </Button>
 
+        {/* Tripwire Engine */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setTripwireOpen(true)}
+          disabled={!projectId || !currentProduct}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-amber-500/40 hover:bg-amber-500/10"
+          title="Gera oferta de entrada (R$7-97) calibrada para o core deste funil"
+        >
+          <Zap className="h-3.5 w-3.5 text-amber-400" /> Tripwire
+        </Button>
+
+        {/* Funil por Avatar */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setAvatarFunnelOpen(true)}
+          disabled={!projectId || !currentProduct}
+          className="h-8 text-xs gap-1.5 bg-[#0a0608]/90 border-violet-500/40 hover:bg-violet-500/10"
+          title="Adapta o funil ao nível de consciência e temperatura do avatar"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-violet-400" /> Por Avatar
+        </Button>
+
+
+
 
         {/* Fluxos (Typebot Engine) */}
         <Popover>
@@ -1226,6 +1256,21 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         projectId={projectId}
         product={currentProduct}
         onAddAsset={handleAddSuggested}
+      />
+
+      <TripwireEngineDialog
+        open={tripwireOpen}
+        onClose={() => setTripwireOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
+        coreOffer={currentProduct?.nome || currentProduct?.name}
+      />
+
+      <FunnelByAvatarDialog
+        open={avatarFunnelOpen}
+        onClose={() => setAvatarFunnelOpen(false)}
+        projectId={projectId}
+        product={currentProduct}
       />
 
       {copyDialog && (
