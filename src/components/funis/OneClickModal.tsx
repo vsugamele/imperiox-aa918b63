@@ -242,10 +242,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
             {!rodando && finalProjectId && (
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
-                <Button asChild>
-                  <a href={`/projeto/${finalProjectId}`}>Abrir projeto</a>
-                </Button>
+                <Button onClick={() => onOpenChange(false)}>Ver no Hub</Button>
               </div>
             )}
           </div>
