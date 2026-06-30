@@ -827,12 +827,16 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
       >
+        {(() => {
+          const maxX = Math.max(4000, productPos.x + PRODUCT_NODE_W + 400, ...visibleAssets.map(a => a.pos_x + ASSET_NODE_W + 400));
+          const maxY = Math.max(3000, productPos.y + 400, ...visibleAssets.map(a => a.pos_y + ASSET_NODE_H + 400));
+          return (
         <div
           className="absolute origin-top-left"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, width: 4000, height: 3000 }}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, width: maxX, height: maxY }}
         >
           {/* SVG connections */}
-          <svg className="absolute inset-0 pointer-events-none" width="4000" height="3000">
+          <svg className="absolute inset-0 pointer-events-none" width={maxX} height={maxY} overflow="visible" style={{ overflow: "visible" }}>
             {currentProduct && visibleAssets.map(a => {
               const start = productCenter;
               const end = { x: a.pos_x, y: a.pos_y + ASSET_NODE_H / 2 };
@@ -1106,6 +1110,8 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
             );
           })}
         </div>
+          );
+        })()}
       </div>
 
       {pnlOpen && (
