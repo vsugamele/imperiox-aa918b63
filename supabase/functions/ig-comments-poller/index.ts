@@ -2,6 +2,7 @@
 // Rede de segurança: garante recuperação de comentários que o webhook da Meta tenha perdido.
 // Varre os últimos N posts de cada conta IG conectada e faz upsert em imphq_ig_comments por comment_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { runCommentTrigger } from "../_shared/ig-trigger-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
