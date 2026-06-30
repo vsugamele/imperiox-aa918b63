@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
           const { data: swipe } = await sb.from("imphq_swipes").insert({
             user_id: userId, project_id: projectId,
             title: `LP — ${produto_nome}`, formato: "lp", plataforma: "web",
-            status: "rascunho", raw_text: lp, media_type: "text",
+            status: "rascunho", raw_text: lp, media_type: "text", blocks: [],
           }).select("id").maybeSingle();
           await sb.from("imphq_projects").update({
             data: { ...projData, avatar, lp_estrutura: lp },
