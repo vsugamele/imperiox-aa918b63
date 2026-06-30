@@ -34,6 +34,7 @@ interface Input {
   etapas?: Step[];
   swipe_id?: string;       // referência opcional de Swipefiles para inspirar VSL/LP
   skip_audit?: boolean;    // pular auditoria automática no final
+  modo?: "criar" | "complementar"; // complementar: reaproveita avatar existente
 }
 
 Deno.serve(async (req) => {
@@ -97,7 +98,8 @@ Deno.serve(async (req) => {
       const resultado: any = { projeto_id: projectId, etapas: {} };
 
       // ===== 1. AVATAR =====
-      if (etapas.includes("avatar")) {
+      const temAvatarExistente = !!avatar;
+      if (etapas.includes("avatar") && !(body.modo === "complementar" && temAvatarExistente)) {
         emit({ type: "step_start", step: "avatar" });
         try {
           const av = await runSkill({
@@ -131,6 +133,9 @@ Deno.serve(async (req) => {
           resultado.etapas.avatar = { ok: false, error: String(e?.message || e) };
           emit({ type: "step_error", step: "avatar", error: String(e?.message || e) });
         }
+      } else if (etapas.includes("avatar") && temAvatarExistente) {
+        emit({ type: "step_done", step: "avatar", preview: "Avatar existente reaproveitado" });
+        resultado.etapas.avatar = { ok: true, reused: true };
       }
 
       const ctxComAvatar = { ...ctxBase, avatar };

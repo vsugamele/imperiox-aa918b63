@@ -7,9 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Zap, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Loader2, Zap, CheckCircle2, AlertCircle, Sparkles, Search } from "lucide-react";
 
-type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda"|"hub";
+type Step = "avatar"|"vsl"|"lp"|"angulos"|"reels"|"imagens"|"whatsapp_x1"|"fluxos_pos_venda";
+type InvStatus = "ok" | "fraco" | "faltando";
 
 const STEP_LABELS: Record<Step, string> = {
   avatar: "🧠 Avatar (4 camadas)",
@@ -20,17 +21,21 @@ const STEP_LABELS: Record<Step, string> = {
   imagens: "🖼️ Imagens (5 mockups)",
   whatsapp_x1: "💬 Sequência WhatsApp X1",
   fluxos_pos_venda: "⚙️ Fluxos pós-venda (3 OpenFlow)",
-  hub: "🗺️ Montar funil no Hub",
 };
+const STEP_HUB: Record<string, string> = { hub: "🗺️ Montar funil no Hub" };
 
 const ALL_STEPS: Step[] = ["avatar","vsl","lp","angulos","reels","imagens","whatsapp_x1","fluxos_pos_venda"];
-const DISPLAY_STEPS: Step[] = [...ALL_STEPS, "hub"];
+const DISPLAY_STEPS = [...ALL_STEPS, "hub"] as const;
 
-const PRESETS: Record<string, { label: string; steps: Step[]; hint: string }> = {
+const PRESETS: Record<string, { label: string; steps: Step[]; hint: string; modo?: "organizar" }> = {
   completo: { label: "🏛️ Completo", steps: ALL_STEPS, hint: "Tudo: avatar + VSL + LP + ads + reels + imagens + WhatsApp + fluxos" },
   vsl_launch: { label: "🎬 VSL Launch", steps: ["avatar","vsl","lp","angulos","reels","imagens"], hint: "Foco em VSL + LP + ads (sem WhatsApp/fluxos)" },
   x1_only: { label: "💬 X1 Express", steps: ["avatar","whatsapp_x1","imagens","fluxos_pos_venda"], hint: "Só venda 1:1 no WhatsApp + 1 mockup + pós-venda" },
+  organizar: { label: "🔍 Organizar Existente", steps: ALL_STEPS, hint: "Analisa o que já existe, marca gaps e gera só o que falta (precisa de projeto+produto existentes)", modo: "organizar" },
 };
+
+const STATUS_ICON: Record<InvStatus, string> = { ok: "✅", fraco: "⚠️", faltando: "❌" };
+const STATUS_LABEL: Record<InvStatus, string> = { ok: "OK", fraco: "Fraco/Antigo", faltando: "Faltando" };
 
 type StepState = "pending" | "running" | "done" | "error";
 
@@ -45,6 +50,10 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [swipes, setSwipes] = useState<{ id: string; title: string; formato: string }[]>([]);
   const [destino, setDestino] = useState<string>("__new__");
   const [novoNome, setNovoNome] = useState("");
+
+  // Produtos do projeto + modo de produto
+  const [produtosDoProjeto, setProdutosDoProjeto] = useState<any[]>([]);
+  const [produtoSel, setProdutoSel] = useState<string>("__new_prod__"); // "__new_prod__" ou nome do produto
   const [produtoNome, setProdutoNome] = useState("");
   const [ticket, setTicket] = useState("");
   const [promessa, setPromessa] = useState("");
@@ -52,14 +61,21 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [swipeId, setSwipeId] = useState<string>("__none__");
   const [preset, setPreset] = useState<string>("completo");
   const [etapasSel, setEtapasSel] = useState<Set<Step>>(new Set(ALL_STEPS));
+
+  // Inventário (modo organizar)
+  const [inventario, setInventario] = useState<Record<string, InvStatus> | null>(null);
+  const [loadingInv, setLoadingInv] = useState(false);
+
   const [rodando, setRodando] = useState(false);
-  const [progresso, setProgresso] = useState<Record<Step, { state: StepState; preview?: string; error?: string }>>(
+  const [progresso, setProgresso] = useState<Record<string, { state: StepState; preview?: string; error?: string }>>(
     Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any
   );
   const [audit, setAudit] = useState<any>(null);
   const [auditState, setAuditState] = useState<StepState>("pending");
   const [finalProjectId, setFinalProjectId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const modoOrganizar = preset === "organizar";
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +90,72 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       .then(({ data }) => setSwipes((data || []) as any));
   }, [open]);
 
+  // Carrega produtos do projeto selecionado
+  useEffect(() => {
+    if (destino === "__new__") {
+      setProdutosDoProjeto([]);
+      setProdutoSel("__new_prod__");
+      return;
+    }
+    supabase.from("imphq_projects").select("data").eq("id", destino).maybeSingle().then(({ data }) => {
+      const d: any = data?.data || {};
+      const lista = Array.isArray(d?.briefing?.produtos) ? d.briefing.produtos
+        : Array.isArray(d?.produtos) ? d.produtos : [];
+      setProdutosDoProjeto(lista);
+      if (lista.length > 0) setProdutoSel(typeof lista[0] === "string" ? lista[0] : lista[0]?.nome || "__new_prod__");
+    });
+  }, [destino]);
+
+  // Autofill quando seleciona produto existente
+  useEffect(() => {
+    if (produtoSel === "__new_prod__") return;
+    const p = produtosDoProjeto.find((x: any) => (typeof x === "string" ? x : x?.nome) === produtoSel);
+    if (!p || typeof p === "string") {
+      setProdutoNome(produtoSel);
+      return;
+    }
+    setProdutoNome(p.nome || produtoSel);
+    if (p.preco || p.ticket) setTicket(String(p.preco || p.ticket));
+    if (p.promessa) setPromessa(p.promessa);
+  }, [produtoSel, produtosDoProjeto]);
+
+  // Carregar inventário quando modo organizar + projeto + produto definidos
+  async function carregarInventario() {
+    if (!modoOrganizar) return;
+    if (destino === "__new__") { toast.error("Modo Organizar precisa de projeto existente"); return; }
+    const nome = produtoSel === "__new_prod__" ? produtoNome.trim() : produtoSel;
+    if (!nome) { toast.error("Selecione ou informe o produto"); return; }
+    setLoadingInv(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ecosystem-inventory`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ projeto_id: destino, produto_nome: nome }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Falha inventário");
+      const inv = j.inventario as Record<string, InvStatus>;
+      setInventario(inv);
+      // pré-seleciona só os que faltam ou estão fracos
+      const sel = new Set<Step>();
+      ALL_STEPS.forEach(s => {
+        if (inv[s] === "faltando" || inv[s] === "fraco") sel.add(s);
+      });
+      setEtapasSel(sel);
+      toast.success(`Inventário pronto: ${Object.values(inv).filter(v => v === "ok").length} ok, ${Object.values(inv).filter(v => v === "faltando").length} faltando`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao inventariar");
+    } finally {
+      setLoadingInv(false);
+    }
+  }
+
   useEffect(() => {
     if (!open) {
       abortRef.current?.abort();
@@ -81,6 +163,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       setFinalProjectId(null);
       setAudit(null);
       setAuditState("pending");
+      setInventario(null);
       setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
     }
   }, [open]);
@@ -89,19 +172,21 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     setPreset(key);
     const p = PRESETS[key];
     if (p) setEtapasSel(new Set(p.steps));
+    if (key !== "organizar") setInventario(null);
   }
 
   function toggleStep(s: Step) {
     const ns = new Set(etapasSel);
     ns.has(s) ? ns.delete(s) : ns.add(s);
     setEtapasSel(ns);
-    setPreset("custom");
   }
 
   async function rodar() {
-    if (!produtoNome.trim()) return toast.error("Informe o nome do produto");
+    const nomeFinal = produtoSel === "__new_prod__" ? produtoNome.trim() : produtoSel;
+    if (!nomeFinal) return toast.error("Informe o nome do produto");
     if (destino === "__new__" && !novoNome.trim()) return toast.error("Informe o nome do novo projeto");
     if (etapasSel.size === 0) return toast.error("Selecione pelo menos uma etapa");
+    if (modoOrganizar && destino === "__new__") return toast.error("Organizar exige projeto existente");
 
     setRodando(true);
     setAudit(null);
@@ -112,11 +197,12 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     if (!session) { setRodando(false); return toast.error("Sessão expirada"); }
 
     const body: any = {
-      produto_nome: produtoNome.trim(),
+      produto_nome: nomeFinal,
       ticket: ticket.trim() || undefined,
       promessa: promessa.trim() || undefined,
       nicho: nicho.trim() || undefined,
       etapas: Array.from(etapasSel),
+      modo: modoOrganizar ? "complementar" : "criar",
     };
     if (destino === "__new__") body.novo_projeto_nome = novoNome.trim();
     else body.projeto_id = destino;
@@ -167,7 +253,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             } else if (evt.type === "audit_error") {
               setAuditState("error");
             } else if (evt.type === "done") {
-              const pid = evt.resultado?.projeto_id || finalProjectId;
+              const pid = evt.resultado?.projeto_id || finalProjectId || (destino !== "__new__" ? destino : null);
               setFinalProjectId(pid);
               toast.success("One Click concluído! Abrindo no Hub…");
               if (pid) onComplete?.(pid);
@@ -195,7 +281,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Avatar primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp rodam <strong>em paralelo</strong> (3x mais rápido). Funil é montado no <strong>Hub</strong> e o <strong>Auditor Imperius</strong> roda automático no final.
+            Avatar primeiro; depois VSL, LP, ângulos, reels, imagens e WhatsApp rodam <strong>em paralelo</strong>. Funil é montado no <strong>Hub</strong> e o <strong>Auditor Imperius</strong> roda automático no final. No modo <strong>Organizar</strong>, inventaria o que já existe e gera apenas os gaps.
           </DialogDescription>
         </DialogHeader>
 
@@ -215,30 +301,11 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                     {p.label}
                   </button>
                 ))}
-                {preset === "custom" && (
-                  <span className="px-3 py-2 rounded text-sm border border-border/40 text-muted-foreground">✏️ Personalizado</span>
-                )}
               </div>
               {PRESETS[preset] && <div className="text-xs text-muted-foreground">{PRESETS[preset].hint}</div>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2 md:col-span-2">
-                <Label>Nome do produto *</Label>
-                <Input value={produtoNome} onChange={e => setProdutoNome(e.target.value)} placeholder="Ex: Corte Express" />
-              </div>
-              <div className="space-y-2">
-                <Label>Ticket (opcional)</Label>
-                <Input value={ticket} onChange={e => setTicket(e.target.value)} placeholder="R$ 497" />
-              </div>
-              <div className="space-y-2">
-                <Label>Nicho (opcional)</Label>
-                <Input value={nicho} onChange={e => setNicho(e.target.value)} placeholder="Barbeiros iniciantes" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Promessa (opcional)</Label>
-                <Input value={promessa} onChange={e => setPromessa(e.target.value)} placeholder="Domine 3 cortes que pagam o mês em 7 dias" />
-              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Projeto destino</Label>
                 <Select value={destino} onValueChange={setDestino}>
@@ -255,6 +322,48 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                   <Input value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: Corte Express — JP" />
                 </div>
               )}
+
+              {/* Produto: dropdown se projeto existente, input se novo */}
+              {destino !== "__new__" ? (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Produto *</Label>
+                  <Select value={produtoSel} onValueChange={setProdutoSel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__new_prod__">➕ Novo produto</SelectItem>
+                      {produtosDoProjeto.map((p: any, i: number) => {
+                        const nome = typeof p === "string" ? p : p?.nome;
+                        if (!nome) return null;
+                        return <SelectItem key={`${nome}-${i}`} value={nome}>{nome}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {produtoSel === "__new_prod__" && (
+                    <Input value={produtoNome} onChange={e => setProdutoNome(e.target.value)} placeholder="Nome do novo produto" />
+                  )}
+                  {produtosDoProjeto.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Nenhum produto no briefing — informe um nome novo.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Nome do produto *</Label>
+                  <Input value={produtoNome} onChange={e => setProdutoNome(e.target.value)} placeholder="Ex: Corte Express" />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Ticket (opcional)</Label>
+                <Input value={ticket} onChange={e => setTicket(e.target.value)} placeholder="R$ 497" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nicho (opcional)</Label>
+                <Input value={nicho} onChange={e => setNicho(e.target.value)} placeholder="Barbeiros iniciantes" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Promessa (opcional)</Label>
+                <Input value={promessa} onChange={e => setPromessa(e.target.value)} placeholder="Domine 3 cortes que pagam o mês em 7 dias" />
+              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Inspirar-se em Swipefile (opcional)</Label>
                 <Select value={swipeId} onValueChange={setSwipeId}>
@@ -264,26 +373,66 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                     {swipes.map(s => <SelectItem key={s.id} value={s.id}>[{s.formato}] {s.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Injeta estrutura/ritmo do swipe nas instruções de VSL e LP.</p>
               </div>
             </div>
 
+            {/* Modo Organizar: botão de inventário + checklist */}
+            {modoOrganizar && (
+              <div className="space-y-3 border border-primary/30 bg-primary/5 rounded p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Search className="h-4 w-4" /> Inventário do funil existente
+                  </div>
+                  <Button size="sm" variant="outline" onClick={carregarInventario} disabled={loadingInv}>
+                    {loadingInv ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    {inventario ? "Reanalisar" : "Analisar"}
+                  </Button>
+                </div>
+                {inventario && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs">
+                    {ALL_STEPS.map(s => {
+                      const st = inventario[s];
+                      return (
+                        <div key={s} className="flex items-center justify-between p-1.5 rounded bg-background/40">
+                          <span>{STEP_LABELS[s]}</span>
+                          <span className="text-muted-foreground">{STATUS_ICON[st]} {STATUS_LABEL[st]}</span>
+                        </div>
+                      );
+                    })}
+                    {inventario.hub && (
+                      <div className="flex items-center justify-between p-1.5 rounded bg-background/40 md:col-span-2">
+                        <span>🗺️ Hub no canvas</span>
+                        <span className="text-muted-foreground">{STATUS_ICON[inventario.hub]} {STATUS_LABEL[inventario.hub]}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {inventario && (
+                  <p className="text-xs text-muted-foreground">Etapas marcadas abaixo serão geradas para preencher os gaps. Avatar existente é reaproveitado automaticamente.</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2 border-t border-border/40 pt-4">
-              <Label className="text-sm">Etapas (desmarque para pular)</Label>
+              <Label className="text-sm">Etapas (marque o que gerar)</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {ALL_STEPS.map(s => (
-                  <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-background/40 p-2 rounded">
-                    <Checkbox checked={etapasSel.has(s)} onCheckedChange={() => toggleStep(s)} />
-                    {STEP_LABELS[s]}
-                  </label>
-                ))}
+                {ALL_STEPS.map(s => {
+                  const invSt = inventario?.[s];
+                  return (
+                    <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-background/40 p-2 rounded">
+                      <Checkbox checked={etapasSel.has(s)} onCheckedChange={() => toggleStep(s)} />
+                      <span>{STEP_LABELS[s]}</span>
+                      {invSt && <span className="ml-auto text-xs text-muted-foreground">{STATUS_ICON[invSt]}</span>}
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={rodar} className="gap-2">
-                <Zap className="h-4 w-4" /> Rodar One Click
+                <Zap className="h-4 w-4" /> {modoOrganizar ? "Completar funil" : "Rodar One Click"}
               </Button>
             </div>
           </div>
@@ -293,8 +442,9 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           <div className="space-y-2 py-2">
             <div className="text-sm text-muted-foreground">Progresso:</div>
             <ul className="space-y-2">
-              {[...Array.from(etapasSel), "hub" as Step].map(s => {
+              {[...Array.from(etapasSel), "hub"].map(s => {
                 const st = progresso[s];
+                const label = (STEP_LABELS as any)[s] || STEP_HUB[s] || s;
                 return (
                   <li key={s} className="flex items-start gap-3 p-3 rounded bg-background/40 border border-border/30">
                     <div className="mt-0.5">
@@ -304,7 +454,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                       {st.state === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
                     </div>
                     <div className="flex-1">
-                      <div className="text-sm font-medium">{STEP_LABELS[s]}</div>
+                      <div className="text-sm font-medium">{label}</div>
                       {st.preview && <div className="text-xs text-muted-foreground mt-1">{st.preview}</div>}
                       {st.error && <div className="text-xs text-destructive mt-1">{st.error}</div>}
                     </div>
