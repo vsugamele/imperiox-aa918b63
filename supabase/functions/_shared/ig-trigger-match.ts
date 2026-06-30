@@ -160,7 +160,10 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
     .eq("is_active", true)
     .eq("post_id", eventType);
 
-  if (!triggers || triggers.length === 0) return { matched: false };
+  if (!triggers || triggers.length === 0) {
+    console.log(`[ig-trigger] ${eventType}: nenhum gatilho ativo para project=${projectId} (configurar post_id="${eventType}")`);
+    return { matched: false };
+  }
 
   const lc = (content || "").toLowerCase().trim();
   const matched = triggers.find((t: any) => {
@@ -168,7 +171,10 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
     if (kw === "all" || kw === "*" || !kw) return true;
     return lc.includes(kw);
   });
-  if (!matched) return { matched: false };
+  if (!matched) {
+    console.log(`[ig-trigger] ${eventType}: ${triggers.length} gatilho(s) ativos mas keyword não bateu. content="${(content || "").slice(0,80)}"`);
+    return { matched: false };
+  }
 
   // Dedup por mid
   if (dedupKey) {

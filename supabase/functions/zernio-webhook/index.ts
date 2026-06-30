@@ -344,6 +344,23 @@ Deno.serve(async (req) => {
       : { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar };
     const envelopeRecipient = isOutbound ? { id: senderId } : { id: igUserId };
 
+    // Detecta story reply / story mention vindo do Zernio (campos variam)
+    const replyToStory = message?.replyTo?.story
+      || message?.reply_to?.story
+      || conversation?.replyTo?.story
+      || (message?.context?.story ? { id: message.context.story.id || message.context.story } : null)
+      || null;
+    const hasStoryAttachment = attachments.some((a: any) => {
+      const t = String(a?.type || "").toLowerCase();
+      return t === "story_mention" || t === "story";
+    });
+    const msgPayload: any = { mid: messageId, text, attachments };
+    if (replyToStory) msgPayload.reply_to = { story: replyToStory };
+    if (hasStoryAttachment && attachments[0]) {
+      // Garante type story_mention para o matcher do instagram-webhook
+      attachments[0].type = attachments[0].type || "story_mention";
+    }
+
     const metaEnvelope = {
       object: "instagram",
       entry: [{
@@ -352,7 +369,7 @@ Deno.serve(async (req) => {
           sender: envelopeSender,
           recipient: envelopeRecipient,
           timestamp: new Date(message?.sentAt || data.timestamp || payload.timestamp || Date.now()).getTime(),
-          message: { mid: messageId, text, attachments },
+          message: msgPayload,
         }],
       }],
     };
