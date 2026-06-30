@@ -48,6 +48,7 @@ interface Project {
 interface Props {
   projects: Project[];
   onProjectsReload?: () => void | Promise<void>;
+  initialProjectId?: string | null;
 }
 
 const PRODUCT_NODE_W = 260;
@@ -73,7 +74,7 @@ const STATUS_FILTERS: Array<{ id: "all" | AssetStatus; label: string }> = [
 
 function snap(n: number) { return Math.round(n / GRID) * GRID; }
 
-export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
+export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId }: Props) {
   const [projectId, setProjectId] = useState<string>("");
   const [productIdx, setProductIdx] = useState(0);
   const [assets, setAssets] = useState<HubAsset[]>([]);
@@ -135,6 +136,13 @@ export function ProductHubCanvas({ projects, onProjectsReload }: Props) {
   useEffect(() => {
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
   }, [projects, projectId]);
+
+  useEffect(() => {
+    if (initialProjectId && initialProjectId !== projectId) {
+      setProjectId(initialProjectId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialProjectId]);
 
   const currentProject = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
   const products = useMemo(() => {

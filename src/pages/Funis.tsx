@@ -22,7 +22,7 @@ import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
-import { CorteExpressModal } from "@/components/funis/CorteExpressModal";
+import { OneClickModal } from "@/components/funis/OneClickModal";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
@@ -110,6 +110,7 @@ export default function Funis() {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showAutoBuild, setShowAutoBuild] = useState(false);
   const [showCorteExpress, setShowCorteExpress] = useState(false);
+  const [hubProjectId, setHubProjectId] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [cloneFunil, setCloneFunil] = useState<Funil | null>(null);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
@@ -1447,11 +1448,11 @@ export default function Funis() {
               <Building2 className="h-3 w-3" /> Mapa da Empresa
             </Button>
           </div>
+          <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
+            <Zap className="h-4 w-4" /> One Click
+          </Button>
           {viewMode === "funis" && (
             <>
-              <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
-                <Zap className="h-4 w-4" /> Corte Express
-              </Button>
               <Button size="sm" variant="outline" asChild className="gap-1">
                 <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
               </Button>
@@ -1465,7 +1466,7 @@ export default function Funis() {
       </div>
 
       {viewMode === "hub" ? (
-        <ProductHubCanvas projects={projects} onProjectsReload={load} />
+        <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
       ) : viewMode === "mapa" ? (
         <CompanyMapCanvas projects={projects} />
       ) : viewMode === "funis" ? (
@@ -1655,7 +1656,16 @@ export default function Funis() {
         />
       )}
 
-      <CorteExpressModal open={showCorteExpress} onOpenChange={setShowCorteExpress} />
+      <OneClickModal
+        open={showCorteExpress}
+        onOpenChange={setShowCorteExpress}
+        onComplete={(pid) => {
+          setHubProjectId(pid);
+          setViewMode("hub");
+          load();
+          setTimeout(() => setShowCorteExpress(false), 1200);
+        }}
+      />
     </div>
   );
 }

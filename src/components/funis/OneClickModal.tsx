@@ -29,9 +29,10 @@ type StepState = "pending" | "running" | "done" | "error";
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onComplete?: (projectId: string) => void;
 }
 
-export function CorteExpressModal({ open, onOpenChange }: Props) {
+export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [destino, setDestino] = useState<string>("__new__");
   const [novoNome, setNovoNome] = useState("");
@@ -128,8 +129,10 @@ export function CorteExpressModal({ open, onOpenChange }: Props) {
             } else if (evt.type === "step_error") {
               setProgresso(p => ({ ...p, [evt.step]: { state: "error", error: evt.error } }));
             } else if (evt.type === "done") {
-              setFinalProjectId(evt.resultado?.projeto_id || null);
-              toast.success("Corte Express concluído!");
+              const pid = evt.resultado?.projeto_id || finalProjectId;
+              setFinalProjectId(pid);
+              toast.success("One Click concluído! Abrindo no Hub…");
+              if (pid) onComplete?.(pid);
             } else if (evt.type === "fatal") {
               toast.error(evt.error);
             }
@@ -148,10 +151,10 @@ export function CorteExpressModal({ open, onOpenChange }: Props) {
       <DialogContent className="bg-secondary/40 max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl font-serif text-primary">
-            <Zap className="h-5 w-5" /> Corte Express — Funil em 1 clique
+            <Zap className="h-5 w-5" /> One Click — Funil dentro do Hub
           </DialogTitle>
           <DialogDescription className="leading-7">
-            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow para entregar um funil completo.
+            Digite o nome do produto e a IA encadeia as skills reais (Avatar Architect, VSL Filemon E3, LP Persuasiva, Ads Copy Multiplier, Roteiros Reels, Sugamele) + Gemini Image + OpenFlow. O funil gerado aparece direto no Hub do projeto.
           </DialogDescription>
         </DialogHeader>
 
@@ -207,7 +210,7 @@ export function CorteExpressModal({ open, onOpenChange }: Props) {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={rodar} className="gap-2">
-                <Zap className="h-4 w-4" /> Rodar Corte Express
+                <Zap className="h-4 w-4" /> Rodar One Click
               </Button>
             </div>
           </div>
@@ -239,10 +242,7 @@ export function CorteExpressModal({ open, onOpenChange }: Props) {
 
             {!rodando && finalProjectId && (
               <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
-                <Button asChild>
-                  <a href={`/projeto/${finalProjectId}`}>Abrir projeto</a>
-                </Button>
+                <Button onClick={() => onOpenChange(false)}>Ver no Hub</Button>
               </div>
             )}
           </div>
