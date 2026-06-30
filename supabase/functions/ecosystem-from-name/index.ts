@@ -208,19 +208,17 @@ Deno.serve(async (req) => {
               },
             },
           });
-          const rows = (angulos.criativos || []).map((c: any) => ({
-            user_id: userId, project_id: projectId, formato: "imagem",
-            angulo: c.angulo, headline_copy: c.headline,
-            prompt_usado: `${c.hook}\n\n${c.body}\n\nCTA: ${c.cta}`,
-            aprovado: false, metadata: { origem: "corte-express", skill: "ads-copy-multiplier" },
-          }));
-          let ids: string[] = [];
-          if (rows.length) {
-            const { data } = await sb.from("imphq_creative_assets").insert(rows).select("id");
-            ids = (data || []).map((r: any) => r.id);
-          }
-          resultado.etapas.angulos = { ok: true, count: ids.length, ids };
-          emit({ type: "step_done", step: "angulos", preview: `${ids.length} ângulos salvos` });
+          const consolidado = (angulos.criativos || []).map((c: any, i: number) =>
+            `## Ângulo ${i + 1}: ${c.angulo}\n**Headline:** ${c.headline}\n**Hook (3s):** ${c.hook}\n**Body:**\n${c.body}\n**CTA:** ${c.cta}`
+          ).join("\n\n---\n\n");
+          const { data: swipe } = await sb.from("imphq_swipes").insert({
+            user_id: userId, project_id: projectId,
+            title: `5 Ângulos Criativos — ${produto_nome}`, formato: "anuncio",
+            plataforma: "meta", status: "rascunho",
+            raw_text: consolidado, media_type: "text", blocks: angulos.criativos || [],
+          }).select("id").maybeSingle();
+          resultado.etapas.angulos = { ok: true, swipe_id: swipe?.id, count: (angulos.criativos || []).length };
+          emit({ type: "step_done", step: "angulos", preview: `${(angulos.criativos || []).length} ângulos salvos` });
         } catch (e: any) {
           resultado.etapas.angulos = { ok: false, error: String(e?.message || e) };
           emit({ type: "step_error", step: "angulos", error: String(e?.message || e) });
