@@ -85,6 +85,27 @@ export default function Atribuicao() {
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 15);
   }, [data]);
 
+  // Matriz Canal × Etapa do funil (principal / orderbump / upsell / downsell)
+  const byStage = useMemo(() => {
+    const stages = ["principal", "orderbump", "upsell", "downsell", "outros"] as const;
+    type Stage = typeof stages[number];
+    const matrix: Record<Stage, { whatsapp: number; ads: number; organic: number; count: number }> = {
+      principal: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+      orderbump: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+      upsell: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+      downsell: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+      outros: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+    };
+    (data ?? []).forEach((r) => {
+      const t = (r.tipo_venda || "").toLowerCase();
+      const stage: Stage = stages.includes(t as Stage) ? (t as Stage) : "outros";
+      const v = Number(r.valor_liquido ?? r.valor ?? 0);
+      matrix[stage][r.canal_atribuido] += v;
+      matrix[stage].count++;
+    });
+    return stages.map(s => ({ stage: s, ...matrix[s], total: matrix[s].whatsapp + matrix[s].ads + matrix[s].organic }));
+  }, [data]);
+
   const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
@@ -128,6 +149,39 @@ export default function Atribuicao() {
             <ChannelCard icon={<ShoppingBag className="size-4" />} label="Ads (pago)" value={totals.ads} count={totals.count.ads} total={totals.total} color="sky" />
             <ChannelCard icon={<Sparkles className="size-4" />} label="Orgânico" value={totals.organic} count={totals.count.organic} total={totals.total} color="amber" />
           </div>
+
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Por etapa do funil × canal</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Etapa</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right text-emerald-300">WhatsApp</TableHead>
+                    <TableHead className="text-right text-sky-300">Ads</TableHead>
+                    <TableHead className="text-right text-amber-300">Orgânico</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byStage.filter(s => s.count > 0).map((s) => (
+                    <TableRow key={s.stage}>
+                      <TableCell className="capitalize font-medium">{s.stage}</TableCell>
+                      <TableCell className="text-right">{s.count}</TableCell>
+                      <TableCell className="text-right">{fmt(s.whatsapp)}</TableCell>
+                      <TableCell className="text-right">{fmt(s.ads)}</TableCell>
+                      <TableCell className="text-right">{fmt(s.organic)}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(s.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {byStage.every(s => s.count === 0) && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas no período.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader><CardTitle className="text-lg">Top campanhas / origens</CardTitle></CardHeader>
