@@ -136,7 +136,7 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
           from_username: fromUsername,
           text: c.content || c.text || c.message || c.body || null,
           created_at: c.createdTime || c.createdAt || c.timestamp || c.created_at || new Date().toISOString(),
-        });
+        }, { projectId: account.project_id, accountId: account.id });
         fetched++;
       }
 
