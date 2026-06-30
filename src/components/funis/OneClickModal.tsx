@@ -150,19 +150,24 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           Authorization: `Bearer ${session?.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ projeto_id: destino, produto_nome: nome }),
+        body: JSON.stringify({ projeto_id: destino, produto_nome: nome, estrategia }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Falha inventário");
       const inv = j.inventario as Record<string, InvStatus>;
       setInventario(inv);
+      setInvScore(typeof j.score === "number" ? j.score : null);
+      setInvBlocos(j.scores_por_bloco || null);
+      setTopGaps(Array.isArray(j.top_gaps) ? j.top_gaps : []);
+      setOndas(j.ondas || null);
+      setNextAction(j.next_action || "");
       // pré-seleciona só os que faltam ou estão fracos
       const sel = new Set<Step>();
       ALL_STEPS.forEach(s => {
         if (inv[s] === "faltando" || inv[s] === "fraco") sel.add(s);
       });
       setEtapasSel(sel);
-      toast.success(`Inventário pronto: ${Object.values(inv).filter(v => v === "ok").length} ok, ${Object.values(inv).filter(v => v === "faltando").length} faltando`);
+      toast.success(`Score ${j.score}/100 — ${(j.top_gaps || []).length} gaps detectados`);
     } catch (e: any) {
       toast.error(e?.message || "Falha ao inventariar");
     } finally {
