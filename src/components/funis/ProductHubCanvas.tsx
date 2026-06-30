@@ -137,6 +137,13 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
   }, [projects, projectId]);
 
+  useEffect(() => {
+    if (initialProjectId && initialProjectId !== projectId) {
+      setProjectId(initialProjectId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialProjectId]);
+
   const currentProject = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
   const products = useMemo(() => {
     const b = currentProject?.briefing || {};
