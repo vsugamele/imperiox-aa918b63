@@ -1466,7 +1466,7 @@ export default function Funis() {
       </div>
 
       {viewMode === "hub" ? (
-        <ProductHubCanvas projects={projects} onProjectsReload={load} />
+        <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
       ) : viewMode === "mapa" ? (
         <CompanyMapCanvas projects={projects} />
       ) : viewMode === "funis" ? (
