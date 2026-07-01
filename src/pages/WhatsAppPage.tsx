@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,6 +34,7 @@ import { ObjectionsLibrary } from "@/components/whatsapp/ObjectionsLibrary";
 import { FunnelConversionDashboard } from "@/components/whatsapp/FunnelConversionDashboard";
 import CommandManager from "@/components/whatsapp/CommandManager";
 import WhatsAppAIConfig from "@/components/whatsapp/WhatsAppAIConfig";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 
 interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
@@ -80,6 +81,25 @@ export default function WhatsApp() {
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
   const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
+  const viewportWidth = useViewportWidth();
+  const [showIntelPanel, setShowIntelPanel] = useState(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
+    if (saved !== null) return saved === "true";
+    return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
+  });
+  const listDefaultSize = viewportWidth >= 1440 ? 30 : viewportWidth >= 1280 ? 24 : 22;
+
+  useEffect(() => {
+    const saved = localStorage.getItem("wa.intelPanelOpen");
+    if (saved !== null) return;
+    setShowIntelPanel(viewportWidth >= 1400);
+  }, [viewportWidth]);
+
+  const toggleIntelPanel = () => {
+    const next = !showIntelPanel;
+    setShowIntelPanel(next);
+    localStorage.setItem("wa.intelPanelOpen", String(next));
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -415,7 +435,7 @@ export default function WhatsApp() {
         {activeTab === "sessoes" && (
           <ResizablePanelGroup direction="horizontal" className="h-full">
             {/* Left: conversation list */}
-            <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
+            <ResizablePanel defaultSize={listDefaultSize} minSize={20} maxSize={45}>
               <ConversationList
                 sessions={sessions}
                 projects={projects}
@@ -530,6 +550,15 @@ export default function WhatsApp() {
                           <TabsTrigger value="info" className="text-[10px] h-6 px-2"><Info className="h-3 w-3" /></TabsTrigger>
                         </TabsList>
                       </Tabs>
+                      <Button
+                        size="icon"
+                        variant={showIntelPanel ? "secondary" : "ghost"}
+                        className={`h-7 w-7 shrink-0 transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                        onClick={toggleIntelPanel}
+                        title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
+                      >
+                        {showIntelPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </div>
 
@@ -548,6 +577,8 @@ export default function WhatsApp() {
                             phone={selectedSession.phone}
                             projectId={selectedSession.project_id}
                             providerId={selectedProvider?.id || null}
+                            intelPanelOpen={showIntelPanel}
+                            onToggleIntelPanel={toggleIntelPanel}
                           />
                         </div>
                       </div>

@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
 import AssignAndNotesBar from "./AssignAndNotesBar";
@@ -12,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
 import { LeadIntelPanel } from "./LeadIntelPanel";
 import ConversationIntelCard from "./ConversationIntelCard";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -45,6 +47,8 @@ interface Props {
   phone: string;
   projectId: string;
   providerId: string | null;
+  intelPanelOpen?: boolean;
+  onToggleIntelPanel?: () => void;
 }
 
 const EMOJI_LIST = ["😀", "😂", "❤️", "👍", "🙏", "🔥", "✅", "⭐", "💪", "🎉", "😍", "🤝", "💰", "📦", "🚀", "💡"];
@@ -199,7 +203,7 @@ function MediaContent({ message }: { message: Message }) {
 }
 
 const ChatView = React.forwardRef<HTMLDivElement, Props>(
-  ({ conversationId, phone, projectId, providerId }, ref) => {
+  ({ conversationId, phone, projectId, providerId, intelPanelOpen, onToggleIntelPanel }, ref) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
@@ -227,8 +231,36 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [aiConfigState, setAiConfigState] = useState<any | null>(null);
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
-    const [showIntelPanel, setShowIntelPanel] = useState(true);
+    const [showIntelPanel, setShowIntelPanel] = useState(() => {
+      if (intelPanelOpen !== undefined) return intelPanelOpen;
+      const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
+      if (saved !== null) return saved === "true";
+      return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
+    });
     const [lastIntent, setLastIntent] = useState<string | null>(null);
+    const viewportWidth = useViewportWidth();
+    const isCompact = viewportWidth < 1280;
+    const maxWidthClass = showIntelPanel ? "max-w-3xl" : "max-w-5xl";
+
+    useEffect(() => {
+      if (intelPanelOpen !== undefined) {
+        setShowIntelPanel(intelPanelOpen);
+        return;
+      }
+      const saved = localStorage.getItem("wa.intelPanelOpen");
+      if (saved !== null) return;
+      setShowIntelPanel(viewportWidth >= 1400);
+    }, [viewportWidth, intelPanelOpen]);
+
+    const toggleIntelPanel = () => {
+      if (onToggleIntelPanel) {
+        onToggleIntelPanel();
+      } else {
+        const next = !showIntelPanel;
+        setShowIntelPanel(next);
+        localStorage.setItem("wa.intelPanelOpen", String(next));
+      }
+    };
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
@@ -1343,7 +1375,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}>
-            <div className="p-4 space-y-1 max-w-3xl mx-auto">
+            <div className={`p-4 space-y-1 ${maxWidthClass} mx-auto`}>
               {hasMore && (
                 <div className="flex justify-center mb-2">
                   <Button size="sm" variant="ghost" className="text-xs gap-1 bg-background/80 backdrop-blur-sm rounded-full shadow-sm" onClick={loadMore} disabled={loadingMore}>
@@ -1541,7 +1573,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           <div className="border-t border-border bg-card p-3 shrink-0">
             {/* Slash command suggestions */}
             {showCommands && commandSuggestions.length > 0 && (
-              <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
+              <div className={`mb-2 ${maxWidthClass} mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto`}>
                 <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
                 {commandSuggestions.map(cmd => (
                   <button
@@ -1567,7 +1599,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {draft && (
-              <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <div className={`${maxWidthClass} mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs`}>
                 <div className="flex items-start gap-2">
                   <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
                   <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
@@ -1582,7 +1614,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Quick 3-option suggestions panel */}
             {showQuickSuggest && (
-              <div className="max-w-3xl mx-auto mb-2">
+              <div className={`${maxWidthClass} mx-auto mb-2`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
                   <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
@@ -1610,7 +1642,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Dynamic Objection Detection Banner */}
             {detectedObjection && (
-              <div className="max-w-3xl mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className={`${maxWidthClass} mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-2">
@@ -1662,7 +1694,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Calibrated Objections Pill Bar */}
             {objections.length > 0 && (
-              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
+              <div className={`${maxWidthClass} mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none`}>
                 <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                   🛡️ Objeções:
                 </span>
@@ -1685,7 +1717,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {recordingState === "recording" ? (
-              <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3">
                   <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -1706,7 +1738,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : recordingState === "preview" ? (
-              <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3 flex-1">
                   <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
                     {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
@@ -1726,7 +1758,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : (
-              <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
+              <div className={`flex items-end gap-2 ${maxWidthClass} mx-auto w-full`}>
                 {/* Temperature badge */}
                 <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
                   temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
