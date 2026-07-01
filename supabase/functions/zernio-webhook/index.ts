@@ -368,10 +368,15 @@ Deno.serve(async (req) => {
     });
     const hasStoryAttachment = attachmentHasStory || looksLikeStoryMention;
     const msgPayload: any = { mid: messageId, text, attachments };
-    if (replyToStory) msgPayload.reply_to = { story: replyToStory };
-    if (hasStoryAttachment && attachments[0]) {
-      // Garante type story_mention para o matcher do instagram-webhook
-      attachments[0].type = attachments[0].type || "story_mention";
+    const finalReplyToStory = replyToStory || (looksLikeStoryReply && rawStoryId ? { id: String(rawStoryId) } : null);
+    if (finalReplyToStory) msgPayload.reply_to = { story: finalReplyToStory };
+    if (hasStoryAttachment) {
+      if (attachments[0]) {
+        attachments[0].type = attachments[0].type === "story" ? "story_mention" : (attachments[0].type || "story_mention");
+      } else {
+        attachments.push({ type: "story_mention", payload: { url: null } });
+        msgPayload.attachments = attachments;
+      }
     }
 
     const metaEnvelope = {
