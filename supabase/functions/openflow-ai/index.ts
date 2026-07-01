@@ -2062,7 +2062,9 @@ ${products.length > 0 ? `\nPRODUTOS CADASTRADOS:\n${JSON.stringify(products, nul
   const intelSystem = `${mentePrefix}Você é um estrategista de marketing digital especializado em análise de avatar e mercado. Use os frameworks dos melhores copywriters brasileiros e internacionais (Gary Bencivenga, Eugene Schwartz, Dan Kennedy, Alex Hormozi).
 
 ${projectContext}
-${skillsContext}`;
+${skillsContext}
+${anglesCatalogBlock()}
+${qualityChecklistBlock()}`;
 
   const intelPrompt = `Com base no briefing abaixo, execute a análise completa:
 
@@ -2072,7 +2074,7 @@ Você deve retornar:
 1. AVATAR DETALHADO: dores profundas (físicas, emocionais, financeiras), desejos, frustrações, linguagem que usa, dia a dia
 2. NÍVEL DE CONSCIÊNCIA (Eugene Schwartz): qual dos 5 níveis o avatar está (inconsciente / consciente do problema / consciente da solução / consciente do produto / mais consciente) — e por quê
 3. MECANISMO ÚNICO: por que esta solução funciona de forma diferente de tudo que o avatar já tentou — o elemento secreto/novo
-4. 4 ÂNGULOS CRIATIVOS: cada ângulo é uma abordagem única para os anúncios, com gancho + linha de abertura + promessa central
+4. 4 ÂNGULOS CRIATIVOS: SELECIONE 4 ângulos do catálogo canônico acima (use o campo "slug"). Regras obrigatórias: cada ângulo escolhido deve ter uma EMOÇÃO DOMINANTE diferente dos outros três; a headline deve seguir a "estrutura" documentada no catálogo; NÃO invente ângulos novos.
 5. POSICIONAMENTO: como o produto deve ser posicionado para se diferenciar`;
 
   const intelResult = await callAI(intelSystem, intelPrompt, apiKey, model, [{
@@ -2092,11 +2094,11 @@ Você deve retornar:
           }, required: ["dores", "desejos", "linguagem", "nivel_consciencia", "nivel_numero"], additionalProperties: false },
           mecanismo_unico: { type: "string" },
           angles: { type: "array", items: { type: "object", properties: {
-            nome: { type: "string" },
-            gancho: { type: "string" },
-            abertura: { type: "string" },
-            promessa: { type: "string" },
-          }, required: ["nome", "gancho", "abertura", "promessa"], additionalProperties: false } },
+            slug: { type: "string", enum: ALL_SLUGS, description: "Slug do ângulo escolhido no catálogo canônico" },
+            headline: { type: "string", description: "Headline pronta seguindo a estrutura do ângulo (até 140 chars)" },
+            corpo: { type: "string", description: "Corpo curto do anúncio (2-4 linhas)" },
+            cta: { type: "string", description: "CTA específico (evitar 'clique aqui')" },
+          }, required: ["slug", "headline", "corpo", "cta"], additionalProperties: false } },
           posicionamento: { type: "string" },
         },
         required: ["avatar", "mecanismo_unico", "angles", "posicionamento"],
@@ -2107,7 +2109,14 @@ Você deve retornar:
 
   if (intelResult instanceof Response) return intelResult;
 
-  const anglesList = (intelResult.angles || []).map((a: any) => `${a.nome}: ${a.gancho} → ${a.promessa}`);
+  // Hidrata os ângulos com metadados do catálogo canônico
+  intelResult.angles = (intelResult.angles || []).map((a: any) => {
+    const cat = ANGLE_BY_SLUG[a.slug];
+    return cat
+      ? { ...a, nome: cat.nome, gatilho: cat.gatilho, emocao_dominante: cat.emocaoDominante }
+      : a;
+  });
+  const anglesList = intelResult.angles.map((a: any) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}`);
 
   // ── PHASE 2 — Funnel structure ──
   const MODELO_CONFIGS: Record<string, string> = {
