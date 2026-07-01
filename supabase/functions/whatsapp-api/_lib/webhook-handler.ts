@@ -148,22 +148,61 @@ async function runWhatsAppAutoresponder(
     console.warn("[webhook] Command auto-reply error:", cmdErr.message);
   }
 
-  // AI autoresponder: delega para wa-ai-reply
+  // AI autoresponder: delega para wa-ai-reply com DEBOUNCE de 8s
+  // (evita responder com contexto obsoleto quando lead manda áudio + texto em sequência)
   try {
     if (!matched && phone && content && projectId && providerId) {
-      supabase.functions.invoke("wa-ai-reply", {
-        body: {
-          conversation_id: conv.id,
-          project_id: projectId,
-          provider_id: providerId,
-          phone,
-          message: content,
-          push_name: pushName,
-          media_url: mediaUrl || undefined,
-          media_type: messageType || undefined,
-        },
-      }).catch((e: any) => console.warn("[webhook] wa-ai-reply invoke error:", e?.message));
-      console.log("[webhook] wa-ai-reply invocado conv=" + conv.id + " media=" + !!mediaUrl);
+      const DEBOUNCE_MS = 8000;
+      const debounceUntil = new Date(Date.now() + DEBOUNCE_MS).toISOString();
+      await supabase
+        .from("imphq_wa_conversations")
+        .update({ ai_debounce_until: debounceUntil })
+        .eq("id", conv.id);
+
+      const invokePayload = {
+        conversation_id: conv.id,
+        project_id: projectId,
+        provider_id: providerId,
+        phone,
+        message: content,
+        push_name: pushName,
+        media_url: mediaUrl || undefined,
+        media_type: messageType || undefined,
+      };
+
+      const scheduled = (async () => {
+        await new Promise((r) => setTimeout(r, DEBOUNCE_MS + 300));
+        try {
+          const { data: cur } = await supabase
+            .from("imphq_wa_conversations")
+            .select("ai_debounce_until")
+            .eq("id", conv.id)
+            .maybeSingle();
+          if (!cur?.ai_debounce_until) {
+            console.log(`[webhook] debounce conv=${conv.id} já processado por outro trigger, ignorando`);
+            return;
+          }
+          if (cur.ai_debounce_until !== debounceUntil) {
+            console.log(`[webhook] debounce conv=${conv.id} superado por trigger mais recente, cedendo turno`);
+            return;
+          }
+          await supabase
+            .from("imphq_wa_conversations")
+            .update({ ai_debounce_until: null })
+            .eq("id", conv.id);
+          await supabase.functions.invoke("wa-ai-reply", { body: invokePayload });
+          console.log(`[webhook] wa-ai-reply invocado (pós-debounce) conv=${conv.id}`);
+        } catch (e: any) {
+          console.warn("[webhook] debounce invoke error:", e?.message);
+        }
+      })();
+
+      // @ts-ignore EdgeRuntime é global no Supabase Edge Functions
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(scheduled);
+      }
+      console.log(`[webhook] wa-ai-reply agendado conv=${conv.id} debounce=${DEBOUNCE_MS}ms media=${!!mediaUrl}`);
     }
   } catch (aiErr: any) {
     console.error("[webhook] AI delegate error:", aiErr.message);
