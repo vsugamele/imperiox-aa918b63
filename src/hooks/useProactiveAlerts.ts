@@ -24,7 +24,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
     const cutoff = new Date(now - 15 * 60_000).toISOString();
     const { data: pix } = await supabase
       .from("imphq_vendas")
-      .select("id, lead_id, nome, valor, created_at, status")
+      .select("id, lead_id, produto_nome, valor, created_at, status")
       .eq("status", "pendente")
       .gte("created_at", since)
       .lte("created_at", cutoff)
@@ -34,7 +34,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
         key: `pix:${v.id}`,
         kind: "pix_pending",
         severity: "warning",
-        title: `PIX pendente · ${v.nome || "lead"}`,
+        title: `PIX pendente · ${v.produto_nome || "lead"}`,
         description: `R$ ${Number(v.valor || 0).toFixed(2)} emitido há +15min sem follow-up.`,
         action_label: "Abrir lead",
         action_href: v.lead_id ? `/lead/${v.lead_id}` : "/leads",
@@ -48,8 +48,8 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
     const cutoff = new Date(now - 2 * 3600_000).toISOString();
     const { data: convs } = await (supabase as any)
       .from("imphq_wa_conversations")
-      .select("id, phone, nome, last_message_at, last_direction")
-      .eq("last_direction", "in")
+      .select("id, phone, contact_name, last_message_at, last_message_direction")
+      .eq("last_message_direction", "in")
       .lte("last_message_at", cutoff)
       .order("last_message_at", { ascending: false })
       .limit(5);
@@ -59,7 +59,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
         key: `stale:${c.id}`,
         kind: "stale_conv",
         severity: "warning",
-        title: `Conversa parada · ${c.nome || c.phone}`,
+        title: `Conversa parada · ${c.contact_name || c.phone}`,
         description: `Aguardando resposta há +2h.`,
         action_label: "Abrir conversa",
         action_href: `/inbox?conv=${c.id}`,
