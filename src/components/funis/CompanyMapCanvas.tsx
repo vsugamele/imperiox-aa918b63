@@ -135,15 +135,17 @@ function InnerMap({ projects }: { projects: any[] }) {
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
   }, []);
 
-  // Toggle single checklist item directly on the canvas
+  // Toggle single checklist item directly on the canvas (stable ref via setState updater)
   const toggleChecklistItem = useCallback(async (nodeId: string, itemId: string, done: boolean) => {
-    const raw = rawNodes.find(r => r.id === nodeId);
-    if (!raw) return;
-    const next = (raw.checklist || []).map(c => c.id === itemId ? { ...c, done } : c);
-    setRawNodes(list => list.map(r => r.id === nodeId ? { ...r, checklist: next } : r));
-    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, checklist: next } } : n));
-    await supabase.from("imphq_company_map_nodes").update({ checklist: next as any }).eq("id", nodeId);
-  }, [rawNodes]);
+    let nextChecklist: ChecklistItem[] = [];
+    setRawNodes(list => list.map(r => {
+      if (r.id !== nodeId) return r;
+      nextChecklist = (r.checklist || []).map(c => c.id === itemId ? { ...c, done } : c);
+      return { ...r, checklist: nextChecklist };
+    }));
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, checklist: nextChecklist } } : n));
+    await supabase.from("imphq_company_map_nodes").update({ checklist: nextChecklist as any }).eq("id", nodeId);
+  }, []);
 
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
@@ -173,14 +175,16 @@ function InnerMap({ projects }: { projects: any[] }) {
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
 
-  // re-inject stats + toggle callback into node data
+  // re-inject live stats only (avoid full data replace to prevent flicker during drag)
   useEffect(() => {
+    if (!liveStats) return;
     setNodes(nds => nds.map(n => {
-      const raw = rawNodes.find(r => r.id === n.id);
-      const stats = raw?.linked_project_id && liveStats ? liveStats[raw.linked_project_id] : null;
-      return { ...n, data: { ...n.data, liveStats: stats, onToggleItem: toggleChecklistItem } };
+      const pid = (n.data as any)?.linked_project_id;
+      const stats = pid ? liveStats[pid] : null;
+      if ((n.data as any)?.liveStats === stats) return n;
+      return { ...n, data: { ...n.data, liveStats: stats } };
     }));
-  }, [liveStats, rawNodes, toggleChecklistItem]);
+  }, [liveStats]);
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
@@ -190,10 +194,11 @@ function InnerMap({ projects }: { projects: any[] }) {
       if (c.type === "position" && c.dragging === false && c.position) {
         await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
       }
-      if (c.type === "select") {
-        setSelectedIds(prev => c.selected ? Array.from(new Set([...prev, c.id])) : prev.filter(x => x !== c.id));
-      }
     });
+  }, []);
+
+  const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
+    setSelectedIds(sel.map(n => n.id));
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
@@ -433,23 +438,23 @@ function InnerMap({ projects }: { projects: any[] }) {
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-red-400" onClick={bulkDelete}>
             <Trash2 className="h-3 w-3" /> Excluir
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setSelectedIds([])}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => { setSelectedIds([]); setNodes(nds => nds.map(n => n.selected ? { ...n, selected: false } : n)); }}>
             <X className="h-3 w-3" />
           </Button>
         </div>
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Arraste no vazio = selecionar em área · Botão do meio/direito = mover canvas · Arraste um nó selecionado = mover todos
+        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Arraste um nó selecionado = mover todos
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick}
+        onSelectionChange={onSelectionChange}
         selectionOnDrag
         selectionMode={"partial" as any}
         panOnDrag={[1, 2]}
-        selectionKeyCode={["Shift"]}
         multiSelectionKeyCode={["Meta", "Control"]}
         nodesDraggable
         selectNodesOnDrag={false}
