@@ -229,8 +229,13 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [aiConfigState, setAiConfigState] = useState<any | null>(null);
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
-    const [showIntelPanel, setShowIntelPanel] = useState(true);
+    const [showIntelPanel, setShowIntelPanel] = useState(() => {
+      const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
+      if (saved !== null) return saved === "true";
+      return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
+    });
     const [lastIntent, setLastIntent] = useState<string | null>(null);
+    const viewportWidth = useViewportWidth();
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
