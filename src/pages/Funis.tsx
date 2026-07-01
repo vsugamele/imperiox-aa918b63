@@ -213,7 +213,7 @@ export default function Funis() {
     } finally { setAiGenerating(false); }
   };
 
-  const handlePipelineApply = (etapas: unknown[], estrategia: string) => {
+  const handlePipelineApply = (etapas: unknown[], estrategia: string, assets?: Record<string, unknown>) => {
     if (!selectedFunil) return;
     const mapped = (etapas as Array<Record<string, unknown>>).map(e => ({
       nome: (e.nome as string) || "Etapa",
@@ -226,9 +226,21 @@ export default function Funis() {
       descricao: (e.descricao as string) || "",
       connects_to: (e.connects_to as number[]) || [],
     }));
-    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: mapped } });
+    const pipeline_assets = assets && Object.keys(assets).length > 0
+      ? { ...assets, estrategia, generated_at: new Date().toISOString() }
+      : (selectedFunil.data as any).pipeline_assets;
+    const assetCount = assets
+      ? Object.values(assets).filter(v => Array.isArray(v) ? v.length > 0 : !!v).length
+      : 0;
+    setSelectedFunil({
+      ...selectedFunil,
+      data: { ...selectedFunil.data, etapas: mapped, pipeline_assets },
+    });
     triggerAutoSave();
-    toast.success(`Pipeline IA gerou ${mapped.length} etapas!${estrategia ? `\nðŸ“‹ ${estrategia.slice(0, 120)}` : ""}`, { duration: 8000 });
+    toast.success(
+      `Pipeline IA gerou ${mapped.length} etapas${assetCount ? ` + ${assetCount} ativos` : ""}!${estrategia ? `\n📋 ${estrategia.slice(0, 120)}` : ""}`,
+      { duration: 8000 }
+    );
   };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
