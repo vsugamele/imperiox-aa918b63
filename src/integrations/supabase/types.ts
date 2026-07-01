@@ -20544,13 +20544,18 @@ export type Database = {
       imphq_ig_comment_triggers: {
         Row: {
           click_count: number
+          cooldown_hours: number | null
           created_at: string | null
+          daily_cap: number | null
           dm_sent_count: number
           id: string
           is_active: boolean
           match_count: number
+          media_type_filter: string | null
+          negative_keywords: string[] | null
           post_id: string
           project_id: string
+          regex_pattern: string | null
           reply_comment_template: string | null
           send_dm_template: string
           trigger_keyword: string
@@ -20558,13 +20563,18 @@ export type Database = {
         }
         Insert: {
           click_count?: number
+          cooldown_hours?: number | null
           created_at?: string | null
+          daily_cap?: number | null
           dm_sent_count?: number
           id?: string
           is_active?: boolean
           match_count?: number
+          media_type_filter?: string | null
+          negative_keywords?: string[] | null
           post_id?: string
           project_id: string
+          regex_pattern?: string | null
           reply_comment_template?: string | null
           send_dm_template: string
           trigger_keyword: string
@@ -20572,13 +20582,18 @@ export type Database = {
         }
         Update: {
           click_count?: number
+          cooldown_hours?: number | null
           created_at?: string | null
+          daily_cap?: number | null
           dm_sent_count?: number
           id?: string
           is_active?: boolean
           match_count?: number
+          media_type_filter?: string | null
+          negative_keywords?: string[] | null
           post_id?: string
           project_id?: string
+          regex_pattern?: string | null
           reply_comment_template?: string | null
           send_dm_template?: string
           trigger_keyword?: string
@@ -21018,21 +21033,39 @@ export type Database = {
       }
       imphq_ig_trigger_executions: {
         Row: {
+          attempts: number
           comment_id: string
           event_type: string
           executed_at: string
+          idempotency_key: string | null
+          last_error: string | null
+          next_retry_at: string | null
+          payload: Json | null
+          status: string
           trigger_id: string
         }
         Insert: {
+          attempts?: number
           comment_id: string
           event_type?: string
           executed_at?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          next_retry_at?: string | null
+          payload?: Json | null
+          status?: string
           trigger_id: string
         }
         Update: {
+          attempts?: number
           comment_id?: string
           event_type?: string
           executed_at?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          next_retry_at?: string | null
+          payload?: Json | null
+          status?: string
           trigger_id?: string
         }
         Relationships: []
