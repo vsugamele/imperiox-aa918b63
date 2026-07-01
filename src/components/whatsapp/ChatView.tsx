@@ -2035,6 +2035,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+                {/* Message input */}
                 <Textarea
                   ref={textareaRef}
                   value={text}
