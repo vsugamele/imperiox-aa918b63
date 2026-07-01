@@ -23,6 +23,7 @@ import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
 import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
+import { PipelineAssetsDialog } from "@/components/funis/PipelineAssetsDialog";
 import { OneClickModal } from "@/components/funis/OneClickModal";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
@@ -36,7 +37,7 @@ interface Etapa {
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
-  project_id?: string; data: { etapas?: Etapa[] }; criado_em?: string;
+  project_id?: string; data: { etapas?: Etapa[]; pipeline_assets?: Record<string, unknown> }; criado_em?: string;
 }
 
 const DEFAULT_ETAPAS: Etapa[] = [
@@ -141,6 +142,7 @@ export default function Funis() {
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [showPipelineWizard, setShowPipelineWizard] = useState(false);
+  const [showPipelineAssets, setShowPipelineAssets] = useState(false);
   const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [resizingIdx, setResizingIdx] = useState<number | null>(null);
@@ -213,7 +215,7 @@ export default function Funis() {
     } finally { setAiGenerating(false); }
   };
 
-  const handlePipelineApply = (etapas: unknown[], estrategia: string) => {
+  const handlePipelineApply = (etapas: unknown[], estrategia: string, assets?: Record<string, unknown>) => {
     if (!selectedFunil) return;
     const mapped = (etapas as Array<Record<string, unknown>>).map(e => ({
       nome: (e.nome as string) || "Etapa",
@@ -226,9 +228,21 @@ export default function Funis() {
       descricao: (e.descricao as string) || "",
       connects_to: (e.connects_to as number[]) || [],
     }));
-    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: mapped } });
+    const pipeline_assets = assets && Object.keys(assets).length > 0
+      ? { ...assets, estrategia, generated_at: new Date().toISOString() }
+      : (selectedFunil.data as any).pipeline_assets;
+    const assetCount = assets
+      ? Object.values(assets).filter(v => Array.isArray(v) ? v.length > 0 : !!v).length
+      : 0;
+    setSelectedFunil({
+      ...selectedFunil,
+      data: { ...selectedFunil.data, etapas: mapped, pipeline_assets },
+    });
     triggerAutoSave();
-    toast.success(`Pipeline IA gerou ${mapped.length} etapas!${estrategia ? `\nðŸ“‹ ${estrategia.slice(0, 120)}` : ""}`, { duration: 8000 });
+    toast.success(
+      `Pipeline IA gerou ${mapped.length} etapas${assetCount ? ` + ${assetCount} ativos` : ""}!${estrategia ? `\n📋 ${estrategia.slice(0, 120)}` : ""}`,
+      { duration: 8000 }
+    );
   };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
@@ -806,8 +820,19 @@ export default function Funis() {
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
-            <History className="h-3 w-3" /> VersÃµes
+            <History className="h-3 w-3" /> Versões
           </Button>
+          {selectedFunil.data.pipeline_assets && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => setShowPipelineAssets(true)}
+              title="Copy, roteiros e avatar gerados pelo Pipeline IA"
+            >
+              <Sparkles className="h-3 w-3" /> Ativos IA
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
             <CalendarIcon className="h-3 w-3" /> Cronograma
           </Button>
@@ -1462,6 +1487,12 @@ export default function Funis() {
             link: p.ofertas?.[0]?.link || p.link || p.url || "",
           }))}
           model={aiGenModel}
+        />
+
+        <PipelineAssetsDialog
+          open={showPipelineAssets}
+          onOpenChange={setShowPipelineAssets}
+          assets={selectedFunil?.data.pipeline_assets as any}
         />
       </div>
     );
