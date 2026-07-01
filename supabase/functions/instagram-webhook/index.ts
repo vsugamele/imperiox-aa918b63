@@ -759,16 +759,21 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     console.log(`[ig-webhook] Matched comment trigger: "${matchedTrigger.trigger_keyword}" for comment "${commentText}"`);
                     
                     // Increment match count
-                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
-                      supa.from("imphq_ig_comment_triggers")
+                    try {
+                      const { error: rpcErr } = await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id });
+                      if (rpcErr) throw rpcErr;
+                    } catch {
+                      await supa.from("imphq_ig_comment_triggers")
                         .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
                         .eq("id", matchedTrigger.id);
-                    });
+                    }
+
+                    console.log(`[ig-webhook] Executando gatilho: reply=${!!matchedTrigger.reply_comment_template} dm=${!!matchedTrigger.send_dm_template}`);
 
                     // 1. Public Reply
                     if (matchedTrigger.reply_comment_template) {
                       const replyText = matchedTrigger.reply_comment_template.replace("{{nome}}", fromUsername || "você");
-                      await supa.functions.invoke("instagram-api", {
+                      const rp = await supa.functions.invoke("instagram-api", {
                         body: {
                           action: "reply_comment",
                           project_id: account.project_id,
@@ -776,6 +781,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                           message: replyText
                         }
                       });
+                      console.log(`[ig-webhook] reply_comment result: success=${rp?.data?.success} err=${rp?.error?.message || rp?.data?.error || "-"}`);
                     }
 
                     // 2. Private Direct Message (DM) Reply
