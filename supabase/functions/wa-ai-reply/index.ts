@@ -642,7 +642,8 @@ Deno.serve(async (req) => {
         .select("direction, content")
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
+
 
       // 7. Contexto do projeto
       const { data: project } = await supabase
@@ -697,6 +698,38 @@ Deno.serve(async (req) => {
       try {
         const mem: any = lead?.lead_memory || {};
         const lines: string[] = [];
+
+        // ✅ DADOS JÁ CAPTURADOS — nunca pedir de novo
+        // Fallback: se lead.email vazio, varre histórico procurando email já enviado
+        let effectiveEmail = String(lead?.email || "").trim().toLowerCase();
+        if (!effectiveEmail && Array.isArray(history)) {
+          for (const h of history) {
+            if (h.direction !== "incoming") continue;
+            const m = String(h.content || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/i);
+            if (m) {
+              effectiveEmail = m[0].trim().toLowerCase();
+              if (lead?.id) {
+                try {
+                  await supabase.from("imphq_leads").update({ email: effectiveEmail }).eq("id", lead.id).is("email", null);
+                  (lead as any).email = effectiveEmail;
+                  console.log(`[wa-ai-reply] 🔁 email retroativo capturado do histórico lead=${lead.id} email=${effectiveEmail}`);
+                } catch (_) { /* ignora */ }
+              }
+              break;
+            }
+          }
+        }
+        const capturedLines: string[] = [];
+        if (effectiveEmail) capturedLines.push(`- ✅ EMAIL já cadastrado: ${effectiveEmail} — NÃO peça de novo, use este.`);
+        if (lead?.nome || mem?.nome_preferido) capturedLines.push(`- ✅ NOME: ${lead?.nome || mem.nome_preferido}`);
+        if (phone) capturedLines.push(`- ✅ TELEFONE: ${phone}`);
+        if (capturedLines.length) {
+          lines.push("DADOS JÁ CAPTURADOS DO LEAD (não pergunte de novo, use direto):");
+          lines.push(...capturedLines);
+          lines.push("");
+        }
+
+
         if (mem.nome_preferido) lines.push(`- Prefere ser chamado(a) de: ${String(mem.nome_preferido).slice(0, 80)}`);
         if (mem.interesse_principal) lines.push(`- Interesse principal: ${String(mem.interesse_principal).slice(0, 150)}`);
         if (mem.informacoes_pessoais?.profissao) lines.push(`- Profissão: ${String(mem.informacoes_pessoais.profissao).slice(0, 100)}`);
