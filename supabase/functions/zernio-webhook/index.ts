@@ -344,21 +344,39 @@ Deno.serve(async (req) => {
       : { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar };
     const envelopeRecipient = isOutbound ? { id: senderId } : { id: igUserId };
 
-    // Detecta story reply / story mention vindo do Zernio (campos variam)
+    // Detecta story reply / story mention vindo do Zernio (campos variam bastante)
+    const rawStoryId = message?.storyId
+      || message?.story_id
+      || conversation?.storyId
+      || conversation?.story_id
+      || data?.storyId
+      || data?.story_id
+      || null;
     const replyToStory = message?.replyTo?.story
       || message?.reply_to?.story
       || conversation?.replyTo?.story
       || (message?.context?.story ? { id: message.context.story.id || message.context.story } : null)
+      || (rawStoryId ? { id: String(rawStoryId) } : null)
       || null;
-    const hasStoryAttachment = attachments.some((a: any) => {
+    const msgType = String(message?.messageType || message?.type || message?.contextType || "").toLowerCase();
+    const looksLikeStoryReply = /story[_-]?reply|reply[_-]?to[_-]?story/.test(msgType);
+    const looksLikeStoryMention = /story[_-]?mention|mention[_-]?story/.test(msgType);
+    const attachmentHasStory = attachments.some((a: any) => {
       const t = String(a?.type || "").toLowerCase();
-      return t === "story_mention" || t === "story";
+      const u = String(a?.payload?.url || "").toLowerCase();
+      return t === "story_mention" || t === "story" || t === "ig_story" || u.includes("/stories/");
     });
+    const hasStoryAttachment = attachmentHasStory || looksLikeStoryMention;
     const msgPayload: any = { mid: messageId, text, attachments };
-    if (replyToStory) msgPayload.reply_to = { story: replyToStory };
-    if (hasStoryAttachment && attachments[0]) {
-      // Garante type story_mention para o matcher do instagram-webhook
-      attachments[0].type = attachments[0].type || "story_mention";
+    const finalReplyToStory = replyToStory || (looksLikeStoryReply && rawStoryId ? { id: String(rawStoryId) } : null);
+    if (finalReplyToStory) msgPayload.reply_to = { story: finalReplyToStory };
+    if (hasStoryAttachment) {
+      if (attachments[0]) {
+        attachments[0].type = attachments[0].type === "story" ? "story_mention" : (attachments[0].type || "story_mention");
+      } else {
+        attachments.push({ type: "story_mention", payload: { url: null } });
+        msgPayload.attachments = attachments;
+      }
     }
 
     const metaEnvelope = {
@@ -376,11 +394,12 @@ Deno.serve(async (req) => {
 
     console.log(`[zernio-webhook] Forwarding ${isOutbound ? "OUTBOUND" : "inbound"} to instagram-webhook (lead: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    // Service role para invocação função→função (anon key passou a ser rejeitada como Forbidden)
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
     const forwardHeaders: Record<string, string> = { "Content-Type": "application/json" };
-    if (anonKey) {
-      forwardHeaders.Authorization = `Bearer ${anonKey}`;
-      forwardHeaders.apikey = anonKey;
+    if (serviceKey) {
+      forwardHeaders.Authorization = `Bearer ${serviceKey}`;
+      forwardHeaders.apikey = serviceKey;
     }
     let forwarded = false;
     try {
@@ -464,13 +483,9 @@ Deno.serve(async (req) => {
     // 🔥 Dispara automação de DM/Story (story_reply, story_mention ou DM normal)
     if (!isOutbound && dbAccId && senderId) {
       try {
-        const att = attachments[0] || null;
-        const attType = String(att?.type || "").toLowerCase();
-        const isStoryMention = attType === "story_mention" || attType === "story";
-        const isStoryReply = !!(message?.replyTo?.story || message?.reply_to?.story || conversation?.replyTo?.story);
-        const evt: "dm" | "story" | "story_mention" = isStoryMention
+        const evt: "dm" | "story" | "story_mention" = hasStoryAttachment
           ? "story_mention"
-          : isStoryReply ? "story" : "dm";
+          : (finalReplyToStory ? "story" : "dm");
         await runDmTrigger({
           supa,
           projectId,

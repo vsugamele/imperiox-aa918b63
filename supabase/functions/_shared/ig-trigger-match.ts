@@ -158,10 +158,10 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
     .select("*")
     .eq("project_id", projectId)
     .eq("is_active", true)
-    .eq("post_id", eventType);
+    .in("post_id", [eventType, "all", "*", "dm_or_story"]);
 
   if (!triggers || triggers.length === 0) {
-    console.log(`[ig-trigger] ${eventType}: nenhum gatilho ativo para project=${projectId} (configurar post_id="${eventType}")`);
+    console.log(`[ig-trigger] ${eventType}: nenhum gatilho ativo para project=${projectId} (post_id="${eventType}"|all|*)`);
     return { matched: false };
   }
 
