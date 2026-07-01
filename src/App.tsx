@@ -74,6 +74,7 @@ const CopyLab = lazy(() => import("./pages/CopyLab"));
 const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
 const AILearning = lazy(() => import("./pages/AILearning"));
 const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
+const InteligenciaIA = lazy(() => import("./pages/InteligenciaIA"));
 const Atribuicao = lazy(() => import("./pages/Atribuicao"));
 const FunilSimulador = lazy(() => import("./pages/FunilSimulador"));
 const OpenRouterCustos = lazy(() => import("./pages/OpenRouterCustos"));
