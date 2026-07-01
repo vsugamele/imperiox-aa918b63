@@ -137,16 +137,47 @@ Deno.serve(async (req) => {
 
     for (const entry of payload.entry || []) {
       const igUserId = entry.id;
+      // Também tenta capturar o ID vindo do value.id (payload de comentários da Meta traz o IG Business Account aqui)
+      const nestedIds: string[] = [];
+      for (const ch of entry.changes || []) {
+        const vid = ch?.value?.id;
+        if (vid && typeof vid === "string") nestedIds.push(vid);
+      }
+      const candidateIds = Array.from(new Set([igUserId, ...nestedIds].filter(Boolean))) as string[];
+
       let account: any = null;
-      if (igUserId) {
+      // 1) ig_user_id direto
+      for (const cid of candidateIds) {
         const { data } = await supa
           .from("imphq_ig_accounts")
           .select("id, project_id")
-          .eq("ig_user_id", igUserId)
+          .eq("ig_user_id", cid)
           .maybeSingle();
-        account = data || null;
+        if (data) { account = data; break; }
       }
-      // Fallback: payloads sem entry.id (ex: forward Zernio) — resolve pela query string
+      // 2) page_id (contas Zernio armazenam profileId aqui)
+      if (!account) {
+        for (const cid of candidateIds) {
+          const { data } = await supa
+            .from("imphq_ig_accounts")
+            .select("id, project_id")
+            .eq("page_id", cid)
+            .maybeSingle();
+          if (data) { account = data; break; }
+        }
+      }
+      // 3) metadata->>'meta_ig_id' (backfill do IG Business Account real p/ contas conectadas via Zernio)
+      if (!account) {
+        for (const cid of candidateIds) {
+          const { data } = await supa
+            .from("imphq_ig_accounts")
+            .select("id, project_id")
+            .eq("metadata->>meta_ig_id", cid)
+            .maybeSingle();
+          if (data) { account = data; break; }
+        }
+      }
+      // 4) Fallback: ?project= na query string (forward Zernio)
       if (!account && fallbackProjectId) {
         const { data } = await supa
           .from("imphq_ig_accounts")
@@ -156,7 +187,10 @@ Deno.serve(async (req) => {
           .maybeSingle();
         account = data || null;
       }
-      if (!account) continue;
+      if (!account) {
+        console.warn(`[ig-webhook] no account for entry.id=${igUserId} nested=${nestedIds.join(",")} project_fallback=${fallbackProjectId || "-"}`);
+        continue;
+      }
 
       // --- MENSAGENS (DMs) ---
       for (const messaging of entry.messaging || []) {
