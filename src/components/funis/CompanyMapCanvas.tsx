@@ -232,6 +232,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   };
 
   const onNodeClick = (_: any, node: Node) => {
+    // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
+    if (selectedIds.length > 1 && selectedIds.includes(node.id)) return;
     const raw = rawNodes.find(r => r.id === node.id);
     if (raw) setSelected({ ...raw, checklist: raw.checklist || [] });
   };
