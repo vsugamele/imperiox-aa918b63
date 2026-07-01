@@ -577,6 +577,8 @@ export default function WhatsApp() {
                             phone={selectedSession.phone}
                             projectId={selectedSession.project_id}
                             providerId={selectedProvider?.id || null}
+                            intelPanelOpen={showIntelPanel}
+                            onToggleIntelPanel={toggleIntelPanel}
                           />
                         </div>
                       </div>
