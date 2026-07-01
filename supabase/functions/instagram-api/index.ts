@@ -499,20 +499,20 @@ Deno.serve(async (req) => {
         const { data: row } = await supa.from("imphq_ig_comments").select("media_id").eq("comment_id", comment_id).maybeSingle();
         if (!row?.media_id) return json({ error: "Post não encontrado para esse comentário" }, 400);
         const rawCid = comment_id.startsWith("zernio-") ? comment_id.slice(7) : comment_id;
-        const r = await fetch(`https://zernio.com/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${creds.zernio_api_key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: creds.zernio_account_id, content: message, parentCommentId: rawCid }),
+        const r = await callZernio(supa, {
+          project_id, action: "reply_comment",
+          endpoint: `/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}`,
+          apiKey: creds.zernio_api_key,
+          body: { accountId: creds.zernio_account_id, content: message, parentCommentId: rawCid },
         });
         if (!r.ok) {
-          const errBody = (await r.text()).slice(0, 300);
-          console.warn(`[instagram-api] Zernio reply_comment ${r.status}: ${errBody} (media=${row.media_id} parent=${rawCid})`);
-          return json({ error: `Zernio reply ${r.status}: ${errBody}` }, 400);
+          console.warn(`[instagram-api] Zernio reply_comment ${r.status}: ${r.errorSummary} (media=${row.media_id} parent=${rawCid} reqId=${r.requestId})`);
+          return json({ error: `Zernio reply ${r.status}: ${r.errorSummary}`, request_id: r.requestId, response: r.data }, 400);
         }
-        const data = await r.json().catch(() => ({}));
         await supa.from("imphq_ig_comments").update({ replied: true, reply_text: message }).eq("comment_id", comment_id);
-        return json({ success: true, id: data?.id || data?.commentId || null });
+        return json({ success: true, id: (r.data as any)?.id || (r.data as any)?.commentId || null });
       }
+
 
       if (!creds.page_access_token) return json({ error: "Esta ação requer conexão via Meta/Facebook.", needs_meta: true }, 200);
       const r = await fetch(`${GRAPH}/${comment_id}/replies`, {
