@@ -633,47 +633,67 @@ Deno.serve(async (req) => {
         const threadId = conv?.ig_thread_id || conv?.participant_id || authorUserId;
         console.log(`[instagram-api] private_reply zernio: comment=${comment_id} author=@${authorUsername || "?"} thread=${threadId || "-"} media=${mediaId || "-"}`);
 
-        // Estratégia 1: se temos conversa/participante, envia como mensagem direta
+        // Estratégia 1: se temos conversa/participante existente, tenta DM direta
+        const attempts: Array<{ label: string; endpoint: string; body: any }> = [];
         if (threadId) {
-          const zRes = await fetch(`https://zernio.com/api/v1/inbox/conversations/${threadId}/messages`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${creds.zernio_api_key}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ accountId: creds.zernio_account_id, message }),
+          attempts.push({
+            label: "inbox/conversations/messages",
+            endpoint: `/api/v1/inbox/conversations/${encodeURIComponent(threadId)}/messages`,
+            body: { accountId: creds.zernio_account_id, message },
           });
-          if (zRes.ok) {
-            const zData = await zRes.json().catch(() => ({}));
-            messageId = zData.messageId || zData.id || "zernio-" + Date.now();
-          } else {
-            const errBody = (await zRes.text()).slice(0, 300);
-            console.warn(`[instagram-api] Zernio DM direta falhou ${zRes.status}: ${errBody}. Tentando private_reply por comentário...`);
-          }
+        }
+        // Cascata para private_reply ancorado no comentário (não depende de thread)
+        if (mediaId && rawCid) {
+          attempts.push({
+            label: "inbox/comments/{media}/{comment}/private-reply",
+            endpoint: `/api/v1/inbox/comments/${encodeURIComponent(mediaId)}/${encodeURIComponent(rawCid)}/private-reply`,
+            body: { accountId: creds.zernio_account_id, message },
+          });
+          attempts.push({
+            label: "comments/{comment}/private_reply",
+            endpoint: `/api/v1/comments/${encodeURIComponent(rawCid)}/private_reply`,
+            body: { accountId: creds.zernio_account_id, text: message },
+          });
+          attempts.push({
+            label: "comments/private_replies",
+            endpoint: `/api/v1/comments/private_replies`,
+            body: { accountId: creds.zernio_account_id, comment_id: rawCid, text: message },
+          });
         }
 
-        // Estratégia 2: fallback — private_reply do Zernio via comentário (endpoint dedicado)
-        if (!messageId && mediaId) {
-          const zRes2 = await fetch(`https://zernio.com/api/v1/inbox/comments/${encodeURIComponent(mediaId)}/${encodeURIComponent(rawCid)}/private-reply`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${creds.zernio_api_key}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ accountId: creds.zernio_account_id, message }),
+        let lastErr: any = null;
+        let lastStatus = 0;
+        let lastReqId: string | null = null;
+        for (let i = 0; i < attempts.length; i++) {
+          const a = attempts[i];
+          const r = await callZernio(supa, {
+            project_id, action: `private_reply:${a.label}`,
+            endpoint: a.endpoint, apiKey: creds.zernio_api_key, body: a.body,
+            attempt: i + 1,
           });
-          if (!zRes2.ok) {
-            const errBody = (await zRes2.text()).slice(0, 300);
-            console.warn(`[instagram-api] Zernio private-reply endpoint ${zRes2.status}: ${errBody}`);
-            return json({ error: `Zernio private_reply error (${zRes2.status}): ${errBody}` }, 400);
+          if (r.ok) {
+            messageId = (r.data as any)?.messageId || (r.data as any)?.id || `zernio-pr-${Date.now()}`;
+            break;
           }
-          const zData = await zRes2.json().catch(() => ({}));
-          messageId = zData.messageId || zData.id || "zernio-pr-" + Date.now();
+          lastErr = r.errorSummary; lastStatus = r.status; lastReqId = r.requestId;
+          // Heurística: 400 com msg de janela/permissão da Meta → parar cascata
+          const msg = String(r.errorSummary || "").toLowerCase();
+          const metaBlock = /window|24.?hour|7.?day|not allowed|permission|blocked|deleted|expired|closed/i.test(msg);
+          if (metaBlock) {
+            console.warn(`[instagram-api] Zernio meta-block detectado, cancelando cascata: ${r.errorSummary}`);
+            break;
+          }
+          // Só avança na cascata se for 404 (path) ou 400 de schema
+          if (r.status !== 404 && r.status !== 400 && r.status !== 405) break;
         }
 
         if (!messageId) {
-          return json({ error: `Sem thread e sem media_id para enviar DM privada (comment=${comment_id}).` }, 400);
+          return json({
+            error: `Zernio private_reply falhou após ${attempts.length} tentativa(s): ${lastErr || "sem detalhes"}`,
+            status: lastStatus, request_id: lastReqId,
+          }, 400);
         }
+
       } else {
         if (!creds?.page_access_token || !creds?.ig_user_id) return json({ error: "Esta ação requer conexão via Meta/Facebook. Sua conta está conectada apenas via Zernio.", needs_meta: true }, 200);
         if (creds?.n8n_webhook_url) {
