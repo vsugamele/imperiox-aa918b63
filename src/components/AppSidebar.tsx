@@ -23,7 +23,7 @@ const hojeitems = [
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
   { title: "Tarefas",          url: "/tarefas",    icon: ListTodo },
-  { title: "RecuperaÃ§Ã£o",      url: "/recuperacao",icon: LifeBuoy },
+  { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
 ];
 
 const venderItems = [
@@ -38,26 +38,26 @@ const venderItems = [
 const adsFinancasItems = [
   { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Tracker",              url: "/tracker",    icon: Link2 },
-  { title: "AtribuiÃ§Ã£o",           url: "/atribuicao", icon: Radio },
-  { title: "FinanÃ§as",             url: "/financas",   icon: DollarSign },
+  { title: "Atribuição",           url: "/atribuicao", icon: Radio },
+  { title: "Finanças",             url: "/financas",   icon: DollarSign },
   { title: "Custos IA",            url: "/openrouter-custos", icon: Coins },
 ];
 
 const planejarItems = [
   { title: "Docs / KB",    url: "/docs",        icon: FileText },
-  { title: "ConteÃºdo",     url: "/rascunhos",   icon: Pencil },
-  { title: "ReferÃªncias",  url: "/referencias", icon: Library },
+  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
+  { title: "Referências",  url: "/referencias", icon: Library },
 ];
 
 const inteligenciaItems = [
-  { title: "SaÃºde da IA",          url: "/ai-saude",       icon: Brain },
-  { title: "MemÃ³ria Viva da IA",   url: "/ai-learning",    icon: Brain },
-  { title: "SaÃºde dos Produtos",   url: "/saude-produtos", icon: Activity },
-  { title: "Funil de ConversÃ£o",   url: "/funil-conversao",icon: Search },
+  { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
+  { title: "Memória Viva da IA",   url: "/ai-learning",    icon: Brain },
+  { title: "Saúde dos Produtos",   url: "/saude-produtos", icon: Activity },
+  { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
   { title: "Assistente",           url: "/assistente",     icon: Compass },
   { title: "Skills",               url: "/skills",         icon: Zap },
   { title: "Guia Claude (Copy)",   url: "/claude-skills",  icon: BookOpen },
-  { title: "EstÃºdio de Produto",   url: "/studio",         icon: Clapperboard },
+  { title: "Estúdio de Produto",   url: "/studio",         icon: Clapperboard },
   { title: "Copy Lab (Imperador)", url: "/copy-lab",       icon: Zap },
   { title: "Swipe File",           url: "/swipe",          icon: Library },
   { title: "Market Intel",         url: "/market-intel",   icon: Search },
@@ -252,9 +252,9 @@ export function AppSidebar() {
 
         <NavGroup label="Hoje"          items={hojeitems}         {...sharedProps} />
         <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
-        <NavGroup label="InteligÃªncia"  items={inteligenciaItems} {...sharedProps} />
+        <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
         <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
-        <NavGroup label="Ads / FinanÃ§as" items={adsFinancasItems} {...sharedProps} />
+        <NavGroup label="Ads / Finanças" items={adsFinancasItems} {...sharedProps} />
         <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
       </SidebarContent>
 
