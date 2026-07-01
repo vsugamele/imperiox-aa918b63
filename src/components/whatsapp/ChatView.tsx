@@ -236,6 +236,20 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     });
     const [lastIntent, setLastIntent] = useState<string | null>(null);
     const viewportWidth = useViewportWidth();
+    const isCompact = viewportWidth < 1280;
+    const maxWidthClass = showIntelPanel ? "max-w-3xl" : "max-w-5xl";
+
+    useEffect(() => {
+      const saved = localStorage.getItem("wa.intelPanelOpen");
+      if (saved !== null) return;
+      setShowIntelPanel(viewportWidth >= 1400);
+    }, [viewportWidth]);
+
+    const toggleIntelPanel = () => {
+      const next = !showIntelPanel;
+      setShowIntelPanel(next);
+      localStorage.setItem("wa.intelPanelOpen", String(next));
+    };
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
