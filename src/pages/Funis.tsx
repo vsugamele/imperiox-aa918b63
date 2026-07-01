@@ -36,7 +36,7 @@ interface Etapa {
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
-  project_id?: string; data: { etapas?: Etapa[] }; criado_em?: string;
+  project_id?: string; data: { etapas?: Etapa[]; pipeline_assets?: Record<string, unknown> }; criado_em?: string;
 }
 
 const DEFAULT_ETAPAS: Etapa[] = [
