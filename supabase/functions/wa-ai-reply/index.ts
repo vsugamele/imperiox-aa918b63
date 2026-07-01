@@ -642,7 +642,8 @@ Deno.serve(async (req) => {
         .select("direction, content")
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
+
 
       // 7. Contexto do projeto
       const { data: project } = await supabase
