@@ -376,11 +376,12 @@ Deno.serve(async (req) => {
 
     console.log(`[zernio-webhook] Forwarding ${isOutbound ? "OUTBOUND" : "inbound"} to instagram-webhook (lead: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    // Service role para invocação função→função (anon key passou a ser rejeitada como Forbidden)
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
     const forwardHeaders: Record<string, string> = { "Content-Type": "application/json" };
-    if (anonKey) {
-      forwardHeaders.Authorization = `Bearer ${anonKey}`;
-      forwardHeaders.apikey = anonKey;
+    if (serviceKey) {
+      forwardHeaders.Authorization = `Bearer ${serviceKey}`;
+      forwardHeaders.apikey = serviceKey;
     }
     let forwarded = false;
     try {
