@@ -141,6 +141,7 @@ export default function Funis() {
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [showPipelineWizard, setShowPipelineWizard] = useState(false);
+  const [showPipelineAssets, setShowPipelineAssets] = useState(false);
   const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [resizingIdx, setResizingIdx] = useState<number | null>(null);
