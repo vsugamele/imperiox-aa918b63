@@ -326,11 +326,14 @@ Deno.serve(async (req) => {
                   if (matchedTrigger) {
                     console.log(`[ig-webhook] Matched DM/Story trigger: "${matchedTrigger.trigger_keyword}" on event "${matchedTriggerType}"`);
                     
-                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
-                      supa.from("imphq_ig_comment_triggers")
+                    try {
+                      const { error: rpcErr } = await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id });
+                      if (rpcErr) throw rpcErr;
+                    } catch {
+                      await supa.from("imphq_ig_comment_triggers")
                         .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
                         .eq("id", matchedTrigger.id);
-                    });
+                    }
 
                     if (matchedTrigger.send_dm_template) {
                       const dmText = matchedTrigger.send_dm_template.replace("{{nome}}", senderUsername || "você");
@@ -345,11 +348,14 @@ Deno.serve(async (req) => {
                       
                       const dmSuccess = dmRes.data?.success || false;
                       if (dmSuccess) {
-                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
-                          supa.from("imphq_ig_comment_triggers")
+                        try {
+                          const { error: rpcErr } = await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id });
+                          if (rpcErr) throw rpcErr;
+                        } catch {
+                          await supa.from("imphq_ig_comment_triggers")
                             .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
                             .eq("id", matchedTrigger.id);
-                        });
+                        }
                       }
                     }
                     return; // Bypass standard AI reply!
