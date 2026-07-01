@@ -550,6 +550,15 @@ export default function WhatsApp() {
                           <TabsTrigger value="info" className="text-[10px] h-6 px-2"><Info className="h-3 w-3" /></TabsTrigger>
                         </TabsList>
                       </Tabs>
+                      <Button
+                        size="icon"
+                        variant={showIntelPanel ? "secondary" : "ghost"}
+                        className={`h-7 w-7 shrink-0 transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                        onClick={toggleIntelPanel}
+                        title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
+                      >
+                        {showIntelPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </div>
 
