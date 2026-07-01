@@ -344,16 +344,29 @@ Deno.serve(async (req) => {
       : { id: senderId, username: senderUsername, name: senderName, avatar: senderAvatar };
     const envelopeRecipient = isOutbound ? { id: senderId } : { id: igUserId };
 
-    // Detecta story reply / story mention vindo do Zernio (campos variam)
+    // Detecta story reply / story mention vindo do Zernio (campos variam bastante)
+    const rawStoryId = message?.storyId
+      || message?.story_id
+      || conversation?.storyId
+      || conversation?.story_id
+      || data?.storyId
+      || data?.story_id
+      || null;
     const replyToStory = message?.replyTo?.story
       || message?.reply_to?.story
       || conversation?.replyTo?.story
       || (message?.context?.story ? { id: message.context.story.id || message.context.story } : null)
+      || (rawStoryId ? { id: String(rawStoryId) } : null)
       || null;
-    const hasStoryAttachment = attachments.some((a: any) => {
+    const msgType = String(message?.messageType || message?.type || message?.contextType || "").toLowerCase();
+    const looksLikeStoryReply = /story[_-]?reply|reply[_-]?to[_-]?story/.test(msgType);
+    const looksLikeStoryMention = /story[_-]?mention|mention[_-]?story/.test(msgType);
+    const attachmentHasStory = attachments.some((a: any) => {
       const t = String(a?.type || "").toLowerCase();
-      return t === "story_mention" || t === "story";
+      const u = String(a?.payload?.url || "").toLowerCase();
+      return t === "story_mention" || t === "story" || t === "ig_story" || u.includes("/stories/");
     });
+    const hasStoryAttachment = attachmentHasStory || looksLikeStoryMention;
     const msgPayload: any = { mid: messageId, text, attachments };
     if (replyToStory) msgPayload.reply_to = { story: replyToStory };
     if (hasStoryAttachment && attachments[0]) {
