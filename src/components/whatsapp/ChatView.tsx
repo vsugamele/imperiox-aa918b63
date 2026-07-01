@@ -232,6 +232,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
     const [showIntelPanel, setShowIntelPanel] = useState(() => {
+      if (intelPanelOpen !== undefined) return intelPanelOpen;
       const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
       if (saved !== null) return saved === "true";
       return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
@@ -242,15 +243,23 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const maxWidthClass = showIntelPanel ? "max-w-3xl" : "max-w-5xl";
 
     useEffect(() => {
+      if (intelPanelOpen !== undefined) {
+        setShowIntelPanel(intelPanelOpen);
+        return;
+      }
       const saved = localStorage.getItem("wa.intelPanelOpen");
       if (saved !== null) return;
       setShowIntelPanel(viewportWidth >= 1400);
-    }, [viewportWidth]);
+    }, [viewportWidth, intelPanelOpen]);
 
     const toggleIntelPanel = () => {
-      const next = !showIntelPanel;
-      setShowIntelPanel(next);
-      localStorage.setItem("wa.intelPanelOpen", String(next));
+      if (onToggleIntelPanel) {
+        onToggleIntelPanel();
+      } else {
+        const next = !showIntelPanel;
+        setShowIntelPanel(next);
+        localStorage.setItem("wa.intelPanelOpen", String(next));
+      }
     };
     
     // Interactive actions states
