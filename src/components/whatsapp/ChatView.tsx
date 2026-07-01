@@ -1779,13 +1779,13 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
                 </Button>
 
-                {/* Toggle Intel Panel */}
+                {/* Toggle Intel Panel (desktop only — header controls it on compact) */}
                 <Button
                   size="icon"
                   variant={showIntelPanel ? "secondary" : "ghost"}
-                  className={`shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                  className={`hidden lg:flex shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                   title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
-                  onClick={() => setShowIntelPanel(prev => !prev)}
+                  onClick={() => onToggleIntelPanel ? onToggleIntelPanel() : setShowIntelPanel(prev => !prev)}
                 >
                   <Activity className="h-4 w-4" />
                 </Button>
