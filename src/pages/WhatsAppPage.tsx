@@ -81,6 +81,13 @@ export default function WhatsApp() {
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
   const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
+  const viewportWidth = useViewportWidth();
+  const [showIntelPanel, setShowIntelPanel] = useState(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
+    if (saved !== null) return saved === "true";
+    return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
+  });
+  const listDefaultSize = viewportWidth >= 1440 ? 30 : viewportWidth >= 1280 ? 24 : 22;
 
   const load = useCallback(async () => {
     setLoading(true);
