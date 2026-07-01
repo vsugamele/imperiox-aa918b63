@@ -820,8 +820,19 @@ export default function Funis() {
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
-            <History className="h-3 w-3" /> VersÃµes
+            <History className="h-3 w-3" /> Versões
           </Button>
+          {selectedFunil.data.pipeline_assets && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => setShowPipelineAssets(true)}
+              title="Copy, roteiros e avatar gerados pelo Pipeline IA"
+            >
+              <Sparkles className="h-3 w-3" /> Ativos IA
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
             <CalendarIcon className="h-3 w-3" /> Cronograma
           </Button>
