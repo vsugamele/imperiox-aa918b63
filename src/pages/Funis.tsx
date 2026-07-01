@@ -298,7 +298,7 @@ export default function Funis() {
         }));
         setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: aiEtapas } });
         triggerAutoSave();
-        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\nðŸ“‹ ${estrategia}` : ""}`, { duration: 6000 });
+        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\n📋 ${estrategia}` : ""}`, { duration: 6000 });
       } else {
         // Fallback local
         const etapas: Etapa[] = [];
@@ -1173,7 +1173,7 @@ export default function Funis() {
                           setEtapaField(i, "nome", nome);
                           if (url) setEtapaField(i, "url", url);
                         }}>
-                          <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="ðŸ“¦ Vincular Produto" /></SelectTrigger>
+                          <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="📦 Vincular Produto" /></SelectTrigger>
                           <SelectContent>
                             {projectProductsFull.map((p: any, pi: number) => (
                               <SelectItem key={pi} value={String(pi)} className="text-xs">
@@ -1228,7 +1228,7 @@ export default function Funis() {
                         <>
                           {pixData && (
                             <Badge variant="outline" className="text-[8px] text-emerald-400 border-emerald-400/30 w-fit">
-                              ðŸ“¡ Dados reais
+                              📡 Dados reais
                             </Badge>
                           )}
                           <div className="grid grid-cols-2 gap-2">
@@ -1502,7 +1502,7 @@ export default function Funis() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">ðŸ”— Funis</h1>
+        <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-secondary rounded-md p-0.5">
             <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
@@ -1749,8 +1749,8 @@ const CLUSTER_LEVELS = [
 ];
 
 const PLATFORM_BADGES: Record<string, string> = {
-  hotmart: "ðŸŸ§ Hotmart", kiwify: "ðŸŸª Kiwify", eduzz: "ðŸ”µ Eduzz",
-  hubla: "ðŸŸ¢ Hubla", ticto: "ðŸŸ© Ticto", braip: "ðŸŸ¡ Braip",
+  hotmart: "🟧 Hotmart", kiwify: "🟪 Kiwify", eduzz: "🔵 Eduzz",
+  hubla: "🟢 Hubla", ticto: "🟩 Ticto", braip: "🟨 Braip",
 };
 
 interface ProductCard {
