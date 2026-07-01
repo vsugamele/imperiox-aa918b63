@@ -437,7 +437,11 @@ Deno.serve(async (req) => {
           headers: { "Authorization": `Bearer ${creds.zernio_api_key}`, "Content-Type": "application/json" },
           body: JSON.stringify({ accountId: creds.zernio_account_id, content: message, parentCommentId: rawCid }),
         });
-        if (!r.ok) return json({ error: `Zernio reply ${r.status}: ${(await r.text()).slice(0, 200)}` }, 400);
+        if (!r.ok) {
+          const errBody = (await r.text()).slice(0, 300);
+          console.warn(`[instagram-api] Zernio reply_comment ${r.status}: ${errBody} (media=${row.media_id} parent=${rawCid})`);
+          return json({ error: `Zernio reply ${r.status}: ${errBody}` }, 400);
+        }
         const data = await r.json().catch(() => ({}));
         await supa.from("imphq_ig_comments").update({ replied: true, reply_text: message }).eq("comment_id", comment_id);
         return json({ success: true, id: data?.id || data?.commentId || null });
