@@ -203,7 +203,7 @@ function MediaContent({ message }: { message: Message }) {
 }
 
 const ChatView = React.forwardRef<HTMLDivElement, Props>(
-  ({ conversationId, phone, projectId, providerId }, ref) => {
+  ({ conversationId, phone, projectId, providerId, intelPanelOpen, onToggleIntelPanel }, ref) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
