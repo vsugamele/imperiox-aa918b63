@@ -3,7 +3,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
   type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
-  Handle, Position,
+  Handle, Position, useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointerSquare } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
@@ -45,11 +45,14 @@ interface MapNode {
 function MapNodeCard({ data }: { data: any }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
   const Icon = preset.icon;
-  const done = (data.checklist || []).filter((c: ChecklistItem) => c.done).length;
-  const total = (data.checklist || []).length;
+  const checklist: ChecklistItem[] = data.checklist || [];
+  const done = checklist.filter((c) => c.done).length;
+  const total = checklist.length;
+  const preview = checklist.slice(0, 3);
+  const rest = Math.max(0, total - preview.length);
   return (
     <div
-      className="rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[180px] max-w-[240px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
+      className="rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
       style={{ borderColor: data.color }}
     >
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
@@ -62,9 +65,28 @@ function MapNodeCard({ data }: { data: any }) {
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
       {total > 0 && (
-        <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[10px]">
-          <span className="text-muted-foreground">Checklist</span>
-          <Badge variant="outline" className="text-[9px] h-4 px-1">{done}/{total}</Badge>
+        <div className="mt-2 pt-2 border-t border-border/40">
+          <div className="flex items-center justify-between text-[10px] mb-1">
+            <span className="text-muted-foreground flex items-center gap-1"><ListChecks className="h-3 w-3" /> Checklist</span>
+            <Badge variant="outline" className="text-[9px] h-4 px-1">{done}/{total}</Badge>
+          </div>
+          <div className="space-y-0.5 nodrag">
+            {preview.map((c) => (
+              <label
+                key={c.id}
+                className="flex items-start gap-1.5 text-[10px] leading-tight cursor-pointer hover:bg-white/5 rounded px-1 py-0.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={c.done}
+                  className="h-3 w-3 mt-0.5"
+                  onCheckedChange={(v) => data.onToggleItem?.(data.id, c.id, !!v)}
+                />
+                <span className={c.done ? "line-through text-muted-foreground" : ""}>{c.text || "—"}</span>
+              </label>
+            ))}
+            {rest > 0 && <div className="text-[9px] text-muted-foreground pl-5">+{rest} itens</div>}
+          </div>
         </div>
       )}
       {data.show_live_kpis && data.liveStats && (
@@ -91,6 +113,10 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [selected, setSelected] = useState<MapNode | null>(null);
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [flows, setFlows] = useState<{ id: string; name: string }[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [checklistPanel, setChecklistPanel] = useState(false);
+  const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
+  const { setCenter } = useReactFlow();
 
   // load maps list
   useEffect(() => {
@@ -109,6 +135,16 @@ function InnerMap({ projects }: { projects: any[] }) {
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
   }, []);
 
+  // Toggle single checklist item directly on the canvas
+  const toggleChecklistItem = useCallback(async (nodeId: string, itemId: string, done: boolean) => {
+    const raw = rawNodes.find(r => r.id === nodeId);
+    if (!raw) return;
+    const next = (raw.checklist || []).map(c => c.id === itemId ? { ...c, done } : c);
+    setRawNodes(list => list.map(r => r.id === nodeId ? { ...r, checklist: next } : r));
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, checklist: next } } : n));
+    await supabase.from("imphq_company_map_nodes").update({ checklist: next as any }).eq("id", nodeId);
+  }, [rawNodes]);
+
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
     const [{ data: nds }, { data: eds }] = await Promise.all([
@@ -120,7 +156,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     setNodes(list.map(n => ({
       id: n.id, type: "mapnode",
       position: n.position || { x: 0, y: 0 },
-      data: { ...n },
+      data: { ...n, onToggleItem: toggleChecklistItem },
     })));
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
@@ -128,7 +164,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, []);
+  }, [toggleChecklistItem]);
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
@@ -137,24 +173,25 @@ function InnerMap({ projects }: { projects: any[] }) {
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
 
-  // re-inject stats into node data
+  // re-inject stats + toggle callback into node data
   useEffect(() => {
-    if (!liveStats) return;
     setNodes(nds => nds.map(n => {
       const raw = rawNodes.find(r => r.id === n.id);
-      const stats = raw?.linked_project_id ? liveStats[raw.linked_project_id] : null;
-      return { ...n, data: { ...n.data, liveStats: stats } };
+      const stats = raw?.linked_project_id && liveStats ? liveStats[raw.linked_project_id] : null;
+      return { ...n, data: { ...n.data, liveStats: stats, onToggleItem: toggleChecklistItem } };
     }));
-  }, [liveStats, rawNodes]);
+  }, [liveStats, rawNodes, toggleChecklistItem]);
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
-    // persist positions on drag end
     changes.forEach(async (c: any) => {
       if (c.type === "position" && c.dragging === false && c.position) {
         await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
+      }
+      if (c.type === "select") {
+        setSelectedIds(prev => c.selected ? Array.from(new Set([...prev, c.id])) : prev.filter(x => x !== c.id));
       }
     });
   }, []);
@@ -256,6 +293,57 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (mapId) await loadMap(mapId);
   };
 
+  // ============ Bulk selection actions ============
+  const bulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Excluir ${selectedIds.length} nós e suas conexões?`)) return;
+    await supabase.from("imphq_company_map_nodes").delete().in("id", selectedIds);
+    setSelectedIds([]);
+    if (mapId) await loadMap(mapId);
+    toast.success("Selecionados excluídos");
+  };
+
+  const bulkDuplicate = async () => {
+    if (!mapId || selectedIds.length === 0) return;
+    const originals = rawNodes.filter(n => selectedIds.includes(n.id));
+    const payload = originals.map(n => ({
+      map_id: mapId, kind: n.kind, color: n.color,
+      label: `${n.label} (cópia)`, description: n.description, notes: n.notes,
+      checklist: (n.checklist || []) as any,
+      position: { x: (n.position?.x || 0) + 40, y: (n.position?.y || 0) + 40 },
+    }));
+    await supabase.from("imphq_company_map_nodes").insert(payload);
+    setSelectedIds([]);
+    if (mapId) await loadMap(mapId);
+    toast.success("Duplicados");
+  };
+
+  const bulkChangeKind = async (kind: string) => {
+    if (selectedIds.length === 0) return;
+    const preset = KIND_PRESETS[kind];
+    await supabase.from("imphq_company_map_nodes")
+      .update({ kind, color: preset.color })
+      .in("id", selectedIds);
+    if (mapId) await loadMap(mapId);
+    toast.success("Tipo aplicado");
+  };
+
+  // ============ Aggregated checklist ============
+  const aggregatedChecklist = useMemo(() => {
+    const rows: { nodeId: string; nodeLabel: string; nodeColor: string; nodeKind: string; item: ChecklistItem; position: { x: number; y: number } }[] = [];
+    rawNodes.forEach(n => (n.checklist || []).forEach(item => rows.push({
+      nodeId: n.id, nodeLabel: n.label, nodeColor: n.color, nodeKind: n.kind, item, position: n.position,
+    })));
+    return rows.filter(r => checklistFilter === "all" ? true : checklistFilter === "done" ? r.item.done : !r.item.done);
+  }, [rawNodes, checklistFilter]);
+
+  const totalDone = rawNodes.reduce((a, n) => a + (n.checklist || []).filter(c => c.done).length, 0);
+  const totalItems = rawNodes.reduce((a, n) => a + (n.checklist || []).length, 0);
+
+  const focusNode = (id: string, position: { x: number; y: number }) => {
+    setCenter(position.x + 100, position.y + 40, { zoom: 1.2, duration: 500 });
+  };
+
   return (
     <div className="relative h-[calc(100vh-200px)] border border-border/40 rounded-lg overflow-hidden bg-[#0a0809]">
       {/* Top toolbar */}
@@ -291,6 +379,10 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setChecklistPanel(true)}>
+          <ListChecks className="h-3 w-3" /> Checklist
+          {totalItems > 0 && <Badge variant="outline" className="h-4 px-1 text-[9px] ml-1">{totalDone}/{totalItems}</Badge>}
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
         </Button>
@@ -313,16 +405,107 @@ function InnerMap({ projects }: { projects: any[] }) {
         })}
       </div>
 
+      {/* Bulk selection toolbar */}
+      {selectedIds.length >= 2 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-card/95 backdrop-blur border border-primary/40 rounded-lg p-2 shadow-xl">
+          <div className="flex items-center gap-1.5 px-2 text-xs">
+            <MousePointerSquare className="h-3.5 w-3.5 text-primary" />
+            <span className="font-medium">{selectedIds.length} selecionados</span>
+          </div>
+          <div className="w-px h-5 bg-border/40" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+                <Wrench className="h-3 w-3" /> Mudar tipo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {Object.entries(KIND_PRESETS).map(([k, p]) => (
+                <DropdownMenuItem key={k} onClick={() => bulkChangeKind(k)}>{p.label}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={bulkDuplicate}>
+            <Copy className="h-3 w-3" /> Duplicar
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-red-400" onClick={bulkDelete}>
+            <Trash2 className="h-3 w-3" /> Excluir
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setSelectedIds([])}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick}
+        selectionOnDrag
+        panOnDrag={[1, 2]}
+        multiSelectionKeyCode={["Meta", "Shift", "Control"]}
+        deleteKeyCode={null}
         fitView proOptions={{ hideAttribution: true }}
       >
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
         <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
       </ReactFlow>
+
+      {/* Aggregated checklist panel */}
+      <Sheet open={checklistPanel} onOpenChange={setChecklistPanel}>
+        <SheetContent className="w-[440px] sm:max-w-[440px] overflow-y-auto bg-secondary/40">
+          <SheetHeader>
+            <SheetTitle className="font-serif flex items-center gap-2">
+              <ListChecks className="h-4 w-4" /> Checklist do mapa
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{totalDone} de {totalItems} concluídos</span>
+              <div className="flex gap-1">
+                {(["pending", "done", "all"] as const).map(f => (
+                  <Button key={f} size="sm" variant={checklistFilter === f ? "default" : "ghost"}
+                    className="h-6 text-[10px] px-2" onClick={() => setChecklistFilter(f)}>
+                    {f === "pending" ? "Pendentes" : f === "done" ? "Feitos" : "Todos"}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="h-1.5 bg-muted/30 rounded overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${totalItems ? (totalDone / totalItems) * 100 : 0}%` }} />
+            </div>
+
+            {aggregatedChecklist.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                {totalItems === 0 ? "Nenhum item de checklist ainda. Abra um nó pra adicionar." : "Nada por aqui com esse filtro."}
+              </p>
+            )}
+
+            <div className="space-y-1">
+              {aggregatedChecklist.map((r) => (
+                <div key={`${r.nodeId}-${r.item.id}`} className="flex items-start gap-2 p-2 rounded border border-border/30 hover:border-border/60 bg-card/40">
+                  <Checkbox
+                    checked={r.item.done}
+                    className="mt-0.5"
+                    onCheckedChange={(v) => toggleChecklistItem(r.nodeId, r.item.id, !!v)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs ${r.item.done ? "line-through text-muted-foreground" : ""}`}>{r.item.text || "—"}</p>
+                    <button
+                      onClick={() => { focusNode(r.nodeId, r.position); setChecklistPanel(false); }}
+                      className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 mt-0.5"
+                    >
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: r.nodeColor }} />
+                      {r.nodeLabel}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Editor sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
