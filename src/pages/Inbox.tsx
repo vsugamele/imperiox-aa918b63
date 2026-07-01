@@ -210,7 +210,7 @@ function InboxKpiStrip({ collapsed, onToggle }: { collapsed?: boolean; onToggle?
 
   if (collapsed) {
     return (
-      <div className="kpi-strip collapsed flex items-center justify-between px-4 py-2">
+      <div className="kpi-strip collapsed !flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
           <span className="font-medium text-foreground">{k?.openConvs ?? "—"} <span className="text-muted-foreground">abertas</span></span>
           <span className={(k?.awaiting ?? 0) > 0 ? "text-orange-400" : ""}>{k?.awaiting ?? "—"} aguardando</span>
