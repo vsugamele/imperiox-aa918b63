@@ -47,6 +47,8 @@ interface Props {
   phone: string;
   projectId: string;
   providerId: string | null;
+  intelPanelOpen?: boolean;
+  onToggleIntelPanel?: () => void;
 }
 
 const EMOJI_LIST = ["😀", "😂", "❤️", "👍", "🙏", "🔥", "✅", "⭐", "💪", "🎉", "😍", "🤝", "💰", "📦", "🚀", "💡"];
