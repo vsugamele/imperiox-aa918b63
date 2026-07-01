@@ -1,68 +1,45 @@
-# One Click 2.0 — Produtos do Projeto + Modo Organizar
+Ajustar layout do Inbox para melhorar respiro no notebook, focando no chat central e no painel de inteligência do lead.
 
-Dois ajustes no fluxo do One Click pra resolver o caso "JP Freitas — Código dos Cortes Perfeitos".
+Objetivo
+- Dar mais espaço horizontal para leitura e digitação no chat em telas de 1280–1440 px.
+- Manter todos os recursos atuais, apenas reorganizando a densidade.
 
----
+Mudanças
 
-## 1. Nome do produto vem do projeto selecionado
+1. Painel de Inteligência do Lead colapsável
+   - Arquivo: `src/components/whatsapp/ChatView.tsx`
+   - Adicionar botão no header do chat para mostrar/ocultar `<LeadIntelPanel>`.
+   - Em telas < 1400 px de largura, iniciar o painel oculto por padrão.
+   - Quando oculto, o chat central ocupa 100% da largura do painel direito.
+   - Guardar preferência do usuário em `localStorage` (`wa.intelPanelOpen`).
 
-Hoje o campo "Nome do produto" é texto livre. Vai virar **Select dinâmico**:
+2. Largura da lista de conversas responsiva
+   - Arquivo: `src/pages/WhatsAppPage.tsx`
+   - Ajustar `defaultSize` do `<ResizablePanel>` da lista conforme a largura da viewport:
+     - ≥ 1440 px: 30% (atual)
+     - 1280–1439 px: 24%
+     - < 1280 px: 22%
+   - Manter `minSize={20}` e `maxSize={45}`.
 
-- Ao escolher um projeto existente em "Projeto destino", o modal carrega `imphq_projects.briefing.produtos[]` (mesma fonte do `ProjetoBriefing`) e popula um dropdown com os produtos já cadastrados.
-- Opção fixa no topo: **"➕ Novo produto"** → libera o input de texto livre (comportamento atual).
-- Se projeto destino = "Criar novo projeto" → input texto livre direto (sem dropdown).
-- Ao escolher um produto existente, autofill de `ticket`, `promessa` e `nicho` se já existirem no briefing.
+3. Aproveitamento de largura do chat
+   - Arquivo: `src/components/whatsapp/ChatView.tsx`
+   - Substituir `max-w-3xl` por `max-w-5xl` (1024 px) quando o painel de inteligência estiver oculto.
+   - Com painel aberto, manter `max-w-3xl` para não comprimir as mensagens.
+   - Aplicar a mesma lógica em todas as áreas do input (sugestões, objeções, etc.).
 
-## 2. Novo preset "🔍 Organizar Existente" (modo auditoria + completar gaps)
+4. Input de mensagem mais enxuto em telas pequenas
+   - Arquivo: `src/components/whatsapp/ChatView.tsx`
+   - Em telas < 1280 px, agrupar botões secundários em um menu "Mais" (emoji, anexo, templates, interativos, agendar, copilot, 3 sugestões).
+   - Manter visíveis sempre: temperatura do lead, toggle IA, toggle intel, anexo/gravação, botão enviar.
+   - Isso evita que a textarea fique comprimida entre ícones.
 
-Novo botão de preset ao lado de Completo / VSL Launch / X1 Express.
+5. KPI strip do Inbox colapsável
+   - Arquivo: `src/pages/Inbox.tsx`
+   - Adicionar botão pequeno ao lado do título para recolher/expandir o `<InboxKpiStrip>`.
+   - Iniciar recolhido em telas < 1280 px.
+   - Guardar preferência em `localStorage` (`inbox.kpiStripOpen`).
 
-Quando ativado e o usuário escolhe **projeto + produto existentes**:
-
-### Fase A — Inventário (sem gerar nada)
-Edge Function nova `ecosystem-inventory` varre o que já existe pra aquele `projeto_id` + `produto`:
-
-| Ativo | Fonte |
-|---|---|
-| Avatar | `imphq_projects.briefing.avatares_por_produto[produto]` |
-| VSL | `imphq_swipes` filtrado por projeto+formato=vsl, ou `imphq_skill_outputs` slug=vsl-filemon-e3 |
-| LP | `imphq_swipes` formato=lp ou `skill_outputs` slug=lp-persuasiva-v2 |
-| Ângulos | `skill_outputs` slug=angulos-filemon |
-| Reels | `skill_outputs` slug=roteiros-virais-reels |
-| Imagens | `imphq_creative_assets` por projeto |
-| WhatsApp X1 | `imphq_wa_campaign_templates` ou `skill_outputs` sales-closer |
-| Fluxos pós-venda | `imphq_flows` filtrado por projeto |
-| Hub | `imphq_funis` tipo=hub |
-
-Retorna mapa `{ etapa: 'ok' | 'faltando' | 'fraco' }` (fraco = existe mas score < 60 na última auditoria, ou >90d sem update).
-
-### Fase B — UI do modal mostra checklist
-Lista cada etapa com ✅ (existe) / ⚠️ (fraco) / ❌ (faltando), e pré-seleciona automaticamente só as **faltando** + **fracas** pra geração. Usuário pode marcar/desmarcar.
-
-### Fase C — Gera só o que falta
-Reusa `ecosystem-from-name` passando `etapas` filtradas e flag `modo: "complementar"` (pra não recriar avatar se já existe — reaproveita o do briefing).
-
-### Fase D — Hub + Auditor (já existe)
-Monta no Hub agregando os ativos antigos + novos. Auditor Imperius roda no final mostrando score consolidado.
-
----
-
-## Detalhes técnicos
-
-**Frontend** (`OneClickModal.tsx`):
-- Estado novo: `produtosDoProjeto: {nome, ticket?, promessa?, nicho?}[]`, `modo: 'criar' | 'organizar'`, `inventario: Record<Step, 'ok'|'faltando'|'fraco'>`.
-- `useEffect` no `destino` busca briefing do projeto e popula dropdown de produtos.
-- Quando `modo === 'organizar'`: ao confirmar projeto+produto, chama `ecosystem-inventory` ANTES de mostrar etapas; renderiza checklist com ícones de status.
-
-**Backend**:
-- Nova Edge Function `ecosystem-inventory` (read-only, retorna JSON do mapa).
-- `ecosystem-from-name`: aceitar `modo: 'complementar'` → pula avatar se já existir no briefing, pula etapas com flag `skip_if_exists`.
-
-**Sem mudança de schema** — usa tabelas existentes.
-
----
-
-## Fora de escopo (pode vir depois)
-- Edição inline dos ativos antigos detectados.
-- Versionamento ("substituir" vs "manter as duas").
-- Detecção de "fraco" via auditor real (v1 usa heurística simples: idade > 90d).
+Validação
+- Testar visualmente em viewport de 1366 px e 1280 px.
+- Verificar que o painel de inteligência pode ser reaberto e que os botões do menu "Mais" funcionam.
+- Confirmar que a largura da lista de conversas não quebra o layout em telas grandes.
