@@ -27140,6 +27140,54 @@ export type Database = {
           },
         ]
       }
+      imphq_zernio_api_calls: {
+        Row: {
+          action: string | null
+          attempt: number | null
+          created_at: string
+          endpoint: string
+          error_summary: string | null
+          id: string
+          method: string
+          project_id: string | null
+          request_id: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          status: number | null
+          success: boolean | null
+        }
+        Insert: {
+          action?: string | null
+          attempt?: number | null
+          created_at?: string
+          endpoint: string
+          error_summary?: string | null
+          id?: string
+          method?: string
+          project_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          status?: number | null
+          success?: boolean | null
+        }
+        Update: {
+          action?: string | null
+          attempt?: number | null
+          created_at?: string
+          endpoint?: string
+          error_summary?: string | null
+          id?: string
+          method?: string
+          project_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          status?: number | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       imphq_zernio_webhook_events: {
         Row: {
           event_id: string

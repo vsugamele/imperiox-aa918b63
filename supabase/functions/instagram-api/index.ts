@@ -16,6 +16,73 @@ function json(data: any, status = 200) {
   });
 }
 
+// ============ Zernio API helper — sanitized logging + cascade support ============
+function sanitizePayload(payload: any): any {
+  if (!payload || typeof payload !== "object") return payload;
+  const clone: any = Array.isArray(payload) ? [...payload] : { ...payload };
+  const REDACT = ["accountId", "access_token", "apiKey", "api_key", "token", "authorization"];
+  for (const k of Object.keys(clone)) {
+    if (REDACT.some((r) => k.toLowerCase().includes(r.toLowerCase()))) clone[k] = "[REDACTED]";
+    else if (typeof clone[k] === "object") clone[k] = sanitizePayload(clone[k]);
+  }
+  if ("message" in clone && typeof clone.message === "string") clone.message = `[len=${clone.message.length}]`;
+  if ("content" in clone && typeof clone.content === "string") clone.content = `[len=${clone.content.length}]`;
+  return clone;
+}
+
+async function callZernio(supa: any, opts: {
+  project_id?: string;
+  action: string;
+  endpoint: string; // path starting with /api/v1/...
+  method?: string;
+  apiKey: string;
+  body?: any;
+  attempt?: number;
+}) {
+  const method = opts.method || "POST";
+  const url = `https://zernio.com${opts.endpoint}`;
+  let status = 0;
+  let responseBody: any = null;
+  let requestId: string | null = null;
+  let errorSummary: string | null = null;
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${opts.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    status = r.status;
+    requestId = r.headers.get("x-request-id") || r.headers.get("x-correlation-id");
+    const text = await r.text();
+    try { responseBody = text ? JSON.parse(text) : null; } catch { responseBody = { raw: text.slice(0, 1000) }; }
+    if (!r.ok) errorSummary = (typeof responseBody === "object" ? (responseBody?.error?.message || responseBody?.message || responseBody?.error || JSON.stringify(responseBody).slice(0, 200)) : String(responseBody)).slice(0, 300);
+    return { ok: r.ok, status, data: responseBody, requestId, errorSummary };
+  } catch (e: any) {
+    errorSummary = `network: ${e?.message || String(e)}`.slice(0, 300);
+    return { ok: false, status, data: null, requestId, errorSummary };
+  } finally {
+    try {
+      await supa.from("imphq_zernio_api_calls").insert({
+        project_id: opts.project_id || null,
+        action: opts.action,
+        endpoint: opts.endpoint,
+        method,
+        status,
+        attempt: opts.attempt || 1,
+        request_payload: sanitizePayload(opts.body || {}),
+        response_body: responseBody,
+        request_id: requestId,
+        success: status >= 200 && status < 300,
+        error_summary: errorSummary,
+      });
+    } catch (_) { /* log-only, never break flow */ }
+  }
+}
+
+
 async function getCreds(supa: any, project_id: string) {
   const { data } = await supa
     .from("imphq_integration_credentials")
