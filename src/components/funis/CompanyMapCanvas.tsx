@@ -409,7 +409,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       {selectedIds.length >= 2 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-card/95 backdrop-blur border border-primary/40 rounded-lg p-2 shadow-xl">
           <div className="flex items-center gap-1.5 px-2 text-xs">
-            <MousePointerSquare className="h-3.5 w-3.5 text-primary" />
+            <MousePointer className="h-3.5 w-3.5 text-primary" />
             <span className="font-medium">{selectedIds.length} selecionados</span>
           </div>
           <div className="w-px h-5 bg-border/40" />
