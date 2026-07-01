@@ -1573,7 +1573,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           <div className="border-t border-border bg-card p-3 shrink-0">
             {/* Slash command suggestions */}
             {showCommands && commandSuggestions.length > 0 && (
-              <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
+              <div className={`mb-2 ${maxWidthClass} mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto`}>
                 <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
                 {commandSuggestions.map(cmd => (
                   <button
@@ -1599,7 +1599,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {draft && (
-              <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <div className={`${maxWidthClass} mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs`}>
                 <div className="flex items-start gap-2">
                   <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
                   <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
@@ -1614,7 +1614,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Quick 3-option suggestions panel */}
             {showQuickSuggest && (
-              <div className="max-w-3xl mx-auto mb-2">
+              <div className={`${maxWidthClass} mx-auto mb-2`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
                   <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
@@ -1642,7 +1642,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Dynamic Objection Detection Banner */}
             {detectedObjection && (
-              <div className="max-w-3xl mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className={`${maxWidthClass} mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-2">
@@ -1694,7 +1694,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Calibrated Objections Pill Bar */}
             {objections.length > 0 && (
-              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
+              <div className={`${maxWidthClass} mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none`}>
                 <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                   🛡️ Objeções:
                 </span>
@@ -1717,7 +1717,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {recordingState === "recording" ? (
-              <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3">
                   <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -1738,7 +1738,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : recordingState === "preview" ? (
-              <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3 flex-1">
                   <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
                     {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
@@ -1758,7 +1758,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : (
-              <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
+              <div className={`flex items-end gap-2 ${maxWidthClass} mx-auto w-full`}>
                 {/* Temperature badge */}
                 <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
                   temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
