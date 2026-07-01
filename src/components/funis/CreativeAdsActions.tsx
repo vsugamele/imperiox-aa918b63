@@ -14,6 +14,8 @@ interface Props {
   promptHint: string;
   context: { avatar: string; branding: string; winners: string };
   onAppendOutput: (text: string) => void;
+  /** Prompt visual estruturado já pronto (evita depender do regex sobre `output`). */
+  visualPromptOverride?: string;
 }
 
 const FRAMEWORKS = [
@@ -25,7 +27,7 @@ const FRAMEWORKS = [
 ];
 
 export function CreativeAdsActions({
-  projectId, productName, itemId, itemLabel, intent, output, promptHint, context, onAppendOutput,
+  projectId, productName, itemId, itemLabel, intent, output, promptHint, context, onAppendOutput, visualPromptOverride,
 }: Props) {
   const [genImg, setGenImg] = useState(false);
   const [batchAb, setBatchAb] = useState(false);
@@ -35,12 +37,15 @@ export function CreativeAdsActions({
   const isCopy = itemId === "copy_anuncio" || itemId === "headlines" || itemId === "ganchos_impactantes";
 
   const handleGenerateImage = async () => {
-    if (!output) return toast.error("Gere o briefing visual primeiro.");
+    if (!visualPromptOverride && !output) return toast.error("Gere o briefing visual primeiro.");
     setGenImg(true);
     try {
-      // Extract visual instruction from output (block "INSTRUÇÃO PARA IMAGEM" or full output)
-      const m = output.match(/INSTRU[ÇC][ÃA]O.*?(?:IMAGEM|V[IÍ]DEO)[^\n]*\n+([\s\S]+?)(?:\n##+|\n---|\n###|$)/i);
-      const visualPrompt = (m?.[1] || output).slice(0, 1800);
+      // Prioriza override estruturado; senão tenta extrair do output textual
+      let visualPrompt = visualPromptOverride?.trim() || "";
+      if (!visualPrompt) {
+        const m = output.match(/(?:INSTRU[ÇC][ÃA]O.*?(?:IMAGEM|V[IÍ]DEO)|PROMPT\s+(?:DE\s+)?IMAGEM|prompt_imagem)[^\n]*\n+([\s\S]+?)(?:\n##+|\n---|\n###|$)/i);
+        visualPrompt = (m?.[1] || output).slice(0, 1800);
+      }
       const fullPrompt = `${visualPrompt}\n\n${context.branding ? `Branding: ${context.branding}` : ""}`.trim();
 
       const { data, error } = await supabase.functions.invoke("creative-image-gen", {

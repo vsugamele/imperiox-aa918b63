@@ -95,15 +95,27 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
 
       if (error) throw error;
 
-      // Animate phases based on returned data
+      // Animate phases based on returned data (respeita status real: done|failed)
       const phaseOrder = ["intel", "angles", "funnel", "vsl", "emails"];
       for (let i = 0; i < phaseOrder.length; i++) {
         const id = phaseOrder[i];
         updatePhase(id, { status: "running" });
         await new Promise(r => setTimeout(r, 200));
-        updatePhase(id, { status: "done", result: data?.phases?.[id] ? "✓ Concluído" : "✓" });
+        const phaseStatus = data?.phases?.[id];
+        if (phaseStatus === "failed") {
+          const msg = data?.phase_errors?.[id] || "falhou";
+          updatePhase(id, { status: "error", result: `⚠️ ${msg}` });
+        } else {
+          updatePhase(id, { status: "done", result: phaseStatus ? "✓ Concluído" : "✓" });
+        }
         setOverallProgress(Math.round(((i + 1) / phaseOrder.length) * 100));
         await new Promise(r => setTimeout(r, 100));
+      }
+
+      // Aviso de resultado parcial
+      const failed = Object.entries(data?.phases || {}).filter(([, v]) => v === "failed").map(([k]) => k);
+      if (failed.length) {
+        toast.warning(`Pipeline parcial: ${failed.join(", ")} falhou. Você pode reprocessar depois.`);
       }
 
       setResult({
