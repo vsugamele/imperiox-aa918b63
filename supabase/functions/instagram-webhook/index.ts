@@ -797,12 +797,16 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                       });
                       
                       const dmSuccess = dmRes.data?.success || false;
+                      console.log(`[ig-webhook] private_reply result: success=${dmSuccess} err=${dmRes?.error?.message || dmRes?.data?.error || "-"}`);
                       if (dmSuccess) {
-                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
-                          supa.from("imphq_ig_comment_triggers")
+                        try {
+                          const { error: rpcErr } = await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id });
+                          if (rpcErr) throw rpcErr;
+                        } catch {
+                          await supa.from("imphq_ig_comment_triggers")
                             .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
                             .eq("id", matchedTrigger.id);
-                        });
+                        }
                       }
                     }
 
