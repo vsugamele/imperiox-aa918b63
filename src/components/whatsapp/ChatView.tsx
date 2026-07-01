@@ -2004,10 +2004,37 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                       }}>Agendar</Button>
                   </PopoverContent>
                 </Popover>
+                </div>
 
-
-
-                {/* Message input */}
+                {/* Compact more actions menu */}
+                <div className="flex lg:hidden items-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full shrink-0" title="Mais ações">
+                        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="w-48">
+                      <DropdownMenuItem onClick={() => setShowEmoji(true)} className="gap-2">
+                        <Smile className="h-4 w-4" /> Emojis
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="gap-2">
+                        <Paperclip className="h-4 w-4" /> Enviar mídia
+                      </DropdownMenuItem>
+                      {templates.length > 0 && (
+                        <DropdownMenuItem onClick={() => { setText(templates[0]?.content || ""); textareaRef.current?.focus(); }} className="gap-2">
+                          <FileText className="h-4 w-4" /> Template {templates[0]?.name}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => { generateCopilotSuggestion(); }} className="gap-2" disabled={loadingCopilot || messages.length === 0}>
+                        <Brain className="h-4 w-4 text-primary" /> Sugestão IA
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()} className="gap-2" disabled={loadingQuick || messages.length === 0}>
+                        <Sparkles className="h-4 w-4" /> 3 opções rápidas
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <Textarea
                   ref={textareaRef}
                   value={text}
