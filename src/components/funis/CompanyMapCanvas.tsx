@@ -440,16 +440,19 @@ function InnerMap({ projects }: { projects: any[] }) {
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Shift+arraste = selecionar em área · Cmd/Ctrl+clique = adicionar · Arraste um nó selecionado para mover todos
+        Arraste no vazio = selecionar em área · Botão do meio/direito = mover canvas · Arraste um nó selecionado = mover todos
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick}
-        panOnDrag={[0, 1, 2]}
+        selectionOnDrag
+        selectionMode={"partial" as any}
+        panOnDrag={[1, 2]}
         selectionKeyCode={["Shift"]}
         multiSelectionKeyCode={["Meta", "Control"]}
         nodesDraggable
+        selectNodesOnDrag={false}
         deleteKeyCode={null}
         fitView proOptions={{ hideAttribution: true }}
       >
