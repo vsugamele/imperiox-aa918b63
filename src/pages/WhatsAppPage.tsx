@@ -89,6 +89,18 @@ export default function WhatsApp() {
   });
   const listDefaultSize = viewportWidth >= 1440 ? 30 : viewportWidth >= 1280 ? 24 : 22;
 
+  useEffect(() => {
+    const saved = localStorage.getItem("wa.intelPanelOpen");
+    if (saved !== null) return;
+    setShowIntelPanel(viewportWidth >= 1400);
+  }, [viewportWidth]);
+
+  const toggleIntelPanel = () => {
+    const next = !showIntelPanel;
+    setShowIntelPanel(next);
+    localStorage.setItem("wa.intelPanelOpen", String(next));
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     const sRes = await supabase
