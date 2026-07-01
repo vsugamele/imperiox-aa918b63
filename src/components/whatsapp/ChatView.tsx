@@ -1412,7 +1412,14 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                         }
                         ${m._optimistic ? "opacity-60" : ""}
                       `}>
+                        {isOutgoing && (m as any).sent_by === "ai" && (
+                          <div className="absolute -top-2 -right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-[9px] font-bold uppercase tracking-wider text-white shadow-md border border-amber-300/40" title="Mensagem enviada pela IA">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            IA
+                          </div>
+                        )}
                         <MediaContent message={m} />
+
                         {isEditing ? (
                           <div className="space-y-1.5 min-w-[220px]">
                             <Textarea
