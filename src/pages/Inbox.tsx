@@ -158,7 +158,7 @@ function KpiCell({
   );
 }
 
-function InboxKpiStrip() {
+function InboxKpiStrip({ collapsed, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const [k, setK] = useState<InboxKpis | null>(null);
 
   useEffect(() => {
@@ -208,8 +208,32 @@ function InboxKpiStrip() {
     return () => { stop = true; clearInterval(t); };
   }, []);
 
+  if (collapsed) {
+    return (
+      <div className="kpi-strip collapsed flex items-center justify-between px-4 py-2">
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">{k?.openConvs ?? "—"} <span className="text-muted-foreground">abertas</span></span>
+          <span className={(k?.awaiting ?? 0) > 0 ? "text-orange-400" : ""}>{k?.awaiting ?? "—"} aguardando</span>
+          <span className={(k?.hotLeads2h ?? 0) > 0 ? "text-gold" : ""}>{k?.hotLeads2h ?? "—"} hot leads</span>
+        </div>
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggle} title="Expandir KPIs">
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="kpi-strip">
+    <div className="kpi-strip relative">
+      <Button
+        size="icon"
+        variant="ghost"
+        className="absolute right-2 top-2 h-7 w-7 text-muted-foreground hover:text-foreground"
+        onClick={onToggle}
+        title="Recolher KPIs"
+      >
+        <ChevronUp className="h-4 w-4 rotate-180" />
+      </Button>
       <KpiCell kicker="Conversas abertas" value={k?.openConvs ?? "—"} />
       <KpiCell
         kicker="Aguardando > 30min"
