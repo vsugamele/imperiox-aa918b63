@@ -1,5 +1,6 @@
 // Orquestra: site -> projeto + avatar + produtos (principal/OB/upsell/lowticket) + VSL + criativos + LP + funil
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,16 +80,24 @@ const ECOSYSTEM_SCHEMA = {
       type: "array",
       items: {
         type: "object", additionalProperties: false,
-        required: ["angulo", "headline", "prompt_imagem"],
-        properties: { angulo: { type: "string" }, headline: { type: "string" }, prompt_imagem: { type: "string" } },
+        required: ["slug", "headline", "prompt_imagem"],
+        properties: {
+          slug: { type: "string", enum: ALL_SLUGS, description: "Slug do ângulo canônico" },
+          headline: { type: "string" },
+          prompt_imagem: { type: "string" },
+        },
       },
     },
     criativos_video: {
       type: "array",
       items: {
         type: "object", additionalProperties: false,
-        required: ["angulo", "hook", "roteiro"],
-        properties: { angulo: { type: "string" }, hook: { type: "string" }, roteiro: { type: "string" } },
+        required: ["slug", "hook", "roteiro"],
+        properties: {
+          slug: { type: "string", enum: ALL_SLUGS, description: "Slug do ângulo canônico" },
+          hook: { type: "string" },
+          roteiro: { type: "string" },
+        },
       },
     },
     lp_estrutura: { type: "string" },
