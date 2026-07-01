@@ -43469,10 +43469,14 @@ export type Database = {
           chat_cpm: number | null
           chat_default_tab: string | null
           chat_end_seconds: number | null
+          chat_interval_messages: number | null
           chat_interval_minutes: number | null
           chat_mode: string | null
           chat_names: Json | null
           chat_phrases: Json | null
+          chat_phrases_elogios: Json | null
+          chat_phrases_engajamento: Json | null
+          chat_phrases_vaga: Json | null
           chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
@@ -43537,10 +43541,14 @@ export type Database = {
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
+          chat_interval_messages?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_phrases_elogios?: Json | null
+          chat_phrases_engajamento?: Json | null
+          chat_phrases_vaga?: Json | null
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
@@ -43605,10 +43613,14 @@ export type Database = {
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
+          chat_interval_messages?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_phrases_elogios?: Json | null
+          chat_phrases_engajamento?: Json | null
+          chat_phrases_vaga?: Json | null
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
