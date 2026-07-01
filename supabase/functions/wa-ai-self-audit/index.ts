@@ -65,7 +65,7 @@ Seja conservador: só sugira banned_phrases se a frase aparece literalmente. Só
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "openai/gpt-4o-mini";
+  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "deepseek/deepseek-chat-v3.1";
 
   try {
     const res = await fetch(url, {

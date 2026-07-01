@@ -1,6 +1,8 @@
 // Imperius Executor — executa ações da fila imphq_ai_actions
 // Tools: pauseAd, sendWhatsApp, createTask, updateLead, adjustBudget, runStudio
+// SEGURANÇA: exige JWT válido (usuário autenticado) para evitar execução não autorizada.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { safeError } from "../_shared/errors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,6 +11,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 type ActionKind =
   | "pauseAd"
@@ -17,7 +20,11 @@ type ActionKind =
   | "updateLead"
   | "adjustBudget"
   | "runStudio"
-  | "notify";
+  | "createFlow"
+  | "notify"
+  | "resumeAi"
+  | "runHotLeadResponder"
+  | "runZernioTool";
 
 async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
   const kind: ActionKind = action.kind;
@@ -78,9 +85,68 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
         if (r.error) throw new Error(r.error.message);
         return { ok: true, result: r.data };
       }
+      case "createFlow": {
+        const { flow_name, trigger_tipo, projeto_id, produto, acoes } = p;
+        if (!flow_name || !trigger_tipo || !Array.isArray(acoes)) {
+          throw new Error("createFlow: payload inválido (flow_name, trigger_tipo, acoes)");
+        }
+        const { data, error } = await supabase.from("imphq_automacoes").insert({
+          id: crypto.randomUUID(),
+          nome: flow_name,
+          trigger_tipo,
+          project_id: projeto_id || action.projeto_id || null,
+          produto: produto || null,
+          acoes,
+          ativo: false,
+          source: "imperius",
+        }).select().single();
+        if (error) throw error;
+        return { ok: true, result: { flow_id: data.id, redirect: `/openflow?flow=${data.id}` }, revert_payload: { flow_id: data.id } };
+      }
       case "notify": {
         // Só registra; UI mostrará no inbox
         return { ok: true, result: { notified: true } };
+      }
+      case "runHotLeadResponder": {
+        // Dispara hot-lead-responder direcionado a uma venda específica
+        const { venda_id } = p;
+        if (!venda_id) throw new Error("venda_id obrigatório");
+        const r = await supabase.functions.invoke("hot-lead-responder", { body: { venda_id } });
+        if (r.error) throw new Error(r.error.message);
+        return { ok: true, result: r.data };
+      }
+      case "resumeAi": {
+        // Limpa pausa da IA na conversa (volta autônomo)
+        const { phone, project_id, conversation_id } = p;
+        const prevQ = supabase.from("imphq_wa_conversations").select("id, ai_paused_until, ia_ativa");
+        const lookup = conversation_id
+          ? prevQ.eq("id", conversation_id)
+          : prevQ.eq("project_id", project_id).eq("phone", phone);
+        const { data: prev } = await lookup.maybeSingle();
+        if (!prev) throw new Error("conversa não encontrada");
+        const { error } = await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_paused_until: null })
+          .eq("id", prev.id);
+        if (error) throw error;
+        return {
+          ok: true,
+          result: { conversation_id: prev.id },
+          revert_payload: { conversation_id: prev.id, restore_paused_until: prev.ai_paused_until },
+        };
+      }
+      case "runZernioTool": {
+        // Invoca tool MCP do Zernio via bridge zernio-mcp
+        const { tool, args } = p;
+        if (!tool) throw new Error("tool obrigatório");
+        if (!action.projeto_id) throw new Error("projeto_id obrigatório (Zernio key é por projeto)");
+        const r = await supabase.functions.invoke("zernio-mcp", {
+          body: { project_id: action.projeto_id, op: "tools/call", tool, args: args || {} },
+        });
+        if (r.error) throw new Error(r.error.message);
+        if (r.data && r.data.ok === false) throw new Error(typeof r.data.error === "string" ? r.data.error : JSON.stringify(r.data.error));
+        // Sem revert_payload — publicação social não tem undo automático
+        return { ok: true, result: r.data?.result ?? r.data };
       }
       default:
         throw new Error(`Tipo de ação desconhecido: ${kind}`);
@@ -93,20 +159,37 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const body = await req.json();
-    const { action_id, mode } = body; // mode: "execute" | "revert" | "approve"
+    // 🔐 Auth: exige JWT válido
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    if (!jwt) {
+      return safeError(new Error("missing jwt"), { code: "unauthorized", context: "imperius-executor", cors: corsHeaders });
+    }
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+    });
+    const { data: userData, error: userErr } = await authClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return safeError(userErr || new Error("invalid jwt"), { code: "unauthorized", context: "imperius-executor", cors: corsHeaders });
+    }
 
-    if (!action_id) throw new Error("action_id obrigatório");
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const body = await req.json().catch(() => ({}));
+    const { action_id, mode } = body as { action_id?: string; mode?: string };
+
+    if (!action_id || typeof action_id !== "string") {
+      return safeError(new Error("action_id obrigatório"), { code: "validation_error", context: "imperius-executor", cors: corsHeaders });
+    }
 
     const { data: action, error: fErr } = await supabase.from("imphq_ai_actions").select("*").eq("id", action_id).single();
-    if (fErr || !action) throw new Error("Ação não encontrada");
+    if (fErr || !action) {
+      return safeError(fErr || new Error("not found"), { code: "not_found", context: "imperius-executor", cors: corsHeaders });
+    }
 
     if (mode === "revert") {
       if (action.status !== "executed" || !action.revert_payload) {
-        throw new Error("Ação não pode ser revertida");
+        return safeError(new Error("não revertível"), { code: "validation_error", context: "imperius-executor", cors: corsHeaders, expose: "Ação não pode ser revertida." });
       }
-      // Tenta reverter executando uma ação inversa
       const revertAction = { ...action, payload: action.revert_payload, kind: action.kind };
       const r = await execAction(supabase, revertAction);
       await supabase.from("imphq_ai_actions").update({
@@ -114,12 +197,11 @@ Deno.serve(async (req) => {
         reverted_at: new Date().toISOString(),
         error: r.error,
       }).eq("id", action_id);
-      return new Response(JSON.stringify(r), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: r.ok }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // approve / execute
     if (action.status !== "proposed" && action.status !== "approved") {
-      return new Response(JSON.stringify({ ok: false, error: `Status inválido: ${action.status}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return safeError(new Error(`status ${action.status}`), { code: "validation_error", context: "imperius-executor", cors: corsHeaders, expose: "Ação não está pronta para execução." });
     }
 
     const r = await execAction(supabase, action);
@@ -132,9 +214,8 @@ Deno.serve(async (req) => {
       error: r.error || null,
     }).eq("id", action_id);
 
-    return new Response(JSON.stringify({ ok: r.ok, result: r.result, error: r.error }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
-    console.error("imperius-executor:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: r.ok, result: r.result }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    return safeError(e, { code: "internal_error", context: "imperius-executor", cors: corsHeaders });
   }
 });

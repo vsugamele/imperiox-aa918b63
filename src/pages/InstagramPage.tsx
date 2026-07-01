@@ -14,10 +14,12 @@ import {
   Send, RefreshCw, Loader2, Sparkles, CheckCircle2, HelpCircle,
   Clock, ShieldAlert, Heart, User, Filter, AlertCircle, Bot,
   Workflow, Zap, ArrowRight, Check, Play, Square, Info, ExternalLink,
-  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity
+  Database, Settings, GraduationCap, ThumbsUp, ThumbsDown, Activity, Pencil
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCompactTime } from "@/lib/formatCompactTime";
 import { ptBR } from "date-fns/locale";
+import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
 
 interface IgAccount {
   id: string;
@@ -42,6 +44,13 @@ interface IgConversation {
   lead_id: string | null;
   ai_paused: boolean;
   ai_paused_reason: string | null;
+  ig_profile_data?: {
+    isFollower?: boolean | null;
+    isFollowing?: boolean | null;
+    isVerified?: boolean | null;
+    followerCount?: number | null;
+    updatedAt?: string;
+  } | null;
   // Triage data (loaded separately, merged)
   triage_intent?: string | null;
   triage_fit_score?: number | null;
@@ -59,6 +68,9 @@ interface IgMessage {
   ai_generated?: boolean;
   feedback?: string | null;
   feedback_correction?: string | null;
+  metadata?: any;
+  failure_reason?: string | null;
+  _local?: boolean;
 }
 
 interface IgComment {
@@ -103,6 +115,7 @@ export default function InstagramPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [slaStats, setSlaStats] = useState<{ avg_min: number; p90_min: number; over_30min: number; stale_open: number } | null>(null);
 
   // Simulation states
   const [showSimulateDialog, setShowSimulateDialog] = useState(false);
@@ -123,6 +136,7 @@ export default function InstagramPage() {
   const [triggers, setTriggers] = useState<any[]>([]);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
   const [showAddTrigger, setShowAddTrigger] = useState(false);
+  const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
   const [newTrigger, setNewTrigger] = useState({
     trigger_keyword: "",
     post_id: "all",
@@ -157,6 +171,42 @@ export default function InstagramPage() {
   });
 
   const [triggerSourceType, setTriggerSourceType] = useState<"all" | "dm" | "story" | "story_mention" | "specific">("all");
+  const [genTriggerLoading, setGenTriggerLoading] = useState(false);
+
+  const generateTriggerCopy = async () => {
+    if (!newTrigger.trigger_keyword.trim()) {
+      toast.error("Informe a palavra-chave primeiro.");
+      return;
+    }
+    setGenTriggerLoading(true);
+    try {
+      const channel =
+        triggerSourceType === "dm" ? "dm" :
+        triggerSourceType === "story" ? "story" :
+        triggerSourceType === "story_mention" ? "story_mention" : "comment";
+      const { data, error } = await supabase.functions.invoke("ig-trigger-ai-generate", {
+        body: {
+          project_id: selectedProjectId || null,
+          keyword: newTrigger.trigger_keyword.trim(),
+          channel,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setNewTrigger(prev => ({
+        ...prev,
+        reply_comment_template: (data as any).reply_public || prev.reply_comment_template,
+        send_dm_template: (data as any).dm_message || prev.send_dm_template,
+      }));
+      toast.success("Copy gerada! Revise antes de salvar.");
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao gerar copy");
+    } finally {
+      setGenTriggerLoading(false);
+    }
+  };
+
+
 
   const loadLeadData = useCallback(async (conv: IgConversation) => {
     const leadId = conv.lead_id || `ig_${conv.participant_id}`;
@@ -176,6 +226,9 @@ export default function InstagramPage() {
     }
   }, [selectedConv, loadLeadData]);
 
+  const [igAuthMethod, setIgAuthMethod] = useState<string | null>(null);
+  const [igHasMeta, setIgHasMeta] = useState<boolean>(false);
+
   const loadIcebreakers = useCallback(async (projectId: string) => {
     const { data } = await supabase
       .from("imphq_integration_credentials")
@@ -184,8 +237,11 @@ export default function InstagramPage() {
       .eq("provider", "instagram")
       .maybeSingle();
     
-    if (data?.credentials?.icebreakers && Array.isArray(data.credentials.icebreakers)) {
-      const qs = [...data.credentials.icebreakers];
+    const creds = (data?.credentials as any) || {};
+    setIgAuthMethod(creds?.auth_method || null);
+    setIgHasMeta(!!creds?.page_access_token);
+    if (creds?.icebreakers && Array.isArray(creds.icebreakers)) {
+      const qs = [...creds.icebreakers];
       while (qs.length < 4) qs.push("");
       setIcebreakers(qs.slice(0, 4));
     } else {
@@ -600,6 +656,20 @@ export default function InstagramPage() {
     }
   }, [selectedConv, loadMessages]);
 
+  // SLA fetch quando seleciona conta
+  useEffect(() => {
+    if (!selectedAccount?.id) { setSlaStats(null); return; }
+    (supabase.rpc as any)("ig_sla_summary", { p_account_id: selectedAccount.id, p_hours: 168 }).then(({ data }: any) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) setSlaStats({
+        avg_min: Number(row.avg_min) || 0,
+        p90_min: Number(row.p90_min) || 0,
+        over_30min: Number(row.over_30min) || 0,
+        stale_open: Number(row.stale_open) || 0,
+      });
+    });
+  }, [selectedAccount?.id]);
+
   // Load comments when tab is comments and account selected
   const loadComments = useCallback(async (accountId: string) => {
     setLoadingComments(true);
@@ -669,23 +739,37 @@ export default function InstagramPage() {
     }
     try {
       const isCommentSource = triggerSourceType === "all" || triggerSourceType === "specific";
-      const { error } = await supabase
-        .from("imphq_ig_comment_triggers")
-        .insert({
-          project_id: selectedProjectId,
-          trigger_keyword: newTrigger.trigger_keyword.trim(),
-          post_id: newTrigger.post_id.trim() || "all",
-          reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
-          send_dm_template: newTrigger.send_dm_template.trim(),
-          is_active: newTrigger.is_active,
-          match_count: 0,
-          dm_sent_count: 0,
-          click_count: 0
-        });
+      const payload = {
+        trigger_keyword: newTrigger.trigger_keyword.trim(),
+        post_id: newTrigger.post_id.trim() || "all",
+        reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
+        send_dm_template: newTrigger.send_dm_template.trim(),
+        is_active: newTrigger.is_active,
+      };
 
-      if (error) throw error;
-      toast.success("Gatilho criado com sucesso!");
+      if (editingTriggerId) {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .update(payload)
+          .eq("id", editingTriggerId);
+        if (error) throw error;
+        toast.success("Gatilho atualizado!");
+      } else {
+        const { error } = await supabase
+          .from("imphq_ig_comment_triggers")
+          .insert({
+            project_id: selectedProjectId,
+            ...payload,
+            match_count: 0,
+            dm_sent_count: 0,
+            click_count: 0
+          });
+        if (error) throw error;
+        toast.success("Gatilho criado com sucesso!");
+      }
+
       setShowAddTrigger(false);
+      setEditingTriggerId(null);
       setTriggerSourceType("all");
       setNewTrigger({
         trigger_keyword: "",
@@ -696,9 +780,29 @@ export default function InstagramPage() {
       });
       loadTriggers();
     } catch (err: any) {
-      toast.error("Erro ao criar gatilho: " + err.message);
+      toast.error("Erro ao salvar gatilho: " + err.message);
     }
   };
+
+  const openEditTrigger = (trigger: any) => {
+    setEditingTriggerId(trigger.id);
+    const pid = trigger.post_id || "all";
+    const sourceType: "all" | "dm" | "story" | "story_mention" | "specific" =
+      pid === "all" ? "all" :
+      pid === "dm" ? "dm" :
+      pid === "story" ? "story" :
+      pid === "story_mention" ? "story_mention" : "specific";
+    setTriggerSourceType(sourceType);
+    setNewTrigger({
+      trigger_keyword: trigger.trigger_keyword || "",
+      post_id: pid,
+      reply_comment_template: trigger.reply_comment_template || "",
+      send_dm_template: trigger.send_dm_template || "",
+      is_active: trigger.is_active ?? true,
+    });
+    setShowAddTrigger(true);
+  };
+
 
   const handleToggleTriggerActive = async (id: string, active: boolean) => {
     try {
@@ -824,6 +928,7 @@ export default function InstagramPage() {
   // Send Direct Message
   async function handleSendDM() {
     if (!composedMsg.trim() || !selectedConv || !selectedAccount) return;
+    const textToSend = composedMsg.trim();
     setSendingMsg(true);
     try {
       const { data, error } = await supabase.functions.invoke("instagram-api", {
@@ -831,25 +936,59 @@ export default function InstagramPage() {
           action: "send_text",
           project_id: selectedProjectId,
           recipient_id: selectedConv.participant_id,
-          text: composedMsg.trim(),
+          text: textToSend,
         },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
+      if (error) throw new Error(error.message);
+
+      // Janela de 24h do Instagram — não é erro de sistema, é regra da Meta
+      if (data?.code === "OUTSIDE_24H_WINDOW") {
+        toast.warning(data.message || "Fora da janela de 24h do Instagram.", { duration: 6000 });
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          conversation_id: selectedConv.id,
+          direction: "out",
+          type: "text",
+          content: textToSend,
+          media_url: null,
+          created_at: new Date().toISOString(),
+          status: "failed",
+          failure_reason: "24h_window",
+          _local: true,
+        }]);
+        setComposedMsg("");
+        return;
+      }
+
+      if (data?.error) throw new Error(data.error);
       toast.success("Mensagem enviada!");
-      
+
       // Optmistic insert local state until webhook arrives
       const optMsg: IgMessage = {
         id: crypto.randomUUID(),
         conversation_id: selectedConv.id,
         direction: "out",
         type: "text",
-        content: composedMsg.trim(),
+        content: textToSend,
         media_url: null,
         created_at: new Date().toISOString(),
         status: "sent",
       };
       setMessages(prev => [...prev, optMsg]);
       setComposedMsg("");
+
+      // Sobe a conversa pro topo imediatamente (ordem de chegada)
+      const nowIso = new Date().toISOString();
+      setConversations(prev => prev.map(c =>
+        c.id === selectedConv.id
+          ? { ...c, last_message: textToSend, last_message_at: nowIso, updated_at: nowIso }
+          : c
+      ));
+      supabase.from("imphq_ig_conversations").update({
+        last_message: textToSend,
+        last_message_at: nowIso,
+        updated_at: nowIso,
+      } as any).eq("id", selectedConv.id).then(() => {});
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar mensagem");
     } finally {
@@ -1022,9 +1161,12 @@ export default function InstagramPage() {
   const activeUnreadCount = useMemo(() => conversations.reduce((acc, c) => acc + c.unread_count, 0), [conversations]);
 
   const filteredConversations = useMemo(() => {
-    if (!convSearch.trim()) return conversations;
+    const getTs = (c: any) =>
+      new Date(c.last_message_at || c.updated_at || c.created_at || 0).getTime();
+    const sorted = [...conversations].sort((a, b) => getTs(b) - getTs(a));
+    if (!convSearch.trim()) return sorted;
     const q = convSearch.toLowerCase();
-    return conversations.filter(c =>
+    return sorted.filter(c =>
       (c.participant_username || "").toLowerCase().includes(q) ||
       (c.participant_name || "").toLowerCase().includes(q) ||
       (c.last_message || "").toLowerCase().includes(q)
@@ -1236,20 +1378,28 @@ export default function InstagramPage() {
     }
   };
 
-  // Human takeover toggle per conversation
-  const handleToggleAiPaused = async (conv: IgConversation) => {
-    const next = !conv.ai_paused;
+  // Human takeover toggle por conversa (permanente ou temporário)
+  const handleToggleAiPaused = async (conv: IgConversation, minutes?: number) => {
+    const wasPaused = conv.ai_paused;
+    const next = minutes !== undefined ? true : !wasPaused;
+    const until = minutes !== undefined ? new Date(Date.now() + minutes * 60_000).toISOString() : null;
     try {
       const { error } = await supabase
         .from("imphq_ig_conversations")
-        .update({ ai_paused: next, ai_paused_reason: next ? "Operador assumiu" : null })
+        .update({
+          ai_paused: next,
+          ai_paused_reason: next ? (minutes ? `Pausa ${minutes}min` : "Operador assumiu") : null,
+          ai_paused_until: until,
+        } as any)
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused: next } : c));
       if (selectedConv?.id === conv.id) setSelectedConv(s => s ? { ...s, ai_paused: next } : s);
-      toast.success(next ? "🧑 Modo humano ativado — IA pausada nesta conversa." : "🤖 IA retomou o controle desta conversa.");
+      toast.success(next 
+        ? (minutes ? `🧑 IA pausada por ${minutes}min nesta conversa.` : "🧑 Modo humano ativado.") 
+        : "🤖 IA retomou o controle.");
     } catch (e: any) {
-      toast.error("Erro ao alternar modo: " + e.message);
+      toast.error("Erro: " + e.message);
     }
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
@@ -1304,6 +1454,19 @@ export default function InstagramPage() {
         </div>
       </div>
 
+      {/* ─── BANNER: SÓ ZERNIO, FALTA META ─── */}
+      {selectedAccount && igAuthMethod === "zernio" && !igHasMeta && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+          <Instagram className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 text-xs leading-6 text-amber-100/90">
+            Conectado via <strong>Zernio</strong>. Algumas ações (abrir post, responder/excluir comentário, insights, icebreakers) exigem também conexão via <strong>Meta/Facebook</strong>.
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] border-amber-500/40 hover:bg-amber-500/10" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+            Conectar Meta
+          </Button>
+        </div>
+      )}
+
       {/* ─── ALERTA DE CONTA CONECTADA ─── */}
       {!selectedAccount && !loadingConvs && (
         <Card className="bg-card border-dashed border-amber-500/20 shadow-xl max-w-2xl mx-auto py-8">
@@ -1332,7 +1495,15 @@ export default function InstagramPage() {
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     {selectedAccount.avatar_url ? (
-                      <img src={selectedAccount.avatar_url} alt="" className="w-8 h-8 rounded-full border border-border" />
+                      <img 
+                        src={selectedAccount.avatar_url} 
+                        alt="" 
+                        className="w-8 h-8 rounded-full border border-border object-cover" 
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedAccount.username)}&backgroundColor=1e293b&fontSize=45`;
+                        }}
+                      />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs"><User className="h-4 w-4" /></div>
                     )}
@@ -1581,7 +1752,15 @@ export default function InstagramPage() {
                           >
                             <div className="relative shrink-0">
                               {c.participant_avatar ? (
-                                <img src={c.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border object-cover" />
+                                <img 
+                                  src={c.participant_avatar} 
+                                  alt="" 
+                                  className="w-9 h-9 rounded-full border border-border object-cover" 
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(c.participant_username || c.participant_name || c.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                                  }}
+                                />
                               ) : (
                                 <img
                                   src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(c.participant_username || c.participant_name || c.participant_id)}&backgroundColor=1e293b&fontSize=40`}
@@ -1607,7 +1786,7 @@ export default function InstagramPage() {
                                 )}
                                 {c.last_message_at && (
                                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                    {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false, locale: ptBR })}
+                                    {formatCompactTime(c.last_message_at)}
                                   </span>
                                 )}
                               </div>
@@ -1639,7 +1818,15 @@ export default function InstagramPage() {
                       <div className="bg-secondary/10 px-4 py-3 border-b border-border/40 flex items-center gap-3 justify-between flex-wrap">
                         <div className="flex items-center gap-3">
                           {selectedConv.participant_avatar ? (
-                            <img src={selectedConv.participant_avatar} alt="" className="w-9 h-9 rounded-full border border-border" />
+                            <img 
+                              src={selectedConv.participant_avatar} 
+                              alt="" 
+                              className="w-9 h-9 rounded-full border border-border object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedConv.participant_username || selectedConv.participant_name || selectedConv.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                              }}
+                            />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center font-bold text-xs">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}
@@ -1706,23 +1893,42 @@ export default function InstagramPage() {
                             {messages.map((m) => {
                               const isInbound = m.direction === "in" || (m.direction as string) === "incoming";
                               const isAI = !isInbound && m.ai_generated;
+                              const isFailed = m.status === "failed";
                               return (
                                 <div key={m.id} className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
                                   <div className="group relative">
-                                    <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${isInbound ? "bg-secondary text-foreground rounded-tl-none border border-border/40" : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"}`}>
+                                    <div className={`max-w-[70%] p-3 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                                      isInbound
+                                        ? "bg-secondary text-foreground rounded-tl-none border border-border/40"
+                                        : isFailed
+                                          ? "bg-secondary/40 text-muted-foreground rounded-tr-none border border-dashed border-amber-500/40 italic"
+                                          : "bg-gradient-to-tr from-amber-600 to-amber-500 text-black font-medium rounded-tr-none"
+                                    }`}>
                                       {m.content}
-                                      <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-60">
+                                      <div className="flex items-center justify-between gap-2 mt-1.5 text-[9px] opacity-70">
                                         <span>
                                           {formatDistanceToNow(new Date(m.created_at), { addSuffix: true, locale: ptBR })}
                                         </span>
                                         {!isInbound && (
                                           <span className="capitalize flex items-center gap-1">
                                             {isAI && <span className="text-[8px] opacity-80">IA</span>}
-                                            {m.status || "enviado"}
+                                            {isFailed
+                                              ? <span className="text-amber-400 not-italic font-medium">⚠ Não entregue · janela 24h</span>
+                                              : (m.status || "enviado")}
                                           </span>
                                         )}
                                       </div>
                                     </div>
+                                    {isFailed && m._local && (
+                                      <div className="flex justify-end mt-1">
+                                        <button
+                                          onClick={() => setMessages(prev => prev.filter(x => x.id !== m.id))}
+                                          className="text-[9px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                                        >
+                                          Remover
+                                        </button>
+                                      </div>
+                                    )}
                                     {/* Badge reengajamento automático */}
                                     {!isInbound && (m.metadata as any)?.source === "ig-reengagement" && (
                                       <div className="flex items-center gap-1 mt-1 mb-0.5">
@@ -1778,7 +1984,19 @@ export default function InstagramPage() {
 
                       {/* Compositor de Mensagem */}
                       <div className="border-t border-border/40 bg-card">
-                        {/* Quick reply templates */}
+                        {/* Aviso de janela 24h fechada */}
+                        {(() => {
+                          const lastInbound = [...messages].reverse().find(m => m.direction === "in" || (m.direction as string) === "incoming");
+                          if (!lastInbound) return null;
+                          const diffH = (Date.now() - new Date(lastInbound.created_at).getTime()) / 3600000;
+                          if (diffH < 24) return null;
+                          return (
+                            <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/30 text-[11px] text-amber-300 flex items-center gap-2">
+                              <span>⚠</span>
+                              <span>Janela do Instagram fechada — o lead respondeu há mais de 24h. A Meta só permite enviar quando ele responder novamente.</span>
+                            </div>
+                          );
+                        })()}
                         {showTemplates && (
                           <div className="px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b border-border/30">
                             {[
@@ -1826,10 +2044,95 @@ export default function InstagramPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-2">
-                      <MessageSquare className="h-10 w-10 text-muted-foreground/60" />
-                      <h3 className="font-semibold">Nenhuma conversa selecionada</h3>
-                      <p className="text-xs text-muted-foreground max-w-sm">Escolha um lead na barra lateral para carregar a auditoria do chat de DMs.</p>
+                    <div className="flex flex-col h-full p-6 overflow-y-auto">
+                      {(() => {
+                        const total = conversations.length;
+                        const unread = conversations.filter(c => c.unread_count > 0);
+                        const topUnread = [...unread]
+                          .sort((a, b) => (b.last_message_at || "").localeCompare(a.last_message_at || ""))
+                          .slice(0, 5);
+                        const stale24h = conversations.filter(c => {
+                          if (!c.last_message_at) return false;
+                          return Date.now() - new Date(c.last_message_at).getTime() > 24 * 3600_000;
+                        }).length;
+                        return (
+                          <>
+                            <div className="text-center mb-6">
+                              <MessageSquare className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                              <h3 className="font-semibold">Resumo do canal</h3>
+                              <p className="text-xs text-muted-foreground">Selecione uma conversa ao lado ou abra uma não lida abaixo.</p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3 mb-6">
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-foreground">{total}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Conversas</div>
+                              </div>
+                              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-amber-400">{unread.length}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Não lidas</div>
+                              </div>
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-foreground/70">{stale24h}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">+24h s/ resp</div>
+                              </div>
+                            </div>
+
+                            {slaStats && (
+                              <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">SLA primeira resposta (7d)</h4>
+                                  {slaStats.stale_open > 0 && (
+                                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30 text-[9px]">{slaStats.stale_open} abertos &gt;30min</Badge>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.avg_min > 30 ? "text-red-400" : slaStats.avg_min > 10 ? "text-amber-400" : "text-emerald-400"}`}>
+                                      {slaStats.avg_min.toFixed(0)}min
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">Média</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-lg font-bold text-foreground/80">{slaStats.p90_min.toFixed(0)}min</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">P90</div>
+                                  </div>
+                                  <div>
+                                    <div className={`text-lg font-bold ${slaStats.over_30min > 0 ? "text-amber-400" : "text-foreground/80"}`}>{slaStats.over_30min}</div>
+                                    <div className="text-[9px] text-muted-foreground uppercase">&gt;30min</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {topUnread.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Não lidas recentes</h4>
+                                {topUnread.map(c => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => setSelectedConv(c)}
+                                    className="w-full text-left bg-secondary/20 hover:bg-secondary/40 border border-border/30 rounded-lg p-2.5 flex items-center gap-3 transition"
+                                  >
+                                    {c.participant_avatar ? (
+                                      <img src={c.participant_avatar} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold shrink-0">
+                                        {(c.participant_username || c.participant_name || "L")[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-semibold truncate">
+                                        {c.participant_username ? `@${c.participant_username}` : c.participant_name || `Lead ${c.participant_id.slice(-4)}`}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground truncate">{c.last_message || "—"}</div>
+                                    </div>
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] shrink-0">{c.unread_count}</Badge>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </Card>
@@ -1842,7 +2145,15 @@ export default function InstagramPage() {
                       <div className="space-y-4">
                         <div className="bg-secondary/20 p-3 rounded-lg border border-border/30 flex flex-col items-center text-center">
                           {selectedConv.participant_avatar ? (
-                            <img src={selectedConv.participant_avatar} alt="" className="w-16 h-16 rounded-full border-2 border-amber-500/20 mb-2" />
+                            <img 
+                              src={selectedConv.participant_avatar} 
+                              alt="" 
+                              className="w-16 h-16 rounded-full border-2 border-amber-500/20 mb-2 object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(selectedConv.participant_username || selectedConv.participant_name || selectedConv.participant_id)}&backgroundColor=1e293b&fontSize=40`;
+                              }}
+                            />
                           ) : (
                             <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center font-bold text-lg mb-2">{(selectedConv.participant_username && selectedConv.participant_username !== "null" ? selectedConv.participant_username : selectedConv.participant_name || "L")[0].toUpperCase()}</div>
                           )}
@@ -1850,6 +2161,34 @@ export default function InstagramPage() {
                             {selectedConv.participant_username && selectedConv.participant_username !== "null" ? `@${selectedConv.participant_username}` : selectedConv.participant_name || `Lead (${selectedConv.participant_id.slice(-4)})`}
                           </span>
                           <span className="text-xs text-muted-foreground">{selectedConv.participant_name || "—"}</span>
+                          {selectedConv.ig_profile_data && (
+                            <div className="flex flex-wrap gap-1.5 justify-center mt-2">
+                              {selectedConv.ig_profile_data.isVerified && (
+                                <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[10px]">✓ Verificado</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollower && (
+                                <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">Te segue</Badge>
+                              )}
+                              {selectedConv.ig_profile_data.isFollowing && (
+                                <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px]">Você segue</Badge>
+                              )}
+                              {typeof selectedConv.ig_profile_data.followerCount === "number" && selectedConv.ig_profile_data.followerCount > 0 && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                  {selectedConv.ig_profile_data.followerCount.toLocaleString("pt-BR")} seguidores
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          {selectedConv.participant_username && selectedConv.participant_username !== "null" && (
+                            <a
+                              href={`https://instagram.com/${selectedConv.participant_username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-amber-400 hover:text-amber-300 mt-2 underline-offset-2 hover:underline"
+                            >
+                              Abrir no Instagram ↗
+                            </a>
+                          )}
                         </div>
 
                         <div className="space-y-2 text-xs">
@@ -2193,7 +2532,7 @@ export default function InstagramPage() {
                                     <p className="text-[10px] text-muted-foreground truncate mt-0.5">{c.last_message || "—"}</p>
                                     {c.last_message_at && (
                                       <p className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                        {formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true, locale: ptBR })}
+                                        {formatCompactTime(c.last_message_at)}
                                       </p>
                                     )}
                                   </div>
@@ -2469,6 +2808,7 @@ export default function InstagramPage() {
 
             {activeMainTab === "brain" && (
               <div className="space-y-6">
+                <ZernioHealthCard projectId={selectedProjectId} />
                 {/* Header and Sub-tab selector */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
                   <div className="flex bg-muted/60 p-0.5 rounded-lg border border-border/40 shrink-0">
@@ -3296,6 +3636,16 @@ export default function InstagramPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-7 w-7 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-border/40"
+                                  onClick={() => openEditTrigger(trigger)}
+                                  title="Editar gatilho"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 border border-border/40"
                                   onClick={() => handleDeleteTrigger(trigger.id)}
                                 >
@@ -3407,12 +3757,19 @@ export default function InstagramPage() {
       </Dialog>
 
       {/* Add Trigger Dialog */}
-      <Dialog open={showAddTrigger} onOpenChange={setShowAddTrigger}>
+      <Dialog open={showAddTrigger} onOpenChange={(open) => {
+        setShowAddTrigger(open);
+        if (!open) {
+          setEditingTriggerId(null);
+          setTriggerSourceType("all");
+          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", is_active: true });
+        }
+      }}>
         <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg">
           <form onSubmit={handleSaveTrigger}>
             <DialogHeader>
               <DialogTitle className="text-amber-500 font-bold flex items-center gap-1.5">
-                <Zap className="h-5 w-5 text-amber-500" /> Criar Novo Gatilho de Comentário
+                <Zap className="h-5 w-5 text-amber-500" /> {editingTriggerId ? "Editar Gatilho" : "Criar Novo Gatilho de Comentário"}
               </DialogTitle>
               <DialogDescription className="text-slate-400 text-xs">
                 Configure regras automáticas. Ao detectarmos a palavra-chave em comentários, enviaremos a resposta pública e o direct privado.
@@ -3470,8 +3827,26 @@ export default function InstagramPage() {
                 </div>
               )}
 
+              <div className="flex items-center justify-between gap-2 bg-amber-500/5 border border-amber-500/20 rounded-md px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-amber-300 font-medium">✨ Gerar com IA</p>
+                  <p className="text-[9px] text-slate-400">A IA usa briefing/avatar do projeto + a palavra-chave pra escrever resposta pública e DM.</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={generateTriggerCopy}
+                  disabled={genTriggerLoading || !newTrigger.trigger_keyword.trim()}
+                  className="bg-amber-500/90 hover:bg-amber-500 text-black font-semibold text-[11px] h-7 px-3 shrink-0"
+                >
+                  {genTriggerLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  Gerar
+                </Button>
+              </div>
+
               {(triggerSourceType === "all" || triggerSourceType === "specific") && (
                 <div className="space-y-1.5 animate-fade-in">
+
                   <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
                   <Input
                     value={newTrigger.reply_comment_template}
@@ -3511,7 +3886,7 @@ export default function InstagramPage() {
                 size="sm"
                 className="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs"
               >
-                Salvar Regra
+                {editingTriggerId ? "Salvar Alterações" : "Salvar Regra"}
               </Button>
             </div>
           </form>

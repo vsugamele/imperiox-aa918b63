@@ -8,6 +8,7 @@ import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
 import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
+import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 
 export default function Studio() {
   const [tab, setTab] = useState("generator");
@@ -16,6 +17,7 @@ export default function Studio() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <ProdutoTabs />
       <div className="flex items-center gap-3">
         <Clapperboard className="h-7 w-7 text-primary" />
         <div>

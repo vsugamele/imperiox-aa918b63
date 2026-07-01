@@ -62,7 +62,7 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
         .from("imphq_cold_reactivation_rules" as any)
         .select("*")
         .order("created_at", { ascending: false });
-      setRules((data || []) as ReactivationRule[]);
+      setRules(((data as unknown) as ReactivationRule[]) || []);
     } catch {
       // table may not exist yet — handled gracefully
     }

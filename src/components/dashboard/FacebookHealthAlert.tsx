@@ -13,6 +13,8 @@ interface FailedProject {
   message: string;
   at: string;
   last_sync: string | null;
+  kind: "error" | "empty";
+  account_id?: string | null;
 }
 
 export default function FacebookHealthAlert() {
@@ -27,9 +29,9 @@ export default function FacebookHealthAlert() {
     const list: FailedProject[] = [];
     for (const p of data || []) {
       const d: any = p.data || {};
-      // Only show if project has FB configured AND status is error
       const hasFb = d.facebook_ad_account_id && (d.facebook_marketing_token || d.facebook_access_token);
-      if (hasFb && d.facebook_sync_status === "error" && d.facebook_sync_error) {
+      if (!hasFb) continue;
+      if (d.facebook_sync_status === "error" && d.facebook_sync_error) {
         list.push({
           id: p.id,
           name: p.name,
@@ -38,6 +40,20 @@ export default function FacebookHealthAlert() {
           message: d.facebook_sync_error.message || "Erro desconhecido",
           at: d.facebook_sync_error.at || "",
           last_sync: d.facebook_last_sync || null,
+          kind: "error",
+          account_id: d.facebook_ad_account_id || null,
+        });
+      } else if (d.facebook_sync_status === "empty") {
+        list.push({
+          id: p.id,
+          name: p.name,
+          subcode: null,
+          code: null,
+          message: `Meta retornou 0 linhas para a conta act_${d.facebook_ad_account_id} nos últimos 7 dias`,
+          at: d.facebook_sync_error?.at || d.facebook_last_sync || "",
+          last_sync: d.facebook_last_sync || null,
+          kind: "empty",
+          account_id: d.facebook_ad_account_id || null,
         });
       }
     }
@@ -65,6 +81,8 @@ export default function FacebookHealthAlert() {
   // Determine dominant error type
   const has459 = failed.some(f => f.subcode === 459);
   const has190 = failed.some(f => f.code === 190);
+  const hasEmpty = failed.some(f => f.kind === "empty");
+  const allEmpty = failed.every(f => f.kind === "empty");
 
   let title = "⚠️ Erro na sincronização do Facebook Ads";
   let detail = "Uma ou mais contas pararam de sincronizar.";
@@ -74,6 +92,11 @@ export default function FacebookHealthAlert() {
   } else if (has190) {
     title = "⏰ Token do Facebook expirou";
     detail = "Renove o token de acesso em Configurações → Integrações para retomar a sincronização.";
+  } else if (allEmpty) {
+    title = "📉 Meta retornou 0 gastos nos últimos 7 dias";
+    detail = `Verifique se o ad account configurado (${failed.map(f => `act_${f.account_id}`).join(", ")}) é realmente o que está rodando hoje. Pode estar conectado em outra conta.`;
+  } else if (hasEmpty) {
+    detail += " Alguns projetos não trouxeram nenhum gasto da Meta nos últimos 7 dias (conta errada ou sem campanhas ativas).";
   }
 
   const lastSync = failed.map(f => f.last_sync).filter(Boolean).sort().pop();

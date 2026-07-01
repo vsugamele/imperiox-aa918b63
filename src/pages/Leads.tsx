@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -36,6 +36,7 @@ import { useLeadTags } from "@/hooks/useLeadTags";
 
 
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
+import LeadJourneyDrawer from "@/components/leads/LeadJourneyDrawer";
 import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
@@ -79,6 +80,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ReactNode; color: string; label
   Reembolso: { icon: <RefreshCw className="h-3 w-3" />, color: "bg-red-500", label: "Reembolso" },
   LeadNovo: { icon: <Users className="h-3 w-3" />, color: "bg-blue-400", label: "Lead Novo" },
   FormResponse: { icon: <Radio className="h-3 w-3" />, color: "bg-purple-500", label: "Resposta Formulário" },
+  Recovery: { icon: <Zap className="h-3 w-3" />, color: "bg-amber-500", label: "Disparo de Recuperação" },
 };
 
 const FUNNEL_COLORS = ["hsl(var(--primary))", "#f59e0b", "#ef4444", "#10b981"];
@@ -124,6 +126,17 @@ function getConversionBucket(hours: number): string {
 
 const PAGE_SIZE = 50;
 const FILTERS_KEY = "imphq:leads:filters:v1";
+
+// Cache de dados de referência da página Leads (5min TTL) - evita refetch ao mudar filtros/páginas
+let leadsRefCache: {
+  at: number;
+  projects: any[];
+  automations: any[];
+  waProviders: any[];
+  waTemplates: any[];
+  captureForms: { id: string; name: string }[];
+  projectCounts: { totalAll: number; byProject: Record<string, number>; noProject: number };
+} | null = null;
 type PersistedFilters = {
   statusFilter: string; platformFilter: string; projectFilter: string;
   stageFilter: string; productFilter: string; formFilter: string; hotOnly: boolean;
@@ -175,11 +188,18 @@ export default function Leads() {
   const [waProviders, setWaProviders] = useState<any[]>([]);
   const [waTemplates, setWaTemplates] = useState<any[]>([]);
   const [showWaDialog, setShowWaDialog] = useState(false);
+  const [journeyLead, setJourneyLead] = useState<Lead | null>(null);
   const [waTarget, setWaTarget] = useState<Lead | null>(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<"recent" | "score">("recent");
+  const [sortBy, setSortBy] = useState<"recent" | "updated" | "score">("recent");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("leads.sidebar.collapsed") === "1"; } catch { return false; }
+  });
+  const toggleSidebar = () => setSidebarCollapsed((v) => {
+    const nv = !v; try { localStorage.setItem("leads.sidebar.collapsed", nv ? "1" : "0"); } catch {} return nv;
+  });
   const projectFilterRef = useRef(projectFilter);
   projectFilterRef.current = projectFilter;
 
@@ -214,8 +234,11 @@ export default function Leads() {
     const to = from + PAGE_SIZE - 1;
     if (sortBy === "score") {
       leadsQuery = leadsQuery.order("score", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
-    } else {
+    } else if (sortBy === "updated") {
       leadsQuery = leadsQuery.order("updated_at", { ascending: false, nullsFirst: false }).order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
+    } else {
+      // "recent" = mais novos por data de criação (dia atual no topo)
+      leadsQuery = leadsQuery.order("criado_em", { ascending: false, nullsFirst: false }).range(from, to);
     }
 
     let vendasQuery = supabase.from("imphq_vendas").select("id, lead_id, produto_nome, valor, plataforma, status, data, created_at").order("created_at", { ascending: false }).limit(1000);
@@ -223,19 +246,49 @@ export default function Leads() {
       vendasQuery = vendasQuery.eq("project_id", projectFilter);
     }
 
-    const [leadsRes, projRes, vendasRes, autoRes, adsRes, waProvRes, waTplRes, hubSessionsRes, formsRes, countsRes] = await Promise.all([
-      leadsQuery, supabase.from("imphq_projects").select("id, name, icon"),
+    const [leadsRes, vendasRes, adsRes] = await Promise.all([
+      leadsQuery,
       vendasQuery,
+      supabase.from("imphq_ads_spend").select("id, data_ref, valor, plataforma, campanha, project_id").order("data_ref", { ascending: false }).limit(500),
+    ]);
+
+    setTotalCount(leadsRes.count ?? 0);
+    const allVendas = (vendasRes.data || []) as any[];
+    setAllVendasRaw(allVendas);
+    setAdsSpend(adsRes.data || []);
+    const vendasByLead = new Map<string, LeadVenda[]>();
+    allVendas.forEach((v: any) => { if (!v.lead_id) return; if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []); vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data, created_at: v.created_at }); });
+    const enrichedLeads = (leadsRes.data || []).map((l: any) => { const lv = vendasByLead.get(l.id) || []; return { ...l, _vendas: lv, _score: calcScore(l, lv) }; }) as Lead[];
+    setLeads(enrichedLeads);
+    setProducts([...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[]);
+    if (productFilter !== "all") { setProductLeadIds(new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id))); } else { setProductLeadIds(null); }
+    setSelectedIds(new Set());
+    setLoading(false);
+  };
+
+  // Dados de referência (projetos, automações, providers WA, templates, forms, contagens) mudam raramente.
+  // Carregam 1x na montagem + cache de 5min para evitar refetch ao trocar filtros/páginas.
+  const loadReference = async () => {
+    const now = Date.now();
+    const TTL = 5 * 60_000;
+    if (leadsRefCache && now - leadsRefCache.at < TTL) {
+      setProjects(leadsRefCache.projects);
+      setAutomations(leadsRefCache.automations);
+      setWaProviders(leadsRefCache.waProviders);
+      setWaTemplates(leadsRefCache.waTemplates);
+      setCaptureForms(leadsRefCache.captureForms);
+      setProjectCounts(leadsRefCache.projectCounts);
+      return;
+    }
+    const [projRes, autoRes, waProvRes, waTplRes, hubSessionsRes, formsRes, countsRes] = await Promise.all([
+      supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_automacoes").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_ads_spend").select("*").order("data_ref", { ascending: false }).limit(500),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id").order("name"),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
       supabase.from("imphq_capture_forms").select("id, name").order("name"),
       supabase.rpc("count_leads_by_project" as any),
     ]);
-
-    // Contagem global por projeto via RPC agregada (evita trazer 20k IDs)
     const countRows = ((countsRes as any)?.data || []) as Array<{ project_id: string; total: number | string }>;
     const byProject: Record<string, number> = {};
     let noProject = 0;
@@ -246,29 +299,23 @@ export default function Leads() {
       if (r.project_id === "__none__") noProject = n;
       else byProject[r.project_id] = n;
     });
-    setProjectCounts({ totalAll, byProject, noProject });
-
-
-    setTotalCount(leadsRes.count ?? 0);
-    const allVendas = (vendasRes.data || []) as any[];
+    const projectCounts = { totalAll, byProject, noProject };
     const hubProviders = (hubSessionsRes.data || []).map((s: any) => ({ id: `hub_${s.id}`, provider: "hub_local", instance_name: s.session_key, twilio_from: null, project_id: s.tenant_id || null, is_active: true }));
-    setWaProviders([...(waProvRes.data || []), ...hubProviders]);
-    setWaTemplates(waTplRes.data || []);
-    setAllVendasRaw(allVendas);
-    setAdsSpend(adsRes.data || []);
-    const vendasByLead = new Map<string, LeadVenda[]>();
-    allVendas.forEach((v: any) => { if (!v.lead_id) return; if (!vendasByLead.has(v.lead_id)) vendasByLead.set(v.lead_id, []); vendasByLead.get(v.lead_id)!.push({ id: v.id, produto_nome: v.produto_nome, valor: parseFloat(v.valor) || 0, plataforma: v.plataforma, status: v.status, data: v.data, created_at: v.created_at }); });
-    const enrichedLeads = (leadsRes.data || []).map((l: any) => { const lv = vendasByLead.get(l.id) || []; return { ...l, _vendas: lv, _score: calcScore(l, lv) }; }) as Lead[];
-    setLeads(enrichedLeads);
-    setProjects(projRes.data || []);
-    setAutomations(autoRes.data || []);
-    setProducts([...new Set(allVendas.map((v: any) => v.produto_nome).filter(Boolean))] as string[]);
-    if (productFilter !== "all") { setProductLeadIds(new Set(allVendas.filter((v: any) => v.produto_nome === productFilter).map((v: any) => v.lead_id))); } else { setProductLeadIds(null); }
-    setCaptureForms((formsRes.data || []).map((f: any) => ({ id: f.id, name: f.name })));
-    setSelectedIds(new Set());
-    setLoading(false);
+    const projects = projRes.data || [];
+    const automations = autoRes.data || [];
+    const waProviders = [...(waProvRes.data || []), ...hubProviders];
+    const waTemplates = waTplRes.data || [];
+    const captureForms = (formsRes.data || []).map((f: any) => ({ id: f.id, name: f.name }));
+    leadsRefCache = { at: Date.now(), projects, automations, waProviders, waTemplates, captureForms, projectCounts };
+    setProjects(projects);
+    setAutomations(automations);
+    setWaProviders(waProviders);
+    setWaTemplates(waTemplates);
+    setCaptureForms(captureForms);
+    setProjectCounts(projectCounts);
   };
 
+  useEffect(() => { loadReference(); }, []);
   useEffect(() => { load(); }, [page, debouncedSearch, statusFilter, platformFilter, projectFilter, productFilter, tagFilter, sortBy]);
 
   // Persist filters
@@ -292,7 +339,7 @@ export default function Leads() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses } = useLeadTimeline(editLead, automations);
+  const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs } = useLeadTimeline(editLead, automations);
 
   const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
   const filtered = leads.filter((l) => {
@@ -544,24 +591,33 @@ export default function Leads() {
 
   return (
     <div className="flex gap-6">
-      <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
+      {!sidebarCollapsed && (
+        <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
+      )}
       <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />
 
 
       <div className="flex-1 space-y-4 min-w-0">
         <Tabs value={mainTab} onValueChange={setMainTab}>
           <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={toggleSidebar}
+              title={sidebarCollapsed ? "Mostrar sidebar (S)" : "Esconder sidebar (S)"}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground transition"
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
             <TabsList>
-              <TabsTrigger value="quentes" className="text-xs relative">
-                🔥 Quentes
+              <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
+                <Flame className="h-3 w-3" /> Quentes
                 {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
               </TabsTrigger>
-              <TabsTrigger value="leads" className="text-xs">📋 Leads</TabsTrigger>
-              <TabsTrigger value="analytics" className="text-xs">📊 Analytics</TabsTrigger>
-              <TabsTrigger value="formularios" className="text-xs">📝 Formulários & Insights</TabsTrigger>
-              <TabsTrigger value="predicoes" className="text-xs">🧠 Predições</TabsTrigger>
-              <TabsTrigger value="custo" className="text-xs">💰 Custo</TabsTrigger>
-              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-xs">💰 Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
+              <TabsTrigger value="leads" className="text-[10px] uppercase tracking-wider gap-1.5"><ListChecks className="h-3 w-3" /> Leads</TabsTrigger>
+              <TabsTrigger value="analytics" className="text-[10px] uppercase tracking-wider gap-1.5"><BarChart3 className="h-3 w-3" /> Analytics</TabsTrigger>
+              <TabsTrigger value="formularios" className="text-[10px] uppercase tracking-wider gap-1.5"><FileText className="h-3 w-3" /> Formulários</TabsTrigger>
+              <TabsTrigger value="predicoes" className="text-[10px] uppercase tracking-wider gap-1.5"><Brain className="h-3 w-3" /> Predições</TabsTrigger>
+              <TabsTrigger value="custo" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Custo</TabsTrigger>
+              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
               {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
@@ -578,7 +634,7 @@ export default function Leads() {
                 const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `leads_${format(periodRange.from, "yyyy-MM-dd")}.csv`; a.click(); URL.revokeObjectURL(url);
                 toast.success(`${filtered.length} leads exportados`);
-              }}>📥 Export CSV</Button>
+              }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
               <Button size="sm" variant="outline" onClick={() => setShowImport(true)}><FileUp className="h-4 w-4 mr-1" /> Importar</Button>
               <Button size="sm" variant="outline" onClick={async () => {
                 const toAnalyze = filtered.filter(l => l.project_id);
@@ -606,11 +662,12 @@ export default function Leads() {
               <div className="relative max-w-xs flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Buscar nome, email..." className="pl-9 bg-secondary h-9" /></div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Plataforma" /></SelectTrigger><SelectContent><SelectItem value="all">Plataforma</SelectItem>{PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}><SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">Status</SelectItem>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select>
-              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "score"); setPage(0); }}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">⏱️ Recentes</SelectItem><SelectItem value="score">🧠 Score (ML)</SelectItem></SelectContent></Select>
+              <Select value={sortBy} onValueChange={(v) => { setSortBy(v as "recent" | "updated" | "score"); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Ordenar" /></SelectTrigger><SelectContent><SelectItem value="recent">Mais recentes (data)</SelectItem><SelectItem value="updated">Atualizados há pouco</SelectItem><SelectItem value="score">Score (ML)</SelectItem></SelectContent></Select>
               <Select value={stageFilter} onValueChange={setStageFilter}><SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Estágio" /></SelectTrigger><SelectContent><SelectItem value="all">Estágio</SelectItem>{STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_LABELS[s].label}</SelectItem>)}</SelectContent></Select>
-              {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>📋 {f.name}</SelectItem>)}</SelectContent></Select>)}
-              {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>🏷️ {tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
-              {tagFilter !== "all" && (<button onClick={() => setTagFilter("all")} className="h-9 px-2.5 rounded-md bg-gold/10 border border-gold/40 text-gold text-xs flex items-center gap-1.5 hover:bg-gold/20" title="Limpar filtro de tag">🏷️ {tagFilter} <span className="text-base leading-none">×</span></button>)}
+              {products.length > 0 && (<Select value={productFilter} onValueChange={(v) => { setProductFilter(v); setPage(0); }}><SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Produto" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Produto (todos)</SelectItem>{products.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>)}
+              {captureForms.length > 0 && (<Select value={formFilter} onValueChange={setFormFilter}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Formulário" /></SelectTrigger><SelectContent><SelectItem value="all">Formulário</SelectItem>{captureForms.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select>)}
+              {topTags.length > 0 && (<Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(0); }}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Tag" /></SelectTrigger><SelectContent className="max-h-[300px]"><SelectItem value="all">Tag (todas)</SelectItem>{topTags.map(({ tag, count }) => <SelectItem key={tag} value={tag}>{tag} <span className="text-muted-foreground ml-1">({count})</span></SelectItem>)}</SelectContent></Select>)}
+              {tagFilter !== "all" && (<button onClick={() => setTagFilter("all")} className="h-9 px-2.5 rounded-md bg-gold/10 border border-gold/40 text-gold text-xs flex items-center gap-1.5 hover:bg-gold/20" title="Limpar filtro de tag"><Tag className="h-3 w-3" /> {tagFilter} <span className="text-base leading-none">×</span></button>)}
               <Button
                 size="sm"
                 variant={hotOnly ? "default" : "outline"}
@@ -618,7 +675,7 @@ export default function Leads() {
                 className={cn("h-9 gap-1", hotOnly && "bg-orange-500 hover:bg-orange-600 text-white")}
                 title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
               >
-                🔥 Hot {hotOnly ? "ON" : ""}
+                <Flame className="h-4 w-4" /> Hot {hotOnly ? "ON" : ""}
               </Button>
               {someSelected && (
                 <>
@@ -746,9 +803,16 @@ export default function Leads() {
 
         {/* Edit Lead Dialog - kept inline as it's deeply coupled with state */}
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
-          <DialogContent className="max-w-2xl bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
             <DialogHeader>
-              <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+                {editLead && (
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30" onClick={() => setJourneyLead(editLead)}>
+                    <Activity className="h-3.5 w-3.5" /> Replay Jornada
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
             {editLead && (
               <div className="space-y-4">
@@ -888,6 +952,27 @@ export default function Leads() {
                       } catch {}
                     }
                     return null;
+                  })()}
+
+                  {/* Recovery dispatch badge */}
+                  {recoveryLogs && recoveryLogs.length > 0 && (() => {
+                    const last = recoveryLogs[0];
+                    const statusColor =
+                      last.status === "sent" || last.status === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                      last.status === "failed" || last.status === "error" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                      "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                    let when = "";
+                    try { const d = parseISO(last.created_at); if (isValid(d)) when = `há ${Math.max(1, differenceInDays(new Date(), d))}d`; } catch {}
+                    return (
+                      <div className={cn("mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium", statusColor)}>
+                        <Zap className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          🔄 Recuperação <strong className="font-semibold">{last.bucket}</strong> · {last.canal || "?"} · {last.status}
+                          {when && <span className="opacity-70"> · {when}</span>}
+                          {recoveryLogs.length > 1 && <span className="opacity-70"> · +{recoveryLogs.length - 1}</span>}
+                        </span>
+                      </div>
+                    );
                   })()}
                 </div>
 
@@ -1287,6 +1372,7 @@ export default function Leads() {
 
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
         <LeadWhatsAppDialog open={showWaDialog} onOpenChange={setShowWaDialog} target={waTarget} waProviders={waProviders} waTemplates={waTemplates} projects={projects} />
+        <LeadJourneyDrawer open={!!journeyLead} onClose={() => setJourneyLead(null)} lead={journeyLead} automations={automations} />
       </div>
     </div>
   );

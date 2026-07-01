@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import ZernioAdsSync from "./ZernioAdsSync";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -160,7 +161,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
     const [c, r, a, v, p, ev] = await Promise.all([
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_project_revenue").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
-      supabase.from("imphq_ads_spend").select("*").eq("project_id", projectId).order("data_ref", { ascending: false }),
+      supabase.from("imphq_ads_spend").select("*").eq("project_id", projectId).not("ad_id", "ilike", "CAMP:%").order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").eq("project_id", projectId).eq("status", "aprovado").order("data_venda", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_events").select("id, event_name, created_at, page_url").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1000),
@@ -819,6 +820,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 </Button>
               </div>
             )}
+            <ZernioAdsSync projectId={projectId} dateRange={dateRange} onAfterSync={() => { loadData(); onRefresh?.(); }} />
             <Button size="sm" variant="outline" onClick={() => setShowAdsImport(true)}>
               <Upload className="h-3.5 w-3.5 mr-1" /> Importar CSV
             </Button>

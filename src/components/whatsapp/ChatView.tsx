@@ -2,14 +2,16 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import ContactTagsPanel from "./ContactTagsPanel";
+import AssignAndNotesBar from "./AssignAndNotesBar";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
 import { LeadIntelPanel } from "./LeadIntelPanel";
+import ConversationIntelCard from "./ConversationIntelCard";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -201,6 +203,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState("");
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -225,6 +228,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
     const [showIntelPanel, setShowIntelPanel] = useState(true);
+    const [lastIntent, setLastIntent] = useState<string | null>(null);
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
@@ -354,13 +358,21 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       };
     }, []);
 
-    // 🔥 Live temperature score based on last 5 messages
+    // 🔥 Live temperature — combina intent real (triage) + heurística de keywords
     const BUY_KEYWORDS = [
       "quanto custa", "qual o valor", "como pago", "aceita pix", "tem parcela",
       "quero comprar", "me manda o link", "tem garantia", "quero fechar", "vou entrar",
       "link", "preco", "valor", "pagar", "compro", "assinar", "inscricao",
     ];
     const temperature = (() => {
+      // 1) Intent real do classificador (mais confiável)
+      const intent = (lastIntent || "").toLowerCase();
+      if (intent) {
+        if (/(comprar|fechar|pagar|checkout|pix|boleto|cartao|cartão|finalizar)/.test(intent)) return "hot";
+        if (/(duvida|dúvida|preco|preço|interesse|garantia|prazo|funciona|como)/.test(intent)) return "warm";
+        if (/(spam|cancel|recusa|nao|não)/.test(intent)) return "cold";
+      }
+      // 2) Fallback: keywords nas últimas 5 mensagens
       const last5 = messages.filter(m => m.direction === "incoming").slice(-5);
       if (last5.length === 0) return "cold";
       const combined = last5.map(m => (m.content || "").toLowerCase()).join(" ");
@@ -791,6 +803,27 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .then(({ data }) => { if (data != null) setIaAtiva((data as any).ia_ativa ?? true); });
     }, [conversationId]);
 
+    // Carrega o último intent real desta conversa (classificador de triagem)
+    useEffect(() => {
+      if (!conversationId) { setLastIntent(null); return; }
+      let stop = false;
+      const load = async () => {
+        const { data } = await supabase
+          .from("imphq_wa_triage")
+          .select("intent, created_at")
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!stop) setLastIntent((data as any)?.intent ?? null);
+      };
+      load();
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") load();
+      }, 45000);
+      return () => { stop = true; clearInterval(t); };
+    }, [conversationId]);
+
     const toggleIa = async () => {
       if (togglingIa) return;
       setTogglingIa(true);
@@ -835,7 +868,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         }
       };
       fetchDraft();
-      const t = setInterval(fetchDraft, 8000);
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") fetchDraft();
+      }, 30000);
       return () => { stop = true; clearInterval(t); };
     }, [conversationId]);
 
@@ -960,18 +995,38 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
     const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
     const [correctionText, setCorrectionText] = useState("");
+    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable">("auto");
 
-    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string) => {
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable") => {
       try {
-        await supabase.functions.invoke("wa-feedback-learn", {
-          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId },
+        const { data } = await supabase.functions.invoke("wa-feedback-learn", {
+          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId, correction_type: ctype || "auto" },
         });
         setFeedbackSent(prev => ({ ...prev, [msgId]: feedback }));
         setFeedbackCorrecting(null);
         setCorrectionText("");
-        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : "✏️ Correção incorporada à base");
+        setCorrectionType("auto");
+        const finalType = (data as any)?.correction_type;
+        const typeLabel = finalType === "rule" ? "📜 regra do projeto"
+          : finalType === "unavailable" ? "🚫 produto indisponível"
+          : "✏️ resposta corrigida";
+        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
       } catch (err: any) {
         toast.error("Erro ao salvar feedback: " + err.message);
+      }
+    };
+
+    const markAsGold = async (m: Message) => {
+      try {
+        const { data, error } = await supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conversationId, message_id: m.id, project_id: projectId, gold: true },
+        });
+        if (error) throw error;
+        if ((data as any)?.skipped) { toast.info("Pulado: " + (data as any).skipped); return; }
+        setFeedbackSent(prev => ({ ...prev, [m.id]: "good" }));
+        toast.success("⭐ Marcada como exemplo de ouro — a IA vai replicar esse padrão");
+      } catch (e: any) {
+        toast.error("Erro: " + e.message);
       }
     };
 
@@ -1003,10 +1058,32 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     };
 
 
+    // Realtime: subscribe to new messages for this conversation.
+    // Mantém polling como fallback (60s) caso o canal caia.
     useEffect(() => {
-      const interval = setInterval(pollNew, 8000);
-      return () => clearInterval(interval);
-    }, [pollNew]);
+      const channel = supabase
+        .channel(`wa-msg-${conversationId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .subscribe();
+
+      const fallback = setInterval(() => {
+        if (document.visibilityState === "visible") pollNew();
+      }, 60000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(fallback);
+      };
+    }, [conversationId, pollNew]);
 
     useEffect(() => {
       if (isComposingRef.current) return;
@@ -1207,6 +1284,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         if (data?.failover) {
           toast.warning(`Chip "${data.original_provider}" caiu — enviado via "${data.sent_via}".`);
         }
+        // Auto-pausa IA por 1h quando humano responde (handoff implícito)
+        supabase.from("imphq_wa_conversations")
+          .update({ ai_paused_until: new Date(Date.now() + 1 * 3600_000).toISOString() } as any)
+          .eq("id", conversationId)
+          .then(() => {});
         setTimeout(() => pollNew(), 500);
       } catch (err: any) {
         toast.error("Erro ao enviar: " + err.message);
@@ -1235,6 +1317,28 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
         <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
           <ContactTagsPanel projectId={projectId} phone={phone} />
+          <AssignAndNotesBar conversationId={conversationId} />
+          {conversationId && (
+            <div className="px-3 pt-2">
+              <ConversationIntelCard conversationId={conversationId} />
+            </div>
+          )}
+          {(() => {
+            const last = messages[messages.length - 1];
+            if (!last || last.direction !== "incoming") return null;
+            const min = Math.max(0, Math.floor((Date.now() - new Date(last.created_at).getTime()) / 60000));
+            const label = min < 1 ? "agora" : min < 60 ? `${min}min` : min < 1440 ? `${Math.floor(min/60)}h${min % 60 ? ` ${min%60}min` : ""}` : `${Math.floor(min/1440)}d`;
+            const cls = min < 5 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+              : min < 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+              : min < 120 ? "bg-orange-500/10 text-orange-300 border-orange-500/30"
+              : "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse";
+            return (
+              <div className={`px-3 py-1.5 text-[11px] border-b ${cls} flex items-center gap-2 font-medium`}>
+                <span>⏱</span>
+                <span>Aguardando sua resposta há <strong>{label}</strong></span>
+              </div>
+            );
+          })()}
           {/* Chat area with WhatsApp-like pattern background */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -1363,25 +1467,53 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                 >
                                   <ThumbsDown className="h-2.5 w-2.5 text-amber-400" />
                                 </button>
+                                <button
+                                  onClick={() => markAsGold(m)}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                  title="Ouro — ensinar a IA a replicar esta resposta"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-primary" />
+                                </button>
                               </>
                             )}
                           </div>
                         )}
                         {/* Correction input */}
                         {feedbackCorrecting === m.id && (
-                          <div className="mt-2 space-y-1.5 min-w-[240px]">
+                          <div className="mt-2 space-y-1.5 min-w-[280px]">
                             <Textarea
                               value={correctionText}
                               onChange={e => setCorrectionText(e.target.value)}
-                              placeholder="Como deveria ter sido respondido?"
+                              placeholder="Como deveria ter sido respondido? Ou que regra a IA deve seguir?"
                               className="min-h-[56px] text-xs bg-background text-foreground"
                               autoFocus
                             />
+                            <div className="flex flex-wrap gap-1">
+                              {([
+                                ["auto", "🤖 Auto"],
+                                ["answer", "✏️ Resposta melhor"],
+                                ["rule", "📜 Regra do projeto"],
+                                ["unavailable", "🚫 Produto indisponível"],
+                              ] as const).map(([val, label]) => (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setCorrectionType(val)}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+                                    correctionType === val
+                                      ? "bg-amber-600 border-amber-500 text-white"
+                                      : "bg-background border-border text-muted-foreground hover:border-amber-500/50"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
                             <div className="flex gap-1 justify-end">
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); }}>
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); setCorrectionType("auto"); }}>
                                 <X className="h-3 w-3 mr-0.5" /> Cancelar
                               </Button>
-                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText)} disabled={!correctionText.trim()}>
+                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText, correctionType)} disabled={!correctionText.trim()}>
                                 Salvar Correção
                               </Button>
                             </div>
@@ -1785,6 +1917,62 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 >
                   <Sparkles className="h-4 w-4" />
                 </Button>
+
+                {/* Agendar mensagem */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-9 w-9 rounded-full text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
+                      title="Agendar mensagem"
+                      disabled={!text.trim()}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 bg-popover" align="end" side="top">
+                    <p className="text-xs font-semibold mb-2">Agendar envio</p>
+                    <Input
+                      type="datetime-local"
+                      value={scheduleAt}
+                      onChange={e => setScheduleAt(e.target.value)}
+                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                      className="h-9 text-xs mb-2"
+                    />
+                    <div className="flex gap-1 mb-2">
+                      {[
+                        { label: "+15min", min: 15 },
+                        { label: "+1h", min: 60 },
+                        { label: "Amanhã 9h", min: -1 },
+                      ].map(p => (
+                        <Button key={p.label} size="sm" variant="outline" className="h-7 text-[10px] flex-1"
+                          onClick={() => {
+                            const d = new Date();
+                            if (p.min === -1) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+                            else d.setMinutes(d.getMinutes() + p.min);
+                            setScheduleAt(d.toISOString().slice(0, 16));
+                          }}>{p.label}</Button>
+                      ))}
+                    </div>
+                    <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                      onClick={async () => {
+                        if (!scheduleAt || !text.trim()) { toast.error("Defina data e texto"); return; }
+                        const when = new Date(scheduleAt);
+                        if (when.getTime() < Date.now() + 30000) { toast.error("Escolha um horário futuro"); return; }
+                        const { error } = await supabase.from("imphq_wa_scheduled").insert({
+                          conversation_id: conversationId, project_id: projectId, provider_id: providerId,
+                          phone, content: text, scheduled_at: when.toISOString(),
+                        } as any);
+                        if (error) { toast.error("Falha ao agendar: " + error.message); return; }
+                        toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
+                        setText(""); setScheduleAt("");
+                      }}>Agendar</Button>
+                  </PopoverContent>
+                </Popover>
+
+
 
                 {/* Message input */}
                 <Textarea

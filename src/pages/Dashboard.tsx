@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjectList } from "@/hooks/useProjectList";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Brain, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarIcon, Package, GitCompareArrows, LifeBuoy, Loader2, Crown, Megaphone, DollarSign, LayoutGrid } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { cn } from "@/lib/utils";
 import DashboardStats from "@/components/dashboard/DashboardStats";
@@ -30,9 +32,8 @@ import TodayCard from "@/components/dashboard/TodayCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { ImperiusStrip } from "@/components/dashboard/ImperiusStrip";
 import ExecutiveSummary from "@/components/dashboard/ExecutiveSummary";
-import { DashboardCreativeHub } from "@/components/dashboard/DashboardCreativeHub";
-import RagInspector from "@/components/dashboard/RagInspector";
 import { WeeklyReportWidget } from "@/components/dashboard/WeeklyReportWidget";
+import { LazySection } from "@/components/dashboard/LazySection";
 
 
 function SectionHead({ kicker, title, action }: { kicker: string; title: string; action?: React.ReactNode }) {
@@ -47,6 +48,16 @@ function SectionHead({ kicker, title, action }: { kicker: string; title: string;
   );
 }
 
+type DashView = "completo" | "executivo" | "marketing" | "financeiro";
+const VIEW_LS_KEY = "imphq.dashboard.view";
+
+const VIEW_SECTIONS: Record<DashView, Set<string>> = {
+  completo: new Set(["hero","resumo","kpi","imperius","comparativo","fb-health","hoje","preditivo","receita","ads","charts","semanal","atividade"]),
+  executivo: new Set(["hero","resumo","kpi","imperius","comparativo","receita","semanal","atividade"]),
+  marketing: new Set(["kpi","imperius","hoje","preditivo","ads","charts","atividade","fb-health"]),
+  financeiro: new Set(["resumo","kpi","receita","ads","charts","semanal","comparativo"]),
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -54,108 +65,95 @@ export default function Dashboard() {
   const [dashProject, setDashProject] = useState("all");
   const [dashProduct, setDashProduct] = useState("all");
   const [compareMode, setCompareMode] = useState(false);
-  const [allProjects, setAllProjects] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<string[]>([]);
   const [recoveryRisk, setRecoveryRisk] = useState(0);
-  const [projectComparison, setProjectComparison] = useState<any[]>([]);
-  const [loadingComparison, setLoadingComparison] = useState(false);
+  const [view, setView] = useState<DashView>(() => {
+    try { return (localStorage.getItem(VIEW_LS_KEY) as DashView) || "completo"; } catch { return "completo"; }
+  });
+  useEffect(() => { try { localStorage.setItem(VIEW_LS_KEY, view); } catch {} }, [view]);
+  const show = (id: string) => VIEW_SECTIONS[view].has(id);
 
-  useEffect(() => {
-    const queries: PromiseLike<any>[] = [
-      supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => setAllProjects(data || [])),
-      supabase.from("imphq_vendas").select("produto_nome").neq("produto_nome", "").not("produto_nome", "is", null).then(({ data }) => {
-        const unique = [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
-        setAllProducts(unique);
-      }),
-    ];
-    if (user) {
-      queries.push(
-        supabase.from("imphq_team_members").select("role").eq("user_id", user.id).maybeSingle().then(({ data }) => {
-          const r = (data?.role || "").toLowerCase();
-          setIsAdmin(r === "admin" || r === "owner");
-        })
-      );
-    }
-    Promise.all(queries);
-  }, [user]);
+  // Reference queries — shared hook (TanStack) deduplicates across the whole app
+  const { data: allProjects = [] } = useProjectList({ includeArchived: true });
 
-  useEffect(() => {
-    if (dashProject !== "all") return;
-    
-    async function loadComparisonData() {
-      setLoadingComparison(true);
-      try {
-        const { from, to } = getPeriodRange(dashPeriod);
-        const fromDate = from.split("T")[0];
-        const toDate = to.split("T")[0];
 
-        // 1. Fetch all projects
-        const { data: projs } = await supabase.from("imphq_projects").select("id, name, icon");
-        if (!projs) return;
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["dashboard", "products"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("imphq_vendas")
+        .select("produto_nome")
+        .neq("produto_nome", "")
+        .not("produto_nome", "is", null);
+      return [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
+    },
+    staleTime: 10 * 60_000,
+  });
 
-        // 2. Fetch approved sales grouped by project
-        const { data: sales } = await supabase
+  useQuery({
+    queryKey: ["dashboard", "role", user?.id],
+    enabled: !!user,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("imphq_team_members").select("role").eq("user_id", user!.id).maybeSingle();
+      const r = (data?.role || "").toLowerCase();
+      setIsAdmin(r === "admin" || r === "owner");
+      return data;
+    },
+  });
+
+  // Comparison data — only when "all" projects selected, cached per period
+  const { data: projectComparison = [], isFetching: loadingComparison } = useQuery({
+    queryKey: ["dashboard", "comparison", dashPeriod, allProjects.length],
+    enabled: dashProject === "all" && allProjects.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { from, to } = getPeriodRange(dashPeriod);
+      const fromDate = from.split("T")[0];
+      const toDate = to.split("T")[0];
+
+      const [projsRes, salesRes, adsRes, leadsRes] = await Promise.all([
+        supabase.from("imphq_projects").select("id, name, icon"),
+        supabase
           .from("imphq_vendas")
           .select("project_id, valor, valor_liquido")
           .gte("data_venda", from)
           .lte("data_venda", to)
-          .in("status", ["aprovado", "approved", "paid", "completed"]);
-
-        // 3. Fetch ads spend grouped by project
-        const { data: ads } = await supabase
+          .in("status", ["aprovado", "approved", "paid", "completed"]),
+        supabase
           .from("imphq_ads_spend")
           .select("project_id, valor, moeda")
           .gte("data_ref", fromDate)
-          .lte("data_ref", toDate);
-
-        // 4. Fetch leads count grouped by project
-        const { data: leads } = await supabase
+          .lte("data_ref", toDate),
+        supabase
           .from("imphq_leads")
           .select("project_id, criado_em")
           .gte("criado_em", from)
-          .lte("criado_em", to);
+          .lte("criado_em", to),
+      ]);
 
-        // Aggregate data
-        const aggregated = projs.map(p => {
-          const projectSales = (sales || []).filter(s => s.project_id === p.id);
-          const revenue = projectSales.reduce((acc, s) => acc + (parseFloat(s.valor) || 0), 0);
-          const salesCount = projectSales.length;
+      const projs = projsRes.data || [];
+      const sales = salesRes.data || [];
+      const ads = adsRes.data || [];
+      const leads = leadsRes.data || [];
 
-          const projectAds = (ads || []).filter(a => a.project_id === p.id);
-          const adsSpend = projectAds.reduce((acc, a) => {
-            const v = parseFloat(a.valor) || 0;
-            return acc + (a.moeda === "USD" ? v * 5.2 : v); // BRL conversions
-          }, 0);
+      const aggregated = projs.map(p => {
+        const projectSales = sales.filter(s => s.project_id === p.id);
+        const revenue = projectSales.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+        const salesCount = projectSales.length;
+        const projectAds = ads.filter(a => a.project_id === p.id);
+        const adsSpend = projectAds.reduce((acc, a) => {
+          const v = Number(a.valor) || 0;
+          return acc + (a.moeda === "USD" ? v * 5.2 : v);
+        }, 0);
+        const leadsCount = leads.filter(l => l.project_id === p.id).length;
+        const roas = adsSpend > 0 ? revenue / adsSpend : 0;
+        return { id: p.id, name: p.name, icon: p.icon || "📁", revenue, adsSpend, roas, leadsCount, salesCount };
+      });
 
-          const projectLeads = (leads || []).filter(l => l.project_id === p.id);
-          const leadsCount = projectLeads.length;
-
-          const roas = adsSpend > 0 ? revenue / adsSpend : 0;
-
-          return {
-            id: p.id,
-            name: p.name,
-            icon: p.icon || "📁",
-            revenue,
-            adsSpend,
-            roas,
-            leadsCount,
-            salesCount
-          };
-        });
-
-        // Sort by revenue descending
-        aggregated.sort((a, b) => b.revenue - a.revenue);
-        setProjectComparison(aggregated);
-      } catch (err) {
-        console.error("Erro ao carregar comparação de projetos:", err);
-      } finally {
-        setLoadingComparison(false);
-      }
-    }
-
-    loadComparisonData();
-  }, [dashProject, dashPeriod, allProjects]);
+      aggregated.sort((a, b) => b.revenue - a.revenue);
+      return aggregated;
+    },
+  });
 
   const projectLabel = useMemo(() => {
     if (dashProject === "all") return "all";
@@ -166,88 +164,120 @@ export default function Dashboard() {
   return (
     <div className="space-y-10 animate-fade-in max-w-[1600px] mx-auto">
       {/* HERO EDITORIAL */}
-      <DashboardHero
-        projectFilter={dashProject}
-        projectLabel={projectLabel}
-        productLabel={dashProduct}
-      />
+      {show("hero") && (
+        <DashboardHero
+          projectFilter={dashProject}
+          projectLabel={projectLabel}
+          productLabel={dashProduct}
+        />
+      )}
 
       {/* RESUMO EXECUTIVO — visão consolidada */}
-      <ExecutiveSummary projectFilter={dashProject} />
+      {show("resumo") && <ExecutiveSummary projectFilter={dashProject} />}
 
 
-      {/* FILTROS — barra discreta */}
-      <div className="flex items-center gap-2 flex-wrap text-xs">
-        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-        <Select value={dashPeriod} onValueChange={setDashPeriod}>
-          <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/60"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="yesterday">Ontem</SelectItem>
-            <SelectItem value="7d">7 dias</SelectItem>
-            <SelectItem value="30d">30 dias</SelectItem>
-            <SelectItem value="90d">90 dias</SelectItem>
-            <SelectItem value="6m">6 meses</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={dashProject} onValueChange={setDashProject}>
-          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Projetos</SelectItem>
-            {allProjects.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
+
+
+      {/* FILTROS — barra discreta sticky */}
+      <div className="sticky top-14 z-20 -mx-2 px-2 py-2 backdrop-blur-xl bg-background/70 border-b border-border/40">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <Select value={dashPeriod} onValueChange={setDashPeriod}>
+            <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-border/60"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="yesterday">Ontem</SelectItem>
+              <SelectItem value="7d">7 dias</SelectItem>
+              <SelectItem value="30d">30 dias</SelectItem>
+              <SelectItem value="90d">90 dias</SelectItem>
+              <SelectItem value="6m">6 meses</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dashProject} onValueChange={setDashProject}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Projetos</SelectItem>
+              {allProjects.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Package className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+          <Select value={dashProduct} onValueChange={setDashProduct}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Produtos</SelectItem>
+              {allProducts.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border/60 bg-secondary/20">
+            <GitCompareArrows className="h-3 w-3 text-muted-foreground" />
+            <Label htmlFor="compare-toggle" className="text-[11px] cursor-pointer select-none">Comparar período</Label>
+            <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
+          </div>
+          <RevenueModeToggle />
+          <SectionInfo {...sectionHelpTexts.dashboard} />
+          <div className="flex items-center gap-0.5 border border-border/60 rounded-md p-0.5 bg-secondary/20" title="Visão do Dashboard">
+            {([
+              ["completo", LayoutGrid, "Tudo"],
+              ["executivo", Crown, "Executivo"],
+              ["marketing", Megaphone, "Marketing"],
+              ["financeiro", DollarSign, "Financeiro"],
+            ] as const).map(([key, Icon, label]) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={cn(
+                  "flex items-center gap-1 px-1.5 py-1 rounded text-[10px] uppercase tracking-wider transition",
+                  view === key ? "bg-gold/15 text-gold" : "text-muted-foreground/70 hover:text-foreground"
+                )}
+                title={label}
+              >
+                <Icon className="h-3 w-3" />
+                <span className="hidden xl:inline">{label}</span>
+              </button>
             ))}
-          </SelectContent>
-        </Select>
-        <Package className="h-3.5 w-3.5 text-muted-foreground ml-1" />
-        <Select value={dashProduct} onValueChange={setDashProduct}>
-          <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Produto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Produtos</SelectItem>
-            {allProducts.map((p) => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 ml-auto px-3 py-1 rounded-md border border-border/60 bg-secondary/20">
-          <GitCompareArrows className="h-3 w-3 text-muted-foreground" />
-          <Label htmlFor="compare-toggle" className="text-[11px] cursor-pointer select-none">Comparar período</Label>
-          <Switch id="compare-toggle" checked={compareMode} onCheckedChange={setCompareMode} />
+          </div>
+          <Link
+            to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all",
+              recoveryRisk > 0
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+                : "border-border/60 bg-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LifeBuoy className="h-3 w-3" />
+            <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}</span>
+          </Link>
         </div>
-        <RevenueModeToggle />
-        <SectionInfo {...sectionHelpTexts.dashboard} />
-        <Link
-          to={dashProject !== "all" ? `/recuperacao?projeto=${dashProject}` : "/recuperacao"}
-          className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium transition-all",
-            recoveryRisk > 0
-              ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
-              : "border-border/60 bg-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <LifeBuoy className="h-3 w-3" />
-          <span>Recuperação{recoveryRisk > 0 ? ` · R$ ${recoveryRisk.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}</span>
-        </Link>
       </div>
 
+
       {/* COCKPIT KPI STRIP */}
-      <section>
-        <DashboardStats
-          period={dashPeriod}
-          projectFilter={dashProject}
-          productFilter={dashProduct}
-          compare={compareMode}
-          variant="strip"
-        />
-      </section>
+      {show("kpi") && (
+        <section>
+          <DashboardStats
+            period={dashPeriod}
+            projectFilter={dashProject}
+            productFilter={dashProduct}
+            compare={compareMode}
+            variant="strip"
+          />
+        </section>
+      )}
 
       {/* IMPERIUS STRIP */}
-      <section>
-        <ImperiusStrip projectId={dashProject} />
-      </section>
+      {show("imperius") && (
+        <section>
+          <ImperiusStrip projectId={dashProject} />
+        </section>
+      )}
 
       {/* COMPARATIVO DE PROJETOS */}
-      {dashProject === "all" && (
+      {show("comparativo") && dashProject === "all" && (
         <section className="space-y-3">
           <SectionHead kicker="Consolidado" title="Performance Comparativa de Projetos" />
           <div className="rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm overflow-hidden p-6">
@@ -316,110 +346,100 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* PRODUCT COPILOT AD BANNER */}
-      <section className="relative rounded-xl border border-gold/30 bg-gradient-to-r from-gold/5 via-secondary/10 to-transparent p-5 backdrop-blur-md overflow-hidden animate-fade-in group">
-        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
-          <Brain className="h-24 w-24 text-gold" />
-        </div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[9px] font-bold tracking-[0.2em] uppercase bg-gold/15 text-gold px-2.5 py-0.5 rounded-full border border-gold/30">Cérebro IA</span>
-              <span className="text-[10px] text-muted-foreground font-mono">NOVO RECURSO</span>
-            </div>
-            <h3 className="font-serif text-lg text-foreground font-medium">Modelador de Oferta & Copilot de Produtos</h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-              Escreva ganchos de tráfego, timeline de VSL, stack de bônus e o mecanismo único para qualquer projeto com o novo assistente interativo da Imperio HQ.
-            </p>
-          </div>
-          <Link
-            to="/product-copilot"
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gold text-slate-950 text-xs font-semibold hover:bg-gold/80 transition-all self-start md:self-center shrink-0 shadow-lg shadow-gold/10"
-          >
-            <span>Modelar Novo Produto</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      </section>
-
-      <FacebookHealthAlert />
+      {show("fb-health") && <FacebookHealthAlert />}
 
       {/* HOJE + LIVE */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodayCard projectId={dashProject} />
-        <LiveFunnelPanel projectFilter={dashProject} />
-      </section>
-
-      {/* CÉREBRO DA IA — INSPETOR DE RAG & MEMÓRIA */}
-      <section className="space-y-3">
-        <SectionHead kicker="Inteligência da IA" title="Central de Conhecimento & RAG Inspector" />
-        <RagInspector projectFilter={dashProject} />
-      </section>
-
-      {/* FÁBRICA DE CRIATIVOS */}
-      <section className="space-y-3">
-        <SectionHead kicker="Fábrica de Criativos" title="Creative Factory & Fábrica de Ângulos" />
-        <DashboardCreativeHub projectId={dashProject} />
-      </section>
+      {show("hoje") && (
+        <LazySection minHeight={320}>
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TodayCard projectId={dashProject} />
+            <LiveFunnelPanel projectFilter={dashProject} />
+          </section>
+        </LazySection>
+      )}
 
       {/* PREDITIVO + HOT LEADS + ALERTS */}
-      <section className="space-y-4">
-        <SectionHead kicker="Sinais" title="Hoje em risco" />
-        <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-        <HotLeadAlerts projectFilter={dashProject} />
-        <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-      </section>
+      {show("preditivo") && (
+        <LazySection minHeight={400}>
+          <section className="space-y-4">
+            <SectionHead kicker="Sinais" title="Hoje em risco" />
+            <PredictiveDashboard period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+            <HotLeadAlerts projectFilter={dashProject} />
+            <DashboardAlerts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+          </section>
+        </LazySection>
+      )}
 
       {/* RECEITA + FUNIL / RECUPERAÇÃO */}
-      <section>
-        <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
-          </div>
-          <div className="lg:col-span-4 space-y-6">
-            <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-            <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
-          </div>
-        </div>
-      </section>
+      {show("receita") && (
+        <LazySection minHeight={420}>
+          <section>
+            <SectionHead kicker="Receita & Aquisição" title="Como o dinheiro entra" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8">
+                <DashboardRevenue period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} compare={compareMode} />
+              </div>
+              <div className="lg:col-span-4 space-y-6">
+                <AcquisitionFunnel period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+                <RecoveryGlobalCard projectFilter={dashProject} onRiskChange={setRecoveryRisk} />
+              </div>
+            </div>
+          </section>
+        </LazySection>
+      )}
 
       {/* ADS + AI RECUPERADO */}
-      <section>
-        <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
-          </div>
-          <div className="lg:col-span-4">
-            <AIRevenueRecoveredCard projectFilter={dashProject} />
-          </div>
-        </div>
-      </section>
+      {show("ads") && (
+        <LazySection minHeight={400}>
+          <section>
+            <SectionHead kicker="Mídia paga" title="Onde o capital queima" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8">
+                <DashboardAds period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} allProjects={allProjects} />
+              </div>
+              <div className="lg:col-span-4">
+                <AIRevenueRecoveredCard projectFilter={dashProject} />
+              </div>
+            </div>
+          </section>
+        </LazySection>
+      )}
 
       {/* CHARTS + CARDS */}
-      <section>
-        <SectionHead kicker="Detalhes" title="O retrato completo" />
-        <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
-        <div className="mt-6">
-          <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
-        </div>
-      </section>
+      {show("charts") && (
+        <LazySection minHeight={500}>
+          <section>
+            <SectionHead kicker="Detalhes" title="O retrato completo" />
+            <DashboardCharts period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} />
+            <div className="mt-6">
+              <DashboardCards period={dashPeriod} projectFilter={dashProject} productFilter={dashProduct} isAdmin={isAdmin} />
+            </div>
+          </section>
+        </LazySection>
+      )}
 
       {/* RELATÓRIO SEMANAL */}
-      <section>
-        <SectionHead kicker="Resumo" title="Relatório da semana" />
-        <WeeklyReportWidget projectFilter={dashProject} />
-      </section>
+      {show("semanal") && (
+        <LazySection minHeight={260}>
+          <section>
+            <SectionHead kicker="Resumo" title="Relatório da semana" />
+            <WeeklyReportWidget projectFilter={dashProject} />
+          </section>
+        </LazySection>
+      )}
 
       {/* ATIVIDADE + CRESCIMENTO */}
-      <section>
-        <SectionHead kicker="Pulso" title="Atividade e crescimento" />
-        <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
-        <div className="mt-6">
-          <GrowthDashboard projectFilter={dashProject} />
-        </div>
-      </section>
+      {show("atividade") && (
+        <LazySection minHeight={400}>
+          <section>
+            <SectionHead kicker="Pulso" title="Atividade e crescimento" />
+            <ActivityFeed period={dashPeriod} projectFilter={dashProject} />
+            <div className="mt-6">
+              <GrowthDashboard projectFilter={dashProject} />
+            </div>
+          </section>
+        </LazySection>
+      )}
     </div>
   );
 }

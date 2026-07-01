@@ -28,15 +28,15 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
       const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
 
       const [recentRes, oppRes, eventsRes, urgentCardsRes, columnsRes, membersRes, projListRes, cardsDataRes, finResumo] = await Promise.all([
-        supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("imphq_mi_opportunities").select("*").eq("ativo", true).order("score", { ascending: false }).limit(4),
-        supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
-        supabase.from("imphq_kanban_cards").select("*").or(`priority.in.(urgent,high),due_date.lt.${today}`).limit(20),
+        supabase.from("imphq_projects").select("id, name, icon, category, color").order("created_at", { ascending: false }).limit(5),
+        supabase.from("imphq_mi_opportunities").select("id, produto, nicho, sub_nicho, score, ticket").eq("ativo", true).order("score", { ascending: false }).limit(4),
+        supabase.from("imphq_calendar_events").select("id, title, event_date, event_type, project_id, imphq_projects(name, icon, color)").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(5),
+        supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, column_id, project_id, member_id").or(`priority.in.(urgent,high),due_date.lt.${today}`).limit(20),
         supabase.from("imphq_kanban_columns").select("id, title, board"),
         supabase.from("imphq_team_members").select("id, name, avatar_url"),
         supabase.from("imphq_projects").select("id, name, icon"),
         supabase.from("imphq_kanban_cards").select("id, title, priority, board, column_id, project_id, updated_at").order("updated_at", { ascending: false }).limit(10),
-        supabase.from("vw_financas_resumo").select("*").gt("receita_total", 0).order("lucro_liquido", { ascending: false }).limit(5),
+        supabase.from("vw_financas_resumo").select("project_id, project_name, project_icon, custo_total, receita_total, lucro_liquido, roas, cpl").gt("receita_total", 0).order("lucro_liquido", { ascending: false }).limit(5),
       ]);
 
       setRecentProjects(recentRes.data || []);

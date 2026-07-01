@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,69 +21,52 @@ const STAGES = [
 
 export function FunnelConversionDashboard({ projectId }: Props) {
   const [period, setPeriod] = useState("30");
-  const [loading, setLoading] = useState(true);
-  const [stages, setStages] = useState<StageCount[]>([]);
-  const [flows, setFlows] = useState<FlowStat[]>([]);
-  const [kpis, setKpis] = useState({ totalLeads: 0, revenue: 0, avgScore: 0, hotLeads: 0 });
 
-  useEffect(() => {
-    load();
-  }, [projectId, period]);
-
-  async function load() {
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ["funnel-conversion", projectId, period],
+    enabled: !!projectId,
+    staleTime: 60_000,
+    queryFn: async () => {
       const since = new Date(Date.now() - Number(period) * 86_400_000).toISOString();
 
       const [leadsRes, vendasRes, execRes, autoRes] = await Promise.all([
         supabase.from("imphq_leads").select("status, score").eq("project_id", projectId).gte("criado_em", since),
-        supabase.from("imphq_vendas").select("valor, automacao_id").eq("project_id", projectId).gte("created_at", since),
+        supabase.from("imphq_vendas").select("valor").eq("project_id", projectId).gte("created_at", since),
         supabase.from("imphq_flow_executions").select("automacao_id, status").eq("project_id", projectId).gte("created_at", since),
         supabase.from("imphq_automacoes").select("id, nome").eq("project_id", projectId).eq("ativo", true),
       ]);
 
-      const leads = leadsRes.data || [];
-      const vendas = vendasRes.data || [];
-      const execs = execRes.data || [];
-      const autos = autoRes.data || [];
+      const leads = (leadsRes.data as any[]) || [];
+      const vendas = (vendasRes.data as any[]) || [];
+      const execs = (execRes.data as any[]) || [];
+      const autos = (autoRes.data as any[]) || [];
 
-      // KPIs
       const totalLeads = leads.length;
       const revenue = vendas.reduce((s, v) => s + Number(v.valor || 0), 0);
       const scores = leads.filter(l => l.score != null).map(l => Number(l.score));
       const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
       const hotLeads = leads.filter(l => Number(l.score) >= 80).length;
-      setKpis({ totalLeads, revenue, avgScore, hotLeads });
 
-      // Stage funnel
       const stageCounts: Record<string, number> = {};
       for (const l of leads) {
         const s = l.status || "frio";
         stageCounts[s] = (stageCounts[s] || 0) + 1;
       }
       const total = totalLeads || 1;
-      setStages(STAGES.map(s => ({
-        ...s,
+      const stages: StageCount[] = STAGES.map(s => ({
+        stage: s.id,
+        label: s.label,
+        color: s.color,
         count: stageCounts[s.id] || 0,
         pct: Math.round(((stageCounts[s.id] || 0) / total) * 100),
-      })));
+      }));
 
-      // Flow stats
       const flowMap: Record<string, { nome: string; execucoes: number; vendas: number }> = {};
-      for (const a of autos) {
-        flowMap[a.id] = { nome: a.nome || a.id, execucoes: 0, vendas: 0 };
-      }
+      for (const a of autos) flowMap[a.id] = { nome: a.nome || a.id, execucoes: 0, vendas: 0 };
       for (const e of execs) {
-        if (e.automacao_id && flowMap[e.automacao_id]) {
-          flowMap[e.automacao_id].execucoes++;
-        }
+        if (e.automacao_id && flowMap[e.automacao_id]) flowMap[e.automacao_id].execucoes++;
       }
-      for (const v of vendas) {
-        if (v.automacao_id && flowMap[v.automacao_id]) {
-          flowMap[v.automacao_id].vendas++;
-        }
-      }
-      const flowStats: FlowStat[] = Object.entries(flowMap)
+      const flows: FlowStat[] = Object.entries(flowMap)
         .filter(([, v]) => v.execucoes > 0)
         .map(([id, v]) => ({
           id,
@@ -92,13 +77,14 @@ export function FunnelConversionDashboard({ projectId }: Props) {
         }))
         .sort((a, b) => b.vendas - a.vendas)
         .slice(0, 8);
-      setFlows(flowStats);
-    } catch (e) {
-      console.error("[FunnelConversionDashboard]", e);
-    } finally {
-      setLoading(false);
-    }
-  }
+
+      return { kpis: { totalLeads, revenue, avgScore, hotLeads }, stages, flows };
+    },
+  });
+
+  const kpis = data?.kpis ?? { totalLeads: 0, revenue: 0, avgScore: 0, hotLeads: 0 };
+  const stages = data?.stages ?? [];
+  const flows = data?.flows ?? [];
 
   return (
     <div className="p-4 space-y-5 overflow-y-auto h-full">
@@ -149,7 +135,7 @@ export function FunnelConversionDashboard({ projectId }: Props) {
             <h3 className="text-sm font-semibold mb-3 text-foreground/80">Funil de Estágios</h3>
             <div className="flex items-center gap-1 flex-wrap">
               {stages.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-1">
+                <div key={s.stage} className="flex items-center gap-1">
                   <div className="text-center min-w-[80px]">
                     <div className={`rounded-lg border px-3 py-2 ${s.color}`}>
                       <p className="text-lg font-bold">{s.count}</p>

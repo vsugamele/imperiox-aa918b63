@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, Folder, FolderOpen, RefreshCw } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
@@ -47,6 +47,10 @@ interface Ref {
   content_category?: string;
   project_name?: string;
   is_video?: boolean;
+  transcricao?: string | null;
+  transcribe_status?: string | null;
+  transcribe_error?: string | null;
+  transcribed_at?: string | null;
 }
 
 /** Check if a URL points to a video file */
@@ -56,25 +60,175 @@ function isVideoUrl(url?: string | null): boolean {
   return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
+const LS_KEY = "referencias.filters.v1";
+const loadLS = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; } };
+
+function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (patch: Partial<Ref>) => void }) {
+  const [busy, setBusy] = useState(false);
+  const status = refItem.transcribe_status || "idle";
+  const hasText = !!(refItem.transcricao && refItem.transcricao.trim());
+
+  const run = async () => {
+    setBusy(true);
+    onChange({ transcribe_status: "processing", transcribe_error: null });
+    try {
+      const { data, error } = await supabase.functions.invoke("referencia-video-transcribe", {
+        body: { referencia_id: refItem.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const transcript = (data as any)?.transcript || "";
+      onChange({ transcricao: transcript, transcribe_status: "done", transcribed_at: new Date().toISOString() });
+      toast.success("Transcrição concluída");
+    } catch (e: any) {
+      const msg = e?.message || "Falha ao transcrever";
+      onChange({ transcribe_status: "error", transcribe_error: msg });
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!refItem.transcricao) return;
+    await navigator.clipboard.writeText(refItem.transcricao);
+    toast.success("Transcrição copiada");
+  };
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-secondary/40 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <FileText className="h-3.5 w-3.5" />
+          Transcrição do vídeo
+          {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+          {status === "done" && <Badge variant="outline" className="h-4 text-[10px]">pronta</Badge>}
+          {status === "error" && <Badge variant="destructive" className="h-4 text-[10px]">erro</Badge>}
+        </div>
+        <div className="flex items-center gap-1">
+          {hasText && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={copy}>
+              Copiar
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy || status === "processing"} onClick={run}>
+            {busy || status === "processing"
+              ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Processando…</>
+              : hasText ? "Refazer" : "Transcrever"}
+          </Button>
+        </div>
+      </div>
+      {hasText ? (
+        <Textarea
+          value={refItem.transcricao || ""}
+          onChange={(e) => onChange({ transcricao: e.target.value })}
+          className="text-xs min-h-[120px] max-h-[240px] leading-6"
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {status === "error"
+            ? (refItem.transcribe_error || "Falha ao transcrever. Tente novamente.")
+            : "Gere a transcrição automática (áudio do vídeo) — limite 24MB."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Referencias() {
+  const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterTipo, setFilterTipo] = useState("all");
-  const [filterPlat, setFilterPlat] = useState("all");
-  const [filterProject, setFilterProject] = useState("all");
-  const [filterPasta, setFilterPasta] = useState("all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [searchInput, setSearchInput] = useState(_ls.search ?? "");
+  const [search, setSearch] = useState(_ls.search ?? "");
+  const [filterTipo, setFilterTipo] = useState(_ls.filterTipo ?? "all");
+  const [filterPlat, setFilterPlat] = useState(_ls.filterPlat ?? "all");
+  const [filterProject, setFilterProject] = useState(_ls.filterProject ?? "all");
+  const [filterPasta, setFilterPasta] = useState(_ls.filterPasta ?? "all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">(_ls.filterOrigem ?? "all");
+  const [filterCategory, setFilterCategory] = useState(_ls.filterCategory ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(_ls.viewMode ?? "grid");
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
   const [syncing, setSyncing] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem("referencias.sidebar.hidden.v1") === "1"; } catch { return false; }
+  });
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("referencias.sidebar.expanded.v1");
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
+
+  const loadEmptyFolders = async () => {
+    const { data } = await supabase.from("imphq_referencias_pastas" as any).select("path");
+    setEmptyFolders(((data || []) as any[]).map((r: any) => r.path));
+  };
+
+  const addEmptyFolder = async (path: string) => {
+    if (emptyFolders.includes(path)) return;
+    const { error } = await supabase.from("imphq_referencias_pastas" as any).insert({ path } as any);
+    if (error && !error.message.includes("duplicate")) {
+      toast.error("Erro ao salvar pasta: " + error.message);
+      return;
+    }
+    setEmptyFolders(prev => [...prev, path]);
+  };
+
+  const removeEmptyFolder = async (path: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).delete().eq("path", path);
+    setEmptyFolders(prev => prev.filter(p => p !== path));
+  };
+
+  const renameEmptyFolder = async (oldPath: string, newPath: string) => {
+    await supabase.from("imphq_referencias_pastas" as any).update({ path: newPath } as any).eq("path", oldPath);
+    setEmptyFolders(prev => prev.map(p => p === oldPath ? newPath : p));
+  };
+
+  const toggleSidebar = () => {
+    setSidebarHidden(v => {
+      const nv = !v;
+      try { localStorage.setItem("referencias.sidebar.hidden.v1", nv ? "1" : "0"); } catch {}
+      return nv;
+    });
+  };
+  const toggleFolderExpanded = (path: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      try { localStorage.setItem("referencias.sidebar.expanded.v1", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  // Debounce search input -> search (250ms)
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Persist filters
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      search: searchInput, filterTipo, filterPlat, filterProject,
+      filterPasta, filterOrigem, filterCategory, viewMode,
+    }));
+  }, [searchInput, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, viewMode]);
+
+  const hasActiveFilters = !!(search || filterTipo !== "all" || filterPlat !== "all" || filterProject !== "all" || filterPasta !== "all" || filterOrigem !== "all" || filterCategory !== "all");
+  const clearFilters = () => {
+    setSearchInput(""); setSearch("");
+    setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
+    setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
+    setCurrentFolder([]);
+  };
 
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
@@ -88,11 +242,29 @@ export default function Referencias() {
     setProjects(projs);
     const projMap = Object.fromEntries(projs.map((p: any) => [p.id, p.name]));
 
-    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => ({
-      ...r,
-      source: "manual" as SourceType,
-      is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
-    }));
+    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => {
+      // Auto-repair legacy rows where `pasta` was saved with the project segment
+      // prefix (bug pré-fix). Strip the leading "<ProjectName>/" or "Sem Projeto/".
+      let pasta = r.pasta as string | null;
+      if (pasta) {
+        const projSeg = (projMap[r.project_id] || "").replace(/\//g, "-").trim() || (r.project_id ? "Projeto" : "Sem Projeto");
+        if (pasta === projSeg) {
+          pasta = null;
+        } else if (pasta.startsWith(projSeg + "/")) {
+          pasta = pasta.slice(projSeg.length + 1);
+        }
+        if (pasta !== r.pasta) {
+          // Fire-and-forget DB cleanup
+          supabase.from("imphq_referencias").update({ pasta }).eq("id", r.id).then(() => {});
+        }
+      }
+      return {
+        ...r,
+        pasta,
+        source: "manual" as SourceType,
+        is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
+      };
+    });
 
     const libraryRefs: Ref[] = ((lRes.data || []) as any[])
       .filter((m: any) => m.file_type === "image" || m.file_type === "video")
@@ -160,16 +332,62 @@ export default function Referencias() {
     setRefs([...manualRefs, ...libraryRefs, ...adsRefs]);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadEmptyFolders(); }, []);
+
+  // Auto-clean: remove emptyFolders that now have real refs
+  useEffect(() => {
+    if (refs.length === 0 || emptyFolders.length === 0) return;
+    const derived = new Set(refs.map(r => {
+      const projSeg = (r.project_name || "").replace(/\//g, "-").trim() || (r.project_id ? "Projeto" : "Sem Projeto");
+      if (r.source === "manual" && r.pasta) return `${projSeg}/${r.pasta}`;
+      return null;
+    }).filter(Boolean) as string[]);
+    const toRemove = emptyFolders.filter(f => derived.has(f) || [...derived].some(d => d.startsWith(f + "/")));
+    if (toRemove.length > 0) {
+      toRemove.forEach(p => { removeEmptyFolder(p); });
+    }
+  }, [refs]);
 
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
 
-  // Extract all pastas (manual refs only)
-  const allPastas = [...new Set(refs.filter(r => r.source === "manual").map(r => r.pasta).filter(Boolean))] as string[];
+  // Subpath relative to the project segment. The `pasta` column stores the path
+  // WITHOUT the project prefix — getVirtualPath() re-adds the project segment.
+  // currentFolder[0] is always the project name segment ("Sem Projeto" or the project's name).
+  const currentSubPath = currentFolder.length > 1 ? currentFolder.slice(1).join("/") : "";
+
+  // Normalize a segment for use in a path (no slashes)
+  const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
+
+  // Derive a virtual hierarchical path for every ref:
+  //   {Projeto}/{Tipo}/{Plataforma?}    (or "Sem Projeto" / "Sem Tipo")
+  // For manual refs that already have `pasta`, prepend project so they live inside it.
+  const getVirtualPath = (r: Ref): string => {
+    const projSeg = norm(r.project_name) || (r.project_id ? "Projeto" : "Sem Projeto");
+    if (r.source === "manual" && r.pasta) {
+      return `${projSeg}/${r.pasta}`;
+    }
+    const tipoLabel: Record<string, string> = {
+      criativo: "Criativos",
+      landing_page: "Landing Pages",
+      email: "Emails",
+      video: "Vídeos",
+      copy: "Copys",
+    };
+    const tipoSeg = tipoLabel[r.tipo || ""] || "Outros";
+    const platSeg = norm(r.plataforma);
+    return platSeg ? `${projSeg}/${tipoSeg}/${platSeg}` : `${projSeg}/${tipoSeg}`;
+  };
+
+  // Compute virtual paths once per render
+  const refsWithPath = refs.map(r => ({ ...r, _vpath: getVirtualPath(r) }));
+
+  // All unique virtual paths (used to build the tree)
+  const derivedPastas = [...new Set(refsWithPath.map(r => r._vpath).filter(Boolean))] as string[];
+  const allPastas = [...new Set([...derivedPastas, ...emptyFolders])];
   const categories = [...new Set(refs.filter(r => r.source === "library").map(r => r.content_category).filter(Boolean))] as string[];
 
-  // Get subfolders and items at current level
+  // Get subfolders at current level (for FolderCard grid)
   const getSubfoldersAtLevel = () => {
     const prefix = currentFolderPath ? currentFolderPath + "/" : "";
     const subfolders = new Set<string>();
@@ -181,7 +399,6 @@ export default function Referencias() {
           if (nextSegment) subfolders.add(nextSegment);
         }
       } else {
-        // At root: get top-level folder names
         const topSegment = p.split("/")[0];
         if (topSegment) subfolders.add(topSegment);
       }
@@ -191,7 +408,7 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filteredRaw = refs.filter(r => {
+  const filteredRaw = refsWithPath.filter(r => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
@@ -199,13 +416,12 @@ export default function Referencias() {
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
 
-    // Pasta filter: show items in current folder (exact match or items with the folder as prefix)
+    // Virtual folder filter: applies to ALL sources via _vpath, includes subfolders (cumulative)
     let mpa = true;
     if (filterPasta !== "all") {
-      mpa = r.pasta === filterPasta;
+      mpa = r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
     } else if (currentFolder.length > 0) {
-      // Show only items exactly in this folder (not subfolders)
-      mpa = r.pasta === currentFolderPath;
+      mpa = r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
     }
 
     return ms && mt && mp && mpr && mpa && mo && mc;
@@ -246,7 +462,7 @@ export default function Referencias() {
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
-    const pastaValue = form.pasta || (currentFolder.length > 0 ? currentFolderPath : null);
+    const pastaValue = form.pasta || (currentSubPath || null);
     const { error } = await supabase.from("imphq_referencias").insert({
       id, titulo: form.titulo, tipo: form.tipo || "criativo",
       url: form.url || null, image_url: form.image_url || null,
@@ -269,7 +485,8 @@ export default function Referencias() {
       image_url: editing.image_url, tags: editing.tags, notas: editing.notas,
       score: editing.score, plataforma: editing.plataforma, project_id: editing.project_id,
       pasta: editing.pasta || null, produto: editing.produto || null,
-    }).eq("id", editing.id);
+      transcricao: editing.transcricao ?? null,
+    } as any).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
   };
@@ -297,13 +514,15 @@ export default function Referencias() {
   const handleBulkUpload = async (urls: string[]) => {
     let count = 0;
     for (const url of urls) {
+      const isVid = isVideoUrl(url);
       const { error } = await supabase.from("imphq_referencias").insert({
         id: crypto.randomUUID(),
-        titulo: `Upload ${new Date().toLocaleDateString()} #${count + 1}`,
-        tipo: "criativo",
-        image_url: url,
+        titulo: `${isVid ? "Vídeo" : "Upload"} ${new Date().toLocaleDateString()} #${count + 1}`,
+        tipo: isVid ? "video" : "criativo",
+        image_url: isVid ? null : url,
+        url: isVid ? url : null,
         project_id: filterProject !== "all" ? filterProject : null,
-        pasta: currentFolder.length > 0 ? currentFolderPath : (filterPasta !== "all" ? filterPasta : null),
+        pasta: currentSubPath || (filterPasta !== "all" ? filterPasta : null),
         tags: [],
         score: 0,
       } as any);
@@ -376,11 +595,36 @@ export default function Referencias() {
       <div><Label>Produto</Label><Input value={data.produto || ""} onChange={e => setData({ ...data, produto: e.target.value })} placeholder="Ex: Curso X, Mentoria Y..." /></div>
       <div><Label>URL</Label><Input value={data.url || ""} onChange={e => setData({ ...data, url: e.target.value })} placeholder="https://..." /></div>
       <div>
-        <Label>Imagem</Label>
+        <Label>Mídia (imagem ou vídeo)</Label>
         <div className="flex items-center gap-2">
-          <Input value={data.image_url || ""} onChange={e => setData({ ...data, image_url: e.target.value })} placeholder="URL da imagem..." className="flex-1" />
-          <FileUpload bucket="project-media" path="referencias" onUpload={url => setData({ ...data, image_url: url })} label="Upload" />
+          <Input
+            value={data.image_url || data.url || ""}
+            onChange={e => {
+              const v = e.target.value;
+              if (isVideoUrl(v)) setData({ ...data, url: v, image_url: "", tipo: "video" });
+              else setData({ ...data, image_url: v });
+            }}
+            placeholder="URL da imagem ou vídeo..."
+            className="flex-1"
+          />
+          <FileUpload
+            bucket="project-media"
+            path="referencias"
+            accept="image/*,video/*"
+            onUpload={url => {
+              if (isVideoUrl(url)) setData({ ...data, url, image_url: "", tipo: "video" });
+              else setData({ ...data, image_url: url });
+            }}
+            label="Upload"
+          />
         </div>
+        {(() => {
+          const media = data.url && isVideoUrl(data.url) ? data.url : (data.image_url && isVideoUrl(data.image_url) ? data.image_url : data.image_url);
+          if (!media) return null;
+          return isVideoUrl(media)
+            ? <video src={media} controls muted className="mt-2 max-h-40 rounded border border-border" />
+            : <img src={media} alt="preview" className="mt-2 max-h-40 rounded border border-border object-contain" />;
+        })()}
       </div>
       <div><Label>Score</Label><ScoreStars score={data.score || 0} onChange={s => setData({ ...data, score: s })} /></div>
       <div><Label>Tags</Label><EditableTagList tags={data.tags || []} onChange={tags => setData({ ...data, tags })} /></div>
@@ -578,7 +822,8 @@ export default function Referencias() {
   // Folder card component
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
-    const itemCount = refs.filter(r => r.pasta === fullPath || r.pasta?.startsWith(fullPath + "/")).length;
+    const itemCount = refsWithPath.filter(r => r._vpath === fullPath || r._vpath?.startsWith(fullPath + "/")).length;
+    const canRename = fullPath.split("/").length >= 2;
     return (
       <Card
         className="bg-card border-border hover:bg-secondary/50 cursor-pointer transition-all duration-200 group"
@@ -590,14 +835,276 @@ export default function Referencias() {
             <h3 className="font-medium text-sm truncate">{name}</h3>
             <p className="text-[10px] text-muted-foreground">{itemCount} {itemCount === 1 ? "item" : "itens"}</p>
           </div>
+          {canRename && (
+            <button
+              onClick={(e) => { e.stopPropagation(); startRename(fullPath); }}
+              className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition p-1"
+              title="Renomear pasta"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         </CardContent>
       </Card>
     );
   };
 
+
+  // Build a hierarchical tree from flat virtual paths
+  type FolderNode = { name: string; path: string; children: FolderNode[]; count: number };
+  const buildFolderTree = (): FolderNode[] => {
+    const root: FolderNode[] = [];
+    const byPath = new Map<string, FolderNode>();
+    const sorted = [...allPastas].sort();
+    for (const fullPath of sorted) {
+      const segments = fullPath.split("/").filter(Boolean);
+      let parentArr = root;
+      let acc = "";
+      for (const seg of segments) {
+        acc = acc ? `${acc}/${seg}` : seg;
+        let node = byPath.get(acc);
+        if (!node) {
+          node = { name: seg, path: acc, children: [], count: 0 };
+          byPath.set(acc, node);
+          parentArr.push(node);
+        }
+        parentArr = node.children;
+      }
+    }
+    const countItems = (path: string) =>
+      refsWithPath.filter(r => r._vpath === path || r._vpath?.startsWith(path + "/")).length;
+    byPath.forEach(n => { n.count = countItems(n.path); });
+    return root;
+  };
+  const folderTree = buildFolderTree();
+  const rootCount = refs.length;
+
+  const navigateToFolder = (path: string) => {
+    setCurrentFolder(path ? path.split("/") : []);
+    setFilterPasta("all");
+  };
+
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
+  const startRename = (path: string) => {
+    const segs = path.split("/");
+    if (segs.length < 2) {
+      toast.error("Renomeie o projeto na página Projetos");
+      return;
+    }
+    setRenamingPath(path);
+    setRenameDraft(segs[segs.length - 1]);
+  };
+
+  const renameFolder = async (oldPath: string, rawName: string) => {
+    const newName = rawName.trim().replace(/\//g, "");
+    if (!newName) { toast.error("Nome inválido"); return; }
+    const segs = oldPath.split("/");
+    if (segs.length < 2) { toast.error("Não é possível renomear o projeto aqui"); return; }
+    if (newName === segs[segs.length - 1]) { setRenamingPath(null); return; }
+
+    const parentPath = segs.slice(0, -1).join("/");
+    const newPath = `${parentPath}/${newName}`;
+
+    // Duplicate sibling check
+    if (allPastas.some(p => p === newPath || p.startsWith(newPath + "/"))) {
+      toast.error("Já existe uma pasta com esse nome");
+      return;
+    }
+
+    // oldSub / newSub are the parts under the project (pasta column doesn't include project)
+    const oldSub = segs.slice(1).join("/");
+    const newSub = [...segs.slice(1, -1), newName].join("/");
+
+    const affected = refsWithPath.filter(r =>
+      r._vpath === oldPath || r._vpath?.startsWith(oldPath + "/")
+    );
+    const manualAffected = affected.filter(r => r.source === "manual");
+    const nonManualCount = affected.length - manualAffected.length;
+
+    if (manualAffected.length === 0) {
+      toast.error(
+        nonManualCount > 0
+          ? "Essa pasta só tem itens de Projetos/Ads — não podem ser renomeados aqui"
+          : "Nenhuma referência manual encontrada"
+      );
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      const updates = manualAffected.map(r => {
+        let nextPasta: string;
+        if (r.pasta) {
+          // r.pasta starts with oldSub or equals oldSub
+          const rest = r.pasta.slice(oldSub.length);
+          nextPasta = newSub + rest;
+        } else {
+          // virtual path — materialize as real pasta under project
+          const vRest = (r._vpath || "").slice(oldPath.length); // "" or "/..."
+          nextPasta = newSub + vRest;
+        }
+        return supabase.from("imphq_referencias").update({ pasta: nextPasta }).eq("id", r.id);
+      });
+      const results = await Promise.all(updates);
+      const errors = results.filter((r: any) => r.error).length;
+      if (errors > 0) {
+        toast.error(`${errors} erros ao renomear`);
+      } else {
+        toast.success(
+          nonManualCount > 0
+            ? `${manualAffected.length} ref(s) renomeadas. ${nonManualCount} de Projetos/Ads mantidas no agrupamento original.`
+            : `${manualAffected.length} ref(s) renomeadas`
+        );
+      }
+      // Adjust currentFolder if we renamed inside it
+      if (currentFolderPath === oldPath) {
+        setCurrentFolder(newPath.split("/"));
+      } else if (currentFolderPath.startsWith(oldPath + "/")) {
+        setCurrentFolder((newPath + currentFolderPath.slice(oldPath.length)).split("/"));
+      }
+      setRenamingPath(null);
+      // Rename any empty-folder entries (the path itself and any nested ones)
+      const toRename = emptyFolders.filter(p => p === oldPath || p.startsWith(oldPath + "/"));
+      for (const p of toRename) {
+        await renameEmptyFolder(p, newPath + p.slice(oldPath.length));
+      }
+      await load();
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+
+  const FolderTreeNode = ({ node, level }: { node: FolderNode; level: number }) => {
+    const isActive = currentFolderPath === node.path && filterPasta === "all";
+    const isExpanded = expandedFolders.has(node.path);
+    const hasChildren = node.children.length > 0;
+    return (
+      <div>
+        <div
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
+            isActive ? "bg-primary/15 text-primary" : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+          }`}
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+        >
+          {hasChildren ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFolderExpanded(node.path); }}
+              className="p-0.5 hover:bg-secondary rounded shrink-0"
+              aria-label={isExpanded ? "Recolher" : "Expandir"}
+            >
+              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </button>
+          ) : (
+            <span className="w-4 shrink-0" />
+          )}
+          {renamingPath === node.path ? (
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <input
+                autoFocus
+                value={renameDraft}
+                disabled={renaming}
+                onChange={e => setRenameDraft(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") renameFolder(node.path, renameDraft);
+                  if (e.key === "Escape") setRenamingPath(null);
+                }}
+                className="flex-1 min-w-0 h-5 px-1 rounded bg-background border border-primary/40 text-xs focus:outline-none"
+              />
+              <button onClick={(e) => { e.stopPropagation(); renameFolder(node.path, renameDraft); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-emerald-400 shrink-0">
+                {renaming ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setRenamingPath(null); }} disabled={renaming} className="h-4 w-4 inline-flex items-center justify-center text-red-400 shrink-0">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigateToFolder(node.path)}
+              className="flex-1 flex items-center gap-1.5 min-w-0 text-left group/node"
+            >
+              {isActive ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />}
+              <span className="truncate flex-1">{node.name}</span>
+              {level > 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRename(node.path); }}
+                  className="opacity-0 group-hover/node:opacity-60 hover:!opacity-100 transition shrink-0"
+                  title="Renomear"
+                >
+                  <Pencil className="h-2.5 w-2.5" />
+                </button>
+              )}
+              <span className="text-[9px] opacity-60 shrink-0">{node.count}</span>
+            </button>
+          )}
+
+        </div>
+        {hasChildren && isExpanded && (
+          <div>
+            {node.children.map(child => (
+              <FolderTreeNode key={child.path} node={child} level={level + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const FolderSidebar = () => (
+    <aside className="w-60 shrink-0 border-r border-border bg-card/30 rounded-lg flex flex-col max-h-[calc(100vh-8rem)] sticky top-4">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-1.5">
+          <FolderOpen className="h-4 w-4 text-amber-400" />
+          <span className="text-xs font-semibold">Pastas</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={toggleSidebar} title="Ocultar painel">
+          <PanelLeftClose className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
+        <button
+          onClick={() => navigateToFolder("")}
+          className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
+            currentFolder.length === 0 && filterPasta === "all"
+              ? "bg-primary/15 text-primary"
+              : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <span className="w-4 shrink-0" />
+          <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/70" />
+          <span className="flex-1 text-left">Raiz</span>
+          <span className="text-[9px] opacity-60">{rootCount}</span>
+        </button>
+        {folderTree.length === 0 ? (
+          <p className="text-[10px] text-muted-foreground/60 px-2 py-3 text-center">Nenhuma pasta criada</p>
+        ) : (
+          folderTree.map(node => <FolderTreeNode key={node.path} node={node} level={0} />)
+        )}
+      </div>
+      <div className="p-2 border-t border-border">
+        <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={() => setShowNewPasta(true)}>
+          <FolderPlus className="h-3 w-3 mr-1" /> Nova pasta
+        </Button>
+      </div>
+    </aside>
+  );
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="flex gap-4 animate-fade-in">
+      {!sidebarHidden && <FolderSidebar />}
+      <div className="flex-1 min-w-0 space-y-6">
+        {sidebarHidden && (
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={toggleSidebar}>
+            <PanelLeft className="h-3.5 w-3.5 mr-1" /> Mostrar pastas
+          </Button>
+        )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-primary flex items-center gap-2">🗂️ Referências <SectionInfo {...sectionHelpTexts.referencias} /></h1>
@@ -626,6 +1133,7 @@ export default function Referencias() {
           <FileUpload
             bucket="project-media"
             path="referencias"
+            accept="image/*,video/*"
             onUpload={url => handleBulkUpload([url])}
             onUploadMultiple={handleBulkUpload}
             label="Upload Múltiplo"
@@ -711,10 +1219,10 @@ export default function Referencias() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-2 -mx-1 px-1 border-b border-border/40">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
+          <Input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
         </div>
         <Select value={filterPlat} onValueChange={setFilterPlat}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
@@ -751,6 +1259,11 @@ export default function Referencias() {
           </button>
         </div>
         <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        )}
       </div>
 
       {/* Breadcrumb navigation */}
@@ -854,11 +1367,19 @@ export default function Referencias() {
             </button>
           )}
           {editing && editing.is_video && (editing.url || editing.image_url) && (
-            <video
-              src={editing.url || editing.image_url}
-              controls
-              className="w-full max-h-48 rounded-lg border border-border"
-            />
+            <>
+              <video
+                src={editing.url || editing.image_url}
+                controls
+                className="w-full max-h-48 rounded-lg border border-border"
+              />
+              {editing.source === "manual" && (
+                <TranscriptionBlock
+                  refItem={editing}
+                  onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+                />
+              )}
+            </>
           )}
           {editing && editing.source === "library" ? (
             <div className="space-y-3">
@@ -918,20 +1439,35 @@ export default function Referencias() {
             <p className="text-[10px] text-muted-foreground mt-1">Use "/" para criar hierarquia. Ex: "Anúncios/Meta/Janeiro"</p>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
-              if (!newPastaName.trim()) { toast.error("Nome obrigatório"); return; }
-              const fullPasta = currentFolderPath
-                ? `${currentFolderPath}/${newPastaName.trim()}`
-                : newPastaName.trim();
-              setForm(f => ({ ...f, pasta: fullPasta }));
-              setFilterPasta(fullPasta);
+            <Button onClick={async () => {
+              const name = newPastaName.trim().replace(/^\/+|\/+$/g, "");
+              if (!name) { toast.error("Nome obrigatório"); return; }
+              // Full virtual path includes project segment (matches getVirtualPath)
+              let fullVPath: string;
+              let pastaForRefs: string; // value to store in imphq_referencias.pasta (without project)
+              if (currentFolderPath) {
+                fullVPath = `${currentFolderPath}/${name}`;
+                const segs = currentFolderPath.split("/");
+                pastaForRefs = [...segs.slice(1), name].join("/");
+              } else {
+                const projSeg = filterProject !== "all"
+                  ? (projects.find(p => p.id === filterProject)?.name || "Projeto")
+                  : "Sem Projeto";
+                fullVPath = `${projSeg}/${name}`;
+                pastaForRefs = name;
+              }
+              await addEmptyFolder(fullVPath);
+              setForm(f => ({ ...f, pasta: pastaForRefs }));
+              setCurrentFolder(fullVPath.split("/"));
+              setFilterPasta("all");
               setShowNewPasta(false);
               setNewPastaName("");
-              toast.success(`Pasta "${fullPasta}" criada! Use-a ao criar novas referências.`);
+              toast.success(`Pasta "${fullVPath}" criada!`);
             }}>Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

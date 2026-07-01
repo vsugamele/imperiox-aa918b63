@@ -9,6 +9,8 @@ import { Link } from "react-router-dom";
 import { ExternalLink, ShoppingCart, Users, DollarSign, TrendingUp, Wallet, Target, Megaphone, Activity, Zap, Clock, MessageCircle, RefreshCw } from "lucide-react";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { toast } from "sonner";
+import { countryFlag, countryName } from "@/lib/countryFlag";
+
 
 export type DrillMetric =
   | "revenue"
@@ -108,7 +110,7 @@ export default function DashboardDrillSheet({
         if (metric === "revenue" || metric === "sales") {
           let q: any = supabase
             .from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from)
             .lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"])
@@ -302,7 +304,7 @@ export default function DashboardDrillSheet({
             };
             const statuses = stageStatusMap[funnelStage] || [];
             let q: any = supabase.from("imphq_vendas")
-              .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+              .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
               .gte("data_venda", from).lte("data_venda", to)
               .in("status", statuses)
               .order("data_venda", { ascending: false }).limit(200);
@@ -313,7 +315,7 @@ export default function DashboardDrillSheet({
           }
         } else if ((metric === "product" || metric === "project_revenue") && (productName || projectId)) {
           let q: any = supabase.from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from).lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"])
             .order("data_venda", { ascending: false }).limit(200);
@@ -326,7 +328,7 @@ export default function DashboardDrillSheet({
           const dayStart = `${dayKey}T00:00:00`;
           const dayEnd = `${dayKey}T23:59:59`;
           let q: any = supabase.from("imphq_vendas")
-            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id")
+            .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", dayStart).lte("data_venda", dayEnd)
             .in("status", ["aprovado", "approved", "paid", "completed"])
             .order("data_venda", { ascending: false }).limit(200);
@@ -374,10 +376,16 @@ export default function DashboardDrillSheet({
                     <div key={v.id} className="rounded-lg border border-border p-3 bg-secondary/30">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{v.produto_nome || "—"}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(v.data_venda).toLocaleString("pt-BR")} · {v.plataforma || "—"}
+                          <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {v.pais && v.pais !== "BR" && (
+                              <span title={countryName(v.pais)} className="text-base leading-none">{countryFlag(v.pais)}</span>
+                            )}
+                            <span className="truncate">{v.produto_nome || "—"}</span>
                           </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(v.data_venda).toLocaleString("pt-BR")} · {v.plataforma || "—"}{v.pais && v.pais !== "BR" ? ` · ${countryName(v.pais)}` : ""}
+                          </p>
+
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-mono font-bold text-emerald-400">{fmtBRL(parseFloat(v.valor) || 0)}</p>

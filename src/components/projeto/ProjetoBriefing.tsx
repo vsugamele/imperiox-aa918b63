@@ -17,6 +17,8 @@ import { CopyArsenalSection } from "./CopyArsenalSection";
 import { AIGenerateButton } from "./AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
+import { ProductLinksEditor } from "./ProductLinksEditor";
+import type { ProductLink } from "@/lib/produto-links";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -460,28 +462,14 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Links do Produto</Label>
-                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => addProductLink(i)}>
-                      <Plus className="h-3 w-3 mr-1" /> Link
-                    </Button>
-                  </div>
-                  {prodLinks.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhum link adicionado</p>}
-                  {prodLinks.map((link: string, li: number) => (
-                    <div key={li} className="flex items-center gap-2">
-                      <Input value={link} onChange={(e) => updateProductLink(i, li, e.target.value)} className="bg-secondary h-8 text-sm flex-1" placeholder="https://..." />
-                      {link && (
-                        <a href={link} target="_blank" rel="noopener noreferrer" className="h-8 w-8 flex items-center justify-center text-primary hover:text-primary/80 shrink-0">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeProductLink(i, li)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <ProductLinksEditor
+                  produto={p}
+                  onChange={(newLinks: ProductLink[]) => {
+                    const updated = [...produtos];
+                    updated[i] = { ...updated[i], links: newLinks, link: undefined };
+                    onUpdateData({ ...data, produtos: updated });
+                  }}
+                />
 
                 {/* Clarity ID por produto + Analisar Comportamento */}
                 <div className="flex items-end gap-2">
@@ -508,39 +496,51 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
                   {ofertas.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhuma oferta cadastrada</p>}
                   {ofertas.map((of: any, oi: number) => (
-                    <div key={oi} className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 rounded-md bg-background/50 border border-border/50 items-end">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Nome</Label>
-                        <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                    <div key={oi} className="space-y-2 p-3 rounded-md bg-background/50 border border-border/50">
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Nome</Label>
+                          <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">De R$</Label>
+                          <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Por R$</Label>
+                          <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Tipo</Label>
+                          <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
+                            <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
+                          <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
+                            {of.ativo !== false ? "Ativo" : "Inativo"}
+                          </Badge>
+                          <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeOffer(i, oi)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">De R$</Label>
-                        <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Por R$</Label>
-                        <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Tipo</Label>
-                        <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
-                          <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
-                        <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
-                          {of.ativo !== false ? "Ativo" : "Inativo"}
-                        </Badge>
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeOffer(i, oi)}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Validade (opcional)</Label>
+                          <Input type="datetime-local" value={of.validade || ""} onChange={(e) => updateOffer(i, oi, "validade", e.target.value)} className="bg-secondary h-7 text-xs" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label className="text-[10px] text-muted-foreground">Motivo / gatilho (a IA usa isso na copy)</Label>
+                          <Input value={of.motivo || ""} onChange={(e) => updateOffer(i, oi, "motivo", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="Ex: aniversário, black friday, queima de estoque..." />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -645,9 +645,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
 
                   <div className="space-y-2">
                     {fields.map((f: any) => {
-                      const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
-                        ? fbFallback[f.field as keyof typeof fbFallback]
-                        : itemData[f.field] || "";
+                      // facebook_pixel: rendered as multi-pixel block below, skip default fields
+                      if (item.key === "facebook_pixel") return null;
+
+                      const val = itemData[f.field] || "";
                       const secretKey = `${item.key}_${f.field}`;
                       const isVisible = visibleSecrets[secretKey];
 
@@ -686,6 +687,109 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         </div>
                       );
                     })}
+
+                    {/* Multi-pixel block for facebook_pixel */}
+                    {item.key === "facebook_pixel" && (() => {
+                      const legacySeed = (data.facebook_pixel_id || itemData.pixel_id)
+                        ? [{
+                            label: "Pixel principal",
+                            pixel_id: data.facebook_pixel_id || itemData.pixel_id || "",
+                            access_token: data.facebook_access_token || itemData.access_token || "",
+                            test_event_code: data.facebook_test_event_code || itemData.test_event_code || "",
+                          }]
+                        : [];
+                      const pixels: Array<{ label?: string; pixel_id: string; access_token: string; test_event_code?: string }> =
+                        (Array.isArray(data.facebook_pixels) && data.facebook_pixels.length > 0)
+                          ? data.facebook_pixels
+                          : legacySeed;
+
+                      const savePixels = (updated: typeof pixels) => {
+                        const first = updated[0] || { pixel_id: "", access_token: "", test_event_code: "" };
+                        onUpdateData({
+                          ...data,
+                          facebook_pixels: updated,
+                          facebook_pixel_id: first.pixel_id || "",
+                          facebook_access_token: first.access_token || "",
+                          facebook_test_event_code: first.test_event_code || "",
+                        });
+                      };
+                      const addPixel = () => savePixels([...pixels, { label: "", pixel_id: "", access_token: "", test_event_code: "" }]);
+                      const updatePixel = (idx: number, field: string, val: string) => {
+                        const updated = pixels.map((p, i) => i === idx ? { ...p, [field]: val } : p);
+                        savePixels(updated);
+                      };
+                      const removePixel = (idx: number) => savePixels(pixels.filter((_, i) => i !== idx));
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] text-muted-foreground font-medium">
+                              Pixels ({pixels.length}) — todos recebem CAPI em paralelo
+                            </Label>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={addPixel}>
+                              <Plus className="h-3 w-3 mr-1" /> Pixel
+                            </Button>
+                          </div>
+
+                          {pixels.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground italic">Nenhum pixel cadastrado. Clique em "+ Pixel".</p>
+                          )}
+
+                          {pixels.map((px, idx) => {
+                            const tokKey = `fb_pixel_${idx}_token`;
+                            const isVisible = visibleSecrets[tokKey];
+                            return (
+                              <div key={idx} className="p-2 rounded border border-border/60 bg-background/40 space-y-2">
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={px.label || ""}
+                                    onChange={(e) => updatePixel(idx, "label", e.target.value)}
+                                    placeholder={`Pixel #${idx + 1} (label opcional)`}
+                                    className="bg-secondary h-7 text-[11px] flex-1"
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removePixel(idx)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Pixel ID *</Label>
+                                  <Input
+                                    value={px.pixel_id}
+                                    onChange={(e) => updatePixel(idx, "pixel_id", e.target.value)}
+                                    placeholder="Ex: 614834761557621"
+                                    className="bg-secondary h-7 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Access Token (CAPI) *</Label>
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      value={px.access_token}
+                                      onChange={(e) => updatePixel(idx, "access_token", e.target.value)}
+                                      placeholder="EAAB..."
+                                      type={isVisible ? "text" : "password"}
+                                      className="bg-secondary h-7 text-xs flex-1"
+                                    />
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => toggleSecret(tokKey)}>
+                                      {isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Test Event Code</Label>
+                                  <Input
+                                    value={px.test_event_code || ""}
+                                    onChange={(e) => updatePixel(idx, "test_event_code", e.target.value)}
+                                    placeholder="TEST12345 (opcional)"
+                                    className="bg-secondary h-7 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     {/* CAPI guide button for facebook_pixel */}
                     {item.key === "facebook_pixel" && (

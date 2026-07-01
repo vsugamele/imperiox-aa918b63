@@ -123,7 +123,13 @@ Deno.serve(async (req) => {
       };
       if (body.nome) updates.nome = body.nome;
       if (body.phone) updates.phone = body.phone;
-      if (config.status) updates.status = config.status;
+      // Precedence: lead < membro < cliente < vip. Nunca rebaixa quem já comprou.
+      if (config.status) {
+        const rank: Record<string, number> = { lead: 1, membro: 2, cliente: 3, vip: 4 };
+        const currentRank = rank[existing.status as string] || 0;
+        const newRank = rank[config.status] || 0;
+        if (newRank > currentRank) updates.status = config.status;
+      }
 
       // Override project_id via regra Tag→Projeto (mesmo em lead existente)
       if (mergedTags.length) {

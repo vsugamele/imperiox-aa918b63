@@ -13,6 +13,37 @@ function normalizeBRPhone(raw: string): string {
   return digits;
 }
 
+// Generate all permutations of Brazilian phone formats (with/without DDI, with/without 9th digit)
+function getBrazilianPhoneVariants(raw: string): string[] {
+  const clean = (raw || "").replace(/\D/g, "");
+  if (!clean) return [];
+  const variants = new Set<string>([raw, clean]);
+  
+  let withCC = clean;
+  if (!clean.startsWith("55") && (clean.length === 10 || clean.length === 11)) {
+    withCC = "55" + clean;
+  }
+  
+  if (withCC.startsWith("55")) {
+    variants.add(withCC);
+    variants.add(withCC.substring(2)); // without country code
+    const localNumber = withCC.substring(2);
+    
+    if (localNumber.length === 11 && localNumber.startsWith("9")) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(3);
+      variants.add("55" + ddd + rest);
+      variants.add(ddd + rest);
+    } else if (localNumber.length === 10) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(2);
+      variants.add("55" + ddd + "9" + rest);
+      variants.add(ddd + "9" + rest);
+    }
+  }
+  return Array.from(variants).filter(Boolean);
+}
+
 function replaceVariables(text: string, lead_data: any, leadDb: any): string {
   let result = text || "";
   
@@ -239,13 +270,7 @@ Deno.serve(async (req) => {
           let hasIncomingMessage = false;
 
           if (phone) {
-            const cleanPhone = phone.replace(/\D/g, "");
-            const searchPhones = [phone, cleanPhone];
-            if (cleanPhone.startsWith("55")) {
-              searchPhones.push(cleanPhone.substring(2));
-            } else {
-              searchPhones.push("55" + cleanPhone);
-            }
+            const searchPhones = getBrazilianPhoneVariants(phone);
 
             const { data: incomingMsgs } = await supabase
               .from("imphq_wa_messages")
@@ -271,7 +296,7 @@ Deno.serve(async (req) => {
                 .select("id")
                 .eq("is_active", true)
                 .eq("project_id", exec.project_id)
-                .order("created_at", { ascending: true })
+                .order("created_at", { ascending: false })
                 .limit(1);
               if (projProviders?.length) providerId = projProviders[0].id;
             }
@@ -280,7 +305,7 @@ Deno.serve(async (req) => {
                 .from("imphq_wa_providers")
                 .select("id")
                 .eq("is_active", true)
-                .order("created_at", { ascending: true })
+                .order("created_at", { ascending: false })
                 .limit(1);
               if (activeProviders?.length) providerId = activeProviders[0].id;
             }

@@ -101,12 +101,17 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
     }
 
     load();
-    const id = setInterval(load, 60_000); // safety fallback — Realtime handles instant updates
+    const id = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000); // safety fallback — Realtime handles instant updates; pausa em tab oculta
 
     // Realtime: novos eventos invalidam imediatamente
+    // Onda 7: filtra por project_id no servidor quando possível
+    const rtFilter: any = { event: "INSERT", schema: "public", table: "imphq_funnel_events" };
+    if (projectFilter && projectFilter !== "all" && projectFilter !== "none") {
+      rtFilter.filter = `project_id=eq.${projectFilter}`;
+    }
     const ch = supabase
-      .channel("funnel_live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_funnel_events" }, load)
+      .channel(`funnel_live_${projectFilter || "all"}`)
+      .on("postgres_changes", rtFilter, load)
       .subscribe();
 
     return () => {

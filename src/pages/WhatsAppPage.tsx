@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,7 +50,15 @@ interface WaSession {
   unread_count?: number;
   last_message_direction?: string | null;
   ai_paused_until?: string | null;
+  assigned_to?: string | null;
 }
+
+let waRefCache: {
+  ts: number;
+  projects: { id: string; name: string }[];
+  providers: any[];
+  templates: WaTemplate[];
+} = { ts: 0, projects: [], providers: [], templates: [] };
 
 export default function WhatsApp() {
   const [sessions, setSessions] = useState<WaSession[]>([]);
@@ -74,20 +83,65 @@ export default function WhatsApp() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sRes, pRes, provRes, tRes] = await Promise.all([
-      supabase.from("imphq_wa_conversations").select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until").order("last_message_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false }),
+    const sRes = await supabase
+      .from("imphq_wa_conversations")
+      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+    setSessions(sRes.data as any[] || []);
+    setLoading(false);
+  }, []);
+
+  const loadReference = useCallback(async () => {
+    const now = Date.now();
+    if (waRefCache.ts && now - waRefCache.ts < 5 * 60_000) {
+      setProjects(waRefCache.projects);
+      setProviders(waRefCache.providers);
+      setTemplates(waRefCache.templates);
+      return;
+    }
+    const [pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled").eq("is_active", true).order("created_at"),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
-    setSessions(sRes.data as any[] || []);
-    setProjects(pRes.data || []);
-    setProviders(provRes.data as any[] || []);
-    setTemplates((tRes.data as any[]) || []);
-    setLoading(false);
+    const projectsData = pRes.data || [];
+    const providersData = (provRes.data as any[]) || [];
+    const templatesData = (tRes.data as any[]) || [];
+    waRefCache = { ts: now, projects: projectsData, providers: providersData, templates: templatesData };
+    setProjects(projectsData);
+    setProviders(providersData);
+    setTemplates(templatesData);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadReference(); }, [load, loadReference]);
+
+  // Deep-link: ?phone=XXX auto-seleciona a conversa correspondente
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const phoneParam = searchParams.get("phone");
+    if (!phoneParam || sessions.length === 0) return;
+    const digits = phoneParam.replace(/\D/g, "");
+    const normalized = digits.startsWith("55") || digits.length < 10 ? digits : "55" + digits;
+    const match = sessions.find(s => {
+      const sd = (s.phone || "").replace(/\D/g, "");
+      return sd === digits || sd === normalized || sd.endsWith(digits.slice(-10));
+    });
+    if (match) {
+      setSelectedSession(match);
+      setActiveTab("sessoes");
+      // limpa o param pra não re-disparar
+      const next = new URLSearchParams(searchParams);
+      next.delete("phone");
+      next.delete("project");
+      setSearchParams(next, { replace: true });
+    } else {
+      toast.info(`Sem conversa aberta para ${phoneParam}. Use "Nova conversa" para iniciar.`);
+      const next = new URLSearchParams(searchParams);
+      next.delete("phone");
+      setSearchParams(next, { replace: true });
+    }
+  }, [sessions, searchParams, setSearchParams]);
 
   // Realtime: nova mensagem → atualiza preview + incrementa unread localmente e move pro topo
   useEffect(() => {
@@ -158,6 +212,43 @@ export default function WhatsApp() {
     setSelectedSession(null);
     toast.success("Conversa marcada como não lida");
   }, [sessions]);
+
+  // ── Atalhos de teclado (J/K navegar, R focar resposta, U marcar não lida, Esc fechar) ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable;
+      if (isTyping) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const list = sessions.filter(s => filterProject === "all" || s.project_id === filterProject);
+      const idx = selectedSession ? list.findIndex(s => s.id === selectedSession.id) : -1;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = list[Math.min(idx + 1, list.length - 1)];
+        if (next) { setSelectedSession(next); setChatTab("chat"); markRead(next.id); }
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = list[Math.max(idx - 1, 0)];
+        if (prev) { setSelectedSession(prev); setChatTab("chat"); markRead(prev.id); }
+      } else if (e.key === "r") {
+        e.preventDefault();
+        const ta = document.querySelector<HTMLTextAreaElement>("textarea[data-wa-composer]") ||
+                   document.querySelector<HTMLTextAreaElement>(".chat-view textarea") ||
+                   document.querySelector<HTMLTextAreaElement>("textarea");
+        ta?.focus();
+      } else if (e.key === "u" && selectedSession) {
+        e.preventDefault();
+        markUnread(selectedSession.id);
+      } else if (e.key === "Escape" && selectedSession) {
+        setSelectedSession(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sessions, selectedSession, filterProject, markRead, markUnread]);
 
   // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
   useEffect(() => {
@@ -637,7 +728,7 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 
   useEffect(() => {
     Promise.all([
-      supabase.from("imphq_wa_messages").select("*").order("created_at", { ascending: false }).limit(100),
+      supabase.from("imphq_wa_messages").select("id, phone, content, created_at, project_id").order("created_at", { ascending: false }).limit(100),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
     ]).then(([msgRes, hubRes]) => {
       setMessages(msgRes.data || []);

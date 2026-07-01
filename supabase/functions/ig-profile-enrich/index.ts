@@ -136,7 +136,7 @@ Responda APENAS com o objeto JSON limpo, sem markdown, sem tags \`\`\`json.`;
             "X-Title": "Imperio HQ Enrichment",
           },
           body: JSON.stringify({
-            model: "openai/gpt-4o-mini",
+            model: "deepseek/deepseek-chat-v3.1",
             messages: [{ role: "user", content: systemPrompt }],
             temperature: 0.3
           }),

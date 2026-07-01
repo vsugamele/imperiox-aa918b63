@@ -36,7 +36,7 @@ async function judgePersonaAdherence(persona: string, responses: string[]): Prom
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "openai/gpt-4o-mini";
+  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "deepseek/deepseek-chat-v3.1";
 
   const responsesBlock = responses.slice(0, SAMPLE_SIZE).map((r, i) => `${i + 1}. ${r.slice(0, 250)}`).join("\n");
 

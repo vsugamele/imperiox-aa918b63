@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -180,6 +181,20 @@ Deno.serve(async (req) => {
           ...formMeta,
         },
       });
+
+      // Push notification — novo lead capturado
+      try {
+        const recipients = await resolveProjectRecipients(supabase, projectId);
+        await pushNotifyByPref({
+          supabase,
+          prefKey: "novo_lead",
+          title: "🎯 Novo lead capturado",
+          message: `${name || email} — ${source || "captação"}`,
+          user_ids: recipients.length > 0 ? recipients : undefined,
+        });
+      } catch (e) {
+        console.error("[capture-lead] push novo_lead error:", e);
+      }
     }
 
 
@@ -347,6 +362,24 @@ Deno.serve(async (req) => {
         status: 302,
         headers: { ...corsHeaders, Location: body.redirect_url },
       });
+    }
+
+    // ── Dispara webhook de saída lead.created ──
+    if (!existing) {
+      try {
+        fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/outbound-webhook-dispatcher`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            event: "lead.created",
+            project_id: projectId,
+            payload: { lead_id: leadId, nome: name, email, telefone: phone, project_id: projectId },
+          }),
+        }).catch(() => {});
+      } catch (_) {}
     }
 
     return new Response(

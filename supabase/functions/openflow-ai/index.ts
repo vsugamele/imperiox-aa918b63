@@ -206,26 +206,63 @@ serve(async (req) => {
     const triggerLabels: Record<string, string> = {
       carrinho_abandonado: "Carrinho Abandonado — o lead iniciou checkout mas não concluiu",
       compra_aprovada: "Compra Aprovada — o lead acabou de comprar",
-      lead_novo: "Novo Lead — acabou de se cadastrar/capturar",
+      lead_novo: "Novo Lead — acabou de chegar do anúncio/captura no WhatsApp",
       reembolso: "Reembolso — o cliente pediu reembolso",
     };
 
     const produtoFoco = produto ? `\nO PRODUTO EM FOCO desta automação é: "${produto}". Direcione toda a copy especificamente para este produto.\n` : "";
 
-    const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram).
-Seu objetivo: criar uma sequência de ${num_etapas} mensagens para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
-${produtoFoco}${projectContext ? `Contexto do projeto:\n${projectContext}` : ""}
+    // Heurística: detectar se é funil de AQUISIÇÃO X1 (lead do ads → WhatsApp → venda)
+    const isAcquisition = trigger_tipo === "lead_novo" || /aquisi|x1|ads|funil|capta|venda direta|qualifica/i.test(String(body.intent || body.objective || ""));
+
+    const acquisitionGuidance = isAcquisition ? `
+## CONTEXTO ESPECIAL: FUNIL DE AQUISIÇÃO X1 (ADS → WHATSAPP → VENDA)
+Este fluxo recebe leads vindos diretamente do anúncio para o WhatsApp. Sua missão é criar um funil COMPLETO de venda consultiva multimodal:
+
+1. **Abertura humana** (whatsapp): cumprimento + 1 pergunta de qualificação aberta.
+2. **Aguardar resposta** (wait_reply) com timeout 60-180min.
+3. **IA conversacional** (ia_message) qualificando progressivamente:
+   - UMA pergunta por vez (situação → dor → urgência → decisor)
+   - Use ia_vision=true se o lead pode mandar print/foto (boleto, situação atual)
+   - Use ia_voice_response=true se faz sentido a IA responder com áudio
+4. **Áudio de apresentação** (audio): tipo "audio" — IA gera áudio de 60-90s explicando como o produto resolve a dor declarada.
+5. **Prova social** (whatsapp): print/depoimento de cliente. Use placeholder {{print_resultado}} ou {{depoimento_cliente}}.
+6. **IA fechando objeções** (ia_message): identifica objeção principal e responde.
+7. **Qualify_lead** + **notify_operator**: marca como pronto-fechamento e avisa o time.
+8. **CTA com link** (whatsapp): envia {{link}} de checkout com escassez real.
+9. **Follow-up** (whatsapp em 12h-24h) + **stop_on_event** ("compra_aprovada") para sair quando converter.
+
+Use tipos: whatsapp, audio, ia_message, wait_reply, aguardar, qualify_lead, notify_operator, stop_on_event, adicionar_tag.
+` : "";
+
+    const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram, áudio, IA conversacional).
+Seu objetivo: criar uma sequência de ${num_etapas} ações para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
+${produtoFoco}${acquisitionGuidance}${projectContext ? `\nContexto do projeto:\n${projectContext}` : ""}
 ${skillsContext}
 REGRAS:
 - Use linguagem conversacional e persuasiva em português brasileiro
-- Cada mensagem deve ter um propósito claro
-- Intercale canais diferentes quando possível
-- Inclua delays realistas entre mensagens
-- Use variáveis como {{nome}}, {{produto}}, {{link}}
-- Retorne EXATAMENTE o JSON solicitado, sem markdown`;
+- Cada ação deve ter um propósito claro
+- Intercale canais quando fizer sentido (whatsapp + audio + ia_message)
+- Inclua delays realistas (use "aguardar" entre toques)
+- Para IA conversacional use tipo "ia_message" e descreva no template o COMPORTAMENTO esperado (não a mensagem literal)
+- Variáveis: {{nome}}, {{produto}}, {{link}}, {{telefone}}, {{print_resultado}}, {{depoimento_cliente}}
+- Retorne EXATAMENTE o JSON solicitado, sem markdown
+
+ESTILO DE ESCRITA (REGRAS SUGAMELE — OBRIGATÓRIO em todo template de mensagem):
+A copy deve soar como CONVERSA REAL, não artigo, não texto de IA.
+- Conectivos entre ideias (E, Mas, Só que aí, Então, E olha, Agora, Porque daí). Proibida frase telegráfica ("Comprou. Aprendeu. Tentou.") — sempre fluir.
+- Artigo antes de todo substantivo.
+- Reticências (…) para ritmo de fala em reflexão/suspense.
+- Especificidade extrema: números, prazos, valores, exemplos concretos. Proibido "bons resultados", "muita gente". Forte: "R$ 12.300 em 14 dias com R$ 480 de tráfego".
+- Imagens mentais em vez de rótulos abstratos.
+- Sem dicotomia simplista, sem travessão (—), sem adjetivo vazio (incrível, transformador, revolucionário, profundo).
+- Coloquial natural ("tá", "pra", "na prática", "de tudo que é jeito") sem vulgaridade.
+- CTA conversacional, nunca interrupção. Errado: "Compre agora". Certo: "se isso fizer sentido pra você, dá uma olhada aqui embaixo".
+- Pergunta de engajamento curta quando couber ("faz sentido?", "sabe o que acontece?") — não em toda mensagem.
+- Em mensagens curtas de WhatsApp, mantenha o tom Sugamele mesmo em 2-3 frases.`;
 
     const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
-Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template": "texto", "delay_min": número }]`;
+Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_response?, questioning_strategy?, timeout_min?, tag?, stop_event_type? }.`;
 
     const makeH = (key: string, or: boolean): Record<string, string> => {
       const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
@@ -243,7 +280,17 @@ Retorne um JSON array: [{ "tipo": "email|whatsapp|telegram|aguardar", "template"
             parameters: {
               type: "object",
               properties: {
-                acoes: { type: "array", items: { type: "object", properties: { tipo: { type: "string", enum: ["email", "whatsapp", "telegram", "aguardar"] }, template: { type: "string" }, delay_min: { type: "number" } }, required: ["tipo", "template", "delay_min"], additionalProperties: false } },
+                acoes: { type: "array", items: { type: "object", properties: {
+                  tipo: { type: "string", enum: ["email", "whatsapp", "telegram", "aguardar", "audio", "ia_message", "wait_reply", "qualify_lead", "notify_operator", "stop_on_event", "adicionar_tag"] },
+                  template: { type: "string" },
+                  delay_min: { type: "number" },
+                  ia_vision: { type: "boolean" },
+                  ia_voice_response: { type: "boolean" },
+                  questioning_strategy: { type: "string" },
+                  timeout_min: { type: "number" },
+                  tag: { type: "string" },
+                  stop_event_type: { type: "string" },
+                }, required: ["tipo", "template", "delay_min"], additionalProperties: false } },
               },
               required: ["acoes"], additionalProperties: false,
             },

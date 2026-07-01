@@ -21,7 +21,7 @@ interface Batch {
   created_at: string;
 }
 
-// Lista rotativa de ângulos diários de elite
+// Lista rotativa de ângulos diários de elite (7 clássicos + 4 Filemon)
 const HOURLY_ANGLES = [
   {
     title: "Identidade: O Incompreendido Esforçado",
@@ -46,6 +46,30 @@ const HOURLY_ANGLES = [
     description: "Foca no poder de decidir onde estar e o que fazer com autonomia.",
     hookText: "O verdadeiro luxo não é ter relógios caros. É poder acordar em uma terça-feira de sol e decidir passar o dia jogando videogame.",
     themeHook: (kw: string) => `Montar um ecossistema de ${kw || "vendas"} digital que te permite faturar enquanto dorme.`
+  },
+  {
+    title: "Conspiração: A Verdade Que Esconderam",
+    description: "Revela o que a indústria/elite não quer que o avatar saiba.",
+    hookText: "Tem um motivo pelo qual ninguém da indústria fala sobre isso. E não é o que você pensa.",
+    themeHook: (kw: string) => `O que os gurus de ${kw || "marketing"} não te contam — e ganham fortunas justamente por isso.`
+  },
+  {
+    title: "Controvérsia: Contra o Consenso",
+    description: "Posiciona-se contra 90% do mercado para polarizar e atrair.",
+    hookText: "Vou falar uma coisa que vai irritar 90% dos gurus: o que eles ensinam destrói seu negócio.",
+    themeHook: (kw: string) => `Tudo que te ensinaram sobre ${kw || "vendas"} está errado. E eu provo em 3 minutos.`
+  },
+  {
+    title: "História Emocional: O Momento da Virada",
+    description: "Narrativa íntima e específica que gera identificação total.",
+    hookText: "Era 2 da manhã. Minha filha dormindo no quarto. Eu olhando pro extrato negativo. Foi aí que decidi tudo.",
+    themeHook: (kw: string) => `O dia em que eu olhei pro espelho e percebi que ${kw || "tudo"} precisava mudar — e mudou.`
+  },
+  {
+    title: "Promessa: Resultado Específico em Prazo Definido",
+    description: "Número grande, prazo curto, garantia agressiva.",
+    hookText: "Em 30 dias você vai ter o primeiro resultado concreto — ou eu devolvo cada centavo e ainda pago um café.",
+    themeHook: (kw: string) => `Em 30 dias com ${kw || "este método"}: ou você vê o resultado, ou eu te devolvo dobrado.`
   }
 ];
 

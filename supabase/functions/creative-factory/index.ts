@@ -20,15 +20,11 @@ function openaiSizeFromFormato(formato: string): "1024x1024" | "1024x1536" | "15
   return "1024x1024";
 }
 
-const ANGULO_PROMPTS: Record<string, string> = {
-  dor: "Foco na DOR: mostrar a frustração, o problema sentido pelo avatar. Expressão facial de cansaço/frustração. Atmosfera de problema a ser resolvido.",
-  desejo: "Foco no DESEJO: mostrar a transformação aspiracional, a vida ideal. Expressão de felicidade, conquista. Ambiente luxuoso/sonhado.",
-  prova: "Foco na PROVA SOCIAL: mostrar depoimentos, números, resultados concretos. Elementos visuais de credibilidade (checkmarks, estrelas, números grandes).",
-  autoridade: "Foco na AUTORIDADE: expert posicionado como especialista. Fundo profissional, postura de liderança, confiança absoluta.",
-  curiosidade: "Foco na CURIOSIDADE: criar gancho visual intrigante, pergunta no ar, elemento misterioso que faça a pessoa PARAR o scroll.",
-  "antes-depois": "Foco no ANTES vs DEPOIS: dividir a imagem com contraste visual claro entre o estado atual ruim e o resultado alcançado.",
-  objecao: "Foco em DESTRUIR OBJEÇÃO: imagem que responde visualmente 'não tenho tempo', 'é caro', 'não funciona pra mim'.",
-};
+import { ANGLE_BY_SLUG } from "../_shared/creativeAngles.ts";
+
+const ANGULO_PROMPTS: Record<string, string> = Object.fromEntries(
+  Object.entries(ANGLE_BY_SLUG).map(([slug, a]) => [slug, a.visualPrompt])
+);
 
 async function scrapeReferencias(urls: string[]): Promise<string> {
   if (!FIRECRAWL_API_KEY || urls.length === 0) return "";

@@ -15,6 +15,37 @@ function normalizeBRPhone(raw: string): string {
   return digits;
 }
 
+// Generate all permutations of Brazilian phone formats (with/without DDI, with/without 9th digit)
+function getBrazilianPhoneVariants(raw: string): string[] {
+  const clean = (raw || "").replace(/\D/g, "");
+  if (!clean) return [];
+  const variants = new Set<string>([raw, clean]);
+  
+  let withCC = clean;
+  if (!clean.startsWith("55") && (clean.length === 10 || clean.length === 11)) {
+    withCC = "55" + clean;
+  }
+  
+  if (withCC.startsWith("55")) {
+    variants.add(withCC);
+    variants.add(withCC.substring(2)); // without country code
+    const localNumber = withCC.substring(2);
+    
+    if (localNumber.length === 11 && localNumber.startsWith("9")) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(3);
+      variants.add("55" + ddd + rest);
+      variants.add(ddd + rest);
+    } else if (localNumber.length === 10) {
+      const ddd = localNumber.substring(0, 2);
+      const rest = localNumber.substring(2);
+      variants.add("55" + ddd + "9" + rest);
+      variants.add(ddd + "9" + rest);
+    }
+  }
+  return Array.from(variants).filter(Boolean);
+}
+
 // Helper to get fuso horário offset by Brazilian DDD
 function getLeadTimezoneOffset(phone: string): number {
   const digits = (phone || "").replace(/\D/g, "");
@@ -116,7 +147,12 @@ Deno.serve(async (req) => {
       assinatura_cancelada: ["assinatura_cancelada"],
       assinatura_renovada: ["assinatura_renovada"],
       upsell_aprovado: ["upsell_aprovado"],
+      upsell_recusado: ["upsell_recusado"],
       orderbump_aprovado: ["orderbump_aprovado"],
+      orderbump_recusado: ["orderbump_recusado"],
+      downsell_aprovado: ["downsell_aprovado"],
+      downsell_recusado: ["downsell_recusado"],
+      venda_principal_aprovada: ["venda_principal_aprovada"],
       primeiro_acesso: ["primeiro_acesso"],
       trial_iniciado: ["trial_iniciado"],
       tag_adicionada: ["tag_adicionada"],
@@ -139,6 +175,48 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: autoErr.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Exit Conditions: cancel running/waiting executions when the incoming
+    // trigger matches an automation's exit_trigger_tipo. If exit_cascade=true,
+    // cancel ALL active flows for this lead in the project.
+    if (lead_data?.lead_id) {
+      const { data: exitMatches } = await supabase
+        .from("imphq_automacoes")
+        .select("id, nome, exit_trigger_tipo, exit_cascade")
+        .eq("project_id", project_id)
+        .in("exit_trigger_tipo", triggerVariants);
+
+      if (exitMatches && exitMatches.length > 0) {
+        const cascade = exitMatches.some((a: any) => a.exit_cascade);
+        let killQuery = supabase
+          .from("imphq_flow_executions")
+          .update({
+            status: "exited",
+            error_message: `Exit condition: ${trigger_tipo}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("project_id", project_id)
+          .eq("lead_id", lead_data.lead_id)
+          .in("status", ["running", "waiting"]);
+
+        if (!cascade) {
+          killQuery = killQuery.in("automacao_id", exitMatches.map((a: any) => a.id));
+        }
+
+        const { data: killed } = await killQuery.select("id, automacao_id, current_step");
+        if (killed && killed.length > 0) {
+          for (const k of killed) {
+            await supabase.from("imphq_automacao_logs").insert({
+              automacao_id: k.automacao_id,
+              project_id,
+              status: "exited",
+              trigger_data: { trigger_tipo, lead_id: lead_data.lead_id, exit_step: k.current_step ?? 0, cascade },
+              error_message: `Flow encerrado por exit condition (${trigger_tipo}) em Passo ${k.current_step ?? 0}`,
+            }).then(() => {}, () => {});
+          }
+        }
+      }
     }
 
     // Fetch lead details if lead_id is present to get accurate, latest tags
@@ -176,7 +254,7 @@ Deno.serve(async (req) => {
         if (!hasTag) return false;
       }
       return true;
-    });
+    }).sort((a: any, b: any) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
     if (matched.length === 0) {
       return new Response(JSON.stringify({ ok: true, executed: 0, message: "Nenhuma automação encontrada" }), {
@@ -186,38 +264,75 @@ Deno.serve(async (req) => {
 
     const results: any[] = [];
 
-    // ── Cross-flow lock: check if lead is already inside a DIFFERENT active flow
+    // ── Cross-flow lock: check if lead (or phone) is already inside a DIFFERENT active flow
     // Prevent a lead in Flow A from being pulled into conflicting Flow B simultaneously.
     // Exception: resume_from_step (re-entry from wa-ai-reply) and explicit automacao_id bypass.
     let activeFlowId: string | null = null;
     let activeFlowName: string | null = null;
-    if (lead_data?.lead_id && !resume_from_step && !automacao_id) {
-      const { data: activeExecs } = await supabase
-        .from("imphq_flow_executions")
-        .select("id, automacao_id")
-        .eq("lead_id", lead_data.lead_id)
-        .in("status", ["running", "waiting"])
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (activeExecs && activeExecs.length > 0) {
-        activeFlowId = activeExecs[0].automacao_id;
-        // Look up automation name for logging
-        const { data: activeAuto } = await supabase
-          .from("imphq_automacoes")
-          .select("nome")
-          .eq("id", activeFlowId)
-          .maybeSingle();
-        activeFlowName = activeAuto?.nome || activeFlowId;
-        console.log(`[openflow-executor] Lead ${lead_data.lead_id} already in flow "${activeFlowName}" (${activeFlowId})`);
+    let activeFlowExclusivo = false;
+    let activeFlowPrioridade = 5;
+    if (!resume_from_step && !automacao_id) {
+      // Resolve a set of lead_ids that share the same phone as the incoming lead (when available)
+      let relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
+      const phoneRaw = lead_data?.telefone || lead_data?.phone || lead_data?.whatsapp;
+      if (phoneRaw) {
+        const phoneDigits = String(phoneRaw).replace(/\D/g, "");
+        if (phoneDigits.length >= 8) {
+          const { data: sameLeads } = await supabase
+            .from("imphq_leads")
+            .select("id")
+            .ilike("telefone", `%${phoneDigits.slice(-8)}%`)
+            .limit(50);
+          for (const l of sameLeads || []) {
+            if (l.id && !relatedLeadIds.includes(l.id)) relatedLeadIds.push(l.id);
+          }
+        }
+      }
+
+      if (relatedLeadIds.length > 0) {
+        const { data: activeExecs } = await supabase
+          .from("imphq_flow_executions")
+          .select("id, automacao_id, lead_id")
+          .in("lead_id", relatedLeadIds)
+          .in("status", ["running", "waiting"])
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (activeExecs && activeExecs.length > 0) {
+          activeFlowId = activeExecs[0].automacao_id;
+          const { data: activeAuto } = await supabase
+            .from("imphq_automacoes")
+            .select("nome, prioridade, exclusivo")
+            .eq("id", activeFlowId)
+            .maybeSingle();
+          activeFlowName = activeAuto?.nome || activeFlowId;
+          activeFlowExclusivo = !!activeAuto?.exclusivo;
+          activeFlowPrioridade = Number(activeAuto?.prioridade ?? 5);
+          console.log(`[openflow-executor] Lead/phone já em fluxo "${activeFlowName}" (${activeFlowId}) — exclusivo=${activeFlowExclusivo} prioridade=${activeFlowPrioridade}`);
+        }
       }
     }
 
     for (const auto of matched) {
-      // ── Cross-flow lock: skip if lead is in a different active flow
+      // ── Cross-flow lock: skip / preempt based on prioridade + exclusivo
       if (activeFlowId && activeFlowId !== auto.id) {
-        console.log(`[openflow-executor] Skipping ${auto.id} (${auto.nome}): lead already in flow "${activeFlowName}"`);
-        results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "cross_flow_lock", active_flow: activeFlowName });
-        continue;
+        const myPrioridade = Number(auto.prioridade ?? 5);
+        const canPreempt = !activeFlowExclusivo && myPrioridade > activeFlowPrioridade;
+        if (canPreempt) {
+          // Cancel the previous active flow execution(s) for this lead
+          await supabase
+            .from("imphq_flow_executions")
+            .update({ status: "cancelled", error_message: `Preempted by higher-priority flow "${auto.nome}"`, updated_at: new Date().toISOString() })
+            .eq("automacao_id", activeFlowId)
+            .in("status", ["running", "waiting"]);
+          console.log(`[openflow-executor] Preempt: "${auto.nome}" (p=${myPrioridade}) > "${activeFlowName}" (p=${activeFlowPrioridade})`);
+          activeFlowId = null;
+          activeFlowName = null;
+          activeFlowExclusivo = false;
+        } else {
+          console.log(`[openflow-executor] Skip ${auto.id} (${auto.nome}): lead em "${activeFlowName}" (exclusivo=${activeFlowExclusivo}, p_other=${activeFlowPrioridade}, p_self=${myPrioridade})`);
+          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: activeFlowExclusivo ? "cross_flow_lock_exclusive" : "cross_flow_lock_priority", active_flow: activeFlowName });
+          continue;
+        }
       }
 
       // ── Dedupe: skip if same automation ran for same lead within N hours
@@ -477,13 +592,7 @@ Deno.serve(async (req) => {
           // Check if there is any incoming WhatsApp message since originalStart
           if (!hasRepliedOrPurchased && phone) {
             try {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")
@@ -532,6 +641,55 @@ Deno.serve(async (req) => {
           break; // Stop flow
         }
 
+        // Pre-delay logic for actions that define delay_min in the action block itself
+        const actionTypesToDelay = [
+          "whatsapp",
+          "audio",
+          "email",
+          "ia_message",
+          "adicionar_tag",
+          "remover_tag",
+          "update_memory",
+          "ia_scheduling",
+          "webhook_call",
+          "qualify_lead",
+          "notify_operator",
+          "abrir_conversa",
+          "gpt_prompt",
+          "stop_on_event"
+        ];
+
+        if (actionTypesToDelay.includes(step.tipo)) {
+          const delayMin = Number(step.delay_min || 0);
+          if (delayMin > 0) {
+            const alreadyDelayed = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            if (!alreadyDelayed) {
+              if (delayMin > 5) {
+                const nextRun = new Date(Date.now() + delayMin * 60000);
+                stepResult.status = "waiting_delay";
+                stepResult.next_run = nextRun.toISOString();
+                stepResult.finished_at = new Date().toISOString();
+                stepResults.push(stepResult);
+
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i, // We stay on this step to run it when we resume
+                    next_run_at: nextRun.toISOString(),
+                    step_results: stepResults,
+                  })
+                  .eq("id", executionId);
+                
+                status = "waiting";
+                break; // Exit step loop (pauses flow execution)
+              } else {
+                // Short delays: wait inline
+                await delay(delayMin * 60000);
+              }
+            }
+          }
+        }
+
         try {
           // Update current step
           await supabase.from("imphq_flow_executions")
@@ -560,32 +718,33 @@ Deno.serve(async (req) => {
           }
 
           else if (step.tipo === "wait_event" || step.tipo === "wait_until_event") {
-            const eventName = step.event_name;
+            // Supports single event_name OR multiple events via event_names (comma-separated, OR logic)
+            const eventNames: string[] = (step.event_names
+              ? String(step.event_names).split(",").map((s: string) => s.trim()).filter(Boolean)
+              : (step.event_name ? [String(step.event_name).trim()] : []));
             const timeoutMin = Number(step.timeout_min || 60);
-            
-            let eventOccurred = false;
-            if (lead_data?.lead_id && eventName) {
+
+            let detectedEvent: string | null = null;
+            if (lead_data?.lead_id && eventNames.length > 0) {
               const { data: evts } = await supabase
                 .from("imphq_events")
-                .select("id")
+                .select("event_name")
                 .eq("lead_id", lead_data.lead_id)
-                .eq("event_name", eventName)
+                .in("event_name", eventNames)
                 .gt("created_at", originalStart)
                 .limit(1);
-              if (evts && evts.length > 0) {
-                eventOccurred = true;
-              }
+              if (evts && evts.length > 0) detectedEvent = (evts[0] as any).event_name;
             }
-            
-            if (eventOccurred) {
+
+            if (detectedEvent) {
               stepResult.status = "completed";
-              stepResult.reason = `Evento "${eventName}" detectado. Prosseguindo.`;
+              stepResult.matched_event = detectedEvent;
+              stepResult.reason = `Evento "${detectedEvent}" detectado. Prosseguindo.`;
             } else {
-              // Check if we are resuming from this step (which means timeout occurred)
               const isTimeout = resume_from_step !== undefined && Number(resume_from_step) === i;
               if (isTimeout) {
                 stepResult.status = "completed";
-                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem o evento "${eventName}". Prosseguindo.`;
+                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem evento(s) [${eventNames.join(", ")}]. Prosseguindo.`;
               } else {
                 const nextRun = new Date(Date.now() + timeoutMin * 60000);
                 await supabase.from("imphq_flow_executions")
@@ -593,7 +752,7 @@ Deno.serve(async (req) => {
                     status: "waiting",
                     current_step: i,
                     next_run_at: nextRun.toISOString(),
-                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento "${eventName}" ou timeout em ${nextRun.toISOString()}` }],
+                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento(s) [${eventNames.join(", ")}] ou timeout em ${nextRun.toISOString()}` }],
                   })
                   .eq("id", executionId);
                 status = "waiting";
@@ -767,7 +926,7 @@ Deno.serve(async (req) => {
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) {
                   providerId = projProviders[0].id;
@@ -781,7 +940,7 @@ Deno.serve(async (req) => {
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) {
                   providerId = activeProviders[0].id;
@@ -799,6 +958,11 @@ Deno.serve(async (req) => {
                 stepsFailed++;
                 failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
+                const mediaKindMap: Record<string, string> = { image: "image", video: "video", audio: "audio", doc: "document" };
+                const stepMedia = (step as any).media;
+                const mediaPayload = stepMedia?.url
+                  ? { media_url: stepMedia.url, media_type: mediaKindMap[stepMedia.kind] || "image" }
+                  : {};
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
                   headers: {
@@ -810,6 +974,7 @@ Deno.serve(async (req) => {
                     phone: normalizeBRPhone(phone),
                     content: msgText,
                     project_id,
+                    ...mediaPayload,
                   }),
                 });
                 const waData = await waRes.json();
@@ -842,7 +1007,7 @@ Deno.serve(async (req) => {
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) providerId = projProviders[0].id;
               }
@@ -852,7 +1017,7 @@ Deno.serve(async (req) => {
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) providerId = activeProviders[0].id;
               }
@@ -1092,13 +1257,7 @@ Deno.serve(async (req) => {
             let hasReplied = false;
             const phone = lead_data?.phone || lead_data?.telefone;
             if (phone) {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")
@@ -1251,6 +1410,56 @@ Deno.serve(async (req) => {
             }
           }
 
+          else if (step.tipo === "update_lead") {
+            const field = step.lead_field;
+            const op = step.lead_op || "set";
+            const value = step.lead_value;
+            const ALLOWED = new Set(["status", "score", "awareness_level", "nome", "email"]);
+            if (!lead_data?.lead_id || !field || !ALLOWED.has(field)) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou campo inválido";
+            } else {
+              let updatePayload: any = {};
+              if (op === "inc" && field === "score") {
+                const { data: cur } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+                const base = Number(cur?.score || 0);
+                const inc = Number(value || 0);
+                updatePayload.score = base + inc;
+              } else if (field === "score") {
+                updatePayload.score = Number(value || 0);
+              } else {
+                updatePayload[field] = value;
+              }
+              const { error: upErr } = await supabase.from("imphq_leads").update(updatePayload).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "lead_updated";
+                stepResult.field = field;
+                stepResult.op = op;
+                stepResult.value = updatePayload[field];
+              }
+            }
+          }
+
+          else if (step.tipo === "move_stage") {
+            const target = step.target_stage;
+            if (!lead_data?.lead_id || !target) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou target_stage";
+            } else {
+              const { error: upErr } = await supabase.from("imphq_leads").update({ funil_id: target }).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "stage_moved";
+                stepResult.target_stage = target;
+              }
+            }
+          }
+
           else if (step.tipo === "ia_message") {
             const phone = lead_data?.phone || lead_data?.telefone;
             if (!phone) {
@@ -1263,13 +1472,7 @@ Deno.serve(async (req) => {
               stepResult.notes = "Conversa finalizada pelo assistente de IA";
             } else {
               // First time running this step: send initial message and pause!
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+              const searchPhones = getBrazilianPhoneVariants(phone);
 
               // leadDb is already preloaded in the outer scope
 
@@ -1346,7 +1549,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                     "X-Title": "Imperio HQ",
                   },
                   body: JSON.stringify({
-                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "openai/gpt-4o-mini")),
+                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "google/gemini-2.5-flash")),
                     messages: [
                       { role: "system", content: systemPrompt },
                       { role: "user", content: "Gere a mensagem curta inicial de reativação." }
@@ -1374,7 +1577,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   .select("id")
                   .eq("is_active", true)
                   .eq("project_id", project_id)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (projProviders?.length) providerId = projProviders[0].id;
               }
@@ -1383,7 +1586,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   .from("imphq_wa_providers")
                   .select("id")
                   .eq("is_active", true)
-                  .order("created_at", { ascending: true })
+                  .order("created_at", { ascending: false })
                   .limit(1);
                 if (activeProviders?.length) providerId = activeProviders[0].id;
               }
@@ -1512,6 +1715,63 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               const skipCount = parseInt(step.else_skip) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
+            }
+          }
+
+          else if (step.tipo === "branch_by_score") {
+            let score = 0;
+            if (lead_data?.score != null) {
+              score = Number(lead_data.score);
+            } else if (lead_data?.lead_id) {
+              const { data: ld } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+              score = Number((ld as any)?.score || 0);
+            }
+            const min = Number(step.score_min ?? 0);
+            const max = Number(step.score_max ?? 100);
+            const conditionMet = score >= min && score <= max;
+            stepResult.status = "evaluated";
+            stepResult.score = score;
+            stepResult.condition_met = conditionMet;
+            if (!conditionMet) {
+              const skipCount = parseInt(step.else_skip) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+              console.log(`[openflow-executor] branch_by_score: score=${score} fora de [${min},${max}], pulando ${skipCount} step(s)`);
+            }
+          }
+
+          else if (step.tipo === "slack_notify") {
+            const webhookUrl = String(step.webhook_url || "").trim();
+            const text = replaceVariables(step.text || "", lead_data, leadDb) || "Notificação OpenFlow";
+            if (!webhookUrl.startsWith("https://hooks.slack.com/")) {
+              stepResult.status = "error";
+              stepResult.response = { success: false, error: "webhook_url inválido (deve começar com https://hooks.slack.com/)" };
+              stepsFailed++;
+              failureMessages.push(`Step ${i} (slack_notify): webhook_url inválido`);
+            } else {
+              try {
+                const resp = await fetch(webhookUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ text }),
+                });
+                if (!resp.ok) {
+                  const errTxt = await resp.text().catch(() => "");
+                  stepResult.status = "error";
+                  stepResult.response = { success: false, error: `Slack ${resp.status}: ${errTxt.slice(0, 200)}` };
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (slack_notify): HTTP ${resp.status}`);
+                } else {
+                  stepResult.status = "completed";
+                  stepResult.message_preview = text.slice(0, 120);
+                  stepResult.response = { success: true };
+                }
+              } catch (e: any) {
+                stepResult.status = "error";
+                stepResult.response = { success: false, error: e?.message || "fetch falhou" };
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (slack_notify): ${e?.message || "erro"}`);
+              }
             }
           }
 
@@ -1732,11 +1992,14 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
 
             if (conditionMet) {
               stepResult.notes = `Condição atendida. Pulando ${jumpSteps} passos.`;
+              stepResult.branch_taken = "if";
               i += jumpSteps;
             } else {
               stepResult.notes = `Condição não atendida. Pulando ${elseJumpSteps} passos.`;
+              stepResult.branch_taken = "else";
               i += elseJumpSteps;
             }
+
           }
 
           else if (step.tipo === "webhook_call") {
@@ -1945,13 +2208,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
 
               const aiPausedUntil = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
               const { error: updateConvErr } = await supabase
@@ -1986,13 +2243,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
 
               let chatHistoryContext = "";
               const keepContext = step.gpt_keep_context ?? true;
@@ -2041,9 +2292,9 @@ Instruções Adicionais:
 
               const modelMap: Record<string, string> = {
                 "gpt-4o": "openai/gpt-4o",
-                "gpt-4o-mini": "openai/gpt-4o-mini"
+                "gpt-4o-mini": "google/gemini-2.5-flash"
               };
-              const selectedModel = modelMap[step.gpt_model] || "openai/gpt-4o-mini";
+              const selectedModel = modelMap[step.gpt_model] || "google/gemini-2.5-flash";
 
               const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -2105,7 +2356,7 @@ Instruções Adicionais:
                       .select("id")
                       .eq("is_active", true)
                       .eq("project_id", project_id)
-                      .order("created_at", { ascending: true })
+                      .order("created_at", { ascending: false })
                       .limit(1);
                     if (projProviders?.length) providerId = projProviders[0].id;
                   }
@@ -2114,7 +2365,7 @@ Instruções Adicionais:
                       .from("imphq_wa_providers")
                       .select("id")
                       .eq("is_active", true)
-                      .order("created_at", { ascending: true })
+                      .order("created_at", { ascending: false })
                       .limit(1);
                     if (activeProviders?.length) providerId = activeProviders[0].id;
                   }
@@ -2177,13 +2428,7 @@ Instruções Adicionais:
                 abortReason = "Lead realizou a compra";
               }
             } else if (stopType === "lead_respondeu" && phone) {
-              const cleanPhone = phone.replace(/\D/g, "");
-              const searchPhones = [phone, cleanPhone];
-              if (cleanPhone.startsWith("55")) {
-                searchPhones.push(cleanPhone.substring(2));
-              } else {
-                searchPhones.push("55" + cleanPhone);
-              }
+               const searchPhones = getBrazilianPhoneVariants(phone);
               const { data: incomingMsgs } = await supabase
                 .from("imphq_wa_messages")
                 .select("id")

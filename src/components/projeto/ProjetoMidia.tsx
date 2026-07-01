@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ReferenciasDoProjetoSection } from "./ReferenciasDoProjetoSection";
 
 const PHOTO_CATEGORIES = [
   { key: "expert", label: "📸 Fotos do Expert" },
@@ -216,6 +217,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   };
 
   // Extract folders from content_category patterns like "reels/folder-name"
+  // Includes empty folders via placeholder rows (file_type='folder').
   const getFoldersForTab = (tab: string): string[] => {
     const relevant = tab === "todos" ? items : items.filter(i => (i.content_category || "geral").startsWith(tab));
     const folders = new Set<string>();
@@ -228,26 +230,42 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   };
 
   const getFilteredItems = (tab: string) => {
+    // Hide folder placeholders from the grid — they only exist so empty folders persist
+    const visible = items.filter(i => i.file_type !== "folder");
     if (tab === "todos") {
-      if (currentFolder) return items.filter(i => (i.content_category || "").includes(`/${currentFolder}`));
-      return items;
+      if (currentFolder) return visible.filter(i => (i.content_category || "").includes(`/${currentFolder}`));
+      return visible;
     }
     if (currentFolder) {
-      return items.filter(i => (i.content_category || "geral") === `${tab}/${currentFolder}`);
+      return visible.filter(i => (i.content_category || "geral") === `${tab}/${currentFolder}`);
     }
-    return items.filter(i => {
+    return visible.filter(i => {
       const cat = i.content_category || "geral";
       return cat === tab || cat.startsWith(`${tab}/`);
     });
   };
 
-  const createFolder = () => {
+  const createFolder = async () => {
     const name = newFolderName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
     if (!name) return;
+    const baseCategory = activeTab === "todos" ? "geral" : activeTab;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Faça login"); return; }
+    const { error } = await supabase.from("imphq_content_library").insert({
+      project_id: projectId,
+      user_id: user.id,
+      title: "__folder__",
+      file_url: "folder://placeholder",
+      file_type: "folder",
+      content_category: `${baseCategory}/${name}`,
+      tags: [],
+    });
+    if (error) { toast.error("Erro ao criar pasta"); return; }
     setCurrentFolder(name);
     setNewFolderName("");
     setFolderDialogOpen(false);
-    toast.success(`Pasta "${name}" criada. Faça upload de arquivos nela.`);
+    toast.success(`Pasta "${name}" criada em ${baseCategory}.`);
+    loadItems();
   };
 
   const moveItemToFolder = async (itemId: string, folder: string | null) => {
@@ -297,6 +315,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
 
   return (
     <div className="space-y-4">
+      <ReferenciasDoProjetoSection projectId={projectId} />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           {CONTENT_TABS.map(t => (

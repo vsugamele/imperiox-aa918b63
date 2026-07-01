@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,6 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { MessageSquare, Search, Plus, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { formatMessageTime } from "@/lib/formatCompactTime";
+import MergeDuplicatesButton from "./MergeDuplicatesButton";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -22,6 +24,8 @@ interface WaSession {
   unread_count?: number;
   last_message_direction?: string | null;
   jid_suffix?: string | null;
+  snoozed_until?: string | null;
+  assigned_to?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
@@ -33,6 +37,31 @@ function isUnreadSession(s: WaSession): boolean {
   const lastRead = s.last_read_at ? new Date(s.last_read_at).getTime() : 0;
   return lastRead < lastMsg;
 }
+
+// SLA: tempo desde a última mensagem do lead aguardando resposta
+function waitingMinutes(s: WaSession): number | null {
+  const dir = s.last_message_direction;
+  if (dir !== "in" && dir !== "incoming") return null;
+  if (!s.last_message_at) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(s.last_message_at).getTime()) / 60000));
+}
+
+function formatWaiting(min: number): string {
+  if (min < 1) return "agora";
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h${min % 60 ? ` ${min % 60}min` : ""}`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+function slaColor(min: number): string {
+  if (min < 5) return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+  if (min < 30) return "bg-amber-500/20 text-amber-300 border-amber-500/40";
+  if (min < 120) return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+  return "bg-red-500/25 text-red-300 border-red-500/50 animate-pulse";
+}
+
 
 
 interface Provider {
@@ -59,48 +88,7 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
-function formatMessageTime(dateStr: string | undefined): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "";
 
-  const now = new Date();
-  
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const timeStr = `${hours}:${minutes}`;
-
-  // Check if it is today
-  const isToday = date.getDate() === now.getDate() &&
-                  date.getMonth() === now.getMonth() &&
-                  date.getFullYear() === now.getFullYear();
-
-  if (isToday) {
-    return timeStr;
-  }
-
-  // Check if it was yesterday
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday = date.getDate() === yesterday.getDate() &&
-                      date.getMonth() === yesterday.getMonth() &&
-                      date.getFullYear() === yesterday.getFullYear();
-
-  if (isYesterday) {
-    return `Ontem ${timeStr}`;
-  }
-
-  // Same year
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${day}/${month} ${timeStr}`;
-  }
-
-  // Older years
-  const year = String(date.getFullYear()).slice(-2);
-  return `${day}/${month}/${year} ${timeStr}`;
-}
 
 function getInitials(name: string | null, phone: string): string {
   if (name) {
@@ -126,6 +114,17 @@ function providerLabel(prov: Provider | undefined): string | null {
   return prov.twilio_from ? `Twilio ...${prov.twilio_from.slice(-4)}` : "Twilio";
 }
 
+// Chip de canal fixo por tipo de provider
+function channelChip(prov: Provider | undefined): { label: string; icon: string; cls: string } | null {
+  if (!prov) return null;
+  const p = (prov.provider || "").toLowerCase();
+  if (p.includes("instagram") || p === "ig" || p === "meta_ig") {
+    return { label: "Instagram", icon: "📷", cls: "bg-pink-500/15 border-pink-500/50 text-pink-300" };
+  }
+  // evolution, twilio, wppconnect, etc → WhatsApp
+  return { label: "WhatsApp", icon: "💬", cls: "bg-emerald-500/15 border-emerald-500/50 text-emerald-300" };
+}
+
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
@@ -133,10 +132,34 @@ export default function ConversationList({
 }: Props) {
   const [search, setSearch] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-snooze-mode") as any) : null) || "hide"
+  );
+  const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
+  );
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+  }, []);
+
+  const cycleSnoozeMode = () => {
+    const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
+    setSnoozeMode(next);
+    try { localStorage.setItem("wa-snooze-mode", next); } catch {}
+  };
+  const cycleAssignFilter = () => {
+    const next = assignFilter === "all" ? "mine" : assignFilter === "mine" ? "unassigned" : "all";
+    setAssignFilter(next);
+    try { localStorage.setItem("wa-assign-filter", next); } catch {}
+  };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const findProvider = (providerId: string | null) =>
     providerId && providers ? providers.find(p => p.id === providerId) : undefined;
+
+  const isSnoozed = (s: WaSession) => !!s.snoozed_until && new Date(s.snoozed_until).getTime() > Date.now();
 
   const filtered = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
@@ -145,7 +168,13 @@ export default function ConversationList({
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
     const matchUnread = !onlyUnread || isUnreadSession(s);
-    return matchProject && matchProvider && matchSearch && matchUnread;
+    const snoozed = isSnoozed(s);
+    const matchSnooze = snoozeMode === "show" ? true : snoozeMode === "only" ? snoozed : !snoozed;
+    const matchAssign =
+      assignFilter === "all" ? true :
+      assignFilter === "mine" ? s.assigned_to === myUserId :
+      !s.assigned_to;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
@@ -154,6 +183,8 @@ export default function ConversationList({
     const tb = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
     return tb - ta;
   });
+
+  const snoozedCount = sessions.filter(isSnoozed).length;
 
   const totalUnread = sessions.reduce(
     (acc, s) => acc + (isUnreadSession(s) ? Math.max(s.unread_count || 0, 1) : 0),
@@ -175,11 +206,34 @@ export default function ConversationList({
           </h2>
           <div className="flex items-center gap-1">
             <button
+              onClick={cycleAssignFilter}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
+                assignFilter === "mine" ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                : assignFilter === "unassigned" ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+              title="Filtro de atribuição: clique para alternar"
+            >
+              {assignFilter === "all" ? "👥 Todas" : assignFilter === "mine" ? "👤 Minhas" : "❓ Sem dono"}
+            </button>
+            <button
               onClick={() => setOnlyUnread(v => !v)}
               className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
               title="Mostrar apenas não lidas"
             >
               Não lidas
+            </button>
+            <button
+              onClick={cycleSnoozeMode}
+              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
+                snoozeMode === "only" ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                : snoozeMode === "show" ? "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+              title="Silenciadas: clique para alternar (ocultar / mostrar / só silenciadas)"
+            >
+              {snoozeMode === "hide" ? "🔕 Ocultar" : snoozeMode === "show" ? "🔔 Todas" : "🔕 Só silenciadas"}
+              {snoozedCount > 0 && snoozeMode !== "only" && <span className="ml-1 opacity-70">({snoozedCount})</span>}
             </button>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
               <Plus className="h-4 w-4" />
@@ -253,6 +307,7 @@ export default function ConversationList({
             </div>
           );
         })()}
+        <MergeDuplicatesButton projectId={filterProject} />
       </div>
 
       {/* List */}
@@ -295,6 +350,7 @@ export default function ConversationList({
               const color = providerColor(s.provider_id);
               const unread = s.unread_count || 0;
               const hasUnread = isUnreadSession(s);
+              const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               return (
                 <button
@@ -345,6 +401,15 @@ export default function ConversationList({
                         <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"}`}>
                           {s.contact_name || s.phone}
                         </span>
+                        {channel && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] h-4 px-1.5 shrink-0 font-medium ${channel.cls}`}
+                            title={channel.label}
+                          >
+                            {channel.icon} {channel.label}
+                          </Badge>
+                        )}
                         {provLabel && (
                           <Badge
                             variant="outline"
@@ -369,9 +434,23 @@ export default function ConversationList({
                         )}
 
                       </div>
-                      <span className={`text-[10px] shrink-0 ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
-                        {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {(() => {
+                          const w = waitingMinutes(s);
+                          if (w === null) return null;
+                          return (
+                            <span
+                              className={`text-[9px] font-semibold px-1.5 py-0 rounded border ${slaColor(w)} leading-tight`}
+                              title={`Aguardando resposta há ${formatWaiting(w)}`}
+                            >
+                              ⏱ {formatWaiting(w)}
+                            </span>
+                          );
+                        })()}
+                        <span className={`text-[10px] ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
+                          {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
+                        </span>
+                      </div>
                     </div>
                     {s.contact_name && (
                       <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>

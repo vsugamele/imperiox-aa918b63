@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,16 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, X, Wand2, Image as ImageIcon, Target, Palette, Compass } from "lucide-react";
 import { toast } from "sonner";
 import { CreativeMatrix } from "@/components/studio/CreativeMatrix";
+import { CREATIVE_ANGLES } from "@/data/creativeAngles";
 
-const ANGULOS = [
-  { value: "dor", label: "Dor" },
-  { value: "desejo", label: "Desejo / Transformação" },
-  { value: "prova", label: "Prova Social" },
-  { value: "autoridade", label: "Autoridade" },
-  { value: "curiosidade", label: "Curiosidade" },
-  { value: "antes-depois", label: "Antes vs Depois" },
-  { value: "objecao", label: "Objeção Destruída" },
-];
+const ANGULOS = CREATIVE_ANGLES.map((a) => ({ value: a.slug, label: a.nome }));
 
 const AVATAR_PRINCIPAL = "__principal__";
 
@@ -49,6 +42,9 @@ interface Concorrente {
 
 export default function CriativoNovo() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sourceSwipeId = searchParams.get("source_swipe");
+  const [sourceSwipe, setSourceSwipe] = useState<any>(null);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -71,6 +67,26 @@ export default function CriativoNovo() {
   const [referenciasText, setReferenciasText] = useState("");
   const [expertFotos, setExpertFotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Pré-carrega VSL de origem se ?source_swipe=ID
+  useEffect(() => {
+    if (!sourceSwipeId) return;
+    supabase
+      .from("imphq_swipes" as any)
+      .select("id, title, raw_text, media_urls, project_id, blocks, criador")
+      .eq("id", sourceSwipeId)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (!data) return;
+        setSourceSwipe(data);
+        if (data.project_id) setProjectId(data.project_id);
+        setNome((n) => n || `Inspirado em: ${data.title}`);
+        setExtras((x) => x || `Inspiração (VSL): ${data.title}\n${data.blocks?.gancho ? "Hook: " + data.blocks.gancho + "\n" : ""}${(data.raw_text || "").slice(0, 800)}`);
+        if (data.media_urls?.[0]) {
+          setReferenciasText((r) => (r ? r + "\n" : "") + data.media_urls[0]);
+        }
+      });
+  }, [sourceSwipeId]);
 
   // Project context
   const [expertLibrary, setExpertLibrary] = useState<ExpertFoto[]>([]);
@@ -348,9 +364,16 @@ export default function CriativoNovo() {
           angulos,
           formato,
           auto_briefing: autoMode,
+          source_swipe_ids: sourceSwipeId ? [sourceSwipeId] : [],
         },
       });
       if (error) throw error;
+      if (sourceSwipeId && (data as any)?.batch_id) {
+        await supabase
+          .from("imphq_creative_batches")
+          .update({ source_swipe_ids: [sourceSwipeId] } as any)
+          .eq("id", (data as any).batch_id);
+      }
       toast.success("Geração iniciada! Acompanhe em tempo real.");
       navigate(`/criativos/${(data as any).batch_id}`);
     } catch (e: any) {
@@ -378,6 +401,18 @@ export default function CriativoNovo() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
+      {sourceSwipe && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-3">
+          <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+          <div className="text-xs flex-1">
+            <p className="text-amber-300 font-semibold">Inspirado em VSL</p>
+            <p className="text-muted-foreground">{sourceSwipe.title}</p>
+          </div>
+          <Button asChild size="sm" variant="ghost" className="text-amber-400 hover:text-amber-300">
+            <a href="/swipe">Ver VSL</a>
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl text-primary flex items-center gap-2">

@@ -2,6 +2,7 @@
 // Cada execução cria um batch com 3 ângulos (curiosidade, prova, antes-depois)
 // e dispara creative-factory. Loga em imphq_ai_actions (high risk = aprovação).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { getAnglesForDay } from "../_shared/creativeAngles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const ANGULOS_DIARIOS = ["curiosidade", "prova", "antes-depois"];
 const FORMATO_DEFAULT = "9:16";
 const PER_ANGULO = 1;
 
@@ -41,14 +41,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Rotação diária: 3 dos 11 ângulos do catálogo, varia a cada dia
+        const angulosDia = getAnglesForDay(3).map((a) => a.slug);
+
         // Cria batch
         const { data: batch, error: bErr } = await supabase.from("imphq_creative_batches").insert({
           project_id: proj.id,
           nome: `Lote IA — ${new Date().toLocaleDateString("pt-BR")}`,
           briefing: { auto: true, fonte: "studio-batch-cron" },
-          angulos: ANGULOS_DIARIOS,
+          angulos: angulosDia,
           formato: FORMATO_DEFAULT,
-          total_planejado: ANGULOS_DIARIOS.length * PER_ANGULO,
+          total_planejado: angulosDia.length * PER_ANGULO,
           status: "processando",
         }).select().single();
         if (bErr) throw bErr;
@@ -64,9 +67,9 @@ Deno.serve(async (req) => {
           risk_level: "high",
           status: "executed",
           confidence: 0.9,
-          title: `${ANGULOS_DIARIOS.length} criativos novos para ${proj.nome}`,
-          reason: `Lote diário automático — ângulos: ${ANGULOS_DIARIOS.join(", ")}`,
-          payload: { batch_id: batch.id, projeto: proj.nome },
+          title: `${angulosDia.length} criativos novos para ${proj.nome}`,
+          reason: `Lote diário automático — ângulos: ${angulosDia.join(", ")}`,
+          payload: { batch_id: batch.id, projeto: proj.nome, angulos: angulosDia },
           projeto_id: proj.id,
           source: "studio-batch-cron",
           auto_executed: true,

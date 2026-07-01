@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import RagInspector from "@/components/dashboard/RagInspector";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -1542,6 +1543,15 @@ export default function Mentes() {
           <p>Nenhuma mente encontrada para "{search}"</p>
         </div>
       )}
+
+      {/* RAG Inspector — Central de Conhecimento */}
+      <div className="pt-6 mt-6 border-t border-border/40">
+        <div className="mb-3">
+          <h2 className="font-display text-xl font-bold text-primary">Central de Conhecimento & RAG Inspector</h2>
+          <p className="text-xs text-muted-foreground mt-1">Inspecione e gerencie a memória e os documentos que alimentam as mentes.</p>
+        </div>
+        <RagInspector projectFilter="all" />
+      </div>
 
       {/* Modal */}
       {selectedMente && (

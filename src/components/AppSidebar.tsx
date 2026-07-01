@@ -1,10 +1,10 @@
-import {
+﻿import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
   Search, Brain, FileText, MessageSquare, Link2,
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow, Network,
+  Inbox, Pencil, Workflow, Network, Globe, Coins,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,46 +16,53 @@ import {
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
-// ── Nav items ────────────────────────────────────────────────────────────────
+// â”€â”€ Nav items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const hojeitems = [
   { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
   { title: "Tarefas",          url: "/tarefas",    icon: ListTodo },
-  { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
+  { title: "RecuperaÃ§Ã£o",      url: "/recuperacao",icon: LifeBuoy },
 ];
 
 const venderItems = [
   { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
-  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Funis",                url: "/funis",      icon: Target },
   { title: "Mapa da Empresa",      url: "/mapa-empresa", icon: Network },
+  { title: "Sites",                url: "/sites",      icon: Globe },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-  { title: "Webinar",              url: "/webinar",    icon: Radio },
-  { title: "Finanças",             url: "/financas",   icon: DollarSign },
-  { title: "Tracker UTM",          url: "/tracker",    icon: Link2 },
 ];
 
-const inteligenciaItems = [
-  { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
-  { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
-  { title: "Assistente",           url: "/assistente",     icon: Compass },
-  { title: "Mentes IA",            url: "/mentes",         icon: Brain },
-  { title: "Skills",               url: "/skills",         icon: Zap },
-  { title: "Studio",               url: "/studio",         icon: Clapperboard },
-  { title: "Swipe File",           url: "/swipe",          icon: Library },
-  { title: "Market Intel",         url: "/market-intel",   icon: Search },
-  { title: "Copilot de Produtos",  url: "/product-copilot",icon: Sparkles },
-  { title: "Orquestrador Infoproduto", url: "/infoproduto-copilot", icon: Sparkles },
+const adsFinancasItems = [
+  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
+  { title: "Tracker",              url: "/tracker",    icon: Link2 },
+  { title: "AtribuiÃ§Ã£o",           url: "/atribuicao", icon: Radio },
+  { title: "FinanÃ§as",             url: "/financas",   icon: DollarSign },
+  { title: "Custos IA",            url: "/openrouter-custos", icon: Coins },
 ];
 
 const planejarItems = [
-  { title: "Docs / KB",    url: "/docs",      icon: FileText },
-  { title: "Rascunhos IA", url: "/rascunhos", icon: Pencil },
-  { title: "Nutrição",     url: "/nutricao",  icon: Mail },
+  { title: "Docs / KB",    url: "/docs",        icon: FileText },
+  { title: "ConteÃºdo",     url: "/rascunhos",   icon: Pencil },
+  { title: "ReferÃªncias",  url: "/referencias", icon: Library },
 ];
+
+const inteligenciaItems = [
+  { title: "SaÃºde da IA",          url: "/ai-saude",       icon: Brain },
+  { title: "MemÃ³ria Viva da IA",   url: "/ai-learning",    icon: Brain },
+  { title: "SaÃºde dos Produtos",   url: "/saude-produtos", icon: Activity },
+  { title: "Funil de ConversÃ£o",   url: "/funil-conversao",icon: Search },
+  { title: "Assistente",           url: "/assistente",     icon: Compass },
+  { title: "Skills",               url: "/skills",         icon: Zap },
+  { title: "Guia Claude (Copy)",   url: "/claude-skills",  icon: BookOpen },
+  { title: "EstÃºdio de Produto",   url: "/studio",         icon: Clapperboard },
+  { title: "Copy Lab (Imperador)", url: "/copy-lab",       icon: Zap },
+  { title: "Swipe File",           url: "/swipe",          icon: Library },
+  { title: "Market Intel",         url: "/market-intel",   icon: Search },
+];
+
 
 const configurarItems = [
   { title: "Empresa", url: "/empresa",       icon: Building2 },
@@ -72,7 +79,7 @@ type NavItem = {
   badge?: "imperius" | "inbox" | "leads" | "rag";
 };
 
-// ── Badge pill ────────────────────────────────────────────────────────────────
+// â”€â”€ Badge pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BadgePill({ count }: { count: number }) {
   if (!count) return null;
   return (
@@ -82,7 +89,7 @@ function BadgePill({ count }: { count: number }) {
   );
 }
 
-// ── Single nav item ────────────────────────────────────────────────────────────
+// â”€â”€ Single nav item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function NavItemRow({
   item,
   collapsed,
@@ -111,7 +118,7 @@ function NavItemRow({
             <>
               <span className="flex-1 truncate">{item.title}</span>
               <BadgePill count={badgeCount} />
-              {/* Pin button — shown on hover when expanded */}
+              {/* Pin button â€” shown on hover when expanded */}
               <button
                 title={isFavorite ? "Remover favorito" : "Fixar no topo"}
                 onClick={(e) => {
@@ -135,7 +142,7 @@ function NavItemRow({
   );
 }
 
-// ── Nav group ─────────────────────────────────────────────────────────────────
+// â”€â”€ Nav group â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function NavGroup({
   label,
   items,
@@ -157,7 +164,7 @@ function NavGroup({
   return (
     <SidebarGroup className={!isLast ? "pb-2 mb-2 border-b border-sidebar-border/40" : ""}>
       {!collapsed && (
-        <SidebarGroupLabel className="nav-kicker px-3">· {label}</SidebarGroupLabel>
+        <SidebarGroupLabel className="nav-kicker px-3">Â· {label}</SidebarGroupLabel>
       )}
       <SidebarGroupContent>
         <SidebarMenu>
@@ -177,7 +184,7 @@ function NavGroup({
   );
 }
 
-// ── Main sidebar ──────────────────────────────────────────────────────────────
+// â”€â”€ Main sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -195,7 +202,7 @@ export function AppSidebar() {
   // All items pool for favourites lookup
   const allItems: NavItem[] = [
     ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...planejarItems, ...configurarItems,
+    ...planejarItems, ...adsFinancasItems, ...configurarItems,
   ];
 
   const favItems = favorites
@@ -220,11 +227,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="mt-3">
-        {/* ⭐ Favourites section — only shown when there are pinned items */}
+        {/* â­ Favourites section â€” only shown when there are pinned items */}
         {!collapsed && favItems.length > 0 && (
           <SidebarGroup className="pb-2 mb-2 border-b border-sidebar-border/40">
             <SidebarGroupLabel className="nav-kicker px-3">
-              · Favoritos
+              Â· Favoritos
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -245,8 +252,9 @@ export function AppSidebar() {
 
         <NavGroup label="Hoje"          items={hojeitems}         {...sharedProps} />
         <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
-        <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
+        <NavGroup label="InteligÃªncia"  items={inteligenciaItems} {...sharedProps} />
         <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
+        <NavGroup label="Ads / FinanÃ§as" items={adsFinancasItems} {...sharedProps} />
         <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
       </SidebarContent>
 

@@ -43,6 +43,14 @@ function renderVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
 }
 
+function withMentions(payload: any, campaign: any, jid: string): any {
+  if (campaign?.mention_all && typeof jid === "string" && jid.endsWith("@g.us")) {
+    payload.mentionsEveryOne = true;
+    payload.options = { ...(payload.options || {}), mentionsEveryOne: true };
+  }
+  return payload;
+}
+
 // 6C: stable hash → 0/1 for deterministic A/B split per group
 function hashAB(input: string): 0 | 1 {
   let h = 0;
@@ -187,6 +195,8 @@ serve(async (req) => {
           endpoint = `${apiUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`;
           payload = { number: currentGroupJid, mediatype: "document", media: mediaUrl, caption: rendered, fileName: "document" };
         }
+
+        withMentions(payload, campaign, currentGroupJid);
 
         try {
           await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, payload, 1);
@@ -369,6 +379,7 @@ serve(async (req) => {
               body = { number: groupJid, text: renderedContent };
             }
 
+            withMentions(body, campaign, groupJid);
             await sendWithRetry(endpoint, { "Content-Type": "application/json", apikey: apiKey }, body, 2);
 
             await supabase.from("imphq_wa_campaign_logs").insert({
@@ -402,6 +413,7 @@ serve(async (req) => {
                   : step.media_type === "audio"
                   ? { number: groupJid, audio: step.media_url }
                   : { number: groupJid, mediatype: step.media_type, media: step.media_url, caption: renderVariables(step.content || "", { produto: campaign.produto || "", campanha: campaign.name || "", grupo: "", grupo_nome: "", nome: "" }), fileName: "document" };
+                withMentions(fbBody, campaign, groupJid);
                 await sendWithRetry(fbEndpoint, { "Content-Type": "application/json", apikey: fbKey }, fbBody, 1);
                 await supabase.from("imphq_wa_campaign_logs").insert({
                   step_id: step.id, campaign_id: campaign.id, group_jid: groupJid, status: "sent", error: "FALLBACK_USED",

@@ -10,8 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic, Upload, FileIcon, Eye, Download, FileText, HelpCircle, Target } from "lucide-react";
+import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic, Upload, FileIcon, Eye, Download, FileText, HelpCircle, Target, Wand2, Package } from "lucide-react";
+import AIWizardDialog from "./AIWizardDialog";
+import SectorPackDialog from "./SectorPackDialog";
 import { RefineAIDialog } from "./RefineAIDialog";
+import AILearnedRulesPanel from "./AILearnedRulesPanel";
 import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
 import { MENTES_DATA } from "@/data/mentesData";
 
@@ -122,6 +125,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [saving, setSaving] = useState(false);
   const [customSkills, setCustomSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backfillLoading, setBackfillLoading] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
   const [refUploaded, setRefUploaded] = useState(false);
   const refAudioInputRef = useRef<HTMLInputElement>(null);
@@ -162,6 +166,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
   const [elevenLabsLoading, setElevenLabsLoading] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [packOpen, setPackOpen] = useState(false);
 
   const fetchElevenLabsVoices = async () => {
     setElevenLabsLoading(true);
@@ -813,14 +819,47 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               Configure como o cérebro artificial responderá aos seus leads no WhatsApp.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 bg-secondary/50 border border-border/40 px-3 py-1.5 rounded-full">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Status:</span>
-            <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5">
-              {config.enabled ? "ATIVO (Auto)" : "INATIVO (Manual)"}
-            </Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setWizardOpen(true)}
+              className="h-8 gap-1.5 border-primary/40 hover:bg-primary/10"
+            >
+              <Wand2 className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs">Wizard rápido</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPackOpen(true)}
+              className="h-8 gap-1.5 border-primary/40 hover:bg-primary/10"
+            >
+              <Package className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs">Pack por setor</span>
+            </Button>
+            <div className="flex items-center gap-2 bg-secondary/50 border border-border/40 px-3 py-1.5 rounded-full">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Status:</span>
+              <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] font-semibold px-2 py-0.5">
+                {config.enabled ? "ATIVO (Auto)" : "INATIVO (Manual)"}
+              </Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
+
+      <AIWizardDialog
+        projectId={projectId}
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onApplied={() => window.location.reload()}
+      />
+      <SectorPackDialog
+        projectId={projectId}
+        open={packOpen}
+        onOpenChange={setPackOpen}
+        onApplied={() => window.location.reload()}
+      />
 
       <CardContent className="p-0">
         <Tabs defaultValue="behavior" className="w-full">
@@ -838,6 +877,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               </TabsTrigger>
               <TabsTrigger value="training" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
                 <GraduationCap className="h-3.5 w-3.5" /> Cérebro & FAQ
+              </TabsTrigger>
+              <TabsTrigger value="learned" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
+                <Brain className="h-3.5 w-3.5" /> Aprendizado
               </TabsTrigger>
               <TabsTrigger value="playground" className="text-xs py-1.5 px-3 flex-1 flex items-center justify-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" /> Playground de Teste
@@ -1595,11 +1637,38 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     <p className="text-xs font-bold text-foreground">Aprendizado de Máquina (Auto-Learning)</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-normal">
-                    Indexa automaticamente respostas que sua equipe dá no chat humano. O cérebro da IA fica mais inteligente a cada conversa real!
+                    Indexa automaticamente respostas que você dá no chat humano <strong>e também pelo celular</strong>. O cérebro da IA fica mais inteligente a cada conversa real.
                   </p>
                 </div>
                 <Switch checked={(config as any).learning_mode !== false}
                   onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
+              </div>
+
+              {/* Backfill histórico */}
+              <div className="p-4 rounded-lg border border-border/30 bg-secondary/10 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">Aprender do histórico</p>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Varre as suas respostas humanas dos últimos 30 dias e indexa na knowledge base. Use uma vez após ativar o aprendizado.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" disabled={backfillLoading}
+                  onClick={async () => {
+                    setBackfillLoading(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("wa-learn-backfill", {
+                        body: { project_id: projectId, days: 30, limit: 500 },
+                      });
+                      if (error) throw error;
+                      toast.success(`✓ ${data?.aprendidas || 0} aprendidas · ${data?.dedupadas || 0} já existiam · ${data?.puladas || 0} puladas`);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Erro no backfill");
+                    } finally {
+                      setBackfillLoading(false);
+                    }
+                  }}>
+                  {backfillLoading ? "Processando…" : "Rodar agora"}
+                </Button>
               </div>
             </TabsContent>
 
@@ -2250,6 +2319,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* ── TAB: APRENDIZADO DA IA ── */}
+            <TabsContent value="learned" className="mt-0 animate-fade-in">
+              <AILearnedRulesPanel projectId={projectId} />
             </TabsContent>
 
             {/* ── TAB 5: PLAYGROUND DE TESTE ── */}

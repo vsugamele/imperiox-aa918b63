@@ -22,6 +22,8 @@ export default function Swipe() {
   const [swipes, setSwipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [vslOnly, setVslOnly] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -56,16 +58,26 @@ export default function Swipe() {
   }, [swipes]);
 
   const filtered = useMemo(() => {
-    if (activeChips.size === 0) return swipes;
-    return swipes.filter((s) => {
-      const hay = new Set<string>();
-      if (s.mecanismo) hay.add(s.mecanismo);
-      if (s.nicho) hay.add(s.nicho);
-      (s.tags || []).forEach((t: string) => hay.add(t));
-      for (const c of activeChips) if (hay.has(c)) return true;
-      return false;
-    });
-  }, [swipes, activeChips]);
+    let arr = swipes;
+    if (vslOnly) arr = arr.filter((s) => s.formato === "vsl");
+    if (search.trim()) {
+      const k = search.toLowerCase();
+      arr = arr.filter((s) =>
+        `${s.title || ""} ${s.raw_text || ""} ${s.criador || ""} ${(s.tags || []).join(" ")}`.toLowerCase().includes(k),
+      );
+    }
+    if (activeChips.size > 0) {
+      arr = arr.filter((s) => {
+        const hay = new Set<string>();
+        if (s.mecanismo) hay.add(s.mecanismo);
+        if (s.nicho) hay.add(s.nicho);
+        (s.tags || []).forEach((t: string) => hay.add(t));
+        for (const c of activeChips) if (hay.has(c)) return true;
+        return false;
+      });
+    }
+    return arr;
+  }, [swipes, activeChips, search, vslOnly]);
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
@@ -155,6 +167,27 @@ export default function Swipe() {
       </div>
 
       {/* CHIPS */}
+      {/* BUSCA + FILTRO VSL */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar título, criador, transcrição, tag..."
+          className="flex-1 min-w-[220px] h-9 px-3 text-xs rounded-md bg-secondary/30 border border-border/40 focus:border-[hsl(var(--gold))]/50 outline-none"
+        />
+        <button
+          onClick={() => setVslOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            vslOnly
+              ? "bg-amber-500/15 border-amber-500/50 text-amber-400"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          🎬 Só VSL ({swipes.filter((s) => s.formato === "vsl").length})
+        </button>
+      </div>
+
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5 items-center">
           <button

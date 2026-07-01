@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ProactiveAlertsBell } from "@/components/ProactiveAlertsBell";
+
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
+import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -105,6 +109,9 @@ function CmdKHint() {
   );
 }
 
+// Preferência de view persistente (compartilhada com ProtectedRoute e MobileCockpit)
+const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
+
 export function AppLayout() {
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -115,6 +122,26 @@ export function AppLayout() {
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
   }, [open]);
+
+  // Mobile auto-redirect → /mobile-cockpit
+  // Escape persistente: ?desktop=1 grava localStorage; usuário só precisa fazer 1x.
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    if (!isMobile) return;
+    if (pathname.startsWith("/mobile-cockpit")) return;
+    try {
+      const params = new URLSearchParams(search);
+      if (params.get("desktop") === "1") {
+        localStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
+        return;
+      }
+      if (localStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
+    } catch {}
+    navigate("/mobile-cockpit", { replace: true });
+  }, [isMobile, pathname, search, navigate]);
+
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
@@ -133,8 +160,10 @@ export function AppLayout() {
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />
+              <ProactiveAlertsBell />
               <NotificationBell />
             </div>
+
             <div className="header-hairline" />
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-6">
@@ -142,6 +171,7 @@ export function AppLayout() {
           </main>
         </div>
         <CopilotFab />
+        <ImperiusRail />
       </div>
     </SidebarProvider>
   );

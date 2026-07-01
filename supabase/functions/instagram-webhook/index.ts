@@ -7,6 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+// Espelha thumbnails/anexos do Instagram (URLs assinadas, expiram) no bucket ig-media.
+async function persistIgMedia(supa: any, remoteUrl: string | null | undefined, projectId: string, key: string): Promise<string | null> {
+  if (!remoteUrl || !projectId || !key) return null;
+  try {
+    const r = await fetch(remoteUrl);
+    if (!r.ok) return null;
+    const ct = (r.headers.get("content-type") || "image/jpeg").split(";")[0].trim().toLowerCase();
+    const extMap: Record<string, string> = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      "video/mp4": "mp4", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/ogg": "ogg",
+    };
+    const ext = extMap[ct] || ct.split("/")[1] || "bin";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const path = `${projectId}/${key}.${ext}`;
+    let { error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true });
+    if (error?.message?.includes("Bucket not found")) {
+      await supa.storage.createBucket("ig-media", { public: true }).catch(() => {});
+      ({ error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true }));
+    }
+    if (error) { console.warn("[ig-media] upload:", error.message); return null; }
+    const { data } = supa.storage.from("ig-media").getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e: any) {
+    console.warn("[ig-media] fetch err:", e?.message || e);
+    return null;
+  }
+}
+
 // Consistent embedding getter
 async function getEmbedding(text: string): Promise<number[]> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -105,13 +133,29 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
+    const fallbackProjectId = url.searchParams.get("project");
+
     for (const entry of payload.entry || []) {
       const igUserId = entry.id;
-      const { data: account } = await supa
-        .from("imphq_ig_accounts")
-        .select("id, project_id")
-        .eq("ig_user_id", igUserId)
-        .maybeSingle();
+      let account: any = null;
+      if (igUserId) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("ig_user_id", igUserId)
+          .maybeSingle();
+        account = data || null;
+      }
+      // Fallback: payloads sem entry.id (ex: forward Zernio) — resolve pela query string
+      if (!account && fallbackProjectId) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("project_id", fallbackProjectId)
+          .limit(1)
+          .maybeSingle();
+        account = data || null;
+      }
       if (!account) continue;
 
       // --- MENSAGENS (DMs) ---
@@ -141,7 +185,7 @@ Deno.serve(async (req) => {
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
           .upsert(upsertData, { onConflict: "account_id,participant_id" })
-          .select("id, participant_username, participant_name, ai_paused")
+          .select("id, participant_username, participant_name, ai_paused, ai_paused_until")
           .single();
 
         // Fetch/Update user profile info if missing
@@ -181,12 +225,16 @@ Deno.serve(async (req) => {
 
         if (conv && messaging.message) {
           const content = messaging.message.text || null;
+          const remoteMedia = messaging.message.attachments?.[0]?.payload?.url || null;
+          const persistedMedia = remoteMedia
+            ? await persistIgMedia(supa, remoteMedia, account.project_id, `dm/${conv.id}/${messaging.message.mid || Date.now()}`)
+            : null;
           await supa.from("imphq_ig_messages").insert({
             conversation_id: conv.id,
             direction: isInbound ? "in" : "out",
             type: messaging.message.attachments?.[0]?.type || "text",
             content,
-            media_url: messaging.message.attachments?.[0]?.payload?.url || null,
+            media_url: persistedMedia || remoteMedia,
             mid: messaging.message.mid,
             status: "received",
           });
@@ -289,10 +337,16 @@ Deno.serve(async (req) => {
                     return;
                   }
 
-                  // Check per-conversation human takeover
-                  if (conv?.ai_paused) {
-                    console.log(`[ig-webhook] Human takeover active for conversation ${conv.id} — skipping AI reply`);
+                  // Check per-conversation human takeover (permanente ou temporário)
+                  const pausedUntil = (conv as any)?.ai_paused_until ? new Date((conv as any).ai_paused_until) : null;
+                  const stillPaused = pausedUntil && pausedUntil > new Date();
+                  if (conv?.ai_paused || stillPaused) {
+                    console.log(`[ig-webhook] Human takeover ativo conv=${conv.id} (until=${(conv as any)?.ai_paused_until || 'permanente'})`);
                     return;
+                  }
+                  // Auto-expira pausa temporária vencida
+                  if (pausedUntil && pausedUntil <= new Date()) {
+                    await supabase.from("imphq_ig_conversations").update({ ai_paused_until: null } as any).eq("id", conv.id);
                   }
 
                   // 1. Business hours check
@@ -511,7 +565,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   });
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
@@ -534,7 +588,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] OpenRouter primary model failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
                   } catch (e: any) {
                     console.warn("[ig-webhook] AI provider call failed:", e?.message);
@@ -847,7 +901,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                   ];
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
@@ -870,7 +924,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] Comment OpenRouter failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
                   } catch (e: any) {
                     console.warn("[ig-webhook] Comment AI provider call failed:", e?.message);

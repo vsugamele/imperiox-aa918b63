@@ -83,7 +83,15 @@ export function ActionInbox() {
         });
         if (error) throw error;
         if (!data?.ok) throw new Error(data?.error || "Falhou");
-        toast.success(mode === "revert" ? "Ação revertida" : "Ação executada");
+        const redirect = data?.result?.redirect;
+        if (mode === "execute" && a.kind === "createFlow" && redirect) {
+          toast.success("Draft criado!", {
+            action: { label: "Abrir em OpenFlow", onClick: () => { window.location.href = redirect; } },
+            duration: 8000,
+          });
+        } else {
+          toast.success(mode === "revert" ? "Ação revertida" : "Ação executada");
+        }
       }
       await load();
     } catch (e: any) {
@@ -92,6 +100,7 @@ export function ActionInbox() {
       setBusyId(null);
     }
   };
+
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -128,8 +137,38 @@ export function ActionInbox() {
                 <div key={a.id} className="border border-border rounded-lg p-3 bg-background/40 leading-7">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
+                      {a.kind === "createFlow" && (
+                        <Badge variant="outline" className="text-[9px] uppercase mb-1 bg-violet-500/15 text-violet-300 border-violet-500/30">
+                          Nova Automação Sugerida
+                        </Badge>
+                      )}
                       <p className="text-sm font-medium text-foreground">{a.title}</p>
                       {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
+                      {a.kind === "createFlow" && a.payload?.pattern_evidence?.estimated_recovery && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-300 border-emerald-500/30">
+                            📈 {a.payload.pattern_evidence.estimated_recovery}
+                          </Badge>
+                          {a.payload.pattern_evidence.metric && (
+                            <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-300 border-amber-500/30">
+                              {a.payload.pattern_evidence.metric}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      {a.kind === "createFlow" && Array.isArray(a.payload?.acoes) && (
+                        <div className="mt-2 space-y-1 pl-2 border-l border-violet-500/30">
+                          {a.payload.acoes.map((step: any, i: number) => (
+                            <p key={i} className="text-[11px] text-muted-foreground">
+                              <span className="text-violet-300 font-mono">{i + 1}.</span>{" "}
+                              <span className="uppercase tracking-wider text-[10px]">{step.tipo}</span>
+                              {step.delay_min > 0 && <span className="text-foreground/60"> · aguardar {step.delay_min}min</span>}
+                              {step.template && <span className="text-foreground/70"> — "{String(step.template).slice(0, 60)}{String(step.template).length > 60 ? "…" : ""}"</span>}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <Badge variant="outline" className={`text-[10px] uppercase ${riskColor(a.risk_level)}`}>
@@ -140,6 +179,7 @@ export function ActionInbox() {
                       )}
                     </div>
                   </div>
+
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                       <span>{formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}</span>
@@ -158,8 +198,9 @@ export function ActionInbox() {
                           </Button>
                           <Button size="sm" className="h-7 px-2" disabled={busyId === a.id} onClick={() => handle(a, "execute")}>
                             {busyId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                            <span className="ml-1 text-xs">Aprovar</span>
+                            <span className="ml-1 text-xs">{a.kind === "createFlow" ? "Criar Draft" : "Aprovar"}</span>
                           </Button>
+
                         </>
                       )}
                       {a.status === "executed" && (

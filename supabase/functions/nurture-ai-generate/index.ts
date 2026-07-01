@@ -1,6 +1,5 @@
-// Gera (ou expande) uma sequência de nutrição com IA. Usa briefing + projeto + avatar.
+// Gera sequência de nutrição delegando a copy ao Motor de Copy unificado (intent: nurture_sequence).
 // Input: { project_id, sequence_id?, produto_nome, nome?, objetivo?, count?: number, briefing?: string }
-// Cria registros em imphq_nurture_sequences (se sequence_id ausente) e imphq_nurture_emails.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
@@ -9,7 +8,6 @@ const corsHeaders = {
 };
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -29,30 +27,35 @@ Deno.serve(async (req) => {
       seqId = created.id;
     }
 
-    const { data: proj } = await sb.from("imphq_projects").select("name,avatar,brand_kit,settings").eq("id", project_id).maybeSingle();
-    const avatarStr = JSON.stringify(proj?.avatar || {}).slice(0, 800);
-    const brandStr = JSON.stringify(proj?.brand_kit || {}).slice(0, 400);
+    // Delega ao Motor de Copy
+    const userPrompt = `Gere exatamente ${count} e-mails.
+Produto: ${produto_nome}
+Objetivo: ${objetivo || "Converter lead em comprador em até 1 ano"}
+Briefing: ${briefing || "(livre)"}`;
 
-    const sys = `Você é especialista em e-mail marketing de nutrição. Gere ${count} e-mails para 1 ano de relacionamento (lead → comprador). Mix: conteúdo (60%), conexão (20%), oferta (20%). Estágios: topo/meio/fundo. Responda JSON: { "emails": [{ "dia_numero": int, "estagio": "topo"|"meio"|"fundo", "assunto": "...", "corpo_texto": "...", "corpo_html": "<p>...</p>" }] }`;
-    const user = `Projeto: ${proj?.name}\nProduto: ${produto_nome}\nObjetivo: ${objetivo || "Converter lead em comprador em até 1 ano"}\nBriefing: ${briefing}\nAvatar: ${avatarStr}\nBranding: ${brandStr}`;
-
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const ceResp = await fetch(`${SUPABASE_URL}/functions/v1/copy-engine`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+      },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-        response_format: { type: "json_object" },
+        intent: "nurture_sequence",
+        input: userPrompt,
+        context: { project_id, product_slug: produto_nome },
       }),
     });
-    if (!resp.ok) {
-      const t = await resp.text();
-      const st = resp.status === 429 || resp.status === 402 ? resp.status : 500;
-      return new Response(JSON.stringify({ error: `AI ${resp.status}: ${t.slice(0, 200)}` }), { status: st, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (!ceResp.ok) {
+      const t = await ceResp.text();
+      const st = ceResp.status === 429 || ceResp.status === 402 ? ceResp.status : 500;
+      return new Response(JSON.stringify({ error: `copy-engine ${ceResp.status}: ${t.slice(0, 300)}` }), { status: st, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const data = await resp.json();
+
+    const ceData = await ceResp.json();
     let parsed: any;
-    try { parsed = JSON.parse(data?.choices?.[0]?.message?.content || "{}"); } catch { parsed = { emails: [] }; }
+    try { parsed = JSON.parse(ceData?.content || "{}"); } catch { parsed = { emails: [] }; }
     const emails = (parsed.emails || []).slice(0, count);
 
     const rows = emails.map((e: any) => ({
@@ -64,8 +67,8 @@ Deno.serve(async (req) => {
       corpo_html: e.corpo_html || `<p>${(e.corpo_texto || "").replace(/\n/g, "</p><p>")}</p>`,
       status: "rascunho",
       gerado_por_ia: true,
-      modelo_ia: "google/gemini-3-flash-preview",
-      contexto_usado: { briefing, produto_nome },
+      modelo_ia: ceData?.model || "copy-engine",
+      contexto_usado: { briefing, produto_nome, intent: "nurture_sequence" },
     }));
     if (rows.length) await sb.from("imphq_nurture_emails").insert(rows);
 

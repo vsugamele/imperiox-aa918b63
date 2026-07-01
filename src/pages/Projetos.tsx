@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2 } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles } from "lucide-react";
+import { AutopilotModal } from "@/components/projeto/AutopilotModal";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -120,6 +121,7 @@ export default function Projetos() {
   const [creatingFromTemplate, setCreatingFromTemplate] = useState(false);
   const [activeFolder, setActiveFolder] = useState("all");
   const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
+  const [autopilotOpen, setAutopilotOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -280,6 +282,9 @@ export default function Projetos() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-primary">Projetos</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="default" onClick={() => setAutopilotOpen(true)} className="bg-primary/90 hover:bg-primary">
+            <Sparkles className="h-4 w-4 mr-1" /> Autopilot
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)}>
             <BookTemplate className="h-4 w-4 mr-1" /> Criar de Template
           </Button>
@@ -582,6 +587,8 @@ export default function Projetos() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AutopilotModal open={autopilotOpen} onOpenChange={setAutopilotOpen} onCreated={load} />
     </div>
   );
 }

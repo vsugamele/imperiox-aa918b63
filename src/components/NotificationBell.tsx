@@ -73,9 +73,11 @@ export function NotificationBell() {
   }, [user]);
 
   async function loadNotifications() {
+    if (!user) return;
     const { data } = await supabase
       .from("imphq_notifications")
-      .select("*")
+      .select("id,title,message,type,entity_type,entity_id,read,created_at")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(30);
     if (data) setNotifications(data as Notification[]);

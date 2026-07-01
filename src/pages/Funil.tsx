@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjectList } from "@/hooks/useProjectList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, MessageSquare, MousePointerClick, CreditCard, CheckCircle2,
-  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles
+  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles, Trophy, Link2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,7 +43,7 @@ type AttributionRow = {
 };
 
 export default function Funil() {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const { data: projects = [] } = useProjectList();
   const [projectId, setProjectId] = useState<string>("");
   const [days, setDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
@@ -51,14 +52,12 @@ export default function Funil() {
   const [sourceBreakdown, setSourceBreakdown] = useState<SourceBreakdown[]>([]);
   const [recentMatches, setRecentMatches] = useState<AttributionRow[]>([]);
   const [topTemplates, setTopTemplates] = useState<{ template: string; sent: number; sales: number; rate: number }[]>([]);
+  const [revenue, setRevenue] = useState<{ total: number; ticket: number; count: number }>({ total: 0, ticket: 0, count: 0 });
+
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      const list = (data || []) as any[];
-      setProjects(list);
-      if (list.length > 0) setProjectId(list[0].id);
-    });
-  }, []);
+    if (!projectId && projects.length > 0) setProjectId(projects[0].id);
+  }, [projects, projectId]);
 
   const reload = async () => {
     if (!projectId) return;
@@ -92,6 +91,24 @@ export default function Funil() {
       const linksClicados = (attrs || []).filter((a: any) => a.clicked_at).length;
       const vendasGeradas = (attrs || []).filter((a: any) => a.venda_id).length;
       const vendasAprovadas = (attrs || []).filter((a: any) => a.venda_status === "aprovado").length;
+
+      // Receita real via venda_ids atribuídos a esse funil
+      const vendaIds = Array.from(new Set((attrs || []).filter((a: any) => a.venda_id).map((a: any) => a.venda_id)));
+      let totalRev = 0; let countRev = 0;
+      if (vendaIds.length > 0) {
+        const { data: vendas } = await supabase
+          .from("imphq_vendas")
+          .select("id, valor, valor_liquido, status")
+          .in("id", vendaIds);
+        for (const v of (vendas || []) as any[]) {
+          if ((v.status || "").toLowerCase() === "aprovado") {
+            totalRev += Number(v.valor_liquido ?? v.valor) || 0;
+            countRev++;
+          }
+        }
+      }
+      setRevenue({ total: totalRev, ticket: countRev > 0 ? totalRev / countRev : 0, count: countRev });
+
 
       setStages([
         { label: "Leads capturados", count: leadsCount || 0, icon: Users, color: "blue", description: "Entraram no sistema" },
@@ -200,16 +217,30 @@ export default function Funil() {
 
       {/* KPI principal */}
       <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent">
-        <CardContent className="p-4 flex flex-col md:flex-row md:items-end gap-4 justify-between">
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
-            <p className="text-4xl font-bold text-emerald-400">{conversionRate}%</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads em {days} dias</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
+            <p className="text-3xl font-bold text-emerald-400">{conversionRate}%</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita atribuída</p>
+            <p className="text-3xl font-bold text-primary">
+              R$ {revenue.total >= 1000 ? `${(revenue.total / 1000).toFixed(1)}k` : revenue.total.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">{revenue.count} vendas aprovadas em {days}d</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket médio</p>
+            <p className="text-3xl font-bold text-foreground">
+              R$ {revenue.ticket >= 1000 ? `${(revenue.ticket / 1000).toFixed(1)}k` : revenue.ticket.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">por venda aprovada</p>
           </div>
           {stages.length > 0 && (
-            <div className="text-right space-y-1">
-              <p className="text-[10px] text-muted-foreground uppercase">Maior gargalo</p>
-              <p className="text-sm font-semibold text-amber-400">
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maior gargalo</p>
+              <p className="text-sm font-semibold text-amber-400 mt-2">
                 {(() => {
                   let maxDrop = 0; let maxIdx = 0;
                   for (let i = 1; i < stages.length; i++) {
@@ -226,6 +257,7 @@ export default function Funil() {
           )}
         </CardContent>
       </Card>
+
 
       {/* Funil visual */}
       <Card>
@@ -276,9 +308,9 @@ export default function Funil() {
       {/* Tabs: source breakdown / templates / matches recentes */}
       <Tabs defaultValue="sources" className="w-full">
         <TabsList>
-          <TabsTrigger value="sources">🎯 Por origem</TabsTrigger>
-          <TabsTrigger value="templates">🏆 Templates campeões</TabsTrigger>
-          <TabsTrigger value="matches">🔗 Últimas vendas atribuídas</TabsTrigger>
+          <TabsTrigger value="sources" className="gap-1.5"><Target className="h-3.5 w-3.5" /> Por origem</TabsTrigger>
+          <TabsTrigger value="templates" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Templates campeões</TabsTrigger>
+          <TabsTrigger value="matches" className="gap-1.5"><Link2 className="h-3.5 w-3.5" /> Últimas vendas atribuídas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sources" className="mt-4 space-y-2">

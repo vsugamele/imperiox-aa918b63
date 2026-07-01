@@ -26,7 +26,7 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
 
       let salesQ = supabase.from("imphq_vendas").select("id, project_id, lead_id, produto_nome, status, valor, created_at, data_venda, data").gte("created_at", salesFrom).limit(2000);
       let leadsQ = supabase.from("imphq_leads").select("id, project_id, nome, email, phone, status, criado_em, updated_at, data").limit(2000);
-      let logsQ = supabase.from("imphq_recovery_logs").select("*").gte("created_at", logsFrom).limit(2000);
+      let logsQ = supabase.from("imphq_recovery_logs").select("id, project_id, lead_id, venda_id, bucket, status, valor, created_at").gte("created_at", logsFrom).limit(2000);
 
       if (projectFilter && projectFilter !== "all") {
         salesQ = salesQ.eq("project_id", projectFilter);

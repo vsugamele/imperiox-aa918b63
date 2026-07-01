@@ -109,7 +109,7 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       setLoading(false);
     };
     load();
-    const t = setInterval(load, 2 * 60 * 1000);
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 2 * 60 * 1000);
     return () => clearInterval(t);
   }, [projectId]);
 

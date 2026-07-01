@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +11,20 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FlowEditorCanvas } from "./FlowEditorCanvas";
+import { useFlowHistory } from "./flow-editor/useFlowHistory";
+import { validateFlow } from "./flow-editor/validate";
+import { ValidationPanel } from "./flow-editor/ValidationPanel";
+import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { MediaPicker } from "./MediaPicker";
+import { ABVariantStats } from "./flow-editor/ABVariantStats";
+import { Undo2, Redo2 } from "lucide-react";
+
 
 const CONDICAO_TIPOS = [
   { value: "nao_abriu_email", label: "Não abriu email" },
@@ -54,6 +62,10 @@ const ACAO_TIPOS = [
   { value: "ia_scheduling", label: "Agendamento por IA", icon: Clock, emoji: "📅", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "semantic_router", label: "Roteador Semântico (IA)", icon: GitBranch, emoji: "🔀", color: "border-purple-500/40 bg-purple-500/5 hover:border-purple-400" },
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
+  { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
+  { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
+  { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
+  { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -87,6 +99,7 @@ const DYNAMIC_VARS = [
 ];
 
 export interface Acao {
+  id?: string;
   tipo: string;
   template: string;
   delay_min: number;
@@ -99,6 +112,9 @@ export interface Acao {
   voice_stability?: number;
   voice_clarity?: number;
   tag?: string;
+  next_id?: string;
+  true_next_id?: string;
+  false_next_id?: string;
   else_action?: string;
   else_skip?: number;
   // branch_by_awareness
@@ -115,7 +131,19 @@ export interface Acao {
   lead_stage?: string;
   // wait_event
   event_name?: string;
+  event_names?: string;
   timeout_min?: number;
+  // branch_by_score
+  score_min?: number;
+  score_max?: number;
+  // slack_notify
+  text?: string;
+  // update_lead
+  lead_field?: string;
+  lead_op?: string;
+  lead_value?: string;
+  // move_stage
+  target_stage?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
@@ -138,6 +166,8 @@ export interface Acao {
   ia_vision?: boolean;
   ia_voice_response?: boolean;
   ia_routes?: { name: string; jump_steps: number }[];
+  personality_prompt?: string;
+  questioning_strategy?: string;
   // condicao_lead
   condition_field?: string;
   condition_operator?: string;
@@ -171,6 +201,15 @@ export interface Acao {
   work_hours_start?: string;
   work_hours_end?: string;
   work_days?: string;
+  // generic fields used by validators / canvas
+  mensagem?: string;
+  corpo?: string;
+  assunto?: string;
+  conteudo?: string;
+  position_x?: number;
+  position_y?: number;
+  // media attachment (WhatsApp node)
+  media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
 }
 
 export interface WaProvider {
@@ -198,13 +237,21 @@ interface FlowEditorProps {
   projectId?: string;
   onTemplateSaved?: () => void;
   automacaoId?: string;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
+  onTriggerChange?: (trigger: string) => void;
 }
 
 export function FlowEditor({
-  triggerTipo, acoes, onChange, onGenerateAI, isGenerating,
+  triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
-  automacaoId
+  automacaoId, flowObjective, onUpdateObjective, onTriggerChange,
 }: FlowEditorProps) {
+
+  const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
+  const onChange = history.push;
+  const issues = useMemo(() => validateFlow(acoes), [acoes]);
+
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
@@ -300,6 +347,18 @@ export function FlowEditor({
 
     fetchStats();
   }, [automacaoId, acoes.length]);
+
+  useEffect(() => {
+    // Ensure all actions have a unique ID for graph branching
+    const needsIds = acoes.some(a => !a.id);
+    if (needsIds) {
+      const updated = acoes.map(a => ({
+        ...a,
+        id: a.id || crypto.randomUUID()
+      }));
+      onChange(updated);
+    }
+  }, [acoes, onChange]);
 
   useEffect(() => {
     if (!projectId) {
@@ -568,14 +627,35 @@ export function FlowEditor({
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
 
   const addAcao = (insertAt?: number) => {
-    const newAcao: Acao = { tipo: "email", template: "", delay_min: 0 };
+    const newAcao: Acao = { 
+      id: crypto.randomUUID(),
+      tipo: "email", 
+      template: "", 
+      delay_min: 0 
+    };
     if (insertAt !== undefined) {
       const updated = [...acoes];
+      // When inserting between nodes, we should probably update connections too
+      // but for now let's just insert into the array for compatibility
       updated.splice(insertAt + 1, 0, newAcao);
+      
+      // Update next_id if it's a linear flow
+      if (updated[insertAt]) {
+        updated[insertAt].next_id = newAcao.id;
+      }
+      if (updated[insertAt + 2]) {
+        newAcao.next_id = updated[insertAt + 2].id;
+      }
+
       onChange(updated);
       setSelectedIdx(insertAt + 1);
     } else {
-      onChange([...acoes, newAcao]);
+      const lastAcao = acoes[acoes.length - 1];
+      const updated = [...acoes, newAcao];
+      if (lastAcao) {
+        lastAcao.next_id = newAcao.id;
+      }
+      onChange(updated);
       setSelectedIdx(acoes.length);
     }
     toast.success("Novo nó adicionado ao fluxo!");
@@ -662,7 +742,46 @@ export function FlowEditor({
             </Button>
           </>
         )}
+
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.undo}
+          disabled={!history.canUndo}
+          title={`Desfazer (Ctrl+Z) — ${history.pastSize} passos`}
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.redo}
+          disabled={!history.canRedo}
+          title="Refazer (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <ValidationPanel
+          issues={issues}
+          onJump={(i) => {
+            setSelectedIdx(i);
+            const el = document.querySelector(`[data-step-index="${i}"]`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
+        <TemplatePicker
+          triggerTipo={triggerTipo}
+          onApply={(novasAcoes) => {
+            onChange(novasAcoes);
+            toast.success("Template aplicado");
+          }}
+        />
       </div>
+
 
       {/* ── VIEWPORT TABS (Top Centered Toolbar) ── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-lg shrink-0 select-none">
@@ -727,8 +846,10 @@ export function FlowEditor({
             acoes={acoes}
             triggerTipo={triggerTipo}
             onChange={onChange}
-            onNodeClick={(acao, index) => setSelectedIdx(index)}
+            onActionSelect={setSelectedIdx}
             stepStats={stepStats}
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
           />
         ) : (
           <div 
@@ -750,9 +871,38 @@ export function FlowEditor({
               <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
                 {trigger.icon}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-[8px] font-bold tracking-widest text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">Gatilho Principal</span>
-                <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                {onTriggerChange ? (
+                  <Select
+                    value={triggerTipo}
+                    onValueChange={(v) => {
+                      onTriggerChange(v);
+                      toast.success(`Gatilho alterado para "${TRIGGERS_MAP[v]?.label || v}"`);
+                    }}
+                  >
+                    <SelectTrigger className="h-7 mt-1 bg-transparent border-0 px-0 py-0 text-xs font-bold text-foreground hover:text-primary focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[60vh]">
+                      {Object.entries(
+                        Object.entries(TRIGGERS_MAP).reduce<Record<string, [string, typeof TRIGGERS_MAP[string]][]>>((acc, [k, v]) => {
+                          (acc[v.group] = acc[v.group] || []).push([k, v]);
+                          return acc;
+                        }, {})
+                      ).map(([group, items]) => (
+                        <div key={group}>
+                          <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{group}</div>
+                          {items.map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
+                          ))}
+                        </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                )}
               </div>
               
               {/* Output Connection Node */}
@@ -766,18 +916,30 @@ export function FlowEditor({
           {acoes.length > 0 && <SVGBezierConnector delay="0s" />}
 
           {acoes.length === 0 && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-3">
               <SVGBezierConnector delay="0s" />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => addAcao()} 
-                className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <TemplatePicker
+                  triggerTipo={triggerTipo}
+                  variant="hero"
+                  onApply={(novasAcoes) => {
+                    onChange(novasAcoes);
+                    toast.success("Template aplicado");
+                  }}
+                />
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">ou</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addAcao()}
+                  className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
+                </Button>
+              </div>
             </div>
           )}
+
 
           {/* ACTION NODES (Floating Serpentine Seriado Layout) */}
           {acoes.map((acao, idx) => {
@@ -796,6 +958,7 @@ export function FlowEditor({
             return (
               <div 
                 key={idx} 
+                data-step-index={idx}
                 className="flex flex-col items-center shrink-0"
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={(e) => handleDrop(e, idx)}
@@ -1566,8 +1729,16 @@ export function FlowEditor({
                         Número de ações consecutivas a serem puladas caso o lead caia na Rota B.
                       </p>
                     </div>
+
+                    <ABVariantStats
+                      automacaoId={automacaoId}
+                      stepIndex={selectedIdx}
+                      jumpSteps={acao.jump_steps ?? 1}
+                      onPromoteWinner={(pct) => updateAcao(selectedIdx, "rota_a_porcentagem", pct)}
+                    />
                   </div>
                 )}
+
 
                 {/* branch_by_awareness */}
                 {acao.tipo === "branch_by_awareness" && (
@@ -1620,7 +1791,46 @@ export function FlowEditor({
                   </div>
                 )}
 
-                {/* update_memory */}
+                {/* branch_by_score */}
+                {acao.tipo === "branch_by_score" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Continua o fluxo apenas se o score do lead estiver dentro do intervalo. Caso contrário, pula N nós.
+                      <br />Sugestão: cold &lt;30, warm 30-70, hot &gt;70.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score mín.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_min ?? 0} onChange={e => updateAcao(selectedIdx, "score_min", parseInt(e.target.value) || 0)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score máx.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_max ?? 100} onChange={e => updateAcao(selectedIdx, "score_max", parseInt(e.target.value) || 100)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pular N nós (se fora do range)</Label>
+                      <Input type="number" min={1} value={acao.else_skip ?? 1} onChange={e => updateAcao(selectedIdx, "else_skip", parseInt(e.target.value) || 1)} className="h-9 text-xs bg-background/50 border-border/80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* slack_notify */}
+                {acao.tipo === "slack_notify" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Envia uma mensagem para um canal do Slack via Incoming Webhook. Use <code className="bg-muted px-0.5 rounded">{"{{variavel}}"}</code> no texto.
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Webhook URL</Label>
+                      <Input value={acao.webhook_url || ""} onChange={e => updateAcao(selectedIdx, "webhook_url", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="https://hooks.slack.com/services/..." />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Texto</Label>
+                      <Textarea value={acao.text || ""} onChange={e => updateAcao(selectedIdx, "text", e.target.value)} className="text-xs bg-background/50 border-border/80 min-h-[80px]" placeholder="🔥 Novo hot lead: {{nome}} ({{phone}})" />
+                    </div>
+                  </div>
+                )}
                 {acao.tipo === "update_memory" && (
                   <div className="space-y-3">
                     <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
@@ -2099,6 +2309,20 @@ export function FlowEditor({
                   </div>
                 )}
 
+                {/* Media attachment for WhatsApp */}
+                {acao.tipo === "whatsapp" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                      📎 Mídia anexada <span className="text-muted-foreground/50 normal-case font-normal">(opcional — o template vira legenda)</span>
+                    </Label>
+                    <MediaPicker
+                      value={acao.media || null}
+                      projects={projectId ? [{ id: projectId, name: "Projeto atual" }] : []}
+                      onChange={(m) => updateAcao(selectedIdx, "media" as any, m)}
+                    />
+                  </div>
+                )}
+
                 {/* Audio Custom Voice Settings */}
                 {acao.tipo === "audio" && (
                   <div className="space-y-3 border-t border-border/40 pt-3">
@@ -2198,6 +2422,68 @@ export function FlowEditor({
                     </p>
                   </div>
                 )}
+
+                {/* update_lead fields */}
+                {acao.tipo === "update_lead" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Campo do Lead</Label>
+                        <Select value={acao.lead_field || ""} onValueChange={v => updateAcao(selectedIdx, "lead_field", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="status">status</SelectItem>
+                            <SelectItem value="score">score (número)</SelectItem>
+                            <SelectItem value="awareness_level">awareness_level</SelectItem>
+                            <SelectItem value="nome">nome</SelectItem>
+                            <SelectItem value="email">email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Operação</Label>
+                        <Select value={acao.lead_op || "set"} onValueChange={v => updateAcao(selectedIdx, "lead_op", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="set">Definir (set)</SelectItem>
+                            <SelectItem value="inc">Incrementar (+) — apenas score</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Valor</Label>
+                      <Input
+                        value={acao.lead_value ?? ""}
+                        onChange={e => updateAcao(selectedIdx, "lead_value", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: qualificado, 25, sales_aware"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👤 Atualiza o campo no registro do lead. Para <code>score</code> use número; para <code>awareness_level</code> use unaware/problem_aware/solution_aware/product_aware/most_aware.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* move_stage fields */}
+                {acao.tipo === "move_stage" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Novo Funil/Etapa (funil_id)</Label>
+                      <Input
+                        value={acao.target_stage || ""}
+                        onChange={e => updateAcao(selectedIdx, "target_stage", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: aquisicao, conversao, retencao"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        ➡️ Move o lead para outra etapa do funil atualizando <code>imphq_leads.funil_id</code>. Use o slug exato da etapa.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 
                 {/* notify_operator fields */}
                 {acao.tipo === "notify_operator" && (
@@ -2361,6 +2647,32 @@ export function FlowEditor({
                       </Select>
                       <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
                         Define a persona e o tom de voz que a IA usará especificamente nesta etapa do fluxo.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Instruções de Agir (Persona)</Label>
+                      <Textarea 
+                        value={acao.personality_prompt || ""} 
+                        onChange={e => updateAcao(selectedIdx, "personality_prompt", e.target.value)}
+                        placeholder="Ex: Aja como um vendedor amigável que nunca pressiona o cliente, mas usa gatilhos de prova social..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Como a IA deve se comportar nesta etapa? (Tom de voz, restrições, estilo).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">O que perguntar? (Direcionamento)</Label>
+                      <Textarea 
+                        value={acao.questioning_strategy || ""} 
+                        onChange={e => updateAcao(selectedIdx, "questioning_strategy", e.target.value)}
+                        placeholder="Ex: Pergunte se o problema dele é o preço ou a falta de tempo para implementar..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Quais perguntas ou tópicos a IA deve abordar para direcionar o lead?
                       </p>
                     </div>
 

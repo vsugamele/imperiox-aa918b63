@@ -16,10 +16,12 @@ const AISaude = lazy(() => import("./pages/AISaude"));
 const Funil = lazy(() => import("./pages/Funil"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const ProjetoDetalhe = lazy(() => import("./pages/ProjetoDetalhe"));
+const AutopilotProgress = lazy(() => import("./pages/AutopilotProgress"));
 const KanbanPage = lazy(() => import("./pages/KanbanPage"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Leads = lazy(() => import("./pages/Leads"));
+const Lead360 = lazy(() => import("./pages/Lead360"));
 const Financas = lazy(() => import("./pages/Financas"));
 const MarketIntel = lazy(() => import("./pages/MarketIntel"));
 const Mentes = lazy(() => import("./pages/Mentes"));
@@ -30,6 +32,7 @@ const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
 const Tracker = lazy(() => import("./pages/Tracker"));
 const Referencias = lazy(() => import("./pages/Referencias"));
+const Sites = lazy(() => import("./pages/Sites"));
 const Skills = lazy(() => import("./pages/Skills"));
 const Equipe = lazy(() => import("./pages/Equipe"));
 const Empresa = lazy(() => import("./pages/Empresa"));
@@ -66,6 +69,14 @@ const SDRCoach = lazy(() => import("./pages/SDRCoach"));
 const ABTests = lazy(() => import("./pages/ABTests"));
 const MobileCockpit = lazy(() => import("./pages/MobileCockpit"));
 const Inbox = lazy(() => import("./pages/Inbox"));
+const CopyEngine = lazy(() => import("./pages/CopyEngine"));
+const CopyLab = lazy(() => import("./pages/CopyLab"));
+const ClaudeSkillsGuide = lazy(() => import("./pages/ClaudeSkillsGuide"));
+const AILearning = lazy(() => import("./pages/AILearning"));
+const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
+const Atribuicao = lazy(() => import("./pages/Atribuicao"));
+const FunilSimulador = lazy(() => import("./pages/FunilSimulador"));
+const OpenRouterCustos = lazy(() => import("./pages/OpenRouterCustos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Cache agressivo: dados de configuração raramente mudam.
@@ -111,19 +122,26 @@ const App = () => (
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="ai-saude" element={<AISaude />} />
+                <Route path="ai-learning" element={<AILearning />} />
+                <Route path="saude-produtos" element={<SaudeProdutos />} />
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
+                <Route path="projetos/:id/autopilot/:runId" element={<AutopilotProgress />} />
                 <Route path="kanban" element={<KanbanPage />} />
                 <Route path="tarefas" element={<Tarefas />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="leads" element={<Leads />} />
+                <Route path="leads/:id" element={<Lead360 />} />
+                <Route path="copy-engine" element={<CopyEngine />} />
+                <Route path="copy-lab" element={<CopyLab />} />
                 <Route path="campanhas" element={<Campanhas />} />
-                <Route path="lancamentos" element={<Lancamentos />} />
+                
                 <Route path="financas" element={<Financas />} />
                 <Route path="market-intel" element={<MarketIntel />} />
                 <Route path="mentes" element={<Mentes />} />
                 <Route path="funis" element={<Funis />} />
+                <Route path="funis/simulador" element={<FunilSimulador />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="docs" element={<Docs />} />
                 {/* Unified Inbox */}
@@ -137,7 +155,10 @@ const App = () => (
                 <Route path="ab-tests" element={<Navigate to="/campanhas?tab=ab-tests" replace />} />
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />
                 <Route path="tracker" element={<Tracker />} />
+                <Route path="atribuicao" element={<Atribuicao />} />
+                <Route path="openrouter-custos" element={<OpenRouterCustos />} />
                 <Route path="referencias" element={<Referencias />} />
+                <Route path="sites" element={<Sites />} />
                 <Route path="skills" element={<Skills />} />
                 <Route path="equipe" element={<Equipe />} />
                 <Route path="empresa" element={<Empresa />} />
@@ -147,6 +168,7 @@ const App = () => (
                 <Route path="conteudo-ia" element={<ConteudoIA />} />
                 <Route path="nutricao" element={<Nutricao />} />
                 <Route path="guia" element={<Guia />} />
+                <Route path="claude-skills" element={<ClaudeSkillsGuide />} />
                 <Route path="criativos" element={<Criativos />} />
                 <Route path="criativos/novo" element={<CriativoNovo />} />
                 <Route path="criativos/:batchId" element={<CriativoDetalhe />} />

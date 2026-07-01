@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+﻿import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,28 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, Zap } from "lucide-react";
+import { FunilPipelineWizard } from "@/components/funis/FunilPipelineWizard";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2, Zap } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { FunilPipelineWizard } from "@/components/funis/FunilPipelineWizard";
+import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
+import { Link as RouterLink } from "react-router-dom";
+import { Copy, Calculator } from "lucide-react";
+import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
+import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
+import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog";
+import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
+import { OneClickModal } from "@/components/funis/OneClickModal";
+import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
+import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
+import { Calendar as CalendarIcon, Brain } from "lucide-react";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
   url?: string; image_url?: string; pos_x?: number; pos_y?: number;
   descricao?: string; connects_to?: number[];
+  width?: number; height?: number;
 }
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
@@ -27,7 +40,7 @@ interface Funil {
 }
 
 const DEFAULT_ETAPAS: Etapa[] = [
-  { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
+  { nome: "AnÃºncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
   { nome: "Opt-in", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 400, pos_y: 80 },
   { nome: "VSL/Webinar", tipo: "vsl", visitantes: 0, conversoes: 0, pos_x: 720, pos_y: 80 },
   { nome: "Checkout", tipo: "checkout", visitantes: 0, conversoes: 0, pos_x: 1040, pos_y: 80 },
@@ -36,7 +49,7 @@ const DEFAULT_ETAPAS: Etapa[] = [
 
 const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: any; hasMetrics: boolean }> = {
   criativo:  { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo", icon: Megaphone, hasMetrics: true },
-  pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página", icon: FileText, hasMetrics: true },
+  pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "PÃ¡gina", icon: FileText, hasMetrics: true },
   vsl:       { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL", icon: Video, hasMetrics: true },
   checkout:  { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout", icon: ShoppingCart, hasMetrics: true },
   upsell:    { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell", icon: ArrowRight, hasMetrics: true },
@@ -45,7 +58,7 @@ const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; la
   tiktok:    { bg: "bg-cyan-500/10", border: "border-cyan-500/40", text: "text-cyan-400", label: "TikTok", icon: Music, hasMetrics: true },
   linkedin:  { bg: "bg-sky-500/10", border: "border-sky-500/40", text: "text-sky-400", label: "LinkedIn", icon: Linkedin, hasMetrics: true },
   blog:      { bg: "bg-teal-500/10", border: "border-teal-500/40", text: "text-teal-400", label: "Blog", icon: PenLine, hasMetrics: true },
-  video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "Vídeo", icon: Video, hasMetrics: true },
+  video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "VÃ­deo", icon: Video, hasMetrics: true },
   imagem:    { bg: "bg-orange-500/10", border: "border-orange-500/40", text: "text-orange-400", label: "Imagem", icon: Image, hasMetrics: false },
   email:     { bg: "bg-sky-600/10", border: "border-sky-600/40", text: "text-sky-300", label: "Email", icon: Mail, hasMetrics: true },
   whatsapp:  { bg: "bg-green-500/10", border: "border-green-500/40", text: "text-green-400", label: "WhatsApp", icon: MessageSquare, hasMetrics: true },
@@ -55,10 +68,10 @@ const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; la
 };
 
 const TIPO_GROUPS = [
-  { label: "Páginas", tipos: ["pagina", "vsl", "checkout", "upsell"] },
+  { label: "PÃ¡ginas", tipos: ["pagina", "vsl", "checkout", "upsell"] },
   { label: "Canais", tipos: ["face_ads", "instagram", "tiktok", "linkedin", "blog"] },
-  { label: "Mídia", tipos: ["criativo", "video", "imagem"] },
-  { label: "Comunicação", tipos: ["email", "whatsapp"] },
+  { label: "MÃ­dia", tipos: ["criativo", "video", "imagem"] },
+  { label: "ComunicaÃ§Ã£o", tipos: ["email", "whatsapp"] },
   { label: "Outros", tipos: ["caixa", "texto", "outro"] },
 ];
 
@@ -84,6 +97,9 @@ const CANVAS_H = 3000;
 const MINIMAP_W = 160;
 const MINIMAP_H = 120;
 const CONNECT_DOT_SIZE = 12;
+const IMG_DEFAULT_W = 260;
+const IMG_DEFAULT_H = 180;
+const IMG_MIN = 80;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
@@ -91,8 +107,15 @@ export default function Funis() {
   const [filterProject, setFilterProject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showAutoBuild, setShowAutoBuild] = useState(false);
+  const [showCorteExpress, setShowCorteExpress] = useState(false);
+  const [hubProjectId, setHubProjectId] = useState<string | null>(null);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [cloneFunil, setCloneFunil] = useState<Funil | null>(null);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
-  const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
+  const [form, setForm] = useState({ nome: "", tipo: "PerpÃ©tuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -111,13 +134,20 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema">("funis");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa">("hub");
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
   const [aiGenPrompt, setAiGenPrompt] = useState("");
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [showPipelineWizard, setShowPipelineWizard] = useState(false);
+  const [kpisByProject, setKpisByProject] = useState<Record<string, { leads: number; vendas: number; receita: number; conv: number }>>({});
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [resizingIdx, setResizingIdx] = useState<number | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number }>({ x: 0, y: 0, w: 0, h: 0 });
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+
+
 
   const AI_MODELS = [
     { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
@@ -172,13 +202,13 @@ export default function Funis() {
         triggerAutoSave();
         setShowAiGen(false);
         setAiGenPrompt("");
-        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\n📋 ${data.estrategia}` : ""}`, { duration: 6000 });
+        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\nðŸ“‹ ${data.estrategia}` : ""}`, { duration: 6000 });
       } else {
-        toast.error("A IA não retornou etapas. Tente reformular o prompt.");
+        toast.error("A IA nÃ£o retornou etapas. Tente reformular o prompt.");
       }
     } catch (err: any) {
       if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
+      else if (err?.message?.includes("402")) toast.error("CrÃ©ditos insuficientes.");
       else toast.error(err.message || "Erro ao gerar funil");
     } finally { setAiGenerating(false); }
   };
@@ -198,7 +228,7 @@ export default function Funis() {
     }));
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: mapped } });
     triggerAutoSave();
-    toast.success(`Pipeline IA gerou ${mapped.length} etapas!${estrategia ? `\n📋 ${estrategia.slice(0, 120)}` : ""}`, { duration: 8000 });
+    toast.success(`Pipeline IA gerou ${mapped.length} etapas!${estrategia ? `\nðŸ“‹ ${estrategia.slice(0, 120)}` : ""}`, { duration: 8000 });
   };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
@@ -254,13 +284,13 @@ export default function Funis() {
         }));
         setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: aiEtapas } });
         triggerAutoSave();
-        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\n📋 ${estrategia}` : ""}`, { duration: 6000 });
+        toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\nðŸ“‹ ${estrategia}` : ""}`, { duration: 6000 });
       } else {
         // Fallback local
         const etapas: Etapa[] = [];
         const spacing = 320;
-        etapas.push({ nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 });
-        etapas.push({ nome: "Página de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 80, connects_to: [] });
+        etapas.push({ nome: "AnÃºncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 });
+        etapas.push({ nome: "PÃ¡gina de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 80, connects_to: [] });
         etapas[0].connects_to = [1];
 
         const sorted = [...prodList].sort((a, b) => {
@@ -307,9 +337,38 @@ export default function Funis() {
       return { ...p, briefing: d.briefing || d };
     });
     setProjects(projRows);
+    loadKpis();
+  };
+
+  const loadKpis = async () => {
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const [leadsRes, vendasRes] = await Promise.all([
+      supabase.from("imphq_leads").select("project_id").gte("created_at", since),
+      supabase.from("imphq_vendas").select("project_id, status, valor, valor_liquido").gte("created_at", since),
+    ]);
+    const map: Record<string, { leads: number; vendas: number; receita: number; conv: number }> = {};
+    for (const l of (leadsRes.data || []) as any[]) {
+      if (!l.project_id) continue;
+      if (!map[l.project_id]) map[l.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      map[l.project_id].leads++;
+    }
+    for (const v of (vendasRes.data || []) as any[]) {
+      if (!v.project_id) continue;
+      if (!map[v.project_id]) map[v.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
+      if ((v.status || "").toLowerCase() === "aprovado") {
+        map[v.project_id].vendas++;
+        map[v.project_id].receita += Number(v.valor_liquido ?? v.valor) || 0;
+      }
+    }
+    for (const k of Object.keys(map)) {
+      const m = map[k];
+      m.conv = m.leads > 0 ? (m.vendas / m.leads) * 100 : 0;
+    }
+    setKpisByProject(map);
   };
 
   useEffect(() => { load(); }, []);
+
 
   // Load project products when a funnel with project_id is selected
   useEffect(() => {
@@ -383,7 +442,7 @@ export default function Funis() {
   });
 
   const createFunil = async () => {
-    if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
+    if (!form.nome.trim()) { toast.error("Nome obrigatÃ³rio"); return; }
     const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_funis").insert([{
       id, nome: form.nome, tipo: form.tipo, status: form.status,
@@ -392,7 +451,7 @@ export default function Funis() {
     }]);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Funil criado!"); setShowNew(false);
-    setForm({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" }); load();
+    setForm({ nome: "", tipo: "PerpÃ©tuo", status: "Rascunho", project_id: "" }); load();
   };
 
   const deleteFunil = async (id: string) => {
@@ -427,6 +486,91 @@ export default function Funis() {
     const updated = [...etapas, newEtapa];
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
+
+  const uploadImageFile = async (file: File): Promise<string | null> => {
+    if (!selectedFunil) return null;
+    if (!file.type.startsWith("image/")) {
+      toast.error(`${file.name} nÃ£o Ã© uma imagem`);
+      return null;
+    }
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `funis/${selectedFunil.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("project-media").upload(path, file, { upsert: false });
+    if (error) {
+      toast.error(`Upload falhou: ${error.message}`);
+      return null;
+    }
+    const { data } = supabase.storage.from("project-media").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const addImageNodesFromFiles = async (files: FileList | File[], originCanvasX?: number, originCanvasY?: number) => {
+    if (!selectedFunil) return;
+    const arr = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (arr.length === 0) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const baseX = originCanvasX ?? (rect ? (-pan.x + rect.width / 2) / zoom - IMG_DEFAULT_W / 2 : 200);
+    const baseY = originCanvasY ?? (rect ? (-pan.y + rect.height / 2) / zoom - IMG_DEFAULT_H / 2 : 200);
+
+    const uploaded: { url: string; name: string }[] = [];
+    for (const f of arr) {
+      const url = await uploadImageFile(f);
+      if (url) uploaded.push({ url, name: f.name.replace(/\.[^.]+$/, "") });
+    }
+    if (uploaded.length === 0) return;
+
+    const cols = Math.ceil(Math.sqrt(uploaded.length));
+    const gap = 20;
+    const newEtapas: Etapa[] = uploaded.map((u, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      return {
+        nome: u.name.slice(0, 60),
+        tipo: "imagem",
+        visitantes: 0, conversoes: 0,
+        image_url: u.url,
+        pos_x: Math.round(baseX + col * (IMG_DEFAULT_W + gap)),
+        pos_y: Math.round(baseY + row * (IMG_DEFAULT_H + gap)),
+        width: IMG_DEFAULT_W,
+        height: IMG_DEFAULT_H,
+      };
+    });
+
+    const updated = [...(selectedFunil.data.etapas || []), ...newEtapas];
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
+    triggerAutoSave();
+    toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
+  };
+
+  const handleCanvasPaste = useCallback(async (e: ClipboardEvent) => {
+    if (!selectedFunil) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const it of Array.from(items)) {
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f && f.type.startsWith("image/")) files.push(f);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    await addImageNodesFromFiles(files);
+  }, [selectedFunil, pan, zoom]);
+
+  useEffect(() => {
+    if (!selectedFunil) return;
+    const handler = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      handleCanvasPaste(e);
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [selectedFunil, handleCanvasPaste]);
+
+
 
   const removeEtapa = (idx: number) => {
     if (!selectedFunil) return;
@@ -500,7 +644,7 @@ export default function Funis() {
       etapas[fromIdx] = { ...e, connects_to: newConnects.length > 0 ? newConnects : undefined };
       setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
       triggerAutoSave();
-      toast.success("Conexão removida");
+      toast.success("ConexÃ£o removida");
     }
   };
 
@@ -514,7 +658,7 @@ export default function Funis() {
     etapas[fromIdx] = { ...e, connects_to: [...existing, toIdx] };
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
     triggerAutoSave();
-    toast.success("Conexão criada");
+    toast.success("ConexÃ£o criada");
   };
 
   // --- Drag handlers ---
@@ -531,6 +675,20 @@ export default function Funis() {
   }, [selectedFunil, zoom]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Resize image node
+    if (resizingIdx !== null && selectedFunil) {
+      const dx = (e.clientX - resizeStart.x) / zoom;
+      const dy = (e.clientY - resizeStart.y) / zoom;
+      const etapas = [...(selectedFunil.data.etapas || [])];
+      etapas[resizingIdx] = {
+        ...etapas[resizingIdx],
+        width: Math.max(IMG_MIN, Math.round(resizeStart.w + dx)),
+        height: Math.max(IMG_MIN, Math.round(resizeStart.h + dy)),
+      };
+      setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+      return;
+    }
+
     // Connection line preview
     if (connectingFrom !== null && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -556,7 +714,7 @@ export default function Funis() {
       });
       setPanStart({ x: e.clientX, y: e.clientY });
     }
-  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart]);
+  }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart, resizingIdx, resizeStart]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     // Finish connection: check if mouse is over a card
@@ -570,8 +728,11 @@ export default function Funis() {
         const ex = etapas[i].pos_x ?? 0;
         const ey = etapas[i].pos_y ?? 0;
         const ts = TIPO_STYLES[etapas[i].tipo || "outro"] || TIPO_STYLES.outro;
-        const eh = ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE;
-        if (mx >= ex && mx <= ex + CARD_W && my >= ey && my <= ey + eh) {
+        const ew = etapas[i].tipo === "imagem" ? (etapas[i].width ?? IMG_DEFAULT_W) : CARD_W;
+        const eh = etapas[i].tipo === "imagem"
+          ? (etapas[i].height ?? IMG_DEFAULT_H)
+          : (ts.hasMetrics ? CARD_H_METRICS : CARD_H_SIMPLE);
+        if (mx >= ex && mx <= ex + ew && my >= ey && my <= ey + eh) {
           addConnection(connectingFrom, i);
           break;
         }
@@ -581,12 +742,18 @@ export default function Funis() {
       return;
     }
 
+    if (resizingIdx !== null) {
+      triggerAutoSave();
+      setResizingIdx(null);
+      return;
+    }
+
     if (draggingIdx !== null) {
       triggerAutoSave();
     }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom]);
+  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom, resizingIdx]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
@@ -638,6 +805,22 @@ export default function Funis() {
           <h1 className="font-display text-2xl font-bold text-primary">{selectedFunil.nome}</h1>
           <Badge variant="outline">{selectedFunil.tipo}</Badge>
           <Badge variant={selectedFunil.status === "Ativo" ? "default" : "secondary"}>{selectedFunil.status}</Badge>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowSnapshots(true)}>
+            <History className="h-3 w-3" /> VersÃµes
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowTimeline(true)} disabled={!selectedFunil.project_id}>
+            <CalendarIcon className="h-3 w-3" /> Cronograma
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 gap-1 text-xs bg-primary/90 hover:bg-primary"
+            onClick={() => setShowAutoBuild(true)}
+            disabled={!selectedFunil.project_id}
+            title={selectedFunil.project_id ? "Monta o funil a partir de produtos, fluxos, WA, e-mails, sites e anÃºncios do projeto" : "Selecione um projeto"}
+          >
+            <Sparkles className="h-3 w-3" /> Montar AutomÃ¡tico
+          </Button>
+
 
           {/* Project selector in editor */}
           <Select
@@ -695,13 +878,32 @@ export default function Funis() {
         {/* 2D Canvas */}
         <div
           ref={canvasRef}
-          className="relative rounded-xl border border-border bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none"
+          className={`relative rounded-xl border ${isDraggingFile ? "border-primary border-dashed ring-2 ring-primary/40" : "border-border"} bg-[radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:20px_20px] overflow-hidden select-none`}
           style={{ height: "75vh", cursor: connectingFrom !== null ? "crosshair" : isPanning ? "grabbing" : draggingIdx !== null ? "move" : "grab" }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp({} as any); }}
           onWheel={handleWheel}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.types || []).includes("Files")) {
+              e.preventDefault();
+              if (!isDraggingFile) setIsDraggingFile(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget === e.target) setIsDraggingFile(false);
+          }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            setIsDraggingFile(false);
+            const files = e.dataTransfer.files;
+            if (!files || files.length === 0) return;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            const cx = rect ? (e.clientX - rect.left - pan.x) / zoom : undefined;
+            const cy = rect ? (e.clientY - rect.top - pan.y) / zoom : undefined;
+            await addImageNodesFromFiles(files, cx, cy);
+          }}
         >
           <div style={{
             width: CANVAS_W, height: CANVAS_H,
@@ -746,7 +948,7 @@ export default function Funis() {
                         style={{ pointerEvents: "stroke", cursor: "pointer" }}
                         onClick={() => removeConnection(c.fromIdx, c.toIdx)}
                       >
-                        <title>Clique para remover conexão #{c.fromIdx} → #{c.toIdx}</title>
+                        <title>Clique para remover conexÃ£o #{c.fromIdx} â†’ #{c.toIdx}</title>
                       </path>
                     )}
                     <path
@@ -811,6 +1013,61 @@ export default function Funis() {
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
               const cardH = isTextType ? CARD_H_SIMPLE : (isSimple ? CARD_H_SIMPLE : CARD_H_METRICS);
+              // â”€â”€ Image node (free-form) â”€â”€
+              if (etapa.tipo === "imagem" && etapa.image_url) {
+                const iw = etapa.width ?? IMG_DEFAULT_W;
+                const ih = etapa.height ?? IMG_DEFAULT_H;
+                return (
+                  <div
+                    key={i}
+                    className="etapa-card group absolute rounded-lg overflow-hidden border-2 border-transparent hover:border-primary/50 shadow-lg transition-colors"
+                    style={{ left: x, top: y, width: iw, height: ih, zIndex: draggingIdx === i || resizingIdx === i ? 50 : 1 }}
+                    onMouseDown={(e) => handleCardMouseDown(e, i)}
+                  >
+                    {/* Connection dots */}
+                    <div
+                      className="connect-dot absolute rounded-full bg-primary/60 hover:bg-primary hover:scale-150 transition-all cursor-crosshair border-2 border-background z-20"
+                      style={{ right: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                      title="Conectar"
+                      onMouseDown={(e) => { e.stopPropagation(); setConnectingFrom(i); }}
+                    />
+                    <div
+                      className="absolute rounded-full bg-muted-foreground/30 border-2 border-background z-20"
+                      style={{ left: -CONNECT_DOT_SIZE / 2, top: ih / 2 - CONNECT_DOT_SIZE / 2, width: CONNECT_DOT_SIZE, height: CONNECT_DOT_SIZE }}
+                    />
+
+                    <img src={etapa.image_url} alt={etapa.nome} className="w-full h-full object-cover pointer-events-none" draggable={false} />
+
+                    {/* Caption + delete (hover) */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <span className="text-[10px] font-mono text-white/60 shrink-0">#{i}</span>
+                      <Input
+                        defaultValue={etapa.nome}
+                        onBlur={e => setEtapaField(i, "nome", e.target.value)}
+                        className="h-6 text-[11px] bg-black/40 border-white/10 text-white p-1 flex-1"
+                        placeholder="Legenda..."
+                      />
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 hover:bg-destructive/20" onClick={(e) => { e.stopPropagation(); removeEtapa(i); }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+
+                    {/* Resize handle */}
+                    <div
+                      className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize bg-primary/60 hover:bg-primary opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setResizingIdx(i);
+                        setResizeStart({ x: e.clientX, y: e.clientY, w: iw, h: ih });
+                      }}
+                      title="Redimensionar"
+                    />
+                  </div>
+                );
+              }
+
               const IconComp = tipoStyle.icon;
 
               return (
@@ -853,7 +1110,7 @@ export default function Funis() {
                         defaultValue={etapa.descricao || ""}
                         onBlur={e => setEtapaField(i, "descricao", e.target.value)}
                         className="text-xs bg-card/50 border-border min-h-[80px] resize-none"
-                        placeholder="Anotação / texto livre..."
+                        placeholder="AnotaÃ§Ã£o / texto livre..."
                       />
                       <div className="flex items-center justify-between">
                         <Input defaultValue={etapa.nome} onBlur={e => setEtapaField(i, "nome", e.target.value)}
@@ -879,7 +1136,7 @@ export default function Funis() {
                         className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0" />
 
                       <Input defaultValue={etapa.descricao || ""} onBlur={e => setEtapaField(i, "descricao", e.target.value)}
-                        className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="Descrição..." />
+                        className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="DescriÃ§Ã£o..." />
 
                       {/* Product dropdown */}
                       {projectProductsFull.length > 0 && (
@@ -891,7 +1148,7 @@ export default function Funis() {
                           setEtapaField(i, "nome", nome);
                           if (url) setEtapaField(i, "url", url);
                         }}>
-                          <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="📦 Vincular Produto" /></SelectTrigger>
+                          <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="ðŸ“¦ Vincular Produto" /></SelectTrigger>
                           <SelectContent>
                             {projectProductsFull.map((p: any, pi: number) => (
                               <SelectItem key={pi} value={String(pi)} className="text-xs">
@@ -924,7 +1181,7 @@ export default function Funis() {
 
                       {/* Connect to - text fallback */}
                       <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-muted-foreground shrink-0">→</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">â†’</span>
                         <Input
                           defaultValue={(etapa.connects_to || []).join(",")}
                           onBlur={e => {
@@ -934,7 +1191,7 @@ export default function Funis() {
                           }}
                           className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
                           placeholder="Conecta a: 1,2"
-                          title="Índices das etapas destino (0-based), separados por vírgula"
+                          title="Ãndices das etapas destino (0-based), separados por vÃ­rgula"
                         />
                       </div>
 
@@ -946,7 +1203,7 @@ export default function Funis() {
                         <>
                           {pixData && (
                             <Badge variant="outline" className="text-[8px] text-emerald-400 border-emerald-400/30 w-fit">
-                              📡 Dados reais
+                              ðŸ“¡ Dados reais
                             </Badge>
                           )}
                           <div className="grid grid-cols-2 gap-2">
@@ -1071,7 +1328,7 @@ export default function Funis() {
           {/* Connection mode indicator */}
           {connectingFrom !== null && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg animate-fade-in">
-              Conectando de #{connectingFrom} — solte sobre outro card
+              Conectando de #{connectingFrom} â€” solte sobre outro card
               <Button size="icon" variant="ghost" className="h-5 w-5 text-primary-foreground/70 hover:text-primary-foreground" onClick={() => { setConnectingFrom(null); setConnectLine(null); }}>
                 <X className="h-3 w-3" />
               </Button>
@@ -1099,7 +1356,24 @@ export default function Funis() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <input
+            ref={imageFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = e.target.files;
+              if (files && files.length > 0) await addImageNodesFromFiles(files);
+              if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+            }}
+          />
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => imageFileInputRef.current?.click()}>
+            <Image className="h-3 w-3" /> Imagem
+          </Button>
+
           <Button size="sm" onClick={saveEtapas}><Save className="h-3 w-3 mr-1" /> Salvar</Button>
+          
           
           {selectedFunil.project_id && projectProductsFull.length > 0 && (
             <DropdownMenu>
@@ -1110,7 +1384,7 @@ export default function Funis() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuLabel className="text-xs">Organização com IA</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs">OrganizaÃ§Ã£o com IA</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => aiOrganizeProducts("create")} className="text-xs gap-2">
                   <Sparkles className="h-3 w-3" /> Criar funil do zero
@@ -1133,7 +1407,7 @@ export default function Funis() {
           </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards â€¢ Scroll=zoom â€¢ Pontos laterais conectam â€¢ Cole (Ctrl+V) ou arraste imagens direto no canvas</span>
         </div>
 
         {/* AI Generate Funnel Dialog */}
@@ -1148,7 +1422,7 @@ export default function Funis() {
                 <Textarea
                   value={aiGenPrompt}
                   onChange={e => setAiGenPrompt(e.target.value)}
-                  placeholder="Ex: Funil de lançamento com captura → sequência de emails → VSL → checkout com orderbump e upsell de mentoria..."
+                  placeholder="Ex: Funil de lanÃ§amento com captura â†’ sequÃªncia de emails â†’ VSL â†’ checkout com orderbump e upsell de mentoria..."
                   className="bg-secondary min-h-[100px]"
                 />
               </div>
@@ -1162,9 +1436,9 @@ export default function Funis() {
                 </Select>
               </div>
               {selectedFunil?.project_id && projectProductsFull.length > 0 && (
-                <p className="text-[10px] text-emerald-400">✅ Projeto vinculado com {projectProductsFull.length} produto(s) — a IA usará como contexto.</p>
+                <p className="text-[10px] text-emerald-400">âœ… Projeto vinculado com {projectProductsFull.length} produto(s) â€” a IA usarÃ¡ como contexto.</p>
               )}
-              <p className="text-[10px] text-muted-foreground">A IA criará todas as etapas, conexões e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "⚠️ As etapas atuais serão substituídas."}</p>
+              <p className="text-[10px] text-muted-foreground">A IA criarÃ¡ todas as etapas, conexÃµes e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "âš ï¸ As etapas atuais serÃ£o substituÃ­das."}</p>
             </div>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => setShowAiGen(false)}>Cancelar</Button>
@@ -1197,21 +1471,44 @@ export default function Funis() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
+        <h1 className="font-display text-3xl font-bold text-primary">ðŸ”— Funis</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-secondary rounded-md p-0.5">
+            <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
+              <Sparkles className="h-3 w-3" /> Hub
+            </Button>
             <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
               <Layers className="h-3 w-3" /> Funis
             </Button>
             <Button size="sm" variant={viewMode === "ecossistema" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("ecossistema")}>
               <Network className="h-3 w-3" /> Ecossistema
             </Button>
+            <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
+              <Building2 className="h-3 w-3" /> Mapa da Empresa
+            </Button>
           </div>
-          {viewMode === "funis" && <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>}
+          <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
+            <Zap className="h-4 w-4" /> One Click
+          </Button>
+          {viewMode === "funis" && (
+            <>
+              <Button size="sm" variant="outline" asChild className="gap-1">
+                <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
+                <Sparkles className="h-4 w-4" /> Templates
+              </Button>
+              <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
+            </>
+          )}
         </div>
       </div>
 
-      {viewMode === "funis" ? (
+      {viewMode === "hub" ? (
+        <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
+      ) : viewMode === "mapa" ? (
+        <CompanyMapCanvas projects={projects} />
+      ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
@@ -1233,6 +1530,7 @@ export default function Funis() {
             {filtered.map((f, idx) => {
               const etapas = f.data?.etapas || [];
               const statusStyle = STATUS_STYLES[f.status || "Rascunho"] || STATUS_STYLES.Rascunho;
+              const kpi = f.project_id ? kpisByProject[f.project_id] : null;
               return (
                 <Card key={f.id}
                   className={`bg-gradient-to-br ${statusStyle} border-border border-l-4 hover:scale-[1.02] cursor-pointer transition-all duration-200 animate-fade-in`}
@@ -1241,10 +1539,40 @@ export default function Funis() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-medium text-sm">{f.nome}</h3>
-                      <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Clonar funil" onClick={() => setCloneFunil(f)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
+                    <p className="text-xs text-muted-foreground">{f.tipo || "PerpÃ©tuo"} â€¢ {etapas.length} etapas</p>
                     {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
+
+                    {kpi && (
+                      <div className="grid grid-cols-4 gap-1 mt-3 pt-3 border-t border-border/30">
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Leads</p>
+                          <p className="text-xs font-bold text-foreground">{kpi.leads.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Vendas</p>
+                          <p className="text-xs font-bold text-emerald-400">{kpi.vendas.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Conv.</p>
+                          <p className={`text-xs font-bold ${getConversionColor(kpi.conv).text}`}>{kpi.conv.toFixed(1)}%</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Receita</p>
+                          <p className="text-xs font-bold text-primary">R$ {kpi.receita >= 1000 ? `${(kpi.receita / 1000).toFixed(1)}k` : kpi.receita.toFixed(0)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {f.project_id && !kpi && (
+                      <p className="text-[9px] text-muted-foreground/60 mt-3 pt-3 border-t border-border/30 text-center">Sem dados nos Ãºltimos 30d</p>
+                    )}
+
                     {etapas.length > 0 && (
                       <div className="flex items-center gap-1 mt-2 overflow-hidden">
                         {etapas.slice(0, 5).map((e, i) => {
@@ -1265,6 +1593,7 @@ export default function Funis() {
             })}
             {filtered.length === 0 && <p className="text-sm text-muted-foreground">Nenhum funil encontrado</p>}
           </div>
+
         </>
       ) : (
         <EcossistemaView projects={projects} />
@@ -1291,8 +1620,8 @@ export default function Funis() {
                 <Select value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Perpétuo">Perpétuo</SelectItem>
-                    <SelectItem value="Lançamento">Lançamento</SelectItem>
+                    <SelectItem value="PerpÃ©tuo">PerpÃ©tuo</SelectItem>
+                    <SelectItem value="LanÃ§amento">LanÃ§amento</SelectItem>
                     <SelectItem value="Webinar">Webinar</SelectItem>
                     <SelectItem value="VSL">VSL</SelectItem>
                   </SelectContent>
@@ -1314,21 +1643,83 @@ export default function Funis() {
           <DialogFooter><Button onClick={createFunil}>Criar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FunnelTemplatesDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        projects={projects}
+        onCreated={load}
+      />
+
+      <CloneFunnelDialog
+        open={!!cloneFunil}
+        onOpenChange={(o) => !o && setCloneFunil(null)}
+        funil={cloneFunil}
+        projects={projects}
+        onDone={load}
+      />
+
+
+
+      <FunnelSnapshotsDialog
+        open={showSnapshots}
+        onOpenChange={setShowSnapshots}
+        funil={selectedFunil}
+        onRestore={async (canvas) => {
+          if (!selectedFunil) return;
+          await supabase.from("imphq_funis").update({ data: canvas as any }).eq("id", selectedFunil.id);
+          setSelectedFunil({ ...selectedFunil, data: canvas });
+        }}
+      />
+
+      {selectedFunil?.project_id && (
+        <LaunchTimelineDialog
+          open={showTimeline}
+          onClose={() => setShowTimeline(false)}
+          projectId={selectedFunil.project_id}
+          funilId={selectedFunil.id}
+        />
+      )}
+
+      {selectedFunil && <FunnelBrainCard projectId={selectedFunil.project_id} />}
+
+      {selectedFunil && (
+        <AutoBuildDialog
+          open={showAutoBuild}
+          onOpenChange={setShowAutoBuild}
+          projectId={selectedFunil.project_id}
+          funilId={selectedFunil.id}
+          onApplied={(etapas) => {
+            setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
+          }}
+        />
+      )}
+
+      <OneClickModal
+        open={showCorteExpress}
+        onOpenChange={setShowCorteExpress}
+        onComplete={(pid) => {
+          setHubProjectId(pid);
+          setViewMode("hub");
+          load();
+          setTimeout(() => setShowCorteExpress(false), 1200);
+        }}
+      />
     </div>
   );
 }
 
-// ── Ecossistema View ──────────────────────────────────────────
+// â”€â”€ Ecossistema View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CLUSTER_LEVELS = [
-  { key: "aquisicao", label: "Aquisição", color: "border-blue-500/50", bg: "bg-blue-500/5" },
-  { key: "ascensao", label: "Ascensão / Upsell", color: "border-amber-500/50", bg: "bg-amber-500/5" },
+  { key: "aquisicao", label: "AquisiÃ§Ã£o", color: "border-blue-500/50", bg: "bg-blue-500/5" },
+  { key: "ascensao", label: "AscensÃ£o / Upsell", color: "border-amber-500/50", bg: "bg-amber-500/5" },
   { key: "core", label: "Core", color: "border-emerald-500/50", bg: "bg-emerald-500/5" },
   { key: "premium", label: "Premium", color: "border-rose-500/50", bg: "bg-rose-500/5" },
 ];
 
 const PLATFORM_BADGES: Record<string, string> = {
-  hotmart: "🟧 Hotmart", kiwify: "🟪 Kiwify", eduzz: "🔵 Eduzz",
-  hubla: "🟢 Hubla", ticto: "🟩 Ticto", braip: "🟡 Braip",
+  hotmart: "ðŸŸ§ Hotmart", kiwify: "ðŸŸª Kiwify", eduzz: "ðŸ”µ Eduzz",
+  hubla: "ðŸŸ¢ Hubla", ticto: "ðŸŸ© Ticto", braip: "ðŸŸ¡ Braip",
 };
 
 interface ProductCard {
@@ -1357,7 +1748,7 @@ function EcossistemaView({ projects }: { projects: any[] }) {
         let cluster = "core";
         const tipoLower = (tipo || "").toLowerCase();
         const nomeLower = nome.toLowerCase();
-        if (tipoLower.includes("tripwire") || tipoLower.includes("isca") || nomeLower.includes("grátis")) cluster = "aquisicao";
+        if (tipoLower.includes("tripwire") || tipoLower.includes("isca") || nomeLower.includes("grÃ¡tis")) cluster = "aquisicao";
         else if (tipoLower.includes("upsell") || tipoLower.includes("bump")) cluster = "ascensao";
         else if (tipoLower.includes("premium") || tipoLower.includes("mentoria") || tipoLower.includes("high ticket")) cluster = "premium";
 
@@ -1370,7 +1761,7 @@ function EcossistemaView({ projects }: { projects: any[] }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">Visão macro de todos os produtos organizados por nível na escada de valor. Dados do briefing de cada projeto.</p>
+      <p className="text-xs text-muted-foreground">VisÃ£o macro de todos os produtos organizados por nÃ­vel na escada de valor. Dados do briefing de cada projeto.</p>
       {CLUSTER_LEVELS.map((cluster) => {
         const items = allProducts.filter(p => p.cluster === cluster.key);
         return (
@@ -1380,7 +1771,7 @@ function EcossistemaView({ projects }: { projects: any[] }) {
               <Badge variant="outline" className="text-[9px]">{items.length}</Badge>
             </h3>
             {items.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum produto neste nível</p>
+              <p className="text-xs text-muted-foreground italic">Nenhum produto neste nÃ­vel</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {items.map((prod, idx) => {

@@ -671,6 +671,26 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     load();
   };
 
+  // Reorder by step id, optionally changing days_offset (used by the diagram)
+  const reorderById = async (fromId: string, toIdx: number, newOffset?: number) => {
+    const fromIdx = steps.findIndex(s => s.id === fromId);
+    if (fromIdx === -1) return;
+    const clampedTo = Math.max(0, Math.min(steps.length - 1, toIdx));
+    const updatedSteps = [...steps];
+    const [removed] = updatedSteps.splice(fromIdx, 1);
+    const movedItem = typeof newOffset === "number" ? { ...removed, days_offset: newOffset } : removed;
+    updatedSteps.splice(clampedTo, 0, movedItem);
+    const nextSteps = updatedSteps.map((s, i) => ({ ...s, step_order: i }));
+    setSteps(nextSteps);
+    const updates = nextSteps.map((s) =>
+      supabase.from("imphq_wa_campaign_steps")
+        .update({ step_order: s.step_order, ...(s.id === fromId && typeof newOffset === "number" ? { days_offset: newOffset } : {}) } as any)
+        .eq("id", s.id)
+    );
+    await Promise.all(updates);
+    load();
+  };
+
   const moveStep = async (idx: number, dir: -1 | 1) => {
     await reorderSteps(idx, idx + dir);
   };
@@ -1001,6 +1021,8 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
           onClose={() => setShowDiagram(false)}
           steps={steps as any}
           baseDate={campaign?.start_date ? new Date(campaign.start_date + "T00:00:00") : campaign?.created_at ? new Date(campaign.created_at) : new Date()}
+          onUpdateStep={updateStep}
+          onReorder={reorderById}
         />
       )}
     </>

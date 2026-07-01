@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAnglesForDay } from "../_shared/creativeAngles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,9 @@ Deno.serve(async (req) => {
     const dia_numero = diasDesdeInicio + 1;
     const { estagio, instrucao } = detectStage(diasDesdeInicio);
 
+    // Ângulo do dia (rotaciona pelo catálogo Filemon) — evita e-mails repetitivos
+    const anguloDia = getAnglesForDay(1, new Date(Date.now() + dia_numero * 86400000))[0];
+
     const projectData: any = project?.data || {};
     const avatar = projectData?.avatar || projectData?.briefing?.avatar || {};
     const copyArsenal = projectData?.copy_arsenal || projectData?.briefing?.copy_arsenal || {};
@@ -56,6 +60,9 @@ Produto: ${sequence.produto_nome}
 Objetivo da sequência: ${sequence.objetivo || "Converter lead em comprador"}
 Marca: ${project?.name || ""}
 Estágio atual: ${estagio} — ${instrucao}
+
+🎯 ÂNGULO PSICOLÓGICO DESTE E-MAIL: ${anguloDia.nome} — ${anguloDia.gatilho}.
+Use este ângulo como espinha dorsal. Exemplo de tom: "${anguloDia.exemploHook}"
 
 Avatar (resumo): ${JSON.stringify(avatar).slice(0, 1500)}
 Copy Arsenal (frases-chave): ${JSON.stringify(copyArsenal).slice(0, 800)}

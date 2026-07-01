@@ -75,11 +75,16 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
     }
     load();
     // Realtime: atualiza imediatamente quando um lead muda de status
+    // Onda 7: filtra por project_id no servidor quando possível para reduzir broadcast
+    const rtFilter: any = { event: "UPDATE", schema: "public", table: "imphq_leads" };
+    if (projectFilter && projectFilter !== "all" && projectFilter !== "none") {
+      rtFilter.filter = `project_id=eq.${projectFilter}`;
+    }
     const ch = supabase
-      .channel("hot_leads_rt")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_leads" }, load)
+      .channel(`hot_leads_rt_${projectFilter || "all"}`)
+      .on("postgres_changes", rtFilter, load)
       .subscribe();
-    const interval = setInterval(load, 5 * 60_000); // safety fallback a cada 5min
+    const interval = setInterval(() => { if (document.visibilityState === "visible") load(); }, 5 * 60_000); // safety fallback a cada 5min, pausa em tab oculta
     return () => { clearInterval(interval); supabase.removeChannel(ch); };
   }, [projectFilter]);
 

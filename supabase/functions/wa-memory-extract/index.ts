@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(30);
 
+    // Conta total de mensagens para gating de re-extração
+    const { count: totalMsgs } = await supabase
+      .from("imphq_wa_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation_id);
+
+
     if (!msgs || msgs.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: "no_messages" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,7 +69,9 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
   "summary": "resumo da sessão em 1-2 frases",
   "nome_preferido": "como o lead prefere ser chamado ou null",
   "interesse_principal": "produto/serviço de maior interesse ou null",
+  "nivel_qualificacao": "frio | morno | quente — baseado em intenção real de compra (frio=apenas curioso, morno=engajado/perguntando detalhes, quente=pediu preço/link/pix ou disse que quer comprar)",
   "objecoes_novas": ["lista de objeções novas mencionadas"],
+  "objecao_atual": "a objeção MAIS recente que está travando o lead, ou null",
   "gatilhos_positivos": ["coisas que o lead reagiu positivamente"],
   "produtos_mencionados": ["produtos/serviços citados pelo lead"],
   "informacoes_pessoais": {"profissao": null, "objetivo": null, "dor_principal": null},
@@ -118,15 +127,32 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
       newMemory.informacoes_pessoais = { ...(newMemory.informacoes_pessoais || {}), ...extracted.informacoes_pessoais };
     }
 
-    // Salva lead_memory atualizado + conversation_summary
+    // Atualiza tanto lead_memory (JSONB) quanto as colunas FLAT consumidas pelo CRM
+    const leadUpdate: Record<string, any> = {
+      lead_memory: newMemory,
+      updated_at: new Date().toISOString(),
+    };
+    const nivel = String(extracted.nivel_qualificacao || "").toLowerCase().trim();
+    if (["frio", "morno", "quente"].includes(nivel)) {
+      leadUpdate.nivel_qualificacao = nivel;
+      leadUpdate.qualificacao_updated_at = new Date().toISOString();
+    }
+    if (extracted.interesse_principal) leadUpdate.ultimo_interesse = String(extracted.interesse_principal).slice(0, 200);
+    const dor = extracted?.informacoes_pessoais?.dor_principal;
+    if (dor) leadUpdate.dor_principal = String(dor).slice(0, 300);
+    if (extracted.objecao_atual) leadUpdate.objecao_atual = String(extracted.objecao_atual).slice(0, 300);
+
     await Promise.all([
-      supabase.from("imphq_leads")
-        .update({ lead_memory: newMemory, updated_at: new Date().toISOString() })
-        .eq("id", lead_id),
+      supabase.from("imphq_leads").update(leadUpdate).eq("id", lead_id),
       supabase.from("imphq_wa_conversations")
-        .update({ conversation_summary: extracted.summary || null })
+        .update({
+          conversation_summary: extracted.summary || null,
+          last_memory_extract_at: new Date().toISOString(),
+          last_memory_extract_msg_count: totalMsgs ?? msgs.length,
+        })
         .eq("id", conversation_id),
     ]);
+
 
     // Persist key memory snippets as vector entries for semantic retrieval in wa-ai-reply
     if (project_id && LOVABLE_API_KEY) {

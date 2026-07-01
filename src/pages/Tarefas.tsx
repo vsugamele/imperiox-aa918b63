@@ -82,6 +82,7 @@ interface Routine {
   id: string;
   user_id: string;
   title: string;
+  description?: string | null;
   category: string;
   member_id?: string | null;
   project_id?: string | null;
@@ -89,6 +90,10 @@ interface Routine {
   position: number;
   is_active: boolean;
   created_at: string;
+  start_date?: string | null;
+  recurrence?: string | null; // 'daily' | 'weekdays'
+  weekdays?: number[] | null;
+  time_of_day?: string | null;
 }
 
 interface RoutineCheck {
@@ -150,7 +155,7 @@ export default function Tarefas() {
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
-  const [routineForm, setRoutineForm] = useState({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+  const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [] as number[], time_of_day: "" });
 
   // Calendar state
   const [calEvents, setCalEvents] = useState<any[]>([]);
@@ -285,19 +290,29 @@ export default function Tarefas() {
 
   const saveRoutine = async () => {
     if (!user || !routineForm.title.trim()) return;
+    const desc = routineForm.description.trim() || null;
+    const scheduleFields = {
+      start_date: routineForm.start_date || null,
+      recurrence: routineForm.recurrence || "daily",
+      weekdays: routineForm.recurrence === "weekdays" ? routineForm.weekdays : [],
+      time_of_day: routineForm.time_of_day || null,
+    };
     if (editingRoutine) {
       const { error } = await supabase.from("imphq_daily_routines").update({
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+        ...scheduleFields,
       } as any).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
-          ...r, title: routineForm.title.trim(), icon: routineForm.icon, category: routineForm.category,
+          ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
           member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
           project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+          ...scheduleFields,
         } : r));
         toast.success("Rotina atualizada");
       }
@@ -305,11 +320,13 @@ export default function Tarefas() {
       const { data, error } = await supabase.from("imphq_daily_routines").insert({
         user_id: user.id,
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         position: routines.length,
+        ...scheduleFields,
       } as any).select().single();
       if (!error && data) {
         setRoutines(prev => [...prev, data as any]);
@@ -318,7 +335,7 @@ export default function Tarefas() {
     }
     setShowRoutineDialog(false);
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
   };
 
   const deleteRoutine = async (id: string) => {
@@ -338,19 +355,39 @@ export default function Tarefas() {
     setEditingRoutine(routine);
     setRoutineForm({
       title: routine.title,
+      description: routine.description || "",
       icon: routine.icon,
       category: routine.category,
       member_id: routine.member_id || "none",
       project_id: routine.project_id || "none",
+      start_date: routine.start_date || "",
+      recurrence: routine.recurrence || "daily",
+      weekdays: routine.weekdays || [],
+      time_of_day: routine.time_of_day || "",
     });
     setShowRoutineDialog(true);
   };
 
-  const openNewRoutine = (category: string = "team") => {
+  const openNewRoutine = (category: string = "team", projectId?: string) => {
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
     setShowRoutineDialog(true);
   };
+
+  // Projeta rotinas no calendário: só rotinas com start_date aparecem
+  const routineOccursOn = (r: Routine, date: Date): boolean => {
+    if (!r.is_active || !r.start_date) return false;
+    const start = parseISO(r.start_date);
+    const d0 = new Date(date); d0.setHours(0, 0, 0, 0);
+    const s0 = new Date(start); s0.setHours(0, 0, 0, 0);
+    if (d0 < s0) return false;
+    if (r.recurrence === "weekdays") {
+      const wds = r.weekdays || [];
+      return wds.length > 0 && wds.includes(d0.getDay());
+    }
+    return true; // daily (default)
+  };
+
 
   // === PROCESSES LOGIC ===
   const filteredProcesses = processes.filter(p => {
@@ -596,6 +633,11 @@ export default function Tarefas() {
           <span className={`text-sm font-medium block ${isChecked ? "line-through text-muted-foreground" : ""}`}>
             {routine.title}
           </span>
+          {routine.description && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug" title={routine.description}>
+              {routine.description}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {projName && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>}
             {member && (
@@ -845,6 +887,58 @@ export default function Tarefas() {
             </CardContent>
           </Card>
 
+          {/* Kanban por projeto */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Kanban className="h-4 w-4" /> Rotinas por Projeto
+                <Badge variant="outline" className="text-[10px]">{projects.length}</Badge>
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => openNewRoutine("team")} className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Nova Rotina
+              </Button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1">
+              {[...projects.map(p => ({ id: p.id, name: p.name })), { id: "__none__", name: "Sem projeto" }].map(proj => {
+                const projRoutines = routines.filter(r =>
+                  proj.id === "__none__" ? !r.project_id : r.project_id === proj.id
+                );
+                if (projRoutines.length === 0 && proj.id === "__none__") return null;
+                const doneInCol = projRoutines.filter(r => checkedRoutineIds.has(r.id)).length;
+                return (
+                  <div key={proj.id} className="shrink-0 w-72 bg-secondary/30 border border-border/40 rounded-lg p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold truncate flex-1">{proj.name}</div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{doneInCol}/{projRoutines.length}</Badge>
+                      {proj.id !== "__none__" && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          title={`Nova rotina para ${proj.name}`}
+                          className="shrink-0 h-6 w-6 rounded-md bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <AnimatePresence>
+                        {projRoutines.map(r => <RoutineCard key={r.id} routine={r} />)}
+                      </AnimatePresence>
+                      {projRoutines.length === 0 && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          className="text-[11px] text-muted-foreground border border-dashed border-border/40 rounded p-3 hover:bg-secondary/40 transition"
+                        >
+                          + Adicionar rotina para {proj.name}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Team routines */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -1033,6 +1127,7 @@ export default function Tarefas() {
                     const dateStr = format(date, "yyyy-MM-dd");
                     const dayEvents = filteredCalEvents.filter(e => toDateOnly(e.event_date) === dateStr);
                     const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.includes(c.column_id));
+                    const dayRoutines = routines.filter(r => routineOccursOn(r, date));
                     return (
                       <div className="flex flex-col items-center gap-0.5 w-full">
                         <span className="text-sm">{date.getDate()}</span>
@@ -1047,11 +1142,15 @@ export default function Tarefas() {
                           {dayTasks.slice(0, 2).map((_, i) => (
                             <div key={`t${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                           ))}
+                          {dayRoutines.slice(0, 2).map((r, i) => (
+                            <div key={`r${i}`} className="h-1.5 w-1.5 rounded-full bg-violet-400" title={r.title} />
+                          ))}
                         </div>
-                        {(dayEvents.length + dayTasks.length) > 0 && (
+                        {(dayEvents.length + dayTasks.length + dayRoutines.length) > 0 && (
                           <span className="text-[9px] text-muted-foreground leading-none">
                             {dayEvents.length > 0 && `${dayEvents.length}ev`}
                             {dayTasks.length > 0 && ` ${dayTasks.length}t`}
+                            {dayRoutines.length > 0 && ` ${dayRoutines.length}r`}
                           </span>
                         )}
                       </div>
@@ -1073,41 +1172,64 @@ export default function Tarefas() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {eventsOnDate.length === 0 && (!calDate || cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).length === 0) ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento ou tarefa nesta data</p>
-                ) : (
-                  <>
-                    {eventsOnDate.map((ev: any) => {
-                      const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
-                      const proj = ev.imphq_projects;
-                      return (
-                        <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
-                          <span className="text-lg">{typeInfo.emoji}</span>
+                {(() => {
+                  const dayCards = calDate ? cards.filter(c => toDateOnly(c.due_date) === selectedDateStr) : [];
+                  const dayRoutines = calDate ? routines.filter(r => routineOccursOn(r, calDate)) : [];
+                  if (eventsOnDate.length === 0 && dayCards.length === 0 && dayRoutines.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento, tarefa ou rotina nesta data</p>;
+                  }
+                  return (
+                    <>
+                      {eventsOnDate.map((ev: any) => {
+                        const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                        const proj = ev.imphq_projects;
+                        return (
+                          <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
+                            <span className="text-lg">{typeInfo.emoji}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{ev.title}</p>
+                              {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayRoutines.map(r => {
+                        const proj = projects.find(p => p.id === r.project_id);
+                        return (
+                          <div key={`r-${r.id}`} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5 border border-violet-500/20 cursor-pointer hover:bg-violet-500/10" onClick={() => openEditRoutine(r)}>
+                            <span className="text-lg">{r.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{r.title}</p>
+                              {r.description && <p className="text-[10px] text-muted-foreground line-clamp-2">{r.description}</p>}
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-400/30">Rotina</Badge>
+                                {r.time_of_day && <Badge variant="outline" className="text-[10px] font-mono">{r.time_of_day.slice(0,5)}</Badge>}
+                                {r.recurrence === "weekdays" && <Badge variant="outline" className="text-[10px]">Dias úteis</Badge>}
+                                {proj && <Badge variant="secondary" className="text-[10px]">{(proj as any).icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayCards.map(card => (
+                        <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
+                          <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{ev.title}</p>
-                            {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
-                            <div className="flex items-center gap-1 mt-1">
-                              <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
-                              {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                            <p className="text-sm font-medium">{card.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
+                              {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                    {calDate && cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).map(card => (
-                      <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
-                        <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{card.title}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
-                            {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+                      ))}
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -1395,6 +1517,15 @@ export default function Tarefas() {
               <Input value={routineForm.title} onChange={e => setRoutineForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Verificar Comunidade do Clube" onKeyDown={e => e.key === "Enter" && saveRoutine()} />
             </div>
             <div>
+              <label className="text-sm font-medium mb-1 block">Descrição <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Textarea
+                value={routineForm.description}
+                onChange={e => setRoutineForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="O que precisa ser feito, critério de conclusão, links úteis..."
+                className="bg-secondary min-h-[70px] text-sm leading-6"
+              />
+            </div>
+            <div>
               <label className="text-sm font-medium mb-1 block">Ícone</label>
               <div className="flex flex-wrap gap-1.5">
                 {EMOJI_OPTIONS.map(emoji => (
@@ -1435,6 +1566,55 @@ export default function Tarefas() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Agendamento / Recorrência */}
+            <div className="border-t border-border pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">📅 Agendamento (opcional)</p>
+              <p className="text-[11px] text-muted-foreground -mt-2">Defina uma data para projetar essa rotina no calendário. Sem data, ela só aparece na lista diária.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Data inicial</label>
+                  <Input type="date" value={routineForm.start_date} onChange={e => setRoutineForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Horário</label>
+                  <Input type="time" value={routineForm.time_of_day} onChange={e => setRoutineForm(f => ({ ...f, time_of_day: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Recorrência</label>
+                <Select value={routineForm.recurrence} onValueChange={v => setRoutineForm(f => ({ ...f, recurrence: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Todo dia</SelectItem>
+                    <SelectItem value="weekdays">Dias da semana específicos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {routineForm.recurrence === "weekdays" && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Dias</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((label, idx) => {
+                      const active = routineForm.weekdays.includes(idx);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRoutineForm(f => ({
+                            ...f,
+                            weekdays: active ? f.weekdays.filter(w => w !== idx) : [...f.weekdays, idx].sort(),
+                          }))}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80 text-muted-foreground"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

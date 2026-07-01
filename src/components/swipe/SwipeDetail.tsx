@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -6,11 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink, FileText, Mic } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const BLOCK_KEYS = [
+function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src: string } | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // YouTube
+    const ytId = u.hostname.includes("youtu.be")
+      ? u.pathname.slice(1)
+      : u.searchParams.get("v");
+    if ((u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) && ytId) {
+      return { type: "yt", src: `https://www.youtube.com/embed/${ytId}` };
+    }
+    // Vimeo
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean).pop();
+      if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+    }
+    if (/\.(mp4|webm|mov)$/i.test(u.pathname)) {
+      return { type: "mp4", src: url };
+    }
+    return { type: "other", src: url };
+  } catch {
+    return null;
+  }
+}
+
+const SHORT_BLOCKS = [
   { key: "gancho", label: "🎯 Gancho" },
   { key: "participacao_ativa", label: "👋 Participação ativa" },
   { key: "narrativa", label: "📖 Narrativa" },
@@ -18,6 +44,17 @@ const BLOCK_KEYS = [
   { key: "cta_engajamento", label: "💬 CTA Engajamento" },
   { key: "cta_venda", label: "💰 CTA Venda" },
 ];
+
+const VSL7_BLOCKS = [
+  { key: "b1_gancho", label: "1. 🎯 Gancho & Interrupção", hint: "0:00–1:30 · promessa chocante, qualifica avatar" },
+  { key: "b2_agitacao", label: "2. 🔥 Agitação do Problema", hint: "1:30–4:00 · sintoma → causa raiz → custo de não resolver" },
+  { key: "b3_origem", label: "3. 📖 História de Origem & Epifania", hint: "4:00–8:30 · antes / crise / busca / descoberta / transformação" },
+  { key: "b4_mecanismo", label: "4. 🧬 Mecanismo Único", hint: "8:30–11:00 · nome + analogia + pilares + por que concorrência falha" },
+  { key: "b5_oferta", label: "5. 💎 Revelação da Oferta", hint: "11:00–14:00 · escada de ancoragem (valor / custo / mercado / preço)" },
+  { key: "b6_value_stack", label: "6. 🎁 Value Stack & Bônus", hint: "14:00–17:00 · cada bônus mata uma objeção" },
+  { key: "b7_garantia_cta", label: "7. 🛡️ Garantia & CTA Final", hint: "17:00–19:30 · risco invertido + urgência" },
+];
+
 
 interface Props {
   swipe: any;
@@ -30,10 +67,29 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [engineering, setEngineering] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
+  const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
 
   useEffect(() => setData(swipe), [swipe?.id]);
+
+  const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || data?.blocks?.__schema === "vsl7";
+  const BLOCK_KEYS = isVsl ? VSL7_BLOCKS : SHORT_BLOCKS;
+  const videoUrl = data?.media_urls?.[0];
+
+  const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
+
+  // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
+  useEffect(() => {
+    if (!data?.id || data?.__new) return;
+    supabase
+      .from("imphq_creative_batches")
+      .select("id, nome, status, total_gerado, created_at")
+      .contains("source_swipe_ids", [data.id])
+      .order("created_at", { ascending: false })
+      .then(({ data: rows }) => setLinkedBatches(rows || []));
+  }, [data?.id]);
 
   const updateBlock = (k: string, v: string) => setData({ ...data, blocks: { ...(data.blocks || {}), [k]: v } });
 
@@ -110,10 +166,72 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
   };
 
   const copyAll = () => {
-    const txt = BLOCK_KEYS.map((b) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
+    const txt = BLOCK_KEYS.map((b: any) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
     navigator.clipboard.writeText(`# ${data.title}\n\n${txt}`);
     toast.success("Copiado");
   };
+
+  const generateVslFromMotor = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setGenerating(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("swipe-generate", {
+        body: { mode: "vsl_from_swipe", swipe_id: data.id, target_project_id: data.project_id, target_produto_id: data.produto_id, briefing },
+      });
+      if (error) throw error;
+      toast.success(`VSL gerada: "${res.swipe?.title}"`);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const transcribeNow = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    const first = data?.media_urls?.[0];
+    if (!first) return toast.error("Sem vídeo/URL para transcrever");
+    setTranscribing(true);
+    try {
+      const isStoragePath = !/^https?:\/\//i.test(first);
+      const body: any = { swipe_id: data.id, auto_engineer: false };
+      if (isStoragePath) body.storage_path = first;
+      else body.video_url = first;
+      const { data: res, error } = await supabase.functions.invoke("swipe-video-transcribe", { body });
+      if (error) throw error;
+      toast.success("Transcrição concluída");
+      // recarrega
+      const { data: fresh } = await supabase.from("imphq_swipes" as any).select("*").eq("id", data.id).single();
+      if (fresh) setData(fresh);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao transcrever");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const saveTranscript = async () => {
+    if (data.__new) return toast.error("Salve a swipe primeiro");
+    setSaving(true);
+    try {
+      const blocks = { ...(data.blocks || {}) };
+      if (!blocks.narrativa) blocks.narrativa = data.raw_text || "";
+      const { error } = await supabase
+        .from("imphq_swipes" as any)
+        .update({ raw_text: data.raw_text || null, blocks } as any)
+        .eq("id", data.id);
+      if (error) throw error;
+      toast.success("Transcrição salva");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   const re = data.reverse_engineering || {};
 
@@ -121,15 +239,81 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     <Sheet open={true} onOpenChange={onClose}>
       <SheetContent className="bg-background w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-primary">{data.__new ? "Nova copy" : data.title}</SheetTitle>
+          <SheetTitle className="text-primary flex items-center gap-2">
+            {isVsl && <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">VSL</Badge>}
+            {data.__new ? "Nova copy" : data.title}
+          </SheetTitle>
         </SheetHeader>
 
-        <Tabs defaultValue="anatomia" className="mt-4">
-          <TabsList className="grid grid-cols-3 w-full">
+        {/* Player VSL */}
+        {isVsl && embed && (
+          <div className="mt-3 rounded-lg overflow-hidden bg-black/60 border border-border/40">
+            {embed.type === "mp4" ? (
+              <video src={embed.src} controls className="w-full aspect-video" />
+            ) : embed.type === "yt" || embed.type === "vimeo" ? (
+              <iframe
+                src={embed.src}
+                className="w-full aspect-video"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a href={embed.src} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 text-xs text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" /> Abrir vídeo: {embed.src}
+              </a>
+            )}
+          </div>
+        )}
+
+        <Tabs defaultValue={data.raw_text ? "transcricao" : "anatomia"} className="mt-4">
+          <TabsList className={`grid w-full ${isVsl ? "grid-cols-5" : "grid-cols-4"}`}>
+            <TabsTrigger value="transcricao" className="text-xs gap-1"><FileText className="h-3 w-3" /> Roteiro</TabsTrigger>
             <TabsTrigger value="anatomia" className="text-xs">Anatomia</TabsTrigger>
             <TabsTrigger value="reverse" className="text-xs gap-1"><FlaskConical className="h-3 w-3" /> Eng. Reversa</TabsTrigger>
             <TabsTrigger value="motor" className="text-xs gap-1"><Wand2 className="h-3 w-3" /> Motor</TabsTrigger>
+            {isVsl && <TabsTrigger value="criativos" className="text-xs gap-1"><ImageIcon className="h-3 w-3" /> Criativos</TabsTrigger>}
           </TabsList>
+
+          <TabsContent value="transcricao" className="space-y-3 mt-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">
+                Transcrição / roteiro completo
+                {data.transcribe_status && (
+                  <Badge variant="outline" className="ml-2 text-[9px] uppercase">{data.transcribe_status}</Badge>
+                )}
+              </Label>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(data.raw_text || ""); toast.success("Copiado"); }} disabled={!data.raw_text}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+                {data?.media_urls?.[0] && (
+                  <Button size="sm" variant="outline" onClick={transcribeNow} disabled={transcribing} className="gap-1">
+                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mic className="h-3 w-3" />}
+                    {data.raw_text ? "Re-transcrever" : "Transcrever vídeo"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <Textarea
+              value={data.raw_text || ""}
+              onChange={(e) => setData({ ...data, raw_text: e.target.value })}
+              placeholder="Cole aqui o roteiro/transcrição completa, ou clique em 'Transcrever vídeo' para extrair automaticamente."
+              className="bg-secondary text-sm min-h-[420px] leading-7 font-mono"
+            />
+            {data.transcribe_error && (
+              <p className="text-[11px] text-destructive">Erro última transcrição: {data.transcribe_error}</p>
+            )}
+            <div className="flex gap-2">
+              <Button onClick={saveTranscript} disabled={saving} className="flex-1 gap-1">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar roteiro
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-5">
+              Esta é a fonte de verdade que alimenta a engenharia reversa, o Motor (geração de variações) e a anatomia dos blocos.
+            </p>
+          </TabsContent>
+
 
           <TabsContent value="anatomia" className="space-y-3 mt-3">
             <div className="grid grid-cols-2 gap-2">
@@ -176,9 +360,15 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             </div>
 
             <div className="space-y-3 mt-2">
-              {BLOCK_KEYS.map((b) => (
+              {isVsl && (
+                <p className="text-[10px] uppercase tracking-wider text-amber-400/80">
+                  Estrutura VSL em 7 blocos · 19m30s
+                </p>
+              )}
+              {BLOCK_KEYS.map((b: any) => (
                 <div key={b.key}>
                   <Label className="text-xs">{b.label}</Label>
+                  {b.hint && <p className="text-[10px] text-muted-foreground mb-1">{b.hint}</p>}
                   <Textarea
                     value={data.blocks?.[b.key] || ""}
                     onChange={(e) => updateBlock(b.key, e.target.value)}
@@ -187,6 +377,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
                 </div>
               ))}
             </div>
+
 
             <div className="flex gap-2 pt-2">
               <Button onClick={save} disabled={saving} className="flex-1">
@@ -254,11 +445,58 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             <Button onClick={extractTemplate} disabled={generating} variant="outline" className="w-full gap-2">
               <FlaskConical className="h-4 w-4" /> Extrair fórmula reutilizável (template)
             </Button>
+            {isVsl && (
+              <>
+                <div className="border-t border-border/40 pt-3 mt-3" />
+                <Button onClick={generateVslFromMotor} disabled={generating} className="w-full gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  ⚡ Gerar nova VSL com este motor (7 blocos)
+                </Button>
+                <p className="text-[10px] text-muted-foreground leading-6">
+                  Usa esta VSL como esqueleto + produto/avatar do projeto atual para escrever uma VSL nova adaptada.
+                </p>
+              </>
+            )}
+
             <p className="text-[10px] text-muted-foreground leading-6">
               <strong>Variações</strong>: cria N novas copys adaptadas mantendo a estrutura.<br />
               <strong>Extrair fórmula</strong>: salva o esqueleto numa biblioteca de templates.
             </p>
           </TabsContent>
+
+          {isVsl && (
+            <TabsContent value="criativos" className="space-y-3 mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {linkedBatches.length} lote(s) de criativos inspirados nesta VSL
+                </p>
+                <Button asChild size="sm" className="gap-1">
+                  <Link to={`/criativos/novo?source_swipe=${data.id}`}>
+                    <Sparkles className="h-3 w-3" /> Gerar criativos desta VSL
+                  </Link>
+                </Button>
+              </div>
+              {linkedBatches.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground py-6 text-center">
+                  Nenhum criativo atrelado ainda. Clique acima para gerar o primeiro lote.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {linkedBatches.map((b) => (
+                    <Link key={b.id} to={`/criativos/${b.id}`} className="block p-2 rounded border border-border/40 hover:bg-secondary/40 transition">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{b.nome}</span>
+                        <Badge variant="outline" className="text-[9px]">{b.status}</Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {b.total_gerado} criativos · {new Date(b.created_at).toLocaleDateString()}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>

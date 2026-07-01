@@ -157,9 +157,87 @@ Devolva JSON: { "copies": [ { "source_index": 0, "title": "...", "blocks": {...}
       return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (mode === "vsl_from_swipe") {
+      const { data: swipe } = await supabase.from("imphq_swipes").select("*").eq("id", swipe_id).eq("user_id", user.id).single();
+      if (!swipe) throw new Error("Swipe não encontrado");
+      const re = swipe.reverse_engineering || {};
+      const isVsl = (swipe.blocks?.__schema === "vsl7") || (swipe.formato || "").toLowerCase() === "vsl" || re.__schema === "vsl7";
+      if (!isVsl) throw new Error("Esta swipe não está marcada como VSL. Rode a engenharia reversa primeiro com schema VSL.");
+      const ctx = await getProjectContext(supabase, target_project_id, target_produto_id);
+
+      const out = await callAI([
+        { role: "system", content: "Você é um copywriter sênior especializado em VSLs de alto ticket. Sempre devolve JSON válido. Os 7 blocos devem ser texto narrativo e literal, prontos para serem narrados em vídeo (não bullets)." },
+        { role: "user", content: `Use a estrutura de 7 blocos da VSL de referência abaixo como MOTOR e gere uma NOVA VSL completa adaptada ao produto/avatar do contexto. Preserve a fórmula, mas troque exemplos, mecanismo, números, bônus e CTA pelo contexto real.
+
+ESTRUTURA DE 7 BLOCOS:
+B1 Gancho & Interrupção (0:00-1:30)
+B2 Agitação do Problema (1:30-4:00)
+B3 História de Origem & Epifania (4:00-8:30)
+B4 Mecanismo Único (8:30-11:00)
+B5 Revelação da Oferta & Escada de Ancoragem (11:00-14:00)
+B6 Value Stack & Bônus (14:00-17:00)
+B7 Garantia & CTA Final (17:00-19:30)
+
+VSL DE REFERÊNCIA (esqueleto + blocos originais):
+${JSON.stringify({ title: swipe.title, blocks: swipe.blocks, mecanismo: swipe.mecanismo }, null, 2).slice(0, 6000)}
+
+ENGENHARIA REVERSA DA REFERÊNCIA:
+${JSON.stringify(re, null, 2).slice(0, 5000)}
+
+BRIEFING DO USUÁRIO: ${briefing || "(nenhum — use só o contexto do projeto)"}
+${ctx}
+
+Devolva JSON:
+{
+  "title": "título da nova VSL",
+  "promessa_central": "1 frase",
+  "mecanismo_unico": { "nome": "...", "analogia": "...", "pilares": ["..."] },
+  "blocks": {
+    "__schema": "vsl7",
+    "b1_gancho": "texto narrativo completo (200-400 palavras)",
+    "b2_agitacao": "texto narrativo completo (400-700 palavras)",
+    "b3_origem": "texto narrativo completo (600-1000 palavras)",
+    "b4_mecanismo": "texto narrativo completo (400-700 palavras)",
+    "b5_oferta": "texto narrativo completo com escada de ancoragem (300-600 palavras)",
+    "b6_value_stack": "texto narrativo com bônus mapeados a objeções (300-600 palavras)",
+    "b7_garantia_cta": "texto narrativo com garantia + CTA + urgência (200-400 palavras)"
+  }
+}` },
+      ]);
+      const parsed = JSON.parse(out);
+      const newBlocks = { ...(parsed.blocks || {}), __schema: "vsl7" };
+      const { data: inserted } = await supabase
+        .from("imphq_swipes")
+        .insert({
+          user_id: user.id,
+          project_id: target_project_id,
+          produto_id: target_produto_id,
+          title: parsed.title || `VSL gerada de ${swipe.title}`,
+          plataforma: "LP",
+          formato: "VSL",
+          mecanismo: parsed.mecanismo_unico?.nome || swipe.mecanismo,
+          gatilhos: swipe.gatilhos,
+          nicho: swipe.nicho,
+          tags: ["vsl-gerada", "motor"],
+          blocks: newBlocks,
+          source_swipe_id: swipe.id,
+          status: "rascunho",
+          reverse_engineering: {
+            __schema: "vsl7",
+            promessa_central: parsed.promessa_central,
+            mecanismo_unico: parsed.mecanismo_unico,
+            origem: `Gerada a partir de "${swipe.title}"`,
+          },
+        } as any)
+        .select()
+        .single();
+      return new Response(JSON.stringify({ ok: true, swipe: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "mode inválido" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[swipe-generate]", e);
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
+

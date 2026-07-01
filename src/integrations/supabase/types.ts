@@ -3603,6 +3603,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -3622,6 +3623,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -3641,6 +3643,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -3900,12 +3903,148 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_apps: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_modules: {
         Row: {
           author_id: string | null
           cover_url: string | null
           created_at: string
           id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
@@ -3915,6 +4054,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
@@ -3924,6 +4064,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
@@ -4746,11 +4887,16 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           email: string | null
+          engagement_score: number
           id: string
           is_blocked: boolean
           last_seen_at: string | null
+          lifecycle_stage: string
+          lifecycle_updated_at: string | null
           name: string | null
           push_enabled: boolean
+          score_breakdown: Json
+          score_updated_at: string | null
           updated_at: string
         }
         Insert: {
@@ -4760,11 +4906,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -4774,11 +4925,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5016,6 +5172,51 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_push_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          notif_type: string
+          recipients_count: number
+          removed_count: number
+          segment: Json
+          sent_by: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_push_subscriptions: {
         Row: {
           auth: string
@@ -5185,9 +5386,10 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
-          lesson_id: string
+          lesson_id: string | null
           max_attempts: number | null
           pass_score: number
+          program_id: string | null
           show_explanations: boolean
           shuffle_options: boolean
           shuffle_questions: boolean
@@ -5199,9 +5401,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5213,9 +5416,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id?: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5228,6 +5432,13 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_quizzes_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -5633,6 +5844,75 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      areamembrojp_tenant_magic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_path: string
+          tenant_origin: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_path?: string
+          tenant_origin: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_path?: string
+          tenant_origin?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_tenant_settings: {
         Row: {
@@ -16435,6 +16715,7 @@ export type Database = {
           plataforma: string
           project_id: string | null
           resultado: string
+          source: string
           tipo: string
           valor_anterior: string | null
           valor_novo: string | null
@@ -16451,6 +16732,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16467,6 +16749,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo?: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16622,6 +16905,7 @@ export type Database = {
           project_id: string | null
           purchases: number | null
           resultados: number | null
+          source: string
           spend: number | null
           stop_rate: number | null
           thumbnail_url: string | null
@@ -16669,6 +16953,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
@@ -16716,6 +17001,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
@@ -16737,6 +17023,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_ai_action_outcomes: {
+        Row: {
+          action_id: string
+          created_at: string
+          days_to_outcome: number | null
+          id: string
+          kind: string
+          notes: string | null
+          observed_at: string
+          projeto_id: string | null
+          result: string
+          revenue_delta: number | null
+          source: string | null
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind?: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result?: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ai_action_outcomes_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ai_actions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -16940,6 +17276,75 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ai_policy: {
+        Row: {
+          auto_exec_threshold: number
+          confidence_floor: number
+          failure_rate: number
+          id: string
+          killed: boolean
+          killed_reason: string | null
+          kind: string
+          sample_size: number
+          scope: string
+          source: string | null
+          success_rate: number
+          updated_at: string
+        }
+        Insert: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind?: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_alert_dismissals: {
+        Row: {
+          alert_key: string
+          dismissed_at: string
+          expires_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          alert_key: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          alert_key?: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_api_keys: {
         Row: {
           created_at: string | null
@@ -17042,6 +17447,33 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_versions: {
+        Row: {
+          automacao_id: string
+          criado_em: string
+          criado_por: string | null
+          id: string
+          snapshot: Json
+          versao_num: number
+        }
+        Insert: {
+          automacao_id: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot: Json
+          versao_num: number
+        }
+        Update: {
+          automacao_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot?: Json
+          versao_num?: number
+        }
+        Relationships: []
+      }
       imphq_automacoes: {
         Row: {
           acoes: Json | null
@@ -17049,11 +17481,18 @@ export type Database = {
           campanha_id: string | null
           created_at: string | null
           dedupe_hours: number | null
+          exclusivo: boolean
+          exit_cascade: boolean
+          exit_conditions: Json | null
+          exit_trigger_payload: Json | null
+          exit_trigger_tipo: string | null
+          flow_objective: string | null
           follow_up_hours: number | null
           follow_up_template: string | null
           id: string
           link_checkout: string | null
           nome: string
+          prioridade: number
           produto: string | null
           project_id: string | null
           provider_id: string | null
@@ -17061,6 +17500,7 @@ export type Database = {
           quiet_start: number | null
           stalled_hours: number | null
           stalled_operator: string | null
+          stats_cache: Json | null
           tag_filtro: string | null
           trigger_tipo: string
           updated_at: string | null
@@ -17071,11 +17511,18 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
+          exit_cascade?: boolean
+          exit_conditions?: Json | null
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id: string
           link_checkout?: string | null
           nome: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
@@ -17083,6 +17530,7 @@ export type Database = {
           quiet_start?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
           trigger_tipo: string
           updated_at?: string | null
@@ -17093,11 +17541,18 @@ export type Database = {
           campanha_id?: string | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
+          exit_cascade?: boolean
+          exit_conditions?: Json | null
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id?: string
           link_checkout?: string | null
           nome?: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
@@ -17105,6 +17560,7 @@ export type Database = {
           quiet_start?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
           trigger_tipo?: string
           updated_at?: string | null
@@ -17125,6 +17581,54 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_autopilot_runs: {
+        Row: {
+          assets: Json | null
+          created_at: string
+          current_step: number
+          error: string | null
+          id: string
+          input: Json | null
+          project_id: string
+          scraped_context: string | null
+          status: string
+          steps: Json | null
+          total_steps: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id?: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       imphq_business_hours: {
         Row: {
@@ -17796,6 +18300,158 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_company_map_edges: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          map_id: string
+          source_id: string
+          style: string | null
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          map_id: string
+          source_id: string
+          style?: string | null
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          map_id?: string
+          source_id?: string
+          style?: string | null
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_edges_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_company_map_edges_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_company_map_edges_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_map_nodes: {
+        Row: {
+          checklist: Json
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          label: string
+          linked_flow_id: string | null
+          linked_funnel_id: string | null
+          linked_project_id: string | null
+          map_id: string
+          notes: string | null
+          position: Json
+          show_live_kpis: boolean | null
+          size: string
+          updated_at: string
+        }
+        Insert: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          map_id: string
+          notes?: string | null
+          position?: Json
+          show_live_kpis?: boolean | null
+          size?: string
+          updated_at?: string
+        }
+        Update: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          map_id?: string
+          notes?: string | null
+          position?: Json
+          show_live_kpis?: boolean | null
+          size?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_nodes_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_maps: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_node_id: string | null
+          updated_at: string
+          viewport: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_node_id?: string | null
+          updated_at?: string
+          viewport?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_node_id?: string | null
+          updated_at?: string
+          viewport?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_maps_parent_node_id_fkey"
+            columns: ["parent_node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_competitors: {
         Row: {
           ads_ativos: boolean | null
@@ -18021,6 +18677,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          intent: string
           messages: Json
           project_id: string | null
           title: string
@@ -18030,6 +18687,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
@@ -18039,11 +18697,108 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_copy_engine_prompts: {
+        Row: {
+          apply_style: boolean
+          created_at: string
+          enabled: boolean
+          id: string
+          intent: string
+          label: string
+          model: string
+          notes: string | null
+          output_format: string
+          reasoning: string
+          system_prompt: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          apply_style?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent: string
+          label: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          apply_style?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent?: string
+          label?: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      imphq_copy_sync_bindings: {
+        Row: {
+          auto_apply: boolean
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          last_value: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id?: string
+          source_field?: string
+          source_id?: string
+          source_type?: string
+          target_field?: string
+          target_ref_id?: string
+          target_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -18252,38 +19007,53 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string | null
+          description: string | null
           icon: string | null
           id: string
           is_active: boolean | null
           member_id: string | null
           position: number | null
           project_id: string | null
+          recurrence: string
+          start_date: string | null
+          time_of_day: string | null
           title: string
           user_id: string
+          weekdays: number[]
         }
         Insert: {
           category?: string | null
           created_at?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title: string
           user_id: string
+          weekdays?: number[]
         }
         Update: {
           category?: string | null
           created_at?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title?: string
           user_id?: string
+          weekdays?: number[]
         }
         Relationships: [
           {
@@ -18487,6 +19257,42 @@ export type Database = {
           },
         ]
       }
+      imphq_embedding_cache: {
+        Row: {
+          created_at: string | null
+          dimensions: number
+          embedding: string | null
+          hits: number | null
+          id: string
+          last_used_at: string | null
+          model: string
+          text_hash: string
+          text_preview: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dimensions: number
+          embedding?: string | null
+          hits?: number | null
+          id?: string
+          last_used_at?: string | null
+          model: string
+          text_hash: string
+          text_preview?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dimensions?: number
+          embedding?: string | null
+          hits?: number | null
+          id?: string
+          last_used_at?: string | null
+          model?: string
+          text_hash?: string
+          text_preview?: string | null
+        }
+        Relationships: []
+      }
       imphq_empresa: {
         Row: {
           created_at: string | null
@@ -18604,6 +19410,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_blueprints: {
+        Row: {
+          activated_at: string | null
+          blueprint: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          objetivo: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          source: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_flow_executions: {
         Row: {
           automacao_id: string
@@ -18618,6 +19472,7 @@ export type Database = {
           step_results: Json
           trigger_tipo: string
           updated_at: string
+          waiting_for: string | null
         }
         Insert: {
           automacao_id: string
@@ -18632,6 +19487,7 @@ export type Database = {
           step_results?: Json
           trigger_tipo: string
           updated_at?: string
+          waiting_for?: string | null
         }
         Update: {
           automacao_id?: string
@@ -18646,12 +19502,250 @@ export type Database = {
           step_results?: Json
           trigger_tipo?: string
           updated_at?: string
+          waiting_for?: string | null
         }
         Relationships: []
+      }
+      imphq_flow_image_jobs: {
+        Row: {
+          block_id: string
+          blueprint_id: string
+          created_at: string
+          error: string | null
+          id: string
+          prompt: string
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          block_id: string
+          blueprint_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          prompt: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          block_id?: string
+          blueprint_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          prompt?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_image_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_media: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          id: string
+          kind: string
+          label: string
+          mime_type: string | null
+          project_id: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          tags: string[] | null
+          transcript: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind: string
+          label: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind?: string
+          label?: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      imphq_flow_node_stats: {
+        Row: {
+          active: number
+          blueprint_id: string
+          completed: number
+          dropped: number
+          entered: number
+          id: string
+          node_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: number
+          blueprint_id: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: number
+          blueprint_id?: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_stats_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_node_variants: {
+        Row: {
+          block_id: string | null
+          blueprint_id: string
+          conversions: number
+          copy: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          impressions: number
+          node_id: string
+          status: string
+          updated_at: string
+          variant_key: string
+          weight: number
+        }
+        Insert: {
+          block_id?: string | null
+          blueprint_id: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id: string
+          status?: string
+          updated_at?: string
+          variant_key: string
+          weight?: number
+        }
+        Update: {
+          block_id?: string | null
+          blueprint_id?: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id?: string
+          status?: string
+          updated_at?: string
+          variant_key?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_runtime_events: {
+        Row: {
+          blueprint_id: string
+          conversation_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          lead_id: string | null
+          node_id: string
+          payload: Json
+          variant_id: string | null
+        }
+        Insert: {
+          blueprint_id: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          node_id: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Update: {
+          blueprint_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          node_id?: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_runtime_events_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_flow_templates: {
         Row: {
           acoes: Json
+          categoria: string | null
           created_at: string
           descricao: string | null
           icon: string | null
@@ -18663,6 +19757,7 @@ export type Database = {
         }
         Insert: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -18674,6 +19769,7 @@ export type Database = {
         }
         Update: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -18684,6 +19780,62 @@ export type Database = {
           trigger_tipo?: string
         }
         Relationships: []
+      }
+      imphq_flow_wa_triggers: {
+        Row: {
+          active: boolean
+          blueprint_id: string
+          created_at: string
+          id: string
+          keywords: string[]
+          notes: string | null
+          pitch_link: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          provider_id: string | null
+          times_matched: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_wa_triggers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_flows: {
         Row: {
@@ -18769,6 +19921,189 @@ export type Database = {
           },
         ]
       }
+      imphq_funnel_audit_actions: {
+        Row: {
+          action_type: string
+          audit_run_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          executed_at: string | null
+          executed_result: Json | null
+          funil_id: string | null
+          id: string
+          payload: Json
+          projeto_id: string | null
+          rejected_reason: string | null
+          risk_level: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_brain_signals: {
+        Row: {
+          created_at: string
+          evidence: Json | null
+          executed_at: string | null
+          expires_at: string | null
+          funil_id: string | null
+          id: string
+          node_id: string | null
+          produto_id: string | null
+          projeto_id: string
+          reasoning: string | null
+          severity: string
+          signal_type: string
+          snoozed_until: string | null
+          status: string
+          suggested_action: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id: string
+          reasoning?: string | null
+          severity?: string
+          signal_type: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id?: string
+          reasoning?: string | null
+          severity?: string
+          signal_type?: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_checklist: {
+        Row: {
+          assigned_to: string | null
+          auto_generated: boolean
+          category: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          flow_blueprint_id: string | null
+          id: string
+          kanban_card_id: string | null
+          metadata: Json
+          priority: string
+          product_id: string | null
+          project_id: string
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id: string
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id?: string
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_funnel_events: {
         Row: {
           created_at: string
@@ -18832,6 +20167,132 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           xcod?: string | null
+        }
+        Relationships: []
+      }
+      imphq_funnel_node_copies: {
+        Row: {
+          asset_kind: string | null
+          copies: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          node_id: string
+          produto_id: string | null
+          projeto_id: string
+          selected_idx: number
+          updated_at: string
+        }
+        Insert: {
+          asset_kind?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id: string
+          produto_id?: string | null
+          projeto_id: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Update: {
+          asset_kind?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id?: string
+          produto_id?: string | null
+          projeto_id?: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_snapshots: {
+        Row: {
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          funil_id: string | null
+          id: string
+          label: string | null
+          motivo: string
+          produto_id: string | null
+          projeto_id: string
+        }
+        Insert: {
+          canvas: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id: string
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_templates: {
+        Row: {
+          autor: string | null
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          is_official: boolean
+          nicho: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url: string | null
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome?: string
+          objetivo?: string
+          slug?: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
         }
         Relationships: []
       }
@@ -18970,6 +20431,62 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ig_account_insights: {
+        Row: {
+          account_id: string
+          created_at: string
+          followers_count: number
+          follows_count: number
+          id: string
+          impressions: number
+          media_count: number
+          profile_views: number
+          project_id: string
+          raw: Json | null
+          reach: number
+          snapshot_date: string
+          website_clicks: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id?: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_account_insights_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ig_accounts: {
         Row: {
           auth_method: string
@@ -19087,6 +20604,7 @@ export type Database = {
       imphq_ig_comments: {
         Row: {
           account_id: string
+          ad_context: Json | null
           comment_id: string
           created_at: string
           from_user_id: string | null
@@ -19101,6 +20619,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          ad_context?: Json | null
           comment_id: string
           created_at?: string
           from_user_id?: string | null
@@ -19115,6 +20634,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          ad_context?: Json | null
           comment_id?: string
           created_at?: string
           from_user_id?: string | null
@@ -19140,11 +20660,14 @@ export type Database = {
       imphq_ig_conversations: {
         Row: {
           account_id: string
+          ai_active: boolean | null
           ai_paused: boolean | null
           ai_paused_reason: string | null
+          conversation_summary: string | null
           created_at: string
           follow_up_sent_at: string | null
           follow_up_status: string | null
+          ia_ativa: boolean | null
           id: string
           ig_thread_id: string | null
           last_message: string | null
@@ -19154,16 +20677,20 @@ export type Database = {
           participant_id: string
           participant_name: string | null
           participant_username: string | null
+          reengagement_sent_at: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
           account_id: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19173,16 +20700,20 @@ export type Database = {
           participant_id: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
           account_id?: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19192,6 +20723,7 @@ export type Database = {
           participant_id?: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -19201,6 +20733,124 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media: {
+        Row: {
+          account_id: string
+          caption: string | null
+          created_at: string
+          id: string
+          ig_media_id: string
+          media_product_type: string | null
+          media_type: string | null
+          media_url: string | null
+          permalink: string | null
+          posted_at: string | null
+          project_id: string
+          raw: Json | null
+          thumbnail_url: string | null
+          updated_at: string
+          zernio_post_id: string | null
+        }
+        Insert: {
+          account_id: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id?: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id?: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media_insights: {
+        Row: {
+          comments: number
+          created_at: string
+          engagement: number
+          id: string
+          impressions: number
+          likes: number
+          media_id: string
+          raw: Json | null
+          reach: number
+          saves: number
+          shares: number
+          snapshot_date: string
+          video_views: number
+        }
+        Insert: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Update: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id?: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_insights_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_media"
             referencedColumns: ["id"]
           },
         ]
@@ -19365,6 +21015,27 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_ig_trigger_executions: {
+        Row: {
+          comment_id: string
+          event_type: string
+          executed_at: string
+          trigger_id: string
+        }
+        Insert: {
+          comment_id: string
+          event_type?: string
+          executed_at?: string
+          trigger_id: string
+        }
+        Update: {
+          comment_id?: string
+          event_type?: string
+          executed_at?: string
+          trigger_id?: string
+        }
+        Relationships: []
       }
       imphq_ig_webhook_logs: {
         Row: {
@@ -19698,6 +21369,66 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_launch_timeline: {
+        Row: {
+          color: string | null
+          created_at: string
+          depends_on: string[] | null
+          description: string | null
+          duration_min: number | null
+          funil_id: string | null
+          id: string
+          is_milestone: boolean | null
+          meta: Json | null
+          owner: string | null
+          peca_ref_id: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo?: string
+          projeto_id?: string
+          scheduled_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_lead_predictions: {
         Row: {
           ai_summary: string | null
@@ -19941,57 +21672,90 @@ export type Database = {
       }
       imphq_leads: {
         Row: {
+          awareness_level: number | null
           campanha_id: string | null
+          closer_message_sent_at: string | null
+          closer_triggered_at: string | null
           created_at: string | null
           criado_em: string | null
           data: Json | null
+          dor_principal: string | null
           email: string | null
           funil_id: string | null
           id: string
+          ig_closer_sent_at: string | null
+          ig_participant_id: string | null
+          lead_memory: Json | null
+          nivel_qualificacao: string | null
           nome: string | null
+          objecao_atual: string | null
           phone: string | null
           plataforma: string | null
           project_id: string | null
+          qualificacao_updated_at: string | null
           score: number | null
           status: string | null
           tags: string[] | null
           total_gasto: number | null
+          ultimo_interesse: string | null
           updated_at: string | null
         }
         Insert: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Update: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id?: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -20248,6 +22012,7 @@ export type Database = {
       }
       imphq_notification_preferences: {
         Row: {
+          checkout_abandonado: boolean
           created_at: string | null
           disparo_concluido: boolean | null
           erro_conexao: boolean | null
@@ -20266,8 +22031,12 @@ export type Database = {
           user_id: string
           venda_aprovada: boolean
           venda_recusada: boolean
+          wa_briefing_enabled: boolean
+          wa_briefing_hour: number
+          wa_briefing_phone: string | null
         }
         Insert: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
@@ -20286,8 +22055,12 @@ export type Database = {
           user_id: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Update: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
@@ -20306,6 +22079,9 @@ export type Database = {
           user_id?: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Relationships: [
           {
@@ -20567,6 +22343,152 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_outbound_webhook_deliveries: {
+        Row: {
+          attempt: number
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          event: string
+          id: string
+          max_attempts: number
+          next_retry_at: string | null
+          payload: Json
+          response_body: string | null
+          status: string
+          status_code: number | null
+          webhook_id: string
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event?: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload?: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhook_deliveries_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_outbound_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_outbound_webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          events: string[]
+          headers: Json
+          id: string
+          last_delivery_at: string | null
+          last_status: string | null
+          name: string
+          project_id: string | null
+          secret: string
+          total_deliveries: number
+          total_failures: number
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name: string
+          project_id?: string | null
+          secret: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name?: string
+          project_id?: string | null
+          secret?: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_processes: {
         Row: {
           category: string
@@ -20606,6 +22528,33 @@ export type Database = {
           steps?: Json | null
           title?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_product_project_rules: {
+        Row: {
+          created_at: string
+          id: string
+          override_existing: boolean
+          produto_nome: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome?: string
+          project_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -20792,6 +22741,41 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_project_sites: {
+        Row: {
+          created_at: string
+          id: string
+          papel: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id?: string
+          site_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_project_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_project_templates: {
         Row: {
           boards_json: Json
@@ -20827,6 +22811,7 @@ export type Database = {
       }
       imphq_projects: {
         Row: {
+          active: boolean | null
           avatar: Json | null
           brand_kit: Json | null
           category: string | null
@@ -20845,7 +22830,9 @@ export type Database = {
           is_archived: boolean | null
           members: Json | null
           meta_diaria_notified_date: string | null
+          meta_offline_event_set_id: string | null
           name: string
+          owner_phone: string | null
           parent_id: string | null
           pipeline: Json | null
           settings: Json | null
@@ -20853,6 +22840,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20871,7 +22859,9 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -20879,6 +22869,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20897,7 +22888,9 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name?: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -21165,6 +23158,11 @@ export type Database = {
           tags: string[] | null
           tipo: string | null
           titulo: string
+          transcribe_error: string | null
+          transcribe_provider: string | null
+          transcribe_status: string | null
+          transcribed_at: string | null
+          transcricao: string | null
           updated_at: string | null
           url: string | null
         }
@@ -21181,6 +23179,11 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo: string
+          transcribe_error?: string | null
+          transcribe_provider?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
@@ -21197,6 +23200,11 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo?: string
+          transcribe_error?: string | null
+          transcribe_provider?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
@@ -21216,6 +23224,27 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_referencias_pastas: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          project_id?: string | null
+        }
+        Relationships: []
       }
       imphq_routine_checks: {
         Row: {
@@ -21386,6 +23415,60 @@ export type Database = {
           project_id?: string
           score?: number
           vendedor_name?: string
+        }
+        Relationships: []
+      }
+      imphq_sites: {
+        Row: {
+          branding_json: Json | null
+          content_md: string | null
+          created_at: string
+          github_url: string | null
+          id: string
+          last_scraped_at: string | null
+          status: string
+          summary: string | null
+          tags: string[]
+          thumbnail_url: string | null
+          tipo: string
+          titulo: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          github_url?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          github_url?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -21923,13 +24006,16 @@ export type Database = {
       }
       imphq_swipes: {
         Row: {
+          audio_hash: string | null
           blocks: Json
           created_at: string
           criador: string | null
+          duration_s: number | null
           formato: string | null
           gatilhos: string[] | null
           id: string
           mecanismo: string | null
+          media_type: string | null
           media_urls: string[] | null
           nicho: string | null
           plataforma: string | null
@@ -21942,18 +24028,25 @@ export type Database = {
           source_url: string | null
           status: string
           tags: string[] | null
+          thumb_url: string | null
           title: string
+          transcribe_error: string | null
+          transcribe_status: string | null
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
+          audio_hash?: string | null
           blocks?: Json
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
           plataforma?: string | null
@@ -21966,18 +24059,25 @@ export type Database = {
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
+          audio_hash?: string | null
           blocks?: Json
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
           plataforma?: string | null
@@ -21990,9 +24090,13 @@ export type Database = {
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -22441,6 +24545,9 @@ export type Database = {
           funil_id: string | null
           id: string
           lead_id: string | null
+          learned_at: string | null
+          meta_offline_synced_at: string | null
+          pais: string | null
           plataforma: string
           produto_id_ext: string | null
           produto_nome: string | null
@@ -22464,6 +24571,9 @@ export type Database = {
           funil_id?: string | null
           id: string
           lead_id?: string | null
+          learned_at?: string | null
+          meta_offline_synced_at?: string | null
+          pais?: string | null
           plataforma: string
           produto_id_ext?: string | null
           produto_nome?: string | null
@@ -22487,6 +24597,9 @@ export type Database = {
           funil_id?: string | null
           id?: string
           lead_id?: string | null
+          learned_at?: string | null
+          meta_offline_synced_at?: string | null
+          pais?: string | null
           plataforma?: string
           produto_id_ext?: string | null
           produto_nome?: string | null
@@ -22691,6 +24804,15 @@ export type Database = {
           ai_provider: string
           ai_temperature: number
           ai_top_p: number
+          audit_findings: Json | null
+          auto_audit_enabled: boolean | null
+          auto_drift_enabled: boolean | null
+          auto_escalation_enabled: boolean | null
+          auto_scoring_enabled: boolean | null
+          auto_tune_apply: boolean | null
+          auto_tune_enabled: boolean | null
+          back_to_hours_prefix: string | null
+          banned_phrases: string[] | null
           business_hours_end: string | null
           business_hours_only: boolean | null
           business_hours_start: string | null
@@ -22703,6 +24825,8 @@ export type Database = {
           custom_instructions: string | null
           debounce_seconds: number | null
           draft_mode: boolean
+          drift_history: Json | null
+          drift_score: number | null
           enabled: boolean | null
           escalation_keywords: string[] | null
           expert_persona: string | null
@@ -22713,17 +24837,27 @@ export type Database = {
           instagram_comments_custom_dm: string | null
           instagram_comments_enabled: boolean | null
           instagram_enabled: boolean | null
+          last_audit_at: string | null
+          last_drift_at: string | null
+          last_tune_at: string | null
           learning_mode: boolean
           max_tokens: number | null
+          out_of_hours_message: string | null
           payment_link: string | null
           personality: string | null
+          pitch_followup_delays_hours: number[]
+          pitch_followup_enabled: boolean
+          pitch_followup_entry_product_id: string | null
+          pix_key: string | null
           product_focus: string | null
           project_id: string
           provider_id: string | null
           response_delay_seconds: number | null
+          sector_template_applied: string | null
           tone: string | null
           triage_prompt: string | null
           triage_stages: Json | null
+          tune_history: Json | null
           updated_at: string | null
           voice_clarity: number | null
           voice_name: string | null
@@ -22731,12 +24865,22 @@ export type Database = {
           voice_reply_enabled: boolean | null
           voice_stability: number | null
           welcome_message: string | null
+          wizard_completed_at: string | null
         }
         Insert: {
           ai_model?: string | null
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
@@ -22749,6 +24893,8 @@ export type Database = {
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
@@ -22759,17 +24905,27 @@ export type Database = {
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22777,12 +24933,22 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Update: {
           ai_model?: string | null
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
@@ -22795,6 +24961,8 @@ export type Database = {
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
@@ -22805,17 +24973,27 @@ export type Database = {
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id?: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22823,6 +25001,7 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Relationships: [
           {
@@ -22959,6 +25138,87 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_wa_attribution: {
+        Row: {
+          attribution_id: string
+          campaign_id: string | null
+          click_id: string | null
+          clicked_at: string | null
+          conversation_id: string | null
+          id: string
+          link_url: string
+          matched_at: string | null
+          message_id: string | null
+          metadata: Json | null
+          phone: string | null
+          produto_nome: string | null
+          project_id: string
+          sent_at: string | null
+          source: string
+          source_detail: string | null
+          template_name: string | null
+          venda_id: string | null
+          venda_status: string | null
+        }
+        Insert: {
+          attribution_id: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id: string
+          sent_at?: string | null
+          source: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Update: {
+          attribution_id?: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url?: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          sent_at?: string | null
+          source?: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_attribution_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_attribution_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_messages"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -23291,92 +25551,242 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_conversation_scores: {
+        Row: {
+          conversation_id: string
+          id: string
+          metadata: Json | null
+          outcome: string
+          postmortem: string | null
+          project_id: string
+          score: number
+          scored_at: string | null
+          what_failed: string[] | null
+          what_worked: string[] | null
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          metadata?: Json | null
+          outcome: string
+          postmortem?: string | null
+          project_id: string
+          score: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          metadata?: Json | null
+          outcome?: string
+          postmortem?: string | null
+          project_id?: string
+          score?: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversation_scores_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_conversations: {
         Row: {
+          ai_debounce_until: string | null
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
+          ai_pending_since: string | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
+          assigned_to: string | null
+          audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
           contact_name: string | null
+          conv_status: string | null
+          conversation_summary: string | null
           created_at: string
+          current_intent: string | null
+          emotional_state: string | null
+          escalation_confidence: number | null
+          escalation_decided_at: string | null
+          escalation_reason: string | null
+          handoff_at: string | null
+          handoff_summary: Json | null
+          ia_ativa: boolean | null
           id: string
+          intent_tags: string[] | null
+          intent_updated_at: string | null
           jid_suffix: string
+          last_incoming_at: string | null
+          last_memory_extract_at: string | null
+          last_memory_extract_msg_count: number | null
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
+          last_objection: string | null
+          last_objection_at: string | null
+          last_pitch_at: string | null
+          last_pitch_link: string | null
+          last_pitch_produto: string | null
           last_reactivation_at: string | null
           last_read_at: string | null
+          lead_id: string | null
           message_count: number
           metadata: Json | null
           phone: string
+          pitch_followup_last_at: string | null
+          pitch_followup_stage: number
           profile_pic_updated_at: string | null
           profile_pic_url: string | null
           project_id: string
           provider_id: string | null
+          qualification_questions_asked: number
+          reengagement_sent_at: string | null
           session: string
+          snoozed_until: string | null
           status: string
           temperature: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
+          assigned_to?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conv_status?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
+          emotional_state?: string | null
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          handoff_at?: string | null
+          handoff_summary?: Json | null
+          ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
+          last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id: string
           provider_id?: string | null
+          qualification_questions_asked?: number
+          reengagement_sent_at?: string | null
           session: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
+          assigned_to?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
           contact_name?: string | null
+          conv_status?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
+          emotional_state?: string | null
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          handoff_at?: string | null
+          handoff_summary?: Json | null
+          ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
+          last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
           phone?: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id?: string
           provider_id?: string | null
+          qualification_questions_asked?: number
+          reengagement_sent_at?: string | null
           session?: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_wa_conversations_provider_id_fkey"
             columns: ["provider_id"]
@@ -23630,13 +26040,42 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_internal_notes: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       imphq_wa_knowledge: {
         Row: {
+          answered: boolean
           aprovada: boolean
           conversation_id: string | null
           created_at: string
           embedding: string | null
           id: string
+          last_applied_at: string | null
           lead_id: string | null
           pergunta: string
           project_id: string
@@ -23646,11 +26085,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta: string
           project_id: string
@@ -23660,11 +26101,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta?: string
           project_id?: string
@@ -23674,6 +26117,73 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      imphq_wa_lead_memories: {
+        Row: {
+          content: string
+          created_at: string
+          cross_shareable: boolean
+          embedding: string | null
+          emotional_state: string | null
+          id: string
+          last_objection: string | null
+          lead_id: string | null
+          memory_type: string
+          phone: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          cross_shareable?: boolean
+          embedding?: string | null
+          emotional_state?: string | null
+          id?: string
+          last_objection?: string | null
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          cross_shareable?: boolean
+          embedding?: string | null
+          emotional_state?: string | null
+          id?: string
+          last_objection?: string | null
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_lead_memories_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
       }
       imphq_wa_lead_memory: {
         Row: {
@@ -23715,10 +26225,14 @@ export type Database = {
       }
       imphq_wa_messages: {
         Row: {
+          attribution_id: string | null
           content: string
           conversation_id: string
           created_at: string
           direction: string | null
+          feedback_correction_type: string | null
+          gap_analyzed: boolean | null
+          gap_score: number | null
           id: string
           media_url: string | null
           message_type: string | null
@@ -23733,12 +26247,18 @@ export type Database = {
           sent_by: string | null
           status: string | null
           tokens_used: number | null
+          transcript: string | null
+          transcription: string | null
         }
         Insert: {
+          attribution_id?: string | null
           content: string
           conversation_id: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23753,12 +26273,18 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
+          transcription?: string | null
         }
         Update: {
+          attribution_id?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23773,6 +26299,8 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
+          transcription?: string | null
         }
         Relationships: [
           {
@@ -23841,6 +26369,92 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_project_rules: {
+        Row: {
+          ab_decided_at: string | null
+          ab_group_id: string | null
+          ab_started_at: string | null
+          ab_status: string | null
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          conversion_count: number
+          created_at: string
+          created_by: string | null
+          created_from_message_id: string | null
+          embedding: string | null
+          id: string
+          last_applied_at: string | null
+          parent_id: string | null
+          pending_reason: string | null
+          project_id: string
+          rule_text: string
+          rule_type: string
+          status: string
+          times_applied: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          conversion_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          embedding?: string | null
+          id?: string
+          last_applied_at?: string | null
+          parent_id?: string | null
+          pending_reason?: string | null
+          project_id: string
+          rule_text: string
+          rule_type?: string
+          status?: string
+          times_applied?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          conversion_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          embedding?: string | null
+          id?: string
+          last_applied_at?: string | null
+          parent_id?: string | null
+          pending_reason?: string | null
+          project_id?: string
+          rule_text?: string
+          rule_type?: string
+          status?: string
+          times_applied?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_project_rules_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_providers: {
         Row: {
           access_token: string | null
@@ -23901,6 +26515,140 @@ export type Database = {
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_rule_applications: {
+        Row: {
+          ab_group_id: string | null
+          applied_at: string
+          conversation_id: string | null
+          converted_at: string | null
+          id: string
+          lead_id: string | null
+          project_id: string
+          rule_id: string
+          venda_id: string | null
+        }
+        Insert: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id: string
+          rule_id: string
+          venda_id?: string | null
+        }
+        Update: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id?: string
+          rule_id?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_rule_applications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_scheduled: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          phone: string
+          project_id: string | null
+          provider_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone?: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      imphq_wa_sector_templates: {
+        Row: {
+          config_json: Json
+          created_at: string | null
+          descricao: string | null
+          emoji: string | null
+          faq_json: Json
+          flows_json: Json
+          id: string
+          nome: string
+          ordem: number | null
+          setor: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome: string
+          ordem?: number | null
+          setor: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome?: string
+          ordem?: number | null
+          setor?: string
         }
         Relationships: []
       }
@@ -23973,6 +26721,7 @@ export type Database = {
       imphq_wa_triage: {
         Row: {
           ai_response: string | null
+          awareness_level: number | null
           conversation_id: string | null
           created_at: string
           escalated: boolean
@@ -23988,6 +26737,7 @@ export type Database = {
         }
         Insert: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -24003,6 +26753,7 @@ export type Database = {
         }
         Update: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -24326,6 +27077,30 @@ export type Database = {
           },
         ]
       }
+      imphq_zernio_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          payload: Json | null
+          project_id: string | null
+          received_at: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       integrated_analysis: {
         Row: {
           correlation_data: Json | null
@@ -24587,6 +27362,42 @@ export type Database = {
           position?: number
           starts_at?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      jonathan_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -25262,6 +28073,268 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          from_email: string | null
+          html: string | null
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          body_static_html: string | null
+          created_at: string
+          delay_hours: number
+          dynamic_reason: string | null
+          id: string
+          render_mode: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+          subject_static: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       jonathan_events: {
         Row: {
           created_at: string
@@ -25328,6 +28401,47 @@ export type Database = {
           },
         ]
       }
+      jonathan_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jonathan_hair_types: {
         Row: {
           code: string
@@ -25355,6 +28469,66 @@ export type Database = {
           short_label?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
         }
         Relationships: []
       }
@@ -25420,6 +28594,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      jonathan_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jonathan_lesson_likes: {
         Row: {
@@ -25587,6 +28835,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -25594,8 +28843,11 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           transcript: string | null
+          transcript_error: string | null
           transcript_fetched_at: string | null
           transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
           video_url: string | null
         }
         Insert: {
@@ -25607,6 +28859,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -25614,8 +28867,11 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Update: {
@@ -25627,6 +28883,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -25634,8 +28891,11 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -25885,27 +29145,168 @@ export type Database = {
         }
         Relationships: []
       }
-      jonathan_modules: {
+      jonathan_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_apps: {
         Row: {
           cover_url: string | null
           created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
           id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_modules: {
+        Row: {
+          author_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
         }
         Insert: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
         }
         Update: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
@@ -26093,6 +29494,36 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       jonathan_payment_webhooks: {
         Row: {
           created_at: string
@@ -26137,7 +29568,9 @@ export type Database = {
       }
       jonathan_plan_external_products: {
         Row: {
+          access_duration_days: number | null
           created_at: string
+          delivery_name: string | null
           external_product_id: string
           id: string
           is_active: boolean
@@ -26145,11 +29578,15 @@ export type Database = {
           plan_id: string | null
           program_id: string | null
           provider: string
+          sale_mode: string
           scope: string
+          tag_ids: string[]
           updated_at: string
         }
         Insert: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id: string
           id?: string
           is_active?: boolean
@@ -26157,11 +29594,15 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Update: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id?: string
           id?: string
           is_active?: boolean
@@ -26169,7 +29610,9 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider?: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -26685,6 +30128,7 @@ export type Database = {
           blocked_at: string | null
           blocked_reason: string | null
           created_at: string
+          email: string | null
           id: string
           is_blocked: boolean
           last_seen_at: string | null
@@ -26698,6 +30142,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -26711,6 +30156,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -26761,6 +30207,7 @@ export type Database = {
           avatar: string | null
           model: string
           name: string
+          persona_id: string | null
           program_id: string
           provider: string
           suggestions: Json
@@ -26771,6 +30218,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name: string
+          persona_id?: string | null
           program_id: string
           provider?: string
           suggestions?: Json
@@ -26781,6 +30229,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name?: string
+          persona_id?: string | null
           program_id?: string
           provider?: string
           suggestions?: Json
@@ -26788,6 +30237,13 @@ export type Database = {
           welcome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_brand_personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_program_ai_config_program_id_fkey"
             columns: ["program_id"]
@@ -26831,6 +30287,7 @@ export type Database = {
           language: string
           learnings: Json
           long_description: string | null
+          paywall_config: Json | null
           position: number
           price_brl: number | null
           reactivation_url: string | null
@@ -26875,6 +30332,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -26919,6 +30377,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -27393,6 +30852,8 @@ export type Database = {
           author_photo: string | null
           country: string | null
           created_at: string
+          featured_on_home: boolean
+          home_order: number | null
           id: string
           media_type: string
           profession: string | null
@@ -27406,6 +30867,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -27419,6 +30882,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -27627,6 +31092,8 @@ export type Database = {
           landing_signup_label: string
           landing_subtitle: string
           landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
           logo_url: string | null
           meditations_label: string
           meditations_label_singular: string
@@ -27735,6 +31202,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -27843,6 +31312,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -28050,6 +31521,7 @@ export type Database = {
           name: string
           priority: number
           sales_url: string | null
+          source_lesson_id: string | null
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
@@ -28066,6 +31538,7 @@ export type Database = {
           name: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
@@ -28082,6 +31555,7 @@ export type Database = {
           name?: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
@@ -28089,6 +31563,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_upsell_offers_source_program_id_fkey"
             columns: ["source_program_id"]
@@ -28257,6 +31738,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      jonathan_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       jonathan_user_onboarding: {
         Row: {
@@ -37595,6 +41103,119 @@ export type Database = {
           },
         ]
       }
+      scanner_leads: {
+        Row: {
+          admin_notes: string | null
+          age: number | null
+          answers: Json
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          profile: string
+          session_id: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          profile: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          profile?: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      scanner_sessions: {
+        Row: {
+          age: number | null
+          answers: Json
+          completed_at: string | null
+          email: string | null
+          id: string
+          last_question_index: number | null
+          last_step: string
+          lead_id: string | null
+          name: string | null
+          phone: string | null
+          profile: string | null
+          session_id: string
+          started_at: string
+          total_questions: number | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id?: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scanner_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "scanner_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sequences: {
         Row: {
           created_at: string
@@ -38129,6 +41750,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_active_challenge: {
+        Row: {
+          challenge_id: string
+          completed_days: number[]
+          id: string
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_balances: {
         Row: {
           balance: number
@@ -38155,6 +41839,69 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_habits_history: {
+        Row: {
+          completed_habits: string[]
+          created_at: string
+          date: string
+          id: string
+          streak: number
+          user_id: string
+        }
+        Insert: {
+          completed_habits?: string[]
+          created_at?: string
+          date: string
+          id?: string
+          streak?: number
+          user_id: string
+        }
+        Update: {
+          completed_habits?: string[]
+          created_at?: string
+          date?: string
+          id?: string
+          streak?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_interactions: {
         Row: {
@@ -39097,6 +42844,7 @@ export type Database = {
           id: string
           is_broadcast: boolean | null
           is_simulated: boolean | null
+          run_id: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -39108,6 +42856,7 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -39119,12 +42868,20 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id?: string
           text?: string
           timestamp_video?: number
           webinar_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_live_chat_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_live_chat_webinar_id_fkey"
             columns: ["webinar_id"]
@@ -39338,6 +43095,94 @@ export type Database = {
           },
         ]
       }
+      webi_retention_buckets: {
+        Row: {
+          bucket_seconds: number
+          bucket_start_seconds: number
+          created_at: string
+          id: string
+          last_timestamp_video: number | null
+          lead_email: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          metadata: Json
+          project_id: string
+          run_id: string | null
+          sample_count: number
+          session_id: string
+          session_mode: string | null
+          timezone: string | null
+          updated_at: string
+          user_agent: string | null
+          watch_delta_seconds: number
+          webinar_id: string
+        }
+        Insert: {
+          bucket_seconds?: number
+          bucket_start_seconds: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id: string
+          run_id?: string | null
+          sample_count?: number
+          session_id: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id: string
+        }
+        Update: {
+          bucket_seconds?: number
+          bucket_start_seconds?: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id?: string
+          run_id?: string | null
+          sample_count?: number
+          session_id?: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_retention_buckets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_session_events: {
         Row: {
           created_at: string | null
@@ -39346,6 +43191,7 @@ export type Database = {
           lead_id: string | null
           metadata: Json | null
           project_id: string
+          run_id: string | null
           session_id: string
           timestamp_video: number | null
           webinar_id: string
@@ -39357,6 +43203,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id: string
+          run_id?: string | null
           session_id: string
           timestamp_video?: number | null
           webinar_id: string
@@ -39368,6 +43215,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id?: string
+          run_id?: string | null
           session_id?: string
           timestamp_video?: number | null
           webinar_id?: string
@@ -39385,6 +43233,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_session_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
             referencedColumns: ["id"]
           },
           {
@@ -39443,6 +43298,101 @@ export type Database = {
           },
         ]
       }
+      webi_webhook_logs: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          response_body: string | null
+          response_status: number | null
+          webhook_url: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          response_body?: string | null
+          response_status?: number | null
+          webhook_url: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          response_body?: string | null
+          response_status?: number | null
+          webhook_url?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webhook_logs_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_webinar_runs: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          metadata: Json
+          project_id: string
+          started_at: string
+          status: string
+          title: string | null
+          updated_at: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webinar_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_webinar_runs_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_webinars: {
         Row: {
           ai_enabled: boolean | null
@@ -39451,6 +43401,7 @@ export type Database = {
           ai_persona_avatar: string | null
           ai_persona_name: string | null
           ai_system_prompt: string | null
+          analytics_pitch_minute: number | null
           bad_words_filter: boolean | null
           chat_cpm: number | null
           chat_default_tab: string | null
@@ -39462,8 +43413,10 @@ export type Database = {
           chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
+          current_run_id: string | null
           custom_background_url: string | null
           description: string | null
+          disable_qa: boolean | null
           display_name: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
@@ -39475,10 +43428,12 @@ export type Database = {
           form_fields: Json | null
           has_quiz: boolean | null
           id: string
+          is_evergreen: boolean | null
           is_panic_active: boolean | null
           landing_button_text: string | null
           landing_headline: string | null
           landing_subheadline: string | null
+          language: string | null
           name: string
           peak_viewers_max: number | null
           peak_viewers_min: number | null
@@ -39496,12 +43451,16 @@ export type Database = {
           tracking_head_code: string | null
           updated_at: string | null
           video_orientation: string | null
+          video_transcript: string | null
           video_url: string | null
           waiting_delay_seconds: number | null
           waiting_room_enabled: boolean | null
           waiting_room_message: string | null
           whatsapp_pitch_message: string | null
           whatsapp_welcome_message: string | null
+          yt_channel_avatar_url: string | null
+          yt_comments_enabled: boolean | null
+          yt_subscriber_count: string | null
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -39510,6 +43469,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
@@ -39521,8 +43481,10 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
@@ -39534,10 +43496,12 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -39555,12 +43519,16 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Update: {
           ai_enabled?: boolean | null
@@ -39569,6 +43537,7 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
@@ -39580,8 +43549,10 @@ export type Database = {
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
@@ -39593,10 +43564,12 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name?: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -39614,14 +43587,25 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_webinars_current_run_id_fkey"
+            columns: ["current_run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_webinars_project_id_fkey"
             columns: ["project_id"]
@@ -40833,6 +44817,18 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_health: {
+        Row: {
+          aguardando: number | null
+          automacao_id: string | null
+          execucoes: number | null
+          falhas: number | null
+          saidas: number | null
+          sucessos: number | null
+          taxa_sucesso: number | null
+        }
+        Relationships: []
+      }
       imphq_v_ai_drafts: {
         Row: {
           contact_identifier: string | null
@@ -40853,6 +44849,18 @@ export type Database = {
           resolved_at: string | null
           status: string | null
           suggested_text: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_funnel_daily: {
+        Row: {
+          day: string | null
+          links_clicados: number | null
+          links_enviados: number | null
+          project_id: string | null
+          source: string | null
+          vendas_aprovadas: number | null
+          vendas_geradas: number | null
         }
         Relationships: []
       }
@@ -41004,6 +45012,53 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_attribution_unified: {
+        Row: {
+          canal_atribuido: string | null
+          data_venda: string | null
+          first_click_at: string | null
+          lead_id: string | null
+          plataforma_venda: string | null
+          produto_nome: string | null
+          project_id: string | null
+          tipo_venda: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor: number | null
+          valor_liquido: number | null
+          venda_id: string | null
+          wa_clicked_at: string | null
+          wa_source: string | null
+          wa_source_detail: string | null
+          wa_template: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_vendas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       vw_financas_resumo: {
         Row: {
           cpa: number | null
@@ -41034,6 +45089,10 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      amjp_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       amjp_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
@@ -41044,8 +45103,13 @@ export type Database = {
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      amjp_program_quiz_stats: { Args: { _program_id: string }; Returns: Json }
       amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
+      areamembrojp_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
       areamembrojp_has_role: {
         Args: {
           _role: Database["public"]["Enums"]["areamembrojp_app_role"]
@@ -41054,6 +45118,14 @@ export type Database = {
         Returns: boolean
       }
       areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      areamembrojp_link_legacy_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      areamembrojp_lookup_auth_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       areamembrojp_program_metrics: {
         Args: { p_program_id: string }
         Returns: Json
@@ -41061,6 +45133,10 @@ export type Database = {
       areamembrojp_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
+      }
+      backfill_product_project_rule: {
+        Args: { p_override?: boolean; p_produto: string; p_project: string }
+        Returns: number
       }
       backup_deposits: { Args: { deposit_ids: string[] }; Returns: undefined }
       calculate_adherence_streaks: {
@@ -41169,6 +45245,39 @@ export type Database = {
       }
       diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
+      evaluate_wa_rules_ab: {
+        Args: { p_min_sample?: number }
+        Returns: {
+          group_id: string
+          loser_id: string
+          loser_rate: number
+          winner_id: string
+          winner_rate: number
+        }[]
+      }
+      find_wa_phone_duplicates: {
+        Args: { p_project_id: string }
+        Returns: {
+          canonical_phone: string
+          drop_id: string
+          drop_msg_count: number
+          drop_phone: string
+          keep_id: string
+          keep_msg_count: number
+          keep_phone: string
+        }[]
+      }
+      flow_roi_by_automation: {
+        Args: { p_project_id: string; p_since?: string }
+        Returns: {
+          automacao_id: string
+          automacao_nome: string
+          avg_ticket: number
+          conversions: number
+          leads_touched: number
+          revenue_total: number
+        }[]
+      }
       generate_nutrition_insights: {
         Args: { p_days_to_analyze?: number; p_user_id: string }
         Returns: {
@@ -41214,6 +45323,11 @@ export type Database = {
           total_historico: number
           ultima_data: string
         }[]
+      }
+      get_lead_360: { Args: { p_lead_id: string }; Returns: Json }
+      get_lead_cross_memory: {
+        Args: { p_current_project_id?: string; p_phone: string }
+        Returns: Json
       }
       get_lead_tag_counts: {
         Args: { p_limit?: number; p_project_id?: string }
@@ -41301,12 +45415,29 @@ export type Database = {
         Args: { _dist_id: string }
         Returns: undefined
       }
+      increment_flow_node_stat: {
+        Args: {
+          p_blueprint_id: string
+          p_delta?: number
+          p_field: string
+          p_node_id: string
+        }
+        Returns: undefined
+      }
+      increment_flow_variant_stat: {
+        Args: { p_delta: number; p_field: string; p_variant_id: string }
+        Returns: undefined
+      }
       increment_trigger_dms: {
         Args: { trigger_id: string }
         Returns: undefined
       }
       increment_trigger_matches: {
         Args: { trigger_id: string }
+        Returns: undefined
+      }
+      increment_wa_rules_applied: {
+        Args: { p_ids: string[] }
         Returns: undefined
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
@@ -41329,9 +45460,17 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      jonathan_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       jonathan_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
+      }
+      jonathan_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
       }
       jonathan_has_program_access: {
         Args: { _program_id: string; _user_id: string }
@@ -41348,6 +45487,14 @@ export type Database = {
           }
       jonathan_is_admin: { Args: { _uid: string }; Returns: boolean }
       jonathan_issue_certificate: {
+        Args: { _program_id: string }
+        Returns: Json
+      }
+      jonathan_program_metrics: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      jonathan_program_quiz_stats: {
         Args: { _program_id: string }
         Returns: Json
       }
@@ -41370,6 +45517,10 @@ export type Database = {
       jp_is_admin: { Args: { _uid: string }; Returns: boolean }
       jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       link_leads_by_utm: { Args: { p_campanha_id: string }; Returns: number }
+      link_wa_conversation_to_lead: {
+        Args: { p_conv_id: string; p_phone: string; p_project_id: string }
+        Returns: undefined
+      }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
         Args: { message_id: string }
@@ -41415,20 +45566,22 @@ export type Database = {
           min_similarity?: number
           p_project_id: string
           query_embedding: string
-          query_text: string
+          query_text?: string
         }
         Returns: {
           id: string
           pergunta: string
           resposta: string
+          score_uso: number
           similarity: number
+          source: string
         }[]
       }
       match_wa_lead_memory: {
         Args: {
-          match_count: number
-          min_similarity: number
-          p_phone: string
+          match_count?: number
+          min_similarity?: number
+          p_phone?: string
           p_project_id: string
           query_embedding: string
         }
@@ -41453,6 +45606,27 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_wa_rules: {
+        Args: {
+          p_match_count?: number
+          p_project_id: string
+          p_query_embedding: string
+          p_threshold?: number
+        }
+        Returns: {
+          ab_group_id: string
+          ab_status: string
+          id: string
+          rule_text: string
+          rule_type: string
+          similarity: number
+        }[]
+      }
+      merge_wa_conversations: {
+        Args: { p_drop_id: string; p_keep_id: string }
+        Returns: Json
+      }
+      normalize_br_phone: { Args: { p_phone: string }; Returns: string[] }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
@@ -41504,6 +45678,8 @@ export type Database = {
         Args: { p_salao_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       spend_points: {
         Args: { p_amount: number; p_type: string; p_user_id: string }
         Returns: boolean
@@ -41542,6 +45718,7 @@ export type Database = {
         | "progress_milestone"
         | "upsell"
         | "weekly_digest"
+        | "lessons_completed_count"
       areamembrojp_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       areamembrojp_upsell_trigger:
         | "lesson_preview_complete"
@@ -41556,6 +45733,20 @@ export type Database = {
       diri_post_status: "draft" | "published" | "scheduled"
       goal_priority: "urgent" | "important" | "strategic"
       jonathan_app_role: "admin" | "member"
+      jonathan_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      jonathan_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
+        | "lessons_completed_count"
       jonathan_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       jonathan_upsell_trigger: "lesson_preview_complete" | "program_complete"
       mission_status: "pending" | "submitted" | "approved" | "rejected"
@@ -41723,6 +45914,7 @@ export const Constants = {
         "progress_milestone",
         "upsell",
         "weekly_digest",
+        "lessons_completed_count",
       ],
       areamembrojp_upsell_event_type: ["view", "click", "dismiss", "convert"],
       areamembrojp_upsell_trigger: [
@@ -41739,6 +45931,22 @@ export const Constants = {
       diri_post_status: ["draft", "published", "scheduled"],
       goal_priority: ["urgent", "important", "strategic"],
       jonathan_app_role: ["admin", "member"],
+      jonathan_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      jonathan_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+        "lessons_completed_count",
+      ],
       jonathan_upsell_event_type: ["view", "click", "dismiss", "convert"],
       jonathan_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       mission_status: ["pending", "submitted", "approved", "rejected"],

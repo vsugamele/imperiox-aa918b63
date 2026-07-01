@@ -77,7 +77,7 @@ async function aiCopy(nome: string, produto: string, projeto: any): Promise<stri
         Authorization: `Bearer ${OPENROUTER_API_KEY}` 
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "deepseek/deepseek-chat-v3.1",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error("[hot-lead-responder] Error:", err);
     return new Response(
-      JSON.stringify({ error: String(err?.message || err) }),
+      JSON.stringify({ error: "Erro interno.", code: "internal_error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

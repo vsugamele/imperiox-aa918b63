@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { conversation_id, message_id, project_id } = await req.json();
+    const { conversation_id, message_id, project_id, gold, source } = await req.json();
     if (!conversation_id || !project_id) {
       return new Response(JSON.stringify({ ok: false, error: "missing_params" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -101,7 +101,8 @@ Deno.serve(async (req) => {
 
     const { data: inserted, error: insErr } = await supabase.from("imphq_wa_knowledge").insert({
       project_id, pergunta, resposta, embedding,
-      source: "human_reply", conversation_id, aprovada: false,
+      source: source || (gold ? "manual:gold" : "human_reply"),
+      conversation_id, aprovada: gold === true,
     }).select("id").maybeSingle();
     if (insErr) {
       console.error("[wa-learn] insert error:", insErr.message);

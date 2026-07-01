@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 import { 
   Brain, Send, Sparkles, FolderOpen, Save, FileDown, 
   Loader2, PlusCircle, CheckCircle2, Circle, Play, RefreshCw, Pencil, Check, ArrowRight, BookOpen
@@ -529,6 +530,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
           content: dossier[p.id],
           body: dossier[p.id],
           cat: p.dbCat,
+          id: crypto.randomUUID(),
         };
       });
 
@@ -543,7 +545,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
         // Insert new documents
         const { error: docsError } = await supabase
           .from("imphq_docs")
-          .insert(docsToInsert);
+          .insert(docsToInsert as any);
 
         if (docsError) throw docsError;
       }
@@ -604,6 +606,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       // Insert any generated phases to imphq_docs
       const docsToInsert = PHASES.filter(p => dossier[p.id] && dossier[p.id].trim().length > 0).map(p => {
         return {
+          id: crypto.randomUUID(),
           project_id: newId,
           title: `[Orquestrador] ${p.title}`,
           content: dossier[p.id],
@@ -613,7 +616,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       });
 
       if (docsToInsert.length > 0) {
-        await supabase.from("imphq_docs").insert(docsToInsert);
+        await supabase.from("imphq_docs").insert(docsToInsert as any);
       }
 
       toast.success("Novo projeto criado e sincronizado!");
@@ -630,6 +633,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
 
   return (
     <div className="space-y-6 animate-fade-in max-w-[1600px] mx-auto text-slate-100 p-4 md:p-6">
+      <ProdutoTabs />
       
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

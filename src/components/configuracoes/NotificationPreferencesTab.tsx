@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, Users, Send, Wifi, Bot, CheckCircle2, AlertTriangle, Smartphone, ExternalLink } from "lucide-react";
+import { Bell, BellOff, Users, Send, Wifi, Bot, CheckCircle2, AlertTriangle, Smartphone, ExternalLink, DollarSign, Flame, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 const VAPID_PUBLIC_KEY = "BLSx5jJeDYyBAq6dIN18oTfD0sv8JjSWGeQ0N8z0P74SJLrRcO_DMDFh9oPP5Yf0t0F-ZlciudxgCigyLQ3Toyo";
@@ -29,6 +29,7 @@ interface Prefs {
   reembolso_solicitado: boolean;
   meta_diaria_atingida: boolean;
   hot_lead: boolean;
+  checkout_abandonado: boolean;
   lead_inativo_voltou: boolean;
   expert_marcou_done: boolean;
   expert_subiu_video: boolean;
@@ -38,7 +39,7 @@ interface Prefs {
 const DEFAULT_PREFS: Prefs = {
   novo_lead: true, grupo_capacidade: true, disparo_concluido: true, erro_conexao: true, resposta_ia: false,
   venda_aprovada: true, venda_recusada: true, reembolso_solicitado: true, meta_diaria_atingida: true,
-  hot_lead: true, lead_inativo_voltou: false, expert_marcou_done: true, expert_subiu_video: true, expert_mensagem: true,
+  hot_lead: true, checkout_abandonado: true, lead_inativo_voltou: false, expert_marcou_done: true, expert_subiu_video: true, expert_mensagem: true,
 };
 
 export function NotificationPreferencesTab() {
@@ -157,7 +158,10 @@ export function NotificationPreferencesTab() {
   };
 
   const items = [
-    { key: "novo_lead" as const, label: "Novo lead detectado", desc: "Receba alerta quando um novo lead chegar", icon: Users, color: "text-emerald-400" },
+    { key: "venda_aprovada" as const, label: "Venda aprovada 💰", desc: "Toda venda confirmada (Pix/Cartão/Boleto) vira push", icon: DollarSign, color: "text-emerald-400" },
+    { key: "hot_lead" as const, label: "Pix/Boleto gerado (hot lead) 🔥", desc: "Lead com intenção de compra — carrinho quente", icon: Flame, color: "text-orange-400" },
+    { key: "checkout_abandonado" as const, label: "Checkout abandonado 🛒", desc: "Pix/Boleto gerado há +30min sem pagamento", icon: ShoppingCart, color: "text-amber-400" },
+    { key: "novo_lead" as const, label: "Novo lead capturado 🎯", desc: "Alerta instantâneo quando um lead preenche um form", icon: Users, color: "text-emerald-400" },
     { key: "grupo_capacidade" as const, label: "Grupo atingiu capacidade", desc: "Alerta quando grupo WhatsApp está cheio", icon: Users, color: "text-amber-400" },
     { key: "disparo_concluido" as const, label: "Disparo concluído", desc: "Notificação após envio de campanha", icon: Send, color: "text-blue-400" },
     { key: "erro_conexao" as const, label: "Erro de conexão", desc: "Alerta quando o WhatsApp desconectar", icon: Wifi, color: "text-destructive" },

@@ -349,7 +349,7 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
         });
       }
 
-      const { error: msgError } = await supabase.from("imphq_wa_messages").insert({
+      const { data: savedMsg, error: msgError } = await supabase.from("imphq_wa_messages").insert({
         conversation_id: conv.id,
         direction: isFromMe ? "outgoing" : "incoming",
         phone,
@@ -361,7 +361,7 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
         provider_message_id: providerMsgId,
         status: isFromMe ? "sent" : "received",
         sent_by: isFromMe ? "human" : "lead",
-      });
+      }).select("id").maybeSingle();
 
       if (msgError) {
         console.error("[webhook] DB save error:", msgError.message);
@@ -371,6 +371,12 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
 
       if (isFromMe) {
         await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false, true);
+        // Aprendizado a partir de respostas enviadas pelo celular (fora do painel)
+        if (content && content.length > 15 && projectId) {
+          supabase.functions.invoke("wa-learn-from-human", {
+            body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: projectId },
+          }).catch((e: any) => console.warn("[webhook] learn invoke skip:", e?.message));
+        }
       } else {
         await runWhatsAppAutoresponder(
           deps,

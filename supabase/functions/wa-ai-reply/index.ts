@@ -1,5 +1,16 @@
 // wa-ai-reply — AI responder simples e robusto para WhatsApp
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
+import { getCachedEmbedding } from "../_shared/embeddings.ts";
+import {
+  isJPProject,
+  jpLookupLead,
+  jpResolveLead,
+  jpBuildContextBlock,
+  jpBuildInstructionsBlock,
+  jpProcessTags,
+} from "../_shared/crmBridgeJP.ts";
+import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +28,22 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, project_id, provider_id, phone, push_name } = body;
+    const { conversation_id, project_id, phone, push_name } = body;
+    let provider_id = body.provider_id;
+    // Fallback: callers como wa-ai-pending-flush não passam provider_id.
+    // Busca da conversa para não cair em "Missing required fields".
+    if (!provider_id && conversation_id) {
+      try {
+        const { data: convRow } = await supabase
+          .from("imphq_wa_conversations")
+          .select("provider_id")
+          .eq("id", conversation_id)
+          .maybeSingle();
+        if (convRow?.provider_id) provider_id = convRow.provider_id;
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] provider_id fallback lookup error:", e?.message);
+      }
+    }
     let message = body.message || "";
 
     // Keyword bypass for testing (ex: #testeia or #testeia2026)
@@ -43,6 +69,43 @@ Deno.serve(async (req) => {
         leadRow = lead;
       } catch (e: any) {
         console.warn("[wa-ai-reply] Query leadRow error:", e.message);
+      }
+    }
+
+    // ─── Payment Confirmation Detection (bypass business hours + boas-vindas prioritárias)
+    const PAYMENT_CONFIRM_PATTERNS = [
+      /\bj[áa]\s+paguei\b/i,
+      /\bpaguei\b/i,
+      /\bj[áa]\s+(est[áa]\s+)?pago\b/i,
+      /\bj[áa]\s+foi\s+pago\b/i,
+      /\bj[áa]\s+(fiz|enviei|mandei)\s+(o\s+)?pix\b/i,
+      /\bpix\s+(feito|enviado|pago|realizado)\b/i,
+      /\bpagamento\s+(feito|enviado|realizado|confirmado|aprovado)\b/i,
+      /\bcomprei\b/i,
+      /\bfinalizei\b/i,
+      /\b(j[áa]\s+)?fechei\b/i,
+      /\bcomprovante\b/i,
+      /\bacabei\s+de\s+pagar\b/i,
+    ];
+    let isPaymentConfirmation = false;
+    let recentVendaContext: any = null;
+    if (leadRow?.id && message) {
+      isPaymentConfirmation = PAYMENT_CONFIRM_PATTERNS.some((re) => re.test(message));
+      if (isPaymentConfirmation) {
+        try {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: vendas } = await supabase
+            .from("imphq_vendas")
+            .select("id, status, produto_nome, valor, created_at")
+            .eq("lead_id", leadRow.id)
+            .gte("created_at", sevenDaysAgo)
+            .order("created_at", { ascending: false })
+            .limit(3);
+          recentVendaContext = vendas?.[0] || null;
+          console.log(`[wa-ai-reply] 💸 Payment confirmation detected. Recent venda: ${recentVendaContext?.id || "none"} (${recentVendaContext?.status || "n/a"})`);
+        } catch (e: any) {
+          console.warn("[wa-ai-reply] Error loading recent venda:", e?.message);
+        }
       }
     }
 
@@ -393,7 +456,7 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection")
       .eq("id", conversation_id)
       .maybeSingle();
 
@@ -412,15 +475,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verifica pausa manual (humano respondeu recentemente)
+    // Verifica pausa manual (humano respondeu recentemente) — com auto-resume se lead voltou com pergunta nova
     if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
       if (pausedUntil > new Date()) {
-        const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
-        console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
-        return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Auto-resume: se já se passaram >=3min da resposta humana E o lead enviou nova msg
+        let autoResume = false;
+        try {
+          const { data: lastHuman } = await supabase
+            .from("imphq_wa_messages")
+            .select("created_at")
+            .eq("conversation_id", conversation_id)
+            .eq("direction", "outgoing")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastHuman?.created_at) {
+            const elapsedMin = (Date.now() - new Date(lastHuman.created_at).getTime()) / 60000;
+            const { count: newIncoming } = await supabase
+              .from("imphq_wa_messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conversation_id)
+              .eq("direction", "incoming")
+              .gt("created_at", lastHuman.created_at);
+            if (elapsedMin >= 3 && (newIncoming || 0) >= 1) {
+              autoResume = true;
+              await supabase
+                .from("imphq_wa_conversations")
+                .update({ ai_paused_until: null })
+                .eq("id", conversation_id);
+              console.log(`[wa-ai-reply] resume_reason=human_followup elapsed=${elapsedMin.toFixed(1)}min new_incoming=${newIncoming}`);
+            }
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] auto-resume check error: ${e?.message}`);
+        }
+        if (!autoResume) {
+          const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
+          console.log(`[wa-ai-reply] IA pausada por mais ${remainMin}min (humano respondeu). Para retomar: setar ai_paused_until=null`);
+          return new Response(JSON.stringify({ skipped: "human_override", paused_until: conv.ai_paused_until, resumes_in_min: remainMin }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
@@ -428,8 +524,13 @@ Deno.serve(async (req) => {
     if (conv?.ai_last_reply_at && !isTestMode) {
       const elapsed = (Date.now() - new Date(conv.ai_last_reply_at).getTime()) / 1000;
       if (elapsed < cooldownSec) {
-        console.log(`[wa-ai-reply] Cooldown ativo: ${elapsed.toFixed(1)}s < ${cooldownSec}s`);
-        return new Response(JSON.stringify({ skipped: "cooldown", elapsed_s: elapsed }), {
+        console.log(`[wa-ai-reply] Cooldown ativo: ${elapsed.toFixed(1)}s < ${cooldownSec}s — enfileirando para flush`);
+        await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_pending_since: new Date().toISOString() })
+          .eq("id", conversation_id)
+          .is("ai_pending_since", null);
+        return new Response(JSON.stringify({ skipped: "cooldown", elapsed_s: elapsed, queued: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -439,8 +540,13 @@ Deno.serve(async (req) => {
     if (conv?.ai_lock_until && !isTestMode) {
       const lockExpiry = new Date(conv.ai_lock_until);
       if (lockExpiry > new Date()) {
-        console.log(`[wa-ai-reply] Lock ativo até ${conv.ai_lock_until}, pulando`);
-        return new Response(JSON.stringify({ skipped: "locked", lock_until: conv.ai_lock_until }), {
+        console.log(`[wa-ai-reply] Lock ativo até ${conv.ai_lock_until}, enfileirando para flush`);
+        await supabase
+          .from("imphq_wa_conversations")
+          .update({ ai_pending_since: new Date().toISOString() })
+          .eq("id", conversation_id)
+          .is("ai_pending_since", null);
+        return new Response(JSON.stringify({ skipped: "locked", lock_until: conv.ai_lock_until, queued: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -455,7 +561,7 @@ Deno.serve(async (req) => {
 
     try {
       // 4. Horário comercial
-      if (aiConfig.business_hours_only) {
+      if (aiConfig.business_hours_only && !isPaymentConfirmation) {
         const parts = new Intl.DateTimeFormat("en-US", {
           timeZone: "America/Sao_Paulo", hour: "numeric", minute: "numeric", hour12: false,
         }).formatToParts(new Date());
@@ -465,12 +571,25 @@ Deno.serve(async (req) => {
         const [sh, sm] = (aiConfig.business_hours_start || "08:00").split(":").map(Number);
         const [eh, em] = (aiConfig.business_hours_end || "22:00").split(":").map(Number);
         if (now < sh * 100 + sm || now > eh * 100 + em) {
-          console.log(`[wa-ai-reply] Fora do horário comercial (${h}:${m})`);
+          console.log(`[wa-ai-reply] Fora do horário comercial (${h}:${m}) — enfileirando`);
+          await supabase
+            .from("imphq_wa_conversations")
+            .update({ ai_pending_since: new Date().toISOString(), ai_lock_until: null })
+            .eq("id", conversation_id)
+            .is("ai_pending_since", null);
           await clearLock();
-          return new Response(JSON.stringify({ skipped: "business_hours" }), {
+          return new Response(JSON.stringify({ skipped: "business_hours", queued: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+        // Dentro do horário: limpa pending se houver
+        if (conv.ai_pending_since) {
+          await supabase
+            .from("imphq_wa_conversations")
+            .update({ ai_pending_since: null })
+            .eq("id", conversation_id);
+        }
+
       }
 
       // 5. Keyword de escalação
@@ -499,6 +618,14 @@ Deno.serve(async (req) => {
           .then(() => {})
           .catch(() => {});
       }
+
+      // CONSULTIVE INTENT — lead pediu ajuda pra ESCOLHER entre produtos/cursos.
+      // Quando ativo: suprime closer/recovery e força a IA a apresentar catálogo + 1 pergunta diagnóstica.
+      const CONSULTIVE_PATTERNS = /\b(qual|quais|diferen[çc]a|v[áa]rios cursos|v[áa]rios curso|tem v[áa]rios|se encaixa|encaixaria|me indica|recomenda|qual recomenda|melhor pra mim|qual melhor|pra come[çc]ar|sou iniciante|n[ãa]o sei qual|t[óo] na d[úu]vida|estou na d[úu]vida|fiquei na d[úu]vida|qual escolher|qual comprar)\b/i;
+      const isConsultiveProductQuery = CONSULTIVE_PATTERNS.test(message);
+      if (isConsultiveProductQuery) {
+        console.log(`[wa-ai-reply] 🧭 CONSULTIVE intent detected: "${message.slice(0, 60)}"`);
+      }
       if (escalated) {
         console.log(`[wa-ai-reply] Keyword de escalação detectada`);
         await supabase.from("imphq_wa_conversations")
@@ -515,7 +642,8 @@ Deno.serve(async (req) => {
         .select("direction, content")
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
+
 
       // 7. Contexto do projeto
       const { data: project } = await supabase
@@ -565,6 +693,238 @@ Deno.serve(async (req) => {
         console.error("[wa-ai-reply] Error fetching lead context:", err);
       }
 
+      // ====== MEMÓRIA DE LONGO PRAZO DO LEAD (lead_memory + histórico de compras) ======
+      let leadLongMemoryBlock = "";
+      try {
+        const mem: any = lead?.lead_memory || {};
+        const lines: string[] = [];
+
+        // ✅ DADOS JÁ CAPTURADOS — nunca pedir de novo
+        // Fallback: se lead.email vazio, varre histórico procurando email já enviado
+        let effectiveEmail = String(lead?.email || "").trim().toLowerCase();
+        if (!effectiveEmail && Array.isArray(history)) {
+          for (const h of history) {
+            if (h.direction !== "incoming") continue;
+            const m = String(h.content || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/i);
+            if (m) {
+              effectiveEmail = m[0].trim().toLowerCase();
+              if (lead?.id) {
+                try {
+                  await supabase.from("imphq_leads").update({ email: effectiveEmail }).eq("id", lead.id).is("email", null);
+                  (lead as any).email = effectiveEmail;
+                  console.log(`[wa-ai-reply] 🔁 email retroativo capturado do histórico lead=${lead.id} email=${effectiveEmail}`);
+                } catch (_) { /* ignora */ }
+              }
+              break;
+            }
+          }
+        }
+        const capturedLines: string[] = [];
+        if (effectiveEmail) capturedLines.push(`- ✅ EMAIL já cadastrado: ${effectiveEmail} — NÃO peça de novo, use este.`);
+        if (lead?.nome || mem?.nome_preferido) capturedLines.push(`- ✅ NOME: ${lead?.nome || mem.nome_preferido}`);
+        if (phone) capturedLines.push(`- ✅ TELEFONE: ${phone}`);
+        if (capturedLines.length) {
+          lines.push("DADOS JÁ CAPTURADOS DO LEAD (não pergunte de novo, use direto):");
+          lines.push(...capturedLines);
+          lines.push("");
+        }
+
+
+        if (mem.nome_preferido) lines.push(`- Prefere ser chamado(a) de: ${String(mem.nome_preferido).slice(0, 80)}`);
+        if (mem.interesse_principal) lines.push(`- Interesse principal: ${String(mem.interesse_principal).slice(0, 150)}`);
+        if (mem.informacoes_pessoais?.profissao) lines.push(`- Profissão: ${String(mem.informacoes_pessoais.profissao).slice(0, 100)}`);
+        if (mem.informacoes_pessoais?.objetivo) lines.push(`- Objetivo declarado: ${String(mem.informacoes_pessoais.objetivo).slice(0, 200)}`);
+        const dorMem = mem.informacoes_pessoais?.dor_principal || lead?.dor_principal;
+        if (dorMem) lines.push(`- Dor principal: ${String(dorMem).slice(0, 200)}`);
+        if (mem.objecao_atual || lead?.objecao_atual) lines.push(`- ⚠️ Objeção ATUAL travando a venda: "${String(mem.objecao_atual || lead.objecao_atual).slice(0, 200)}" — sua resposta DEVE endereçá-la.`);
+        if (Array.isArray(mem.objecoes_recorrentes) && mem.objecoes_recorrentes.length) {
+          lines.push(`- Objeções recorrentes: ${mem.objecoes_recorrentes.slice(-5).join(" | ")}`);
+        }
+        if (Array.isArray(mem.gatilhos_positivos) && mem.gatilhos_positivos.length) {
+          lines.push(`- Gatilhos que funcionam com este lead: ${mem.gatilhos_positivos.slice(-5).join(" | ")}`);
+        }
+        if (Array.isArray(mem.produtos_mencionados) && mem.produtos_mencionados.length) {
+          lines.push(`- Produtos já mencionados pelo lead: ${mem.produtos_mencionados.slice(-5).join(" | ")}`);
+        }
+        if (mem.proximo_passo_sugerido) lines.push(`- 🎯 Próximo passo sugerido (da memória): ${String(mem.proximo_passo_sugerido).slice(0, 200)}`);
+        if (mem.notas_ia) lines.push(`- Notas internas: ${String(mem.notas_ia).slice(0, 250)}`);
+        if (lead?.nivel_qualificacao) lines.push(`- Nível de qualificação: ${lead.nivel_qualificacao.toUpperCase()}`);
+
+        // Histórico de compras (últimas 3 pagas)
+        if (lead?.id) {
+          try {
+            const { data: pastVendas } = await supabase
+              .from("imphq_vendas")
+              .select("produto_nome, status, valor, created_at")
+              .eq("lead_id", lead.id)
+              .in("status", ["paga", "aprovada", "approved", "paid"])
+              .order("created_at", { ascending: false })
+              .limit(3);
+            if (pastVendas && pastVendas.length) {
+              const compras = pastVendas.map((v: any) => {
+                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+                return `${v.produto_nome || "produto"}${dt ? ` em ${dt}` : ""}`;
+              }).join(" | ");
+              lines.push(`- 💰 Já comprou: ${compras} — NUNCA reofereça esses produtos; foque em upsell/cross.`);
+            }
+          } catch (_) { /* non-critical */ }
+        }
+
+        if (lines.length > 0) {
+          leadLongMemoryBlock = `\n📌 MEMÓRIA DE LONGO PRAZO DO LEAD (use SEM perguntar de novo o que já está aqui):\n${lines.join("\n")}\n`;
+        }
+      } catch (memErr: any) {
+        console.warn("[wa-ai-reply] long memory block error:", memErr?.message);
+      }
+
+      // ====== MEMÓRIA CROSS-PROJETO (mesmo telefone em outros projetos) ======
+      let crossProjectMemoryBlock = "";
+      try {
+        if (phone) {
+          const { data: cross, error: crossErr } = await supabase.rpc("get_lead_cross_memory", {
+            p_phone: phone,
+            p_current_project_id: project_id ? String(project_id) : null,
+          });
+          if (crossErr) {
+            console.warn("[wa-ai-reply] get_lead_cross_memory error:", crossErr.message);
+          } else if (cross && typeof cross === "object") {
+            const otherLeads = Array.isArray((cross as any).leads) ? (cross as any).leads : [];
+            const otherVendas = Array.isArray((cross as any).vendas) ? (cross as any).vendas : [];
+            const otherMems = Array.isArray((cross as any).memories) ? (cross as any).memories : [];
+            const xLines: string[] = [];
+
+            // Map project_id -> nome (best-effort, leve)
+            const projIds = Array.from(new Set([
+              ...otherLeads.map((l: any) => l.project_id),
+              ...otherVendas.map((v: any) => v.project_id),
+              ...otherMems.map((m: any) => m.project_id),
+            ].filter(Boolean).map(String)));
+            const projMap: Record<string, string> = {};
+            if (projIds.length) {
+              try {
+                const { data: projs } = await supabase
+                  .from("imphq_projects")
+                  .select("id,name")
+                  .in("id", projIds);
+                (projs || []).forEach((p: any) => { projMap[String(p.id)] = p.name; });
+              } catch (_) { /* non-critical */ }
+            }
+            const projName = (id: any) => projMap[String(id)] || `projeto ${String(id).slice(0,6)}`;
+
+            if (otherVendas.length) {
+              const compras = otherVendas.slice(0, 5).map((v: any) => {
+                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+                return `${v.produto_nome || "produto"} (${projName(v.project_id)}${dt ? `, ${dt}` : ""})`;
+              }).join(" | ");
+              xLines.push(`- 🌐 Já comprou em OUTROS projetos: ${compras} — esse lead já confia em nós; trate com proximidade e ofereça upgrade alinhado ao histórico.`);
+            }
+            if (otherLeads.length) {
+              const dores = otherLeads
+                .map((l: any) => l.dor_principal)
+                .filter(Boolean)
+                .slice(0, 3);
+              if (dores.length) xLines.push(`- 🌐 Dores conhecidas em outros projetos: ${dores.join(" | ")}`);
+              const objs = otherLeads
+                .map((l: any) => l.objecao_atual)
+                .filter(Boolean)
+                .slice(0, 3);
+              if (objs.length) xLines.push(`- 🌐 Objeções já registradas em outros projetos: ${objs.join(" | ")}`);
+              const niveis = otherLeads
+                .map((l: any) => l.nivel_qualificacao)
+                .filter(Boolean);
+              if (niveis.length) xLines.push(`- 🌐 Já foi classificado como: ${Array.from(new Set(niveis)).join(", ").toUpperCase()}`);
+            }
+            if (otherMems.length) {
+              const insights = otherMems.slice(0, 4).map((m: any) => {
+                const c = String(m.content || "").slice(0, 140);
+                return `[${m.memory_type || "obs"} · ${projName(m.project_id)}] ${c}`;
+              });
+              xLines.push(`- 🌐 Insights de IA em outros projetos:\n  • ${insights.join("\n  • ")}`);
+            }
+
+            if (xLines.length) {
+              crossProjectMemoryBlock = `\n🌐 MEMÓRIA CROSS-PROJETO (mesmo número em outros funis — use com discrição, NÃO mencione os outros projetos pelo nome, mas use o contexto para personalizar):\n${xLines.join("\n")}\n`;
+            }
+          }
+        }
+      } catch (xErr: any) {
+        console.warn("[wa-ai-reply] cross-project memory error:", xErr?.message);
+      }
+
+
+      // 7.1. Extração universal de dados do lead a partir da mensagem (todos os projetos).
+      // Captura email/nome/profissão/dor/objeção/etc e persiste em imphq_leads sem sobrescrever.
+      let extractionResult: Awaited<ReturnType<typeof extractAndPersistLeadData>> | null = null;
+      const leadForExtraction = leadRow || lead;
+      if (leadForExtraction?.id && message) {
+        try {
+          extractionResult = await extractAndPersistLeadData(supabase, leadForExtraction, message);
+          // Reflete mudanças no objeto em memória para o resto do fluxo enxergar
+          if (extractionResult.detectedEmail && !leadForExtraction.email) {
+            if (leadRow) leadRow.email = extractionResult.detectedEmail;
+            if (lead) (lead as any).email = extractionResult.detectedEmail;
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] lead data extraction error: ${e?.message}`);
+        }
+      }
+
+      // 7.2. JP FREITAS — pré-fetch CRM bridge (escopo isolado ao projeto jp_freitas)
+      let jpCrmContextBlock = "";
+      let jpEmailKnown = false;
+      let jpEffectiveEmail = "";
+      let jpHasAccount = false;
+      if (isJPProject(project_id)) {
+        const storedEmail: string = (lead?.email || leadRow?.email || "").trim().toLowerCase();
+        const detectedEmail = extractionResult?.detectedEmail || "";
+        jpEffectiveEmail = detectedEmail || storedEmail || "";
+
+        try {
+          const phoneForLookup = conv?.phone || phone || "";
+          const resolved = await jpResolveLead({ email: jpEffectiveEmail, phone: phoneForLookup });
+          if (resolved.lookup && resolved.lookup.ok !== false) {
+            // Se descobrimos email via phone, persiste no lead (sem sobrescrever)
+            if (resolved.source === "phone" && resolved.emailFound && !storedEmail && lead?.id) {
+              jpEffectiveEmail = resolved.emailFound;
+              try {
+                await supabase.from("imphq_leads").update({ email: resolved.emailFound }).eq("id", lead.id).is("email", null);
+              } catch {}
+            }
+            if (resolved.emailFound) jpEffectiveEmail = resolved.emailFound;
+            jpCrmContextBlock = jpBuildContextBlock(resolved.lookup, jpEffectiveEmail);
+            const data = resolved.lookup?.data || resolved.lookup;
+            jpHasAccount = !!(data?.has_account ?? data?.user_exists);
+            console.log(`[wa-ai-reply] JP_FREITAS lookup ok via=${resolved.source} email=${jpEffectiveEmail}`);
+          } else {
+            console.log(`[wa-ai-reply] JP_FREITAS lookup vazio (email=${jpEffectiveEmail || "—"} phone=${phoneForLookup || "—"})`);
+          }
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        }
+
+        jpEmailKnown = !!jpEffectiveEmail;
+        if (!jpEmailKnown) {
+          console.log(`[wa-ai-reply] JP_FREITAS: lead sem email — IA deve pedir proativamente`);
+        }
+      }
+
+      // 7.2.1. Momento atual (lead OU aluna) — injeta o estado salvo da última conversa
+      let momentoBlock = "";
+      try {
+        const intent = (conv as any)?.current_intent || "";
+        const emotion = (conv as any)?.emotional_state || "";
+        const objection = (conv as any)?.last_objection || "";
+        if (intent || emotion || objection) {
+          const tipo = jpHasAccount ? "ALUNA" : "LEAD";
+          momentoBlock = `\n🧭 MOMENTO ATUAL DA ${tipo} (último estado lido):\n`;
+          if (intent) momentoBlock += `- Intenção: ${intent}\n`;
+          if (emotion) momentoBlock += `- Estado emocional: ${emotion}\n`;
+          if (objection) momentoBlock += `- Última objeção: ${objection}\n`;
+          momentoBlock += `Adapte tom e CTA: descoberta=educar curto; consideracao=mostrar prova; decisao=fechar; objecao=quebrar a barreira específica acima; pronto_para_comprar=enviar checkout direto; suporte=resolver problema sem vender.\n`;
+        }
+      } catch {}
+
+
       // 7.2. Busca contexto de campanha ativa
       let campaignContextBlock = "";
       if (leadRow?.campanha_id) {
@@ -603,6 +963,90 @@ Deno.serve(async (req) => {
       let lessonsBlock = "";
       let memoryBlock = "";
       let objectionsBlock = "";
+      let projectRulesBlock = "";
+
+      // 7.0.1. Regras permanentes do projeto — RAG: top-K por similaridade + guardrails (unavailable)
+      // + sticky A/B: cada conversa sempre vê a mesma variante de um ab_group
+      try {
+        const ruleEmb = await getCachedEmbedding(supabase, message);
+        let rules: any[] = [];
+        if (ruleEmb) {
+          const { data: matched, error: matchErr } = await supabase.rpc("match_wa_rules", {
+            p_project_id: project_id,
+            p_query_embedding: ruleEmb,
+            p_match_count: 5,
+            p_threshold: 0.45,
+          });
+          if (matchErr) console.warn("[wa-ai-reply] match_wa_rules err:", matchErr.message);
+          rules = matched || [];
+        }
+        // fallback: se sem embedding, carrega tudo ativo
+        if (rules.length === 0) {
+          const { data: all } = await supabase
+            .from("imphq_wa_project_rules")
+            .select("id, rule_text, rule_type, ab_group_id, ab_status")
+            .eq("project_id", project_id)
+            .eq("active", true)
+            .order("created_at", { ascending: false })
+            .limit(40);
+          rules = all || [];
+        }
+
+        // sticky A/B por conversa: para cada ab_group_id, escolhe 1 variante de forma determinística
+        const stickyHash = (s: string) => {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+          return Math.abs(h);
+        };
+        const byGroup = new Map<string, any[]>();
+        const noGroup: any[] = [];
+        for (const r of rules) {
+          if (r.ab_group_id && (r.ab_status === "control" || r.ab_status === "variant")) {
+            const arr = byGroup.get(r.ab_group_id) || [];
+            arr.push(r);
+            byGroup.set(r.ab_group_id, arr);
+          } else {
+            noGroup.push(r);
+          }
+        }
+        const chosen: any[] = [...noGroup];
+        for (const [gid, variants] of byGroup) {
+          variants.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+          const pick = stickyHash(`${conversation_id}|${gid}`) % variants.length;
+          chosen.push(variants[pick]);
+        }
+
+        if (chosen.length > 0) {
+          const behaviorRules = chosen.filter((r: any) => r.rule_type !== "unavailable_product");
+          const unavailableRules = chosen.filter((r: any) => r.rule_type === "unavailable_product");
+          projectRulesBlock = "\n📜 REGRAS RELEVANTES DO PROJETO (NUNCA VIOLAR):\n" +
+            behaviorRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          if (unavailableRules.length > 0) {
+            projectRulesBlock += "\n\n🚫 PRODUTOS/EVENTOS INDISPONÍVEIS (NÃO OFERECER):\n" +
+              unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+          }
+          projectRulesBlock += "\n";
+
+          // increment + log de aplicações (best-effort)
+          const ids = chosen.map((r: any) => r.id);
+          supabase.rpc("increment_wa_rules_applied", { p_ids: ids }).then(() => null, () => null);
+
+          const leadKey = leadRow?.id || phone || null;
+          if (leadKey) {
+            const rows = chosen.map((r: any) => ({
+              rule_id: r.id,
+              ab_group_id: r.ab_group_id || null,
+              project_id,
+              conversation_id,
+              lead_id: leadKey,
+            }));
+            supabase.from("imphq_wa_rule_applications").insert(rows).then(() => null, () => null);
+          }
+        }
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] project_rules RAG error:", e.message);
+      }
+
 
       let triageIntent = "";
       try {
@@ -833,7 +1277,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const leadScore = (lead as any)?.score || 0;
       const HOT_SCORE_THRESHOLD = 70;
       const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
-      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled;
+      const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled && !isConsultiveProductQuery;
 
       if (isHotLead && !hasBuyIntent) {
         console.log(`[wa-ai-reply] 🔥 Hot lead (score ${leadScore}) — closer mode auto-ativado`);
@@ -906,6 +1350,23 @@ Instruções adicionais de progressão:
 - Assim que você verificar que o lead respondeu de forma satisfatória a este objetivo (ou forneceu o dado solicitado), adicione exatamente a palavra-chave secreta [PROXIMA_ETAPA] no final da sua mensagem (ex: "Entendi perfeitamente! [PROXIMA_ETAPA]"). Não adicione esta palavra-chave antes de cumprir o objetivo.${routingInstructions}`
         : "";
 
+      // Âncora temporal — IA não sabe a data real sem isso
+      const nowBR = new Date();
+      const fmtDate = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(nowBR);
+      const fmtTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(nowBR);
+      const fmtWeekday = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" }).format(nowBR);
+      const fmtMonthYear = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", month: "long", year: "numeric" }).format(nowBR);
+      const temporalAnchorBlock = `
+CONTEXTO TEMPORAL (FONTE DE VERDADE — IGNORE QUALQUER DATA QUE VOCÊ "ACHE" QUE SABE):
+- Agora: ${fmtDate} ${fmtTime} (America/Sao_Paulo, ${fmtWeekday})
+- Mês atual: ${fmtMonthYear}
+REGRAS DE DATA:
+- NUNCA invente data, prazo, edição, turma, lançamento, live ou webinar. Só cite data se estiver EXPLICITAMENTE no CONTEXTO DO PROJETO / FAQ / produto abaixo.
+- Antes de citar qualquer data presente no contexto, compare com "Agora". Se já passou, NÃO ofereça como futura — diga que vai confirmar com a equipe e adicione [TRANSICAO_HUMANA].
+- Proibido usar "ano que vem", "mês que vem", "próxima turma em X", "no próximo dia X" sem fonte explícita no contexto.
+- Se o lead perguntar data de evento/turma e não houver fonte explícita: NÃO chute. Peça o e-mail para confirmação e adicione [TRANSICAO_HUMANA].
+`;
+
       // Regras de sentimentos e limite de interações para Transição Humana
       const sentimentRules = `
 ⚠️ TRANSIÇÃO HUMANA PREDITIVA (REGRAS CRÍTICAS):
@@ -914,7 +1375,14 @@ Analise o sentimento e a intenção do lead na última resposta dele. Se você d
 2. Solicitação direta de reembolso, cancelamento de compra, reclamação de cobrança ou ameaças jurídicas/reclamação formal.
 3. Pedido direto para falar com um atendente humano ("passa para um humano", "quero falar com uma pessoa", etc.).
 Você deve responder de forma pacífica, acolhedora e prestativa, pedindo desculpas sinceras e curtas pelo inconveniente, informando que um especialista humano já está assumindo a conversa. No final dessa resposta, adicione exatamente a tag secreta: [TRANSICAO_HUMANA]
+
+🤖 LEAD SUSPEITA / ACUSA QUE É IA ("você é um bot", "isso é IA", "robô", "você não é real", "você não tem condição de me ajudar", "tá respondendo automático", "fala sério que isso é humano"):
+- NÃO negue, NÃO confirme, NÃO use frase corporativa de cortesia ("estou à disposição", "compreendo sua percepção", "fico à disposição").
+- Responda em 1 frase curta, humana e desarmada (ex: "tô aqui sim — me conta o que tá pegando que eu te ajudo de verdade").
+- NÃO repita o nome do lead nessa resposta.
+- Adicione no FINAL exatamente: [TRANSICAO_HUMANA]
 `;
+
 
       let draggingRules = "";
       if (replyCount >= 4) {
@@ -929,15 +1397,20 @@ Seja extremamente impactante e direto. Ao final da mensagem, adicione exatamente
       const humanizationRules = `
 REGRAS DE COMUNICACAO HUMANA (OBRIGATORIO):
 
+
 ABERTURA — NUNCA comece respostas com:
 - "Certamente!", "Com prazer!", "Claro que sim!", "Ótimo!", "Excelente!", "Maravilha!", "Perfeito!", "Com certeza!", "Absolutamente!", "Entendido!"
+- "Certo,", "Certo!", "Certo.", "Compreendo", "Compreendo sua percepção", "Compreendo perfeitamente", "Compreendo seu ponto"
+- "Sinto muito que se sinta assim", "Lamento que", "Lamento muito"
 - "Faz todo sentido", "Faz sentido você", "Imagina!", "Imagina,", "Que legal", "Que ótimo", "Entendo perfeitamente"
+- "Estou à disposição", "Fico à disposição", "À disposição", "Posso te ajudar com alguma dúvida", "Como posso te ajudar"
 Essas frases são marcas registradas de bot. Comece a resposta indo direto ao ponto.
 
 NOMINAÇÃO:
 - Use o NOME do lead com PARCIMÔNIA. Pessoa real não repete o nome a cada mensagem.
 - Cumprimento com nome ("Oi Maria!", "Olá João!") SÓ na PRIMEIRA mensagem ou retomada após silêncio longo. Nas mensagens seguintes, NÃO cumprimente — vá direto à resposta.
 - Se já cumprimentou nesta conversa, NÃO cumprimente de novo.
+- NUNCA repita o nome do lead em mensagens consecutivas. Se você usou o nome dele na resposta anterior, esta vai SEM nome.
 
 ESTILO:
 - NUNCA use formatação de lista numerada ou bullets (1. 2. 3. ou - - -) — está no WhatsApp, não em email
@@ -950,27 +1423,78 @@ ESTILO:
 ESPELHO DE TAMANHO (CRÍTICO):
 - Se o lead manda 1-3 palavras ("ok", "valeu", "blz", "👍"), responda com 1-3 palavras também (ex: "boa", "tmj", "qualquer coisa chama") OU NÃO responda — deixe a conversa morrer naturalmente. NUNCA construa parágrafo em cima de 1 palavra.
 - Se o lead manda 1 frase curta, responda 1-2 frases curtas. Nada mais.
-- Só escreva resposta detalhada (3+ frases) quando o lead trouxer uma pergunta ou objeção substantiva.
-- REGRA DE OURO: nunca responda com mais que o DOBRO de palavras que o lead acabou de mandar, exceto em (B) descoberta ou (C) objeção.
+- Em (A) confirmação/operacional: máximo 3 frases curtas.
+- Em (B) descoberta/dúvida aberta: pode chegar a 6 frases, narrativa Sugamele liberada.
+- Em (C) objeção forte/lead frio: pode chegar a 8 frases, progressão narrativa permitida.
+- Em (D) lead acusa de bot e (E) pagamento: as regras específicas dos blocos vencem — mantém curto.
+- REGRA DE OURO: fora de (B) e (C), nunca responda com mais que o DOBRO de palavras que o lead acabou de mandar.
 `;
 
-      const systemPrompt = `${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
+      const sugameleStyleRules = `
+ESTILO DE ESCRITA (REGRAS SUGAMELE — OBRIGATÓRIO EM TODA RESPOSTA):
+A resposta deve soar como CONVERSA REAL, não artigo, não texto de IA.
+- Conectivos entre ideias: E, Mas, Só que aí, Então, E olha, Agora, Porque daí, Sendo que. Proibido frase telegráfica do tipo "Comprou. Aprendeu. Tentou." — sempre fluir.
+- Artigo antes de todo substantivo ("uma mentoria", "o funil", "a copy"), não "Comprou mentoria".
+- Reticências (…) para ritmo de fala quando houver reflexão, suspense ou quebra de expectativa.
+- Pergunta de engajamento curta quando fizer sentido ("faz sentido?", "sabe o que acontece?", "você já percebeu isso?") — não em toda mensagem.
+- ESPECIFICIDADE EXTREMA: use números, prazos, valores, exemplos concretos. Proibido genérico ("bons resultados", "muita gente", "vários alunos"). Forte: "gerou R$ 12.300 com R$ 480 de tráfego em 14 dias".
+- Sem dicotomia simplista ("não é X, é Y"). Mostre nuance.
+- Imagens mentais em vez de rótulos. Em vez de "você está confuso" → "você roda, roda, roda e termina o dia sem saber qual foi o próximo passo".
+- Progressão narrativa quando couber (modo B/C): "No início… Depois… E foi aí que… Agora…".
+- Parênteses curtos para contexto (principalmente quando ajudar a fluir).
+- Coloquial natural: "tá", "tô", "pra", "na prática", "de tudo que é jeito", "gastou uma nota". Sem vulgaridade.
+- Transparência: pode dizer "não dá pra explicar tudo aqui" ou "vou resumir pra não virar um livro".
+- PROIBIDO: travessão (—), adjetivo vazio (incrível, transformador, revolucionário, profundo, verdadeiro) sem contexto objetivo, frase de efeito que não empurra a conversa.
+- CTA conversacional, nunca interrupção. Errado: "Compre agora". Certo: "se isso fizer sentido pra você, dá uma olhada aqui embaixo e me chama que eu te ajudo a fechar".
+- Em conflito com REGRAS DE COMUNICACAO HUMANA acima, as humanas vencem (especialmente nominação e abertura).
+`;
+
+      const paymentConfirmationBlock = isPaymentConfirmation ? `
+
+💸 LEAD CONFIRMOU PAGAMENTO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE TUDO ABAIXO):
+O lead acabou de avisar que pagou${recentVendaContext?.produto_nome ? ` o produto "${recentVendaContext.produto_nome}"` : ""}${recentVendaContext?.status ? ` (status atual no sistema: ${recentVendaContext.status})` : ""}.
+Sua ÚNICA missão NESTA resposta:
+1. Comemorar em 1 frase curta e calorosa o passo dado (ex: "Que ótimo! Seja muito bem-vindo(a) 🎉").
+2. Explicar brevemente que o sistema confirma automaticamente (Pix: minutos; cartão: imediato; boleto: até 2 dias úteis) e que o acesso/email de boas-vindas chega logo em seguida.
+${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pendente"].includes(recentVendaContext.status) ? `3. Como o pagamento ainda consta como pendente aqui, peça gentilmente o comprovante OU o email usado na compra para conferir.\n` : `3. Se ele tiver alguma dúvida sobre o acesso, peça o email usado na compra.\n`}REGRAS RÍGIDAS:
+- NÃO mande link de checkout novamente.
+- NÃO tente vender mais nada agora.
+- NÃO faça pergunta de qualificação ou triagem.
+- Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
+` : "";
+
+      const consultiveBlock = (isConsultiveProductQuery && !isPaymentConfirmation) ? `
+
+🧭 MODO CONSULTIVO ATIVADO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE recovery/closer):
+O lead pediu ajuda para ESCOLHER entre os cursos/produtos disponíveis (ex: "tem vários cursos, qual se encaixa pra mim", "qual indica?", "tô na dúvida").
+Sua missão NESTA resposta:
+1. NÃO mande link de checkout ainda. NÃO empurre recuperação de carrinho abandonado.
+2. Liste de 2 a 4 cursos do catálogo (use os nomes EXATOS do MAPEAMENTO PRODUTO → LINK abaixo), 1 linha por curso, formato: "• Nome — pra quem é (1 linha)".
+3. Termine com UMA pergunta diagnóstica curta (ex: "Você já corta há quanto tempo?" ou "Qual sua maior dificuldade hoje: técnica, finalização ou colorimetria?").
+4. Só envie link DEPOIS que o lead responder a pergunta diagnóstica na próxima troca.
+5. Use a base de conhecimento (FAQ/aulas) pra descrever cada curso com 1 detalhe concreto, nunca genérico.
+Máximo 6 linhas no total.
+` : "";
+
+      const systemPrompt = `${temporalAnchorBlock}${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
-${leadContextBlock}${campaignContextBlock}
-${humanizationRules}
+${leadContextBlock}${leadLongMemoryBlock}${crossProjectMemoryBlock}${campaignContextBlock}${jpCrmContextBlock}${momentoBlock}
+${humanizationRules}${anglesPromptBlock()}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
-(A) LEAD QUE JÁ SABE O QUE QUER (perguntou preço, link, "quero comprar", citou produto específico, pediu Pix):
+(A) LEAD QUE JÁ SABE O QUE QUER E EXPLICITAMENTE PEDIU AVANÇO (perguntou PREÇO, pediu LINK, disse "quero comprar"/"quero fechar", pediu PIX, mandou comprovante):
 → Vá DIRETO. Responda objetivamente e apresente o próximo passo (link, forma de pagamento).
 → NÃO valide com frase de empatia, NÃO faça triagem, NÃO termine com pergunta de avanço se a info já leva ele pro checkout.
-→ Ex: lead pergunta "qual o valor do Master Cuts?" → "R$ 1.997,00, presencial em SP nos dias 29 e 30 de março. Link: [URL]" — e PARA. Sem "Faz todo sentido querer saber...".
+→ Ex: lead pergunta "qual o valor do Master Cuts?" → "R$ 1.997,00. Link: [URL]" — e PARA. Sem "Faz todo sentido querer saber...".
+→ ATENÇÃO: apenas citar o nome de um curso/produto NÃO é modo A. "Quero informações sobre X" é modo B (descoberta), não modo A.
 
-(B) LEAD EM DESCOBERTA (mensagem genérica: "oi", "quero saber mais", "como funciona", "me explica"):
-→ Atue como SDR — faça UMA pergunta CURTA de triagem por vez para qualificar.
+(B) LEAD EM DESCOBERTA (mensagem genérica OU pediu informações sobre um curso/produto sem ainda perguntar preço/link: "oi", "quero saber mais", "como funciona", "me explica", "gostaria de informações sobre o curso X"):
+→ Atue como SDR — faça UMA pergunta CURTA de triagem por vez para qualificar ANTES de empurrar oferta.
 → Exemplos: "Você já trabalha com cabelo ou tá começando?", "Tá buscando mais técnica ou gestão do salão?", "Pra hoje, presencial ou online?"
 → NUNCA empilhe 2 perguntas na mesma mensagem. Espere a resposta.
+→ NÃO mande data, preço, link ou descrição completa de evento na PRIMEIRA resposta. Faça ao menos 1 pergunta de qualificação antes.
 
 (C) LEAD COM OBJEÇÃO ou EMOÇÃO ("tá caro", "vou pensar", "não tenho tempo", desabafo):
 → Empatia REAL (não frase pronta) + 1 frase com argumento concreto + convite suave.
@@ -982,16 +1506,18 @@ REGRA META — VARIAR:
 - Se a info responde o lead por completo, encerre. NÃO force avanço.
 
 REGRAS CRITICAS:
+- AO ENVIAR LINK DE CHECKOUT: na mesma mensagem, antecipe em 1 frase curta as 2-3 dúvidas mais comuns que o lead pode ter (forma de pagamento aceita, parcelamento, garantia, prazo de acesso) — só as relevantes pro projeto. Termine convidando a tirar QUALQUER dúvida específica antes de finalizar, em vez do genérico "se tiver dúvida me fala". Ex: "Aceita Pix, cartão em até 12x e tem 7 dias de garantia. Se tiver dúvida sobre conteúdo, acesso ou pagamento antes de fechar, me fala que te ajudo agora."
 - MANTER O LEAD NA ROTA: Se o lead desviar para conversas aleatórias, assuntos pessoais não relacionados, ou desabafos que fujam da venda/solução, aja com empatia imediata (máximo 1 frase validando ou acolhendo o sentimento), mas em seguida retome o foco principal, conectando a dor dele com a solução/oferta e fazendo uma pergunta consultiva. Evite alongar-se em conversas vazias que esfriam o lead.
 - NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
 - NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
-- Respostas curtas (maximo 4 linhas no WhatsApp). Sem blocos de texto.
+- Respostas curtas no WhatsApp por padrão, MAS a regra de tamanho condicional por modo (A/B/C/D/E) descrita acima manda — em descoberta/objeção pode chegar a 6-8 frases com narrativa Sugamele.
 - Nunca revele que e IA.
-- Responda em portugues brasileiro natural.
+- Responda em portugues brasileiro natural seguindo as REGRAS SUGAMELE de estilo.
+${sugameleStyleRules}
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? jpBuildInstructionsBlock(jpEmailKnown) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
@@ -1047,11 +1573,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
         }
       }
 
-      let model = aiConfig.ai_model || "openai/gpt-4o-mini";
+      let model = aiConfig.ai_model || "google/gemini-2.5-flash";
       if (activeStep?.ia_search_web) {
         model = "google/gemini-2.5-flash"; // native search grounding on OpenRouter
       } else if (activeStep?.ia_model) {
-        model = activeStep.ia_model === "gpt-4o" ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+        model = activeStep.ia_model === "gpt-4o" ? "openai/gpt-4o" : "google/gemini-2.5-flash";
       }
       console.log(`[wa-ai-reply] Chamando OpenRouter model=${model} msgs=${msgs.length} lastRole=${msgs[msgs.length - 1]?.role}`);
 
@@ -1209,6 +1735,24 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
       cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 
       let finalAiReply = cleaned.trim();
+
+      // JP FREITAS — processa tags [JP_MAGIC_LINK:...], [JP_TAG:...], [JP_LOG:...], [JP_GRANT:...]
+      if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
+        try {
+          finalAiReply = await jpProcessTags(finalAiReply, jpEffectiveEmail);
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
+        }
+      }
+
+      // Prefixo "Bom dia" quando flush invoca esta função (lead mandou fora do horário)
+      if (body.from_flush === true && finalAiReply) {
+        const prefix = (aiConfig.back_to_hours_prefix || "Bom dia! Voltamos ao atendimento 👋\n\n").trim();
+        if (!finalAiReply.toLowerCase().startsWith(prefix.slice(0, 10).toLowerCase())) {
+          finalAiReply = `${prefix}\n\n${finalAiReply}`;
+          console.log(`[wa-ai-reply] FROM_FLUSH: prefixo de retorno adicionado`);
+        }
+      }
       let shouldAdvanceFlow = false;
       let matchedRoute: any = null;
       let jumpSteps = 0;
@@ -1707,9 +2251,20 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
 
         const { data: freshConv } = await supabase
           .from("imphq_wa_conversations")
-          .select("message_count")
+          .select("message_count, last_memory_extract_at, last_memory_extract_msg_count")
           .eq("id", conversation_id)
           .maybeSingle();
+
+
+        // Detecta se a IA enviou link de checkout/pitch nesta resposta
+        // para programar follow-up consultivo automático (wa-pitch-followup).
+        const sentUrls = (finalAiReply.match(/https?:\/\/[^\s)]+/gi) || []);
+        const pitchHost = paymentLink ? paymentLink.toLowerCase().replace(/^https?:\/\//, "").split("/")[0] : "";
+        const isPitchLink = sentUrls.some((u) => {
+          const lu = u.toLowerCase();
+          if (pitchHost && lu.includes(pitchHost)) return true;
+          return /checkout|pay|hotmart|kiwify|monetizze|eduzz|braip|ticto|perfectpay|stripe|comprar|inscri/i.test(lu);
+        });
 
         const updatePayload: any = {
           ai_last_reply_at: new Date().toISOString(),
@@ -1719,6 +2274,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
           last_message_direction: "outgoing",
           message_count: ((freshConv?.message_count as number) || 0) + 1,
         };
+        if (isPitchLink) {
+          updatePayload.last_pitch_at = new Date().toISOString();
+          updatePayload.last_pitch_link = sentUrls[0] || paymentLink || null;
+          updatePayload.pitch_followup_stage = 0;
+          updatePayload.pitch_followup_last_at = null;
+        }
 
         if (shouldTransitionToHuman) {
           updatePayload.status = "needs_human";
@@ -1755,7 +2316,100 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${productFocus}${productLinkMapBlo
           }
         }
 
+        // ====== INTEL UPDATE: intent + emotional state + handoff summary ======
+        // Não-bloqueante: erros aqui não devem impedir o sucesso do envio.
+        try {
+          const intelPrompt = `Voce e um analista de vendas. Leia a ultima mensagem do LEAD e a RESPOSTA da IA. Devolva APENAS JSON (sem markdown, sem texto extra) no formato exato:
+{"current_intent":"<descoberta|consideracao|decisao|objecao|pronto_para_comprar|suporte|saudacao|outro>","emotional_state":"<animado|curioso|cetico|frustrado|ansioso|neutro|comprador>","last_objection":"<frase curta da principal objecao do lead OU string vazia se nao houver>"${shouldTransitionToHuman ? `,"handoff_summary":{"status":"<resumo em 1 frase>","dor":"<dor principal>","proxima_acao":"<o que humano deve fazer agora>","score":"<frio|morno|quente>","contexto":"<resumo em 2 frases para o humano entrar pronto>"}` : ""}}
+
+LEAD: """${String(message).slice(0, 800)}"""
+IA: """${String(finalAiReply).slice(0, 800)}"""
+MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
+
+          const intelRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              messages: [{ role: "user", content: intelPrompt }],
+              temperature: 0.2,
+              response_format: { type: "json_object" },
+              max_tokens: 400,
+            }),
+          });
+
+          if (intelRes.ok) {
+            const intelJson = await intelRes.json();
+            const raw = intelJson?.choices?.[0]?.message?.content || "{}";
+            let parsed: any = {};
+            try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+            const convUpdate: any = {};
+            if (parsed.current_intent && typeof parsed.current_intent === "string") {
+              convUpdate.current_intent = parsed.current_intent.slice(0, 40);
+              convUpdate.intent_updated_at = new Date().toISOString();
+            }
+            if (shouldTransitionToHuman && parsed.handoff_summary && typeof parsed.handoff_summary === "object") {
+              convUpdate.handoff_summary = parsed.handoff_summary;
+              convUpdate.handoff_at = new Date().toISOString();
+            }
+            if (Object.keys(convUpdate).length > 0) {
+              await supabase.from("imphq_wa_conversations").update(convUpdate).eq("id", conversation_id);
+              console.log(`[wa-ai-reply] Intel updated: ${Object.keys(convUpdate).join(",")}`);
+            }
+
+            const emotional = parsed.emotional_state && typeof parsed.emotional_state === "string" ? parsed.emotional_state.slice(0, 40) : null;
+            const objection = parsed.last_objection && typeof parsed.last_objection === "string" && parsed.last_objection.trim().length > 0 ? parsed.last_objection.slice(0, 300) : null;
+            if (leadRow?.id && (emotional || objection)) {
+              await supabase.from("imphq_wa_lead_memories").insert({
+                project_id,
+                lead_id: leadRow.id,
+                phone,
+                memory_type: "emotional_snapshot",
+                content: `state=${emotional || "?"}; objection=${objection || "-"}`,
+                emotional_state: emotional,
+                last_objection: objection,
+              });
+            }
+          } else {
+            console.warn(`[wa-ai-reply] Intel call failed: ${intelRes.status}`);
+          }
+        } catch (intelErr: any) {
+          console.warn(`[wa-ai-reply] Intel update error:`, intelErr?.message);
+        }
+
+
+        // ====== MEMÓRIA PERIÓDICA (fire-and-forget) ======
+        // Dispara wa-memory-extract sem bloquear, com gating:
+        //  - precisa de >=6 mensagens na conversa
+        //  - E (>=10 min desde última extração) OU (>=4 novas mensagens desde então)
+        try {
+          const msgCountNow = ((freshConv?.message_count as number) || 0) + 1;
+          const lastExtractAt = freshConv?.last_memory_extract_at ? new Date(freshConv.last_memory_extract_at as string).getTime() : 0;
+          const lastExtractCount = (freshConv?.last_memory_extract_msg_count as number) || 0;
+          const minutesSince = lastExtractAt ? (Date.now() - lastExtractAt) / 60000 : Infinity;
+          const newMsgsSince = msgCountNow - lastExtractCount;
+          const shouldExtract = msgCountNow >= 5 && (minutesSince >= 8 || newMsgsSince >= 3);
+          if (shouldExtract && leadRow?.id) {
+            fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/wa-memory-extract`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ conversation_id, lead_id: leadRow.id, project_id }),
+            }).catch((e) => console.warn("[wa-ai-reply] memory-extract dispatch failed:", e?.message));
+            console.log(`[wa-ai-reply] memory-extract dispatched (msgs=${msgCountNow}, since_last=${newMsgsSince})`);
+          }
+        } catch (memErr: any) {
+          console.warn("[wa-ai-reply] memory-extract gating error:", memErr?.message);
+        }
+
         console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
+
         return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
