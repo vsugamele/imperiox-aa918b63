@@ -204,7 +204,7 @@ export default function Funis() {
         triggerAutoSave();
         setShowAiGen(false);
         setAiGenPrompt("");
-        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\nðŸ“‹ ${data.estrategia}` : ""}`, { duration: 6000 });
+        toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\n📋 ${data.estrategia}` : ""}`, { duration: 6000 });
       } else {
         toast.error("A IA nÃ£o retornou etapas. Tente reformular o prompt.");
       }
