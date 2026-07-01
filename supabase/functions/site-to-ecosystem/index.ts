@@ -143,7 +143,9 @@ Deno.serve(async (req) => {
     }
 
     // 3. AI: gera o ecossistema completo em uma chamada
-    const system = `Você é o Imperius, estrategista de copy e funis (pt-BR). Dado um site de referência, gere um ecossistema completo de produto pronto pra subir: avatar, escada de valor (principal + order bump + upsell + low ticket), VSL 7 blocos, 6 criativos imagem, 4 criativos vídeo e estrutura de LP. Linguagem direta, emocional, com mecanismo único. Tom: ${tom || "consultivo premium"}.`;
+    const system = `Você é o Imperius, estrategista de copy e funis (pt-BR). Dado um site de referência, gere um ecossistema completo de produto pronto pra subir: avatar, escada de valor (principal + order bump + upsell + low ticket), VSL 7 blocos, 6 criativos imagem, 4 criativos vídeo e estrutura de LP. Linguagem direta, emocional, com mecanismo único. Tom: ${tom || "consultivo premium"}.
+${anglesCatalogBlock()}
+${qualityChecklistBlock()}`;
     const user = `## SITE DE REFERÊNCIA
 URL: ${site.url}
 Título: ${site.titulo}
@@ -157,8 +159,8 @@ ${(site.content_md || "").slice(0, 6000)}
 ## TAREFA
 Gere o JSON do ecossistema seguindo o schema. Importantes:
 - 4 produtos: tipo principal (ticket alto), orderbump (complemento barato), upsell (premium pós-compra), lowticket (porta-de-entrada R$ 27-47).
-- 6 criativos imagem com ângulos diferentes (dor, desejo, prova, mecanismo, autoridade, urgência).
-- 4 criativos vídeo (Reels 30-60s) com hook forte nos primeiros 3s.
+- 6 criativos imagem: SELECIONE 6 slugs do CATÁLOGO CANÔNICO acima diversificando a emoção dominante (não repetir emoção). Cada headline segue a "estrutura" documentada do ângulo escolhido. NÃO invente ângulos.
+- 4 criativos vídeo (Reels 30-60s): mesma regra, 4 slugs do catálogo, emoções distintas, hook forte nos primeiros 3s.
 - LP em markdown com blocos: Headline, Sub, Bullets, Prova, Oferta, Garantia, CTA.`;
 
     const eco = await gemini(system, user, ECOSYSTEM_SCHEMA);
@@ -200,13 +202,15 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
     const allCreatives = [
       ...(eco.criativos_imagem || []).map((c: any) => ({
         user_id: userId, project_id: projectId, formato: "imagem",
-        angulo: c.angulo, headline_copy: c.headline, prompt_usado: c.prompt_imagem,
-        aprovado: false, metadata: { origem: "site-to-ecosystem", site_id },
+        angulo: ANGLE_BY_SLUG[c.slug]?.nome || c.slug,
+        headline_copy: c.headline, prompt_usado: c.prompt_imagem,
+        aprovado: false, metadata: { origem: "site-to-ecosystem", site_id, slug: c.slug, emocao: ANGLE_BY_SLUG[c.slug]?.emocaoDominante },
       })),
       ...(eco.criativos_video || []).map((c: any) => ({
         user_id: userId, project_id: projectId, formato: "video_script",
-        angulo: c.angulo, headline_copy: c.hook, prompt_usado: c.roteiro,
-        aprovado: false, metadata: { origem: "site-to-ecosystem", site_id },
+        angulo: ANGLE_BY_SLUG[c.slug]?.nome || c.slug,
+        headline_copy: c.hook, prompt_usado: c.roteiro,
+        aprovado: false, metadata: { origem: "site-to-ecosystem", site_id, slug: c.slug, emocao: ANGLE_BY_SLUG[c.slug]?.emocaoDominante },
       })),
     ];
     let criativosIds: string[] = [];
