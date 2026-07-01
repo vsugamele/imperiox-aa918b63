@@ -636,13 +636,26 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 6. Histórico da conversa
+      // 6. Histórico da conversa (com recheck: pega SEMPRE o mais recente antes de gerar)
       const { data: history } = await supabase
         .from("imphq_wa_messages")
-        .select("direction, content")
+        .select("direction, content, created_at")
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: false })
         .limit(20);
+
+      // 🔎 Recheck: se o lead enviou algo NOVO depois desta invocação (durante debounce/latência),
+      // usa a última mensagem incoming como `message` para não responder com contexto obsoleto.
+      try {
+        const incomings = (history || []).filter((h: any) => h.direction === "incoming");
+        const latest = incomings[0];
+        if (latest?.content && String(latest.content).trim() !== String(message || "").trim()) {
+          console.log(`[wa-ai-reply] 🔄 recheck: msg mais recente difere do payload — usando "${String(latest.content).slice(0,60)}"`);
+          message = String(latest.content);
+        }
+      } catch {}
+
+
 
 
       // 7. Contexto do projeto
