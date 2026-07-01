@@ -61,6 +61,7 @@ const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
 const ProductCopilot = lazy(() => import("./pages/ProductCopilot"));
 const InfoprodutoCopilot = lazy(() => import("./pages/InfoprodutoCopilot"));
+const MapaEmpresa = lazy(() => import("./pages/MapaEmpresa"));
 const SDRCoach = lazy(() => import("./pages/SDRCoach"));
 const ABTests = lazy(() => import("./pages/ABTests"));
 const MobileCockpit = lazy(() => import("./pages/MobileCockpit"));
@@ -140,6 +141,7 @@ const App = () => (
                 <Route path="skills" element={<Skills />} />
                 <Route path="equipe" element={<Equipe />} />
                 <Route path="empresa" element={<Empresa />} />
+                <Route path="mapa-empresa" element={<MapaEmpresa />} />
                 <Route path="configuracoes" element={<Configuracoes />} />
                 <Route path="cofre" element={<Cofre />} />
                 <Route path="conteudo-ia" element={<ConteudoIA />} />

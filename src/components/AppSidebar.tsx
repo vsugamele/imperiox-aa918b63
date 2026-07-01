@@ -4,7 +4,7 @@ import {
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow,
+  Inbox, Pencil, Workflow, Network,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ const venderItems = [
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
   { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
   { title: "Funis",                url: "/funis",      icon: Target },
+  { title: "Mapa da Empresa",      url: "/mapa-empresa", icon: Network },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
   { title: "Webinar",              url: "/webinar",    icon: Radio },
   { title: "Finanças",             url: "/financas",   icon: DollarSign },
