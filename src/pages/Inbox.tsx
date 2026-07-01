@@ -320,7 +320,7 @@ export default function Inbox() {
           <div className="hairline mt-4" />
         </div>
 
-        <InboxKpiStrip />
+        <InboxKpiStrip collapsed={!showKpiStrip} onToggle={() => setShowKpiStrip(v => !v)} />
 
         <Tabs value={active} onValueChange={handleChange}>
           <div className="px-6">
