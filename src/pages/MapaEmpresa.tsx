@@ -61,7 +61,7 @@ interface NoData {
 }
 
 function MapaNoComponent({ id, data, selected }: NodeProps) {
-  const d = data as NoData;
+  const d = data as unknown as NoData;
   const meta = NO_META[d.tipo] || NO_META.vertical;
   const Icon = meta.icon;
 
@@ -231,13 +231,13 @@ export default function MapaEmpresa() {
     setSaving(true);
     const nos = nodes.map(n => ({
       id: n.id,
-      tipo: (n.data as NoData).tipo,
-      label: (n.data as NoData).label,
-      descricao: (n.data as NoData).descricao,
-      projeto_id: (n.data as NoData).projeto_id,
-      funil_id: (n.data as NoData).funil_id,
-      projeto_nome: (n.data as NoData).projeto_nome,
-      funil_nome: (n.data as NoData).funil_nome,
+      tipo: (n.data as unknown as NoData).tipo,
+      label: (n.data as unknown as NoData).label,
+      descricao: (n.data as unknown as NoData).descricao,
+      projeto_id: (n.data as unknown as NoData).projeto_id,
+      funil_id: (n.data as unknown as NoData).funil_id,
+      projeto_nome: (n.data as unknown as NoData).projeto_nome,
+      funil_nome: (n.data as unknown as NoData).funil_nome,
       pos_x: n.position.x,
       pos_y: n.position.y,
     }));
@@ -292,7 +292,7 @@ export default function MapaEmpresa() {
   useEffect(() => {
     if (editNoId) {
       const node = nodes.find(n => n.id === editNoId);
-      if (node) setEditForm({ ...(node.data as NoData) });
+      if (node) setEditForm({ ...(node.data as unknown as NoData) });
     }
   }, [editNoId, nodes]);
 
@@ -347,7 +347,7 @@ export default function MapaEmpresa() {
   // ── Node click (single) for navigation ───────────────────────────────────
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    const d = node.data as NoData;
+    const d = node.data as unknown as NoData;
     if ((d.funil_id || d.projeto_id) && !editNoId) {
       // Single click with link: navigate after a brief pause (to avoid conflict with double-click)
     }
@@ -437,7 +437,7 @@ export default function MapaEmpresa() {
               <MiniMap
                 className="!bg-secondary/80 !border !border-border/50 !rounded-lg"
                 nodeColor={(n) => {
-                  const t = (n.data as NoData)?.tipo;
+                  const t = (n.data as unknown as NoData)?.tipo;
                   return t ? NO_META[t]?.cor || "#6b7280" : "#6b7280";
                 }}
               />
