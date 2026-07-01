@@ -81,4 +81,52 @@ export const MAP_TEMPLATES: MapTemplate[] = [
       { from: "capt", to: "live", style: "dashed" }, { from: "live", to: "ck", style: "dashed" }, { from: "ck", to: "rec_wa", style: "dashed" },
     ],
   },
+  {
+    id: "holding-multi-vertical",
+    name: "Holding Multi-Vertical",
+    description: "3 unidades de negócio: iGaming, Experts e Direct Response, cada uma com seus canais e funis.",
+    nodes: [
+      // === iGAMING (coluna esquerda) ===
+      { key: "igaming",    kind: "area",     label: "iGaming",     description: "Unidade de apostas", position: { x: 150, y: 40 } },
+      { key: "ig_plat",    kind: "processo", label: "Plataforma",  position: { x: 20,  y: 240 } },
+      { key: "ig_grupos",  kind: "canal",    label: "Grupos",      position: { x: 170, y: 240 } },
+      { key: "ig_perfis",  kind: "canal",    label: "Perfis",      position: { x: 320, y: 240 } },
+
+      // === EXPERTS (coluna central) ===
+      { key: "experts",    kind: "area",     label: "Experts",     description: "Criadores e mentores", position: { x: 700, y: 40 } },
+      { key: "ex_redes",   kind: "vertical", label: "Redes Sociais", position: { x: 550, y: 240 } },
+      { key: "ex_funis",   kind: "vertical", label: "Funis",         position: { x: 850, y: 240 } },
+      { key: "ex_yt",      kind: "canal",    label: "YouTube",    position: { x: 470, y: 440 } },
+      { key: "ex_tk",      kind: "canal",    label: "TikTok",     position: { x: 590, y: 440 } },
+      { key: "ex_fb",      kind: "canal",    label: "Facebook",   position: { x: 710, y: 440 } },
+      { key: "ex_ig",      kind: "canal",    label: "Instagram",  position: { x: 830, y: 440 } },
+      { key: "ex_lanc",    kind: "processo", label: "Lançamento", position: { x: 950, y: 440 } },
+      { key: "ex_web",     kind: "processo", label: "Webinário",  position: { x: 1080, y: 440 } },
+      { key: "ex_dir",     kind: "processo", label: "Direto",     position: { x: 1210, y: 440 } },
+      { key: "ex_vsl",     kind: "processo", label: "VSL",        position: { x: 1340, y: 440 } },
+
+      // === DIRECT RESPONSE (coluna direita) ===
+      { key: "dr",         kind: "area",     label: "Direct Response", description: "Ofertas diretas", position: { x: 1550, y: 40 } },
+      { key: "dr_info",    kind: "oferta",   label: "Infoprodutos",   position: { x: 1420, y: 240 } },
+      { key: "dr_avatar",  kind: "doc",      label: "Avatares",       position: { x: 1570, y: 240 } },
+      { key: "dr_funis",   kind: "vertical", label: "Funis",          position: { x: 1720, y: 240 } },
+      { key: "dr_web",     kind: "processo", label: "Webinário",      position: { x: 1500, y: 440 } },
+      { key: "dr_dir",     kind: "processo", label: "Direto",         position: { x: 1650, y: 440 } },
+      { key: "dr_vsl",     kind: "processo", label: "VSL",            position: { x: 1800, y: 440 } },
+    ],
+    edges: [
+      // iGaming
+      { from: "igaming", to: "ig_plat" }, { from: "igaming", to: "ig_grupos" }, { from: "igaming", to: "ig_perfis" },
+      // Experts
+      { from: "experts", to: "ex_redes" }, { from: "experts", to: "ex_funis" },
+      { from: "ex_redes", to: "ex_yt" }, { from: "ex_redes", to: "ex_tk" },
+      { from: "ex_redes", to: "ex_fb" }, { from: "ex_redes", to: "ex_ig" },
+      { from: "ex_funis", to: "ex_lanc" }, { from: "ex_funis", to: "ex_web" },
+      { from: "ex_funis", to: "ex_dir" }, { from: "ex_funis", to: "ex_vsl" },
+      // Direct Response
+      { from: "dr", to: "dr_info" }, { from: "dr", to: "dr_avatar" }, { from: "dr", to: "dr_funis" },
+      { from: "dr_funis", to: "dr_web" }, { from: "dr_funis", to: "dr_dir" }, { from: "dr_funis", to: "dr_vsl" },
+    ],
+  },
 ];
+
