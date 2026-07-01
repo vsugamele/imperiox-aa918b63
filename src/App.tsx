@@ -121,9 +121,10 @@ const App = () => (
                 {/* Smart landing — goes straight to pending AI actions */}
                 <Route index element={<Navigate to="/imperius" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
-                <Route path="ai-saude" element={<AISaude />} />
-                <Route path="ai-learning" element={<AILearning />} />
-                <Route path="saude-produtos" element={<SaudeProdutos />} />
+                <Route path="inteligencia-ia" element={<InteligenciaIA />} />
+                <Route path="ai-saude" element={<Navigate to="/inteligencia-ia?tab=saude" replace />} />
+                <Route path="ai-learning" element={<Navigate to="/inteligencia-ia?tab=memoria" replace />} />
+                <Route path="saude-produtos" element={<Navigate to="/inteligencia-ia?tab=produtos" replace />} />
                 <Route path="funil-conversao" element={<Funil />} />
                 <Route path="projetos" element={<Projetos />} />
                 <Route path="projetos/:id" element={<ProjetoDetalhe />} />
