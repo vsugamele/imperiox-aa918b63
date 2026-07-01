@@ -2219,62 +2219,90 @@ DORES: ${(intelResult.avatar?.dores || []).slice(0, 2).join(", ")}
 Emails: 1-Boas-vindas+Quick Win, 2-História de origem, 3-Mecanismo único, 4-Prova social, 5-Demolição de objeção, 6-Urgência/CTA, 7-Último chamado.
 Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
 
-  const [vslResult, emailResult] = await Promise.all([
-    callAI(vslSystem, vslPrompt, apiKey, model, [{
-      type: "function",
-      function: {
-        name: "vsl_outline",
-        description: "VSL script structure",
-        parameters: {
-          type: "object",
-          properties: {
-            blocos: { type: "array", items: { type: "object", properties: {
-              numero: { type: "number" },
-              nome: { type: "string" },
-              roteiro: { type: "string" },
-              duracao: { type: "string" },
-            }, required: ["numero", "nome", "roteiro", "duracao"], additionalProperties: false } },
-            duracao_total: { type: "string" },
-          },
-          required: ["blocos", "duracao_total"],
-          additionalProperties: false,
+  const vslTools = [{
+    type: "function",
+    function: {
+      name: "vsl_outline",
+      description: "VSL script structure",
+      parameters: {
+        type: "object",
+        properties: {
+          blocos: { type: "array", items: { type: "object", properties: {
+            numero: { type: "number" },
+            nome: { type: "string" },
+            roteiro: { type: "string" },
+            duracao: { type: "string" },
+          }, required: ["numero", "nome", "roteiro", "duracao"], additionalProperties: false } },
+          duracao_total: { type: "string" },
         },
+        required: ["blocos", "duracao_total"],
+        additionalProperties: false,
       },
-    }], "vsl_outline", baseUrl),
-    callAI(emailSystem, emailPrompt, apiKey, model, [{
-      type: "function",
-      function: {
-        name: "email_sequence",
-        description: "7-email nurturing sequence",
-        parameters: {
-          type: "object",
-          properties: {
-            emails: { type: "array", items: { type: "object", properties: {
-              numero: { type: "number" },
-              assunto: { type: "string" },
-              preheader: { type: "string" },
-              corpo: { type: "string" },
-              cta: { type: "string" },
-            }, required: ["numero", "assunto", "preheader", "corpo", "cta"], additionalProperties: false } },
-          },
-          required: ["emails"],
-          additionalProperties: false,
+    },
+  }];
+
+  const emailTools = [{
+    type: "function",
+    function: {
+      name: "email_sequence",
+      description: "7-email nurturing sequence",
+      parameters: {
+        type: "object",
+        properties: {
+          emails: { type: "array", items: { type: "object", properties: {
+            numero: { type: "number" },
+            assunto: { type: "string" },
+            preheader: { type: "string" },
+            corpo: { type: "string" },
+            cta: { type: "string" },
+          }, required: ["numero", "assunto", "preheader", "corpo", "cta"], additionalProperties: false } },
         },
+        required: ["emails"],
+        additionalProperties: false,
       },
-    }], "email_sequence", baseUrl),
-  ]);
+    },
+  }];
+
+  // Retry-wrapped paralelo com falha parcial
+  const runVsl = () => withRetry(async () => {
+    const r = await callAI(vslSystem, vslPrompt, apiKey, model, vslTools, "vsl_outline", baseUrl);
+    if (r instanceof Response) throw new Error(`vsl callAI status ${r.status}`);
+    if (!r?.blocos?.length) throw new Error("vsl vazio");
+    return r;
+  }, 2, 500);
+
+  const runEmails = () => withRetry(async () => {
+    const r = await callAI(emailSystem, emailPrompt, apiKey, model, emailTools, "email_sequence", baseUrl);
+    if (r instanceof Response) throw new Error(`emails callAI status ${r.status}`);
+    if (!r?.emails?.length) throw new Error("emails vazio");
+    return r;
+  }, 2, 500);
+
+  const [vslSettled, emailSettled] = await Promise.allSettled([runVsl(), runEmails()]);
+
+  const phaseErrors: Record<string, string> = {};
+  const phases: Record<string, string> = { intel: "done", angles: "done", funnel: "done", vsl: "done", emails: "done" };
 
   // Build VSL outline text
   let vslOutlineText = "";
-  if (!(vslResult instanceof Response) && vslResult.blocos) {
+  if (vslSettled.status === "fulfilled") {
+    const vslResult = vslSettled.value;
     vslOutlineText = vslResult.blocos.map((b: any) => `[${b.numero}] ${b.nome} (${b.duracao})\n${b.roteiro}`).join("\n\n");
     if (vslResult.duracao_total) vslOutlineText += `\n\nDuração Total: ${vslResult.duracao_total}`;
+  } else {
+    phases.vsl = "failed";
+    phaseErrors.vsl = String(vslSettled.reason?.message || vslSettled.reason || "falha desconhecida");
+    console.error("[openflow-ai] Fase 3 VSL falhou:", phaseErrors.vsl);
   }
 
-  // Build email list text
+  // Build email list
   let emailsData: any[] = [];
-  if (!(emailResult instanceof Response) && emailResult.emails) {
-    emailsData = emailResult.emails;
+  if (emailSettled.status === "fulfilled") {
+    emailsData = emailSettled.value.emails;
+  } else {
+    phases.emails = "failed";
+    phaseErrors.emails = String(emailSettled.reason?.message || emailSettled.reason || "falha desconhecida");
+    console.error("[openflow-ai] Fase 3 Emails falhou:", phaseErrors.emails);
   }
 
   // Map etapas to final format
@@ -2293,13 +2321,8 @@ Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
   return new Response(JSON.stringify({
     etapas,
     estrategia: funnelResult.estrategia || `Funil ${modelo.toUpperCase()} para ${produto}`,
-    phases: {
-      intel: "done",
-      angles: "done",
-      funnel: "done",
-      vsl: "done",
-      emails: "done",
-    },
+    phases,
+    ...(Object.keys(phaseErrors).length ? { phase_errors: phaseErrors } : {}),
     assets: {
       angles: anglesList,
       vsl_outline: vslOutlineText,
