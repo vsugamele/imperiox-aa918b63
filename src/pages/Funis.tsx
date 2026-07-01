@@ -1488,6 +1488,12 @@ export default function Funis() {
           }))}
           model={aiGenModel}
         />
+
+        <PipelineAssetsDialog
+          open={showPipelineAssets}
+          onOpenChange={setShowPipelineAssets}
+          assets={selectedFunil?.data.pipeline_assets as any}
+        />
       </div>
     );
   }
