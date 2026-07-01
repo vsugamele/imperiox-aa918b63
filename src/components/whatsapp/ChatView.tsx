@@ -1790,7 +1790,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   <Activity className="h-4 w-4" />
                 </Button>
 
-                {/* Emoji picker */}
+                <div className="hidden lg:flex items-end gap-2">
+                  {/* Emoji picker */}
                 <Popover open={showEmoji} onOpenChange={setShowEmoji}>
                   <PopoverTrigger asChild>
                     <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
