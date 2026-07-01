@@ -435,7 +435,7 @@ export default function WhatsApp() {
         {activeTab === "sessoes" && (
           <ResizablePanelGroup direction="horizontal" className="h-full">
             {/* Left: conversation list */}
-            <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
+            <ResizablePanel defaultSize={listDefaultSize} minSize={20} maxSize={45}>
               <ConversationList
                 sessions={sessions}
                 projects={projects}
