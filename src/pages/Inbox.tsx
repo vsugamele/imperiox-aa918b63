@@ -289,6 +289,9 @@ export default function Inbox() {
   })();
 
   const [active, setActive] = useState<InboxTab>(defaultTab);
+  const [showKpiStrip, setShowKpiStrip] = useState(() => localStorage.getItem("wa.showKpiStrip") !== "false");
+
+  useEffect(() => { localStorage.setItem("wa.showKpiStrip", String(showKpiStrip)); }, [showKpiStrip]);
 
   const handleChange = (val: string) => {
     const tab = val as InboxTab;
