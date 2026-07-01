@@ -11,9 +11,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLab
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, Zap } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { FunilPipelineWizard } from "@/components/funis/FunilPipelineWizard";
 
 interface Etapa {
   nome: string; tipo?: string; visitantes: number; conversoes: number;
@@ -116,6 +117,7 @@ export default function Funis() {
   const [aiGenPrompt, setAiGenPrompt] = useState("");
   const [aiGenModel, setAiGenModel] = useState("google/gemini-3-flash-preview");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [showPipelineWizard, setShowPipelineWizard] = useState(false);
 
   const AI_MODELS = [
     { id: "google/gemini-3-flash-preview", label: "Gemini Flash" },
@@ -179,6 +181,24 @@ export default function Funis() {
       else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
       else toast.error(err.message || "Erro ao gerar funil");
     } finally { setAiGenerating(false); }
+  };
+
+  const handlePipelineApply = (etapas: unknown[], estrategia: string) => {
+    if (!selectedFunil) return;
+    const mapped = (etapas as Array<Record<string, unknown>>).map(e => ({
+      nome: (e.nome as string) || "Etapa",
+      tipo: (e.tipo as string) || "outro",
+      visitantes: 0,
+      conversoes: 0,
+      url: (e.url as string) || "",
+      pos_x: (e.pos_x as number) ?? 80,
+      pos_y: (e.pos_y as number) ?? 400,
+      descricao: (e.descricao as string) || "",
+      connects_to: (e.connects_to as number[]) || [],
+    }));
+    setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: mapped } });
+    triggerAutoSave();
+    toast.success(`Pipeline IA gerou ${mapped.length} etapas!${estrategia ? `\n📋 ${estrategia.slice(0, 120)}` : ""}`, { duration: 8000 });
   };
 
   const aiOrganizeProducts = async (mode: "create" | "reorganize" = "create") => {
@@ -1106,6 +1126,11 @@ export default function Funis() {
             {aiGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
             Gerar com IA
           </Button>
+
+          <Button size="sm" className="gap-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 text-white border-0" onClick={() => setShowPipelineWizard(true)}>
+            <Zap className="h-3 w-3" />
+            Funil Completo
+          </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
           <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Use os pontos laterais para conectar • Clique na linha para remover conexão</span>
@@ -1150,6 +1175,20 @@ export default function Funis() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <FunilPipelineWizard
+          open={showPipelineWizard}
+          onClose={() => setShowPipelineWizard(false)}
+          onApply={handlePipelineApply}
+          projectId={selectedFunil?.project_id}
+          products={projectProductsFull.map((p: any) => ({
+            nome: p.nome || p.name || "",
+            tipo: p.tipo_oferta || p.tipo || "",
+            preco: p.preco_por || p.preco || p.price || "",
+            link: p.ofertas?.[0]?.link || p.link || p.url || "",
+          }))}
+          model={aiGenModel}
+        />
       </div>
     );
   }

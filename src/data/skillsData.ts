@@ -20,6 +20,16 @@ import webinarRoteiroPrompt from "./skills/webinar-roteiro.md?raw";
 import marketIntelPrompt from "./skills/market-intel-v2.md?raw";
 import yoshitaniPrompt from "./skills/yoshitani-traffic-scale.md?raw";
 import roteirosViraisPrompt from "./skills/roteiros-virais-reels.md?raw";
+import vslScriptEnginePrompt from "./skills/vsl-script-engine-v1.md?raw";
+import headlineForgePrompt from "./skills/headline-forge-v1.md?raw";
+import emailSequencePrompt from "./skills/email-sequence-architect-v1.md?raw";
+import grandSlamOfferPrompt from "./skills/grand-slam-offer-v1.md?raw";
+import niveisCienciaPrompt from "./skills/niveis-consciencia-v1.md?raw";
+import hookArsenalPrompt from "./skills/hook-arsenal-v1.md?raw";
+import provaSocialPrompt from "./skills/prova-social-engine-v1.md?raw";
+import urgenciaEscassezPrompt from "./skills/urgencia-escassez-v1.md?raw";
+import launchSequencePrompt from "./skills/launch-sequence-v1.md?raw";
+import retencaoOnboardingPrompt from "./skills/retencao-onboarding-v1.md?raw";
 
 export interface SkillData {
   id: string;
@@ -226,6 +236,126 @@ export const SKILLS_DATA: SkillData[] = [
     icone: "⚔️",
     cor: "#e85d3a",
     system_prompt: yoshitaniPrompt,
+  },
+  {
+    id: "vsl-script-engine",
+    nome: "VSL Script Engine",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Máquina de Conversão em Vídeo™ — gera roteiros completos de VSL em 7 blocos obrigatórios (Pattern Interrupt → Dor → Epifania → Prova → Oferta → Urgência → CTA). Suporta VSL Curta (8-12min), VSL Longa (20-30min) e Carta de Vendas Escrita. Calibrado por temperatura de tráfego (Frio/Morno/Quente).",
+    gatilho: "[Produto] + [Avatar] + [Mecanismo Único] + [Modo: curta | longa | escrita]",
+    status: "Ativo",
+    icone: "🎬",
+    cor: "#7c3aed",
+    system_prompt: vslScriptEnginePrompt,
+  },
+  {
+    id: "headline-forge",
+    nome: "Headline Forge",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Arsenal de Headlines de Alta Conversão™ — 64 fórmulas em 8 categorias (Benefício Direto, Curiosidade, Prova Social, Identidade, Contradição, Urgência, Pergunta Direta, Narrativa). Output: 5-15 headlines ranqueadas por força + subtítulos, calibradas por tipo de página e nível de consciência de Schwartz.",
+    gatilho: "[Tipo de página] + [Avatar + promessa central] + [Tom: direto | curioso | empático | urgente]",
+    status: "Ativo",
+    icone: "🎯",
+    cor: "#f59e0b",
+    system_prompt: headlineForgePrompt,
+  },
+  {
+    id: "email-sequence-architect",
+    nome: "Email Sequence Architect",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Máquina de Relacionamento e Conversão por Email™ — 6 tipos de sequência completas (Boas-vindas, Nutrição 7 emails, Carrinho Abandonado, Pós-compra, Reengajamento, Lançamento 10 emails). Framework SOAP por email + Arsenal de Linhas de Assunto + Regras de Timing e Espaçamento.",
+    gatilho: "[Tipo de sequência] + [Produto/Isca] + [Avatar] + [Tom]",
+    status: "Ativo",
+    icone: "📧",
+    cor: "#0ea5e9",
+    system_prompt: emailSequencePrompt,
+  },
+  {
+    id: "grand-slam-offer",
+    nome: "Grand Slam Offer Engine",
+    versao: "V1.0",
+    categoria: "Estratégia & Posicionamento",
+    descricao: "Engenharia de Oferta Irresistível™ — framework Hormozi completo em 5 fases: Sonho do Cliente → Mapeamento de Obstáculos → Conversão em Soluções → Stack de Valor com precificação crível → Nomenclatura Proprietária. Inclui 4 arquétipos de garantia e arsenal de bônus por psicologia de decisão.",
+    gatilho: "[Produto] + [Resultado prometido] + [Preço alvo] + [Avatar com objeções]",
+    status: "Ativo",
+    icone: "💎",
+    cor: "#10b981",
+    system_prompt: grandSlamOfferPrompt,
+  },
+  {
+    id: "niveis-consciencia",
+    nome: "Níveis de Consciência",
+    versao: "V1.0",
+    categoria: "Pesquisa & Avatar",
+    descricao: "Calibrador de Mensagem por Consciência™ — framework Eugene Schwartz (5 níveis) aplicado ao funil moderno. Diagnostica o nível exato do avatar por canal, define estratégia de mensagem (tom, abertura, CTA), detecta descompasso entre etapas do funil e previne o maior destruidor de conversão em tráfego frio: copy no nível errado.",
+    gatilho: "[Avatar com comportamentos mapeados] + [Canal de tráfego] + [Produto]",
+    status: "Ativo",
+    icone: "🧊",
+    cor: "#3b82f6",
+    system_prompt: niveisCienciaPrompt,
+  },
+  {
+    id: "hook-arsenal",
+    nome: "Hook Arsenal",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Banco de 120+ Ganchos de Alta Performance™ — 9 categorias psicológicas (Contradição, Número, Dor, Curiosidade, Identidade, História, Revelação, Urgência, Pergunta). Filtros por plataforma (Meta/TikTok/YouTube/Email/WhatsApp) e duração (15s/30s/60s/longo). Inclui Fórmula de Construção de Hook Customizado e Checklist de Validação em 5 critérios.",
+    gatilho: "[Avatar + dor principal] + [Ângulo] + [Plataforma] + [Duração]",
+    status: "Ativo",
+    icone: "🎣",
+    cor: "#f97316",
+    system_prompt: hookArsenalPrompt,
+  },
+  {
+    id: "prova-social-engine",
+    nome: "Prova Social Engine",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Arquiteto de Evidências de Transformação™ — 4 módulos: Formatador de Depoimentos (transforma depoimentos genéricos em prova específica com estrutura PASAR), Criador de Case Completo (narrativa HERO), Prova por Autoridade, e Prova Lógica (para produtos sem histórico). Inclui posicionamento por etapa do funil e guia de coleta de depoimentos.",
+    gatilho: "[Depoimentos brutos] OU [Dados do produto] OU [Sem provas ainda]",
+    status: "Ativo",
+    icone: "🏆",
+    cor: "#eab308",
+    system_prompt: provaSocialPrompt,
+  },
+  {
+    id: "urgencia-escassez",
+    nome: "Urgência & Escassez Engineer",
+    versao: "V1.0",
+    categoria: "Copy & Persuasão",
+    descricao: "Arquiteto de Fechamento Ético™ — 4 tipos de urgência real (Prazo, Vagas, Preço, Custo da Inação) com copy completa por canal (página, email, WhatsApp, ad). Inclui Calculadora de Custo da Inação, Sequência de Escalada em 72h, Arsenal de Frases de Fechamento e Detector de Urgência Falsa para proteger a credibilidade da marca.",
+    gatilho: "[Tipo de urgência disponível] + [Produto] + [Avatar] + [Canal]",
+    status: "Ativo",
+    icone: "⏰",
+    cor: "#ef4444",
+    system_prompt: urgenciaEscassezPrompt,
+  },
+  {
+    id: "launch-sequence",
+    nome: "Launch Sequence Engine",
+    versao: "V1.0",
+    categoria: "Estratégia & Posicionamento",
+    descricao: "Orquestrador de Lançamentos PLF™ — Product Launch Formula completa em 4 semanas: Pré-aquecimento + 3 PLCs (A Oportunidade, A Transformação, A Experiência) + 10 emails de abertura e fechamento. Inclui segmentação por engajamento, escalada de urgência em 72h, protocolo de pós-lançamento e reproveitamento de conteúdo.",
+    gatilho: "[Produto] + [Data de abertura] + [Tamanho e temperatura da lista] + [Avatar]",
+    status: "Ativo",
+    icone: "🚀",
+    cor: "#8b5cf6",
+    system_prompt: launchSequencePrompt,
+  },
+  {
+    id: "retencao-onboarding",
+    nome: "Retenção & Onboarding Engine",
+    versao: "V1.0",
+    categoria: "Pós-venda & Retenção",
+    descricao: "Jornada de Sucesso do Cliente™ — 3 sequências completas: Quick Win (dias 1-3 para criar comprometimento e eliminar buyer's remorse), Ativação Profunda (dias 4-14 com marcos de progresso), e Prevenção de Chargeback (sistema de sinais de risco com resposta proativa). Inclui protocolo de transformação em promotor e sistema de coleta de depoimentos.",
+    gatilho: "[Produto] + [Resultado prometido] + [Prazo da garantia] + [Canal: email | WhatsApp | ambos]",
+    status: "Ativo",
+    icone: "🔄",
+    cor: "#14b8a6",
+    system_prompt: retencaoOnboardingPrompt,
   },
   {
     id: "roteiros-virais-reels",

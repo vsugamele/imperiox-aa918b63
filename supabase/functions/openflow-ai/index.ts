@@ -199,6 +199,7 @@ serve(async (req) => {
     if (action === "generate_content_pack") return await handleContentPack(body, projectContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "ai_organize_funnel") return await handleOrganizeFunnel(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "generate_funnel_from_prompt") return await handleGenerateFunnelFromPrompt(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
+    if (action === "generate_funnel_pipeline") return await handleGenerateFunnelPipeline(body, projectContext, skillsContext, aiApiKey, model, aiBaseUrl, mentePrefix);
     if (action === "refine_skill") return await handleRefineSkill(body, sb, aiApiKey, model, aiBaseUrl);
 
     // Default: automation flow generation
@@ -1982,4 +1983,264 @@ Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
   }));
 
   return new Response(JSON.stringify({ nodes }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// ── Funnel Pipeline (one-click full generation) ──
+async function handleGenerateFunnelPipeline(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+  const { extra } = body;
+  const briefing = extra?.briefing || {};
+  const products = extra?.products || [];
+
+  const produto = briefing.produto || "";
+  const transformacao = briefing.transformacao || "";
+  const nicho = briefing.nicho || "";
+  const preco = briefing.preco || "";
+  const objection = briefing.objection || "";
+  const modelo = briefing.modelo || "vsl";
+
+  const briefingText = `
+PRODUTO: ${produto}
+TRANSFORMAÇÃO PROMETIDA: ${transformacao}
+NICHO/AVATAR: ${nicho}
+PREÇO/MODELO: ${preco}
+OBJEÇÃO PRINCIPAL: ${objection}
+MODELO DE FUNIL: ${modelo.toUpperCase()}
+${products.length > 0 ? `\nPRODUTOS CADASTRADOS:\n${JSON.stringify(products, null, 2)}` : ""}
+`.trim();
+
+  // ── PHASE 1 — Intel (avatar + market + mechanism + angles) ──
+  const intelSystem = `${mentePrefix}Você é um estrategista de marketing digital especializado em análise de avatar e mercado. Use os frameworks dos melhores copywriters brasileiros e internacionais (Gary Bencivenga, Eugene Schwartz, Dan Kennedy, Alex Hormozi).
+
+${projectContext}
+${skillsContext}`;
+
+  const intelPrompt = `Com base no briefing abaixo, execute a análise completa:
+
+${briefingText}
+
+Você deve retornar:
+1. AVATAR DETALHADO: dores profundas (físicas, emocionais, financeiras), desejos, frustrações, linguagem que usa, dia a dia
+2. NÍVEL DE CONSCIÊNCIA (Eugene Schwartz): qual dos 5 níveis o avatar está (inconsciente / consciente do problema / consciente da solução / consciente do produto / mais consciente) — e por quê
+3. MECANISMO ÚNICO: por que esta solução funciona de forma diferente de tudo que o avatar já tentou — o elemento secreto/novo
+4. 4 ÂNGULOS CRIATIVOS: cada ângulo é uma abordagem única para os anúncios, com gancho + linha de abertura + promessa central
+5. POSICIONAMENTO: como o produto deve ser posicionado para se diferenciar`;
+
+  const intelResult = await callAI(intelSystem, intelPrompt, apiKey, model, [{
+    type: "function",
+    function: {
+      name: "intel_analysis",
+      description: "Complete avatar and market intelligence analysis",
+      parameters: {
+        type: "object",
+        properties: {
+          avatar: { type: "object", properties: {
+            dores: { type: "array", items: { type: "string" } },
+            desejos: { type: "array", items: { type: "string" } },
+            linguagem: { type: "string" },
+            nivel_consciencia: { type: "string" },
+            nivel_numero: { type: "number" },
+          }, required: ["dores", "desejos", "linguagem", "nivel_consciencia", "nivel_numero"], additionalProperties: false },
+          mecanismo_unico: { type: "string" },
+          angles: { type: "array", items: { type: "object", properties: {
+            nome: { type: "string" },
+            gancho: { type: "string" },
+            abertura: { type: "string" },
+            promessa: { type: "string" },
+          }, required: ["nome", "gancho", "abertura", "promessa"], additionalProperties: false } },
+          posicionamento: { type: "string" },
+        },
+        required: ["avatar", "mecanismo_unico", "angles", "posicionamento"],
+        additionalProperties: false,
+      },
+    },
+  }], "intel_analysis", baseUrl);
+
+  if (intelResult instanceof Response) return intelResult;
+
+  const anglesList = (intelResult.angles || []).map((a: any) => `${a.nome}: ${a.gancho} → ${a.promessa}`);
+
+  // ── PHASE 2 — Funnel structure ──
+  const MODELO_CONFIGS: Record<string, string> = {
+    vsl: "Aquisição (criativo/anúncio) → Página de captura → VSL (vídeo de vendas) → Checkout → Order Bump → Upsell → Email de nurturing",
+    webinar: "Aquisição (criativo/anúncio) → Página de inscrição → Página de confirmação → Webinar (ao vivo ou gravado) → Replay/VSL → Checkout → Email de follow-up",
+    isca: "Aquisição (criativo/anúncio) → Página de captura → Entrega da isca → Sequência de emails → VSL/Oferta → Checkout",
+    tripwire: "Aquisição (criativo/anúncio) → Página de oferta low-ticket → Checkout tripwire → Upsell core offer → Email de onboarding",
+    lancamento: "Pré-aquecimento (remarketing/email) → Página de inscrição → PLC 1 (oportunidade) → PLC 2 (transformação) → PLC 3 (prova social) → Abertura de carrinho → Checkout → Sequência de fechamento",
+  };
+
+  const funnelSystem = `${mentePrefix}Você é um especialista em arquitetura de funis de marketing digital brasileiro. Posicione etapas visualmente com lógica de canvas.
+
+## REGRAS DE POSICIONAMENTO VISUAL
+- Linha de Aquisição (y=80): Anúncios e criativos de entrada
+- Linha de Conversão (y=400): Landing pages, VSL, Checkout
+- Linha de Maximização (y=720): Upsells, Order Bumps, Downsells
+- Linha de Retenção (y=1040): Email, WhatsApp, Obrigado, Remarketing
+- Espaçamento horizontal: 320px (pos_x: 80, 400, 720, 1040, 1360...)
+- connects_to: índices 0-based formando fluxo lógico
+
+## TIPOS VÁLIDOS
+criativo, pagina, vsl, checkout, upsell, face_ads, instagram, tiktok, email, whatsapp, blog, video, imagem, caixa, texto, outro`;
+
+  const funnelPrompt = `Crie a estrutura completa de etapas para este funil:
+
+BRIEFING:
+${briefingText}
+
+MODELO BASE: ${MODELO_CONFIGS[modelo] || MODELO_CONFIGS.vsl}
+
+INTELIGÊNCIA DE MERCADO:
+- Avatar: ${intelResult.avatar?.linguagem || nicho}
+- Nível de Consciência: ${intelResult.avatar?.nivel_consciencia || "Consciente do problema"}
+- Mecanismo Único: ${intelResult.mecanismo_unico || ""}
+- Posicionamento: ${intelResult.posicionamento || ""}
+
+Crie entre 6 e 14 etapas com nomes específicos para este produto (não genéricos), descrições estratégicas, e posicionamento visual correto.`;
+
+  const funnelResult = await callAI(funnelSystem, funnelPrompt, apiKey, model, [{
+    type: "function",
+    function: {
+      name: "generate_funnel_pipeline",
+      description: "Generate complete funnel stages with positioning",
+      parameters: {
+        type: "object",
+        properties: {
+          etapas: { type: "array", items: { type: "object", properties: {
+            nome: { type: "string" },
+            tipo: { type: "string", enum: ["criativo", "pagina", "vsl", "checkout", "upsell", "face_ads", "instagram", "tiktok", "email", "whatsapp", "blog", "video", "imagem", "caixa", "texto", "outro"] },
+            descricao: { type: "string" },
+            url: { type: "string" },
+            pos_x: { type: "number" },
+            pos_y: { type: "number" },
+            connects_to: { type: "array", items: { type: "integer" } },
+          }, required: ["nome", "tipo", "pos_x", "pos_y", "descricao"], additionalProperties: false } },
+          estrategia: { type: "string" },
+        },
+        required: ["etapas", "estrategia"],
+        additionalProperties: false,
+      },
+    },
+  }], "generate_funnel_pipeline", baseUrl);
+
+  if (funnelResult instanceof Response) return funnelResult;
+
+  // ── PHASE 3 — VSL outline + email sequence (parallel-ish, sequential calls) ──
+  const vslSystem = `${mentePrefix}Você é o maior roteirista de VSL do Brasil. Use a estrutura VSL™ de 7 blocos obrigatórios com base no briefing e no mecanismo único do produto.`;
+
+  const vslPrompt = `Crie a ESTRUTURA COMPLETA de VSL para:
+
+BRIEFING:
+${briefingText}
+
+MECANISMO ÚNICO: ${intelResult.mecanismo_unico || ""}
+NÍVEL DE CONSCIÊNCIA DO AVATAR: ${intelResult.avatar?.nivel_consciencia || ""}
+DORES PRINCIPAIS: ${(intelResult.avatar?.dores || []).slice(0, 3).join(", ")}
+
+Estruture os 7 blocos: 1-Pattern Interrupt/Gancho, 2-Amplificação da Dor, 3-Epifania/Mecanismo, 4-Prova Social, 5-Oferta, 6-Urgência/Escassez, 7-CTA Final.
+Para cada bloco: título + roteiro de 3-5 linhas + tempo estimado.`;
+
+  const emailSystem = `${mentePrefix}Você é um estrategista de email marketing que usa o framework SOAP e as técnicas de Andre Chaperon (Autoresponder Madness) e Ben Settle. Escreva sequências que geram engajamento e vendas.`;
+
+  const emailPrompt = `Crie uma SEQUÊNCIA DE 7 EMAILS para:
+
+BRIEFING:
+${briefingText}
+
+AVATAR: ${intelResult.avatar?.linguagem || nicho}
+DORES: ${(intelResult.avatar?.dores || []).slice(0, 2).join(", ")}
+
+Emails: 1-Boas-vindas+Quick Win, 2-História de origem, 3-Mecanismo único, 4-Prova social, 5-Demolição de objeção, 6-Urgência/CTA, 7-Último chamado.
+Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
+
+  const [vslResult, emailResult] = await Promise.all([
+    callAI(vslSystem, vslPrompt, apiKey, model, [{
+      type: "function",
+      function: {
+        name: "vsl_outline",
+        description: "VSL script structure",
+        parameters: {
+          type: "object",
+          properties: {
+            blocos: { type: "array", items: { type: "object", properties: {
+              numero: { type: "number" },
+              nome: { type: "string" },
+              roteiro: { type: "string" },
+              duracao: { type: "string" },
+            }, required: ["numero", "nome", "roteiro", "duracao"], additionalProperties: false } },
+            duracao_total: { type: "string" },
+          },
+          required: ["blocos", "duracao_total"],
+          additionalProperties: false,
+        },
+      },
+    }], "vsl_outline", baseUrl),
+    callAI(emailSystem, emailPrompt, apiKey, model, [{
+      type: "function",
+      function: {
+        name: "email_sequence",
+        description: "7-email nurturing sequence",
+        parameters: {
+          type: "object",
+          properties: {
+            emails: { type: "array", items: { type: "object", properties: {
+              numero: { type: "number" },
+              assunto: { type: "string" },
+              preheader: { type: "string" },
+              corpo: { type: "string" },
+              cta: { type: "string" },
+            }, required: ["numero", "assunto", "preheader", "corpo", "cta"], additionalProperties: false } },
+          },
+          required: ["emails"],
+          additionalProperties: false,
+        },
+      },
+    }], "email_sequence", baseUrl),
+  ]);
+
+  // Build VSL outline text
+  let vslOutlineText = "";
+  if (!(vslResult instanceof Response) && vslResult.blocos) {
+    vslOutlineText = vslResult.blocos.map((b: any) => `[${b.numero}] ${b.nome} (${b.duracao})\n${b.roteiro}`).join("\n\n");
+    if (vslResult.duracao_total) vslOutlineText += `\n\nDuração Total: ${vslResult.duracao_total}`;
+  }
+
+  // Build email list text
+  let emailsData: any[] = [];
+  if (!(emailResult instanceof Response) && emailResult.emails) {
+    emailsData = emailResult.emails;
+  }
+
+  // Map etapas to final format
+  const etapas = (funnelResult.etapas || []).map((e: any) => ({
+    nome: e.nome || "Etapa",
+    tipo: e.tipo || "outro",
+    visitantes: 0,
+    conversoes: 0,
+    url: e.url || "",
+    pos_x: e.pos_x ?? 80,
+    pos_y: e.pos_y ?? 400,
+    descricao: e.descricao || "",
+    connects_to: e.connects_to || [],
+  }));
+
+  return new Response(JSON.stringify({
+    etapas,
+    estrategia: funnelResult.estrategia || `Funil ${modelo.toUpperCase()} para ${produto}`,
+    phases: {
+      intel: "done",
+      angles: "done",
+      funnel: "done",
+      vsl: "done",
+      emails: "done",
+    },
+    assets: {
+      angles: anglesList,
+      vsl_outline: vslOutlineText,
+      emails: emailsData,
+      avatar: intelResult.avatar,
+      mecanismo_unico: intelResult.mecanismo_unico,
+      posicionamento: intelResult.posicionamento,
+    },
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
