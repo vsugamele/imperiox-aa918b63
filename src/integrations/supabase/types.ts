@@ -21782,6 +21782,69 @@ export type Database = {
           },
         ]
       }
+      imphq_mapas_empresa: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          data: Json
+          id: string
+          nome: string
+          user_id: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          data?: Json
+          id?: string
+          nome?: string
+          user_id?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          data?: Json
+          id?: string
+          nome?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_mi_analyses: {
         Row: {
           created_at: string | null
