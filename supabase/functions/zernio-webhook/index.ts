@@ -483,13 +483,9 @@ Deno.serve(async (req) => {
     // 🔥 Dispara automação de DM/Story (story_reply, story_mention ou DM normal)
     if (!isOutbound && dbAccId && senderId) {
       try {
-        const att = attachments[0] || null;
-        const attType = String(att?.type || "").toLowerCase();
-        const isStoryMention = attType === "story_mention" || attType === "story";
-        const isStoryReply = !!(message?.replyTo?.story || message?.reply_to?.story || conversation?.replyTo?.story);
-        const evt: "dm" | "story" | "story_mention" = isStoryMention
+        const evt: "dm" | "story" | "story_mention" = hasStoryAttachment
           ? "story_mention"
-          : isStoryReply ? "story" : "dm";
+          : (finalReplyToStory ? "story" : "dm");
         await runDmTrigger({
           supa,
           projectId,
