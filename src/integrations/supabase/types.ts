@@ -22648,6 +22648,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_product_blueprints: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          gaps: Json
+          id: string
+          is_current: boolean
+          produto_nome: string
+          project_id: string
+          score: number | null
+          snapshot: Json
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          gaps?: Json
+          id?: string
+          is_current?: boolean
+          produto_nome: string
+          project_id: string
+          score?: number | null
+          snapshot?: Json
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          gaps?: Json
+          id?: string
+          is_current?: boolean
+          produto_nome?: string
+          project_id?: string
+          score?: number | null
+          snapshot?: Json
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: []
+      }
       imphq_product_project_rules: {
         Row: {
           created_at: string
