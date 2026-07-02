@@ -984,6 +984,11 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                 {currentProduct.descricao && (
                   <p className="text-[10px] text-muted-foreground line-clamp-3 mt-1">{currentProduct.descricao}</p>
                 )}
+                <ProductLinksMini
+                  produto={currentProduct}
+                  onEdit={() => window.open(`/projetos/${projectId}?tab=briefing`, "_blank")}
+                  maxItems={5}
+                />
               </div>
             </div>
           )}
