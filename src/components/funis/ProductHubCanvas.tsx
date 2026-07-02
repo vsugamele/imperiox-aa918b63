@@ -957,7 +957,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           {currentProduct && (
             <div
               data-node
-              className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl"
+              className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl flex flex-col"
               style={{ left: productPos.x, top: productPos.y, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
             >
               <div
