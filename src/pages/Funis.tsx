@@ -1741,6 +1741,13 @@ export default function Funis() {
           setTimeout(() => setShowCorteExpress(false), 1200);
         }}
       />
+
+      <ProductEcosystemDrawer
+        open={showEcosystem}
+        onOpenChange={setShowEcosystem}
+        projects={projects as any}
+        initialProjectId={hubProjectId || projects[0]?.id}
+      />
     </div>
   );
 }
