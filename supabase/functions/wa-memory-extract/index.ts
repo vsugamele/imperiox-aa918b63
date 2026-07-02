@@ -140,6 +140,26 @@ REGRAS DE QUALIFICACAO:
       newMemory.informacoes_pessoais = { ...(newMemory.informacoes_pessoais || {}), ...extracted.informacoes_pessoais };
     }
 
+    // Qualificação consultiva — merge preservando dimensões já preenchidas
+    if (extracted.qualificacao && typeof extracted.qualificacao === "object") {
+      const prev = newMemory.qualificacao || {};
+      const next: Record<string, any> = { ...prev };
+      const validEnums: Record<string, string[]> = {
+        nivel: ["iniciante", "intermediario", "avancado"],
+        objetivo: ["hobby", "renda_extra", "profissionalizar", "escalar"],
+        formato_pref: ["online", "presencial", "hibrido"],
+        orcamento_sinal: ["baixo", "medio", "alto"],
+        urgencia: ["agora", "30d", "explorando"],
+      };
+      for (const [k, allowed] of Object.entries(validEnums)) {
+        const v = String(extracted.qualificacao?.[k] || "").toLowerCase().trim();
+        if (allowed.includes(v)) next[k] = v;
+      }
+      newMemory.qualificacao = next;
+      newMemory.qualificacao_updated_at = new Date().toISOString();
+    }
+
+
     // Atualiza tanto lead_memory (JSONB) quanto as colunas FLAT consumidas pelo CRM
     const leadUpdate: Record<string, any> = {
       lead_memory: newMemory,
