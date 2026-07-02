@@ -3773,7 +3773,7 @@ export default function InstagramPage() {
         if (!open) {
           setEditingTriggerId(null);
           setTriggerSourceType("all");
-          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", is_active: true });
+          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", like_comment: true, is_active: true });
         }
       }}>
         <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg">
