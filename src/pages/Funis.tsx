@@ -1520,6 +1520,9 @@ export default function Funis() {
             <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
               <Building2 className="h-3 w-3" /> Mapa da Empresa
             </Button>
+            <Button size="sm" variant={viewMode === "jornada" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("jornada")}>
+              <Sparkles className="h-3 w-3" /> Jornada
+            </Button>
           </div>
           <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
             <Zap className="h-4 w-4" /> One Click
