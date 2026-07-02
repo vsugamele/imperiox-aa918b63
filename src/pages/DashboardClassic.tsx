@@ -163,6 +163,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10 animate-fade-in max-w-[1600px] mx-auto">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-muted-foreground/60">
+        <span>Dashboard Clássico</span>
+        <Link to="/dashboard" className="hover:text-gold transition-colors">← Voltar ao Cockpit</Link>
+      </div>
       {/* HERO EDITORIAL */}
       {show("hero") && (
         <DashboardHero
