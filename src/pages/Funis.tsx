@@ -25,6 +25,7 @@ import { FunnelSnapshotsDialog } from "@/components/funis/FunnelSnapshotsDialog"
 import { AutoBuildDialog } from "@/components/funis/AutoBuildDialog";
 import { PipelineAssetsDialog } from "@/components/funis/PipelineAssetsDialog";
 import { OneClickModal } from "@/components/funis/OneClickModal";
+import { ProductEcosystemDrawer } from "@/components/funis/ProductEcosystemDrawer";
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
