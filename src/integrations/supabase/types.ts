@@ -19508,35 +19508,53 @@ export type Database = {
       }
       imphq_flow_image_jobs: {
         Row: {
+          automacao_id: string | null
           block_id: string
-          blueprint_id: string
+          blueprint_id: string | null
+          context: Json | null
           created_at: string
           error: string | null
+          execution_id: string | null
           id: string
           prompt: string
+          send_after: boolean | null
+          size: string | null
           status: string
+          style: string | null
           updated_at: string
           url: string | null
         }
         Insert: {
+          automacao_id?: string | null
           block_id: string
-          blueprint_id: string
+          blueprint_id?: string | null
+          context?: Json | null
           created_at?: string
           error?: string | null
+          execution_id?: string | null
           id?: string
           prompt: string
+          send_after?: boolean | null
+          size?: string | null
           status?: string
+          style?: string | null
           updated_at?: string
           url?: string | null
         }
         Update: {
+          automacao_id?: string | null
           block_id?: string
-          blueprint_id?: string
+          blueprint_id?: string | null
+          context?: Json | null
           created_at?: string
           error?: string | null
+          execution_id?: string | null
           id?: string
           prompt?: string
+          send_after?: boolean | null
+          size?: string | null
           status?: string
+          style?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -25866,6 +25884,7 @@ export type Database = {
           temperature: string | null
           unread_count: number
           updated_at: string
+          variables: Json | null
         }
         Insert: {
           ai_debounce_until?: string | null
@@ -25927,6 +25946,7 @@ export type Database = {
           temperature?: string | null
           unread_count?: number
           updated_at?: string
+          variables?: Json | null
         }
         Update: {
           ai_debounce_until?: string | null
@@ -25988,6 +26008,7 @@ export type Database = {
           temperature?: string | null
           unread_count?: number
           updated_at?: string
+          variables?: Json | null
         }
         Relationships: [
           {
