@@ -3856,18 +3856,28 @@ export default function InstagramPage() {
               </div>
 
               {(triggerSourceType === "all" || triggerSourceType === "specific") && (
-                <div className="space-y-1.5 animate-fade-in">
+                <div className="space-y-2 animate-fade-in">
+                  <label className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 cursor-pointer hover:border-amber-500/40">
+                    <input
+                      type="checkbox"
+                      checked={newTrigger.like_comment}
+                      onChange={(e) => setNewTrigger({ ...newTrigger, like_comment: e.target.checked })}
+                      className="accent-amber-500"
+                    />
+                    <span className="text-xs text-slate-200">👍 Curtir o comentário do lead automaticamente</span>
+                  </label>
 
                   <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
                   <Input
                     value={newTrigger.reply_comment_template}
                     onChange={(e) => setNewTrigger({ ...newTrigger, reply_comment_template: e.target.value })}
-                    placeholder="ex: Te enviei os detalhes no privado! Confere lá 😉"
+                    placeholder="ex: Obrigada por comentar! 💛 Te enviei no privado com todos os detalhes."
                     className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
                   />
-                  <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead.</span>
+                  <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead. Use &#123;&#123;nome&#125;&#125; para o @username.</span>
                 </div>
               )}
+
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-300">Mensagem Enviada no Direct (DM) (Obrigatório)</Label>
