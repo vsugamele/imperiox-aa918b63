@@ -21174,6 +21174,89 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_journey_steps: {
+        Row: {
+          bloco_tipo: string
+          config: Json
+          created_at: string
+          etapa: string
+          id: string
+          journey_id: string
+          order_idx: number
+          output: Json
+          status: string
+          titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          bloco_tipo: string
+          config?: Json
+          created_at?: string
+          etapa: string
+          id?: string
+          journey_id: string
+          order_idx?: number
+          output?: Json
+          status?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bloco_tipo?: string
+          config?: Json
+          created_at?: string
+          etapa?: string
+          id?: string
+          journey_id?: string
+          order_idx?: number
+          output?: Json
+          status?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_journey_steps_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_journeys: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json
+          produto_idx: number
+          produto_nome: string | null
+          projeto_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          produto_idx?: number
+          produto_nome?: string | null
+          projeto_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          produto_idx?: number
+          produto_nome?: string | null
+          projeto_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_kanban: {
         Row: {
           assignee: string | null

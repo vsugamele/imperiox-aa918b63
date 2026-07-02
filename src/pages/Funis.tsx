@@ -16,6 +16,7 @@ import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, Externa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
+import { JourneyCanvas } from "@/components/funis/journey/JourneyCanvas";
 import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
 import { Link as RouterLink } from "react-router-dom";
 import { Copy, Calculator } from "lucide-react";
@@ -136,7 +137,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa">("hub");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada">("hub");
   const [showEcosystem, setShowEcosystem] = useState(false);
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
@@ -1519,6 +1520,9 @@ export default function Funis() {
             <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
               <Building2 className="h-3 w-3" /> Mapa da Empresa
             </Button>
+            <Button size="sm" variant={viewMode === "jornada" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("jornada")}>
+              <Sparkles className="h-3 w-3" /> Jornada
+            </Button>
           </div>
           <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
             <Zap className="h-4 w-4" /> One Click
@@ -1544,6 +1548,8 @@ export default function Funis() {
         <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
       ) : viewMode === "mapa" ? (
         <CompanyMapCanvas projects={projects} />
+      ) : viewMode === "jornada" ? (
+        <JourneyCanvas projects={projects} initialProjectId={hubProjectId} />
       ) : viewMode === "funis" ? (
         <>
           <div className="flex items-center gap-3 flex-wrap">

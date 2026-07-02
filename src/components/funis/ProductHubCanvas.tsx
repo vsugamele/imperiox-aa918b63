@@ -37,6 +37,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isDslOutput as isDslOutputCheck } from "@/lib/dsl-parser";
 import { isChannelOutput, parseChannelConfig } from "@/lib/channel-config";
+import { ProductLinksMini } from "./ProductLinksMini";
+
 
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
@@ -955,7 +957,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           {currentProduct && (
             <div
               data-node
-              className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl"
+              className="absolute rounded-xl border-2 border-emerald-700/60 bg-[#0a0608] overflow-hidden shadow-2xl flex flex-col"
               style={{ left: productPos.x, top: productPos.y, width: PRODUCT_NODE_W, height: PRODUCT_NODE_H }}
             >
               <div
@@ -972,7 +974,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                 onSaved={(url) => setImageOverrides(prev => ({ ...prev, [`${projectId}:${productIdx}`]: url }))}
               />
 
-              <div className="p-3 space-y-1">
+              <div className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
                 <h3 className="text-sm font-semibold text-foreground leading-tight">
                   {currentProduct.nome || currentProduct.name}
                 </h3>
@@ -982,6 +984,11 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                 {currentProduct.descricao && (
                   <p className="text-[10px] text-muted-foreground line-clamp-3 mt-1">{currentProduct.descricao}</p>
                 )}
+                <ProductLinksMini
+                  produto={currentProduct}
+                  onEdit={() => window.open(`/projetos/${projectId}?tab=briefing`, "_blank")}
+                  maxItems={5}
+                />
               </div>
             </div>
           )}
