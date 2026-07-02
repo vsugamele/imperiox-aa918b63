@@ -40,6 +40,7 @@ import { isChannelOutput, parseChannelConfig } from "@/lib/channel-config";
 import { ProductLinksMini } from "./ProductLinksMini";
 import { Link as RLink } from "react-router-dom";
 
+
 export type AssetStatus = "pending" | "generated" | "reviewed" | "approved";
 
 export interface HubAsset extends BaseHubAsset {
