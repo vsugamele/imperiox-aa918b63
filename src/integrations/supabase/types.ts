@@ -25931,6 +25931,7 @@ export type Database = {
           escalation_confidence: number | null
           escalation_decided_at: string | null
           escalation_reason: string | null
+          followup_state: Json
           handoff_at: string | null
           handoff_summary: Json | null
           ia_ativa: boolean | null
@@ -25993,6 +25994,7 @@ export type Database = {
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
+          followup_state?: Json
           handoff_at?: string | null
           handoff_summary?: Json | null
           ia_ativa?: boolean | null
@@ -26055,6 +26057,7 @@ export type Database = {
           escalation_confidence?: number | null
           escalation_decided_at?: string | null
           escalation_reason?: string | null
+          followup_state?: Json
           handoff_at?: string | null
           handoff_summary?: Json | null
           ia_ativa?: boolean | null
