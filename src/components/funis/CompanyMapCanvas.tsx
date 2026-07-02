@@ -19,7 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "sonner";
 import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
-import { applyTemplate, autopopulateFromBusiness, autoLayout, exportMapPng } from "./companyMapHelpers";
+import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -286,6 +286,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
   };
 
+  const handleAutopopulateProject = async (projectId: string) => {
+    if (!mapId) return;
+    const proj = projects.find(p => p.id === projectId);
+    if (!confirm(`Gerar mapa do projeto "${proj?.name || projectId}"? Os nós atuais serão substituídos.`)) return;
+    const t = toast.loading("Gerando mapa do projeto...");
+    try { await autopopulateFromProject(mapId, projectId); await loadMap(mapId); toast.success("Mapa do projeto gerado", { id: t }); }
+    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+  };
+
   const handleExport = async () => {
     try { await exportMapPng(); toast.success("PNG baixado"); }
     catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
@@ -383,6 +392,21 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleAutopopulate}>
           <Wand2 className="h-3 w-3" /> Gerar do meu negócio
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Wand2 className="h-3 w-3" /> Gerar do projeto
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[240px] max-h-[400px] overflow-y-auto">
+            {projects.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum projeto</div>}
+            {projects.map(p => (
+              <DropdownMenuItem key={p.id} onClick={() => handleAutopopulateProject(p.id)}>
+                {p.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
