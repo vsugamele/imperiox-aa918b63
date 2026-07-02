@@ -286,6 +286,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
   };
 
+  const handleAutopopulateProject = async (projectId: string) => {
+    if (!mapId) return;
+    const proj = projects.find(p => p.id === projectId);
+    if (!confirm(`Gerar mapa do projeto "${proj?.name || projectId}"? Os nós atuais serão substituídos.`)) return;
+    const t = toast.loading("Gerando mapa do projeto...");
+    try { await autopopulateFromProject(mapId, projectId); await loadMap(mapId); toast.success("Mapa do projeto gerado", { id: t }); }
+    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+  };
+
   const handleExport = async () => {
     try { await exportMapPng(); toast.success("PNG baixado"); }
     catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
