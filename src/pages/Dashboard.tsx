@@ -36,9 +36,14 @@ export default function Dashboard() {
 
       <div className="pt-4 border-t border-border/40 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-muted-foreground/60">
         <span>Fim da edição</span>
-        <Link to="/financas" className="hover:text-gold transition-colors">
-          Relatório completo →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/dashboard-classic" className="hover:text-gold transition-colors">
+            Ver versão clássica →
+          </Link>
+          <Link to="/financas" className="hover:text-gold transition-colors">
+            Relatório completo →
+          </Link>
+        </div>
       </div>
     </div>
   );
