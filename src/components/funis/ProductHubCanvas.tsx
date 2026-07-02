@@ -974,7 +974,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                 onSaved={(url) => setImageOverrides(prev => ({ ...prev, [`${projectId}:${productIdx}`]: url }))}
               />
 
-              <div className="p-3 space-y-1">
+              <div className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
                 <h3 className="text-sm font-semibold text-foreground leading-tight">
                   {currentProduct.nome || currentProduct.name}
                 </h3>
