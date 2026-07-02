@@ -143,8 +143,10 @@ export default function InstagramPage() {
     post_id: "all",
     reply_comment_template: "",
     send_dm_template: "",
+    like_comment: true,
     is_active: true
   });
+
 
   // AI Brain state
   const [aiConfig, setAiConfig] = useState<any>(null);
