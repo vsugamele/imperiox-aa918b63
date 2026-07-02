@@ -21034,7 +21034,9 @@ export type Database = {
       imphq_ig_trigger_executions: {
         Row: {
           attempts: number
+          author_key: string | null
           comment_id: string
+          created_at: string
           event_type: string
           executed_at: string
           idempotency_key: string | null
@@ -21043,10 +21045,13 @@ export type Database = {
           payload: Json | null
           status: string
           trigger_id: string
+          updated_at: string
         }
         Insert: {
           attempts?: number
+          author_key?: string | null
           comment_id: string
+          created_at?: string
           event_type?: string
           executed_at?: string
           idempotency_key?: string | null
@@ -21055,10 +21060,13 @@ export type Database = {
           payload?: Json | null
           status?: string
           trigger_id: string
+          updated_at?: string
         }
         Update: {
           attempts?: number
+          author_key?: string | null
           comment_id?: string
+          created_at?: string
           event_type?: string
           executed_at?: string
           idempotency_key?: string | null
@@ -21067,6 +21075,7 @@ export type Database = {
           payload?: Json | null
           status?: string
           trigger_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
