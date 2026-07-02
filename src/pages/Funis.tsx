@@ -1523,6 +1523,9 @@ export default function Funis() {
           <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
             <Zap className="h-4 w-4" /> One Click
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowEcosystem(true)} className="gap-1">
+            <Network className="h-4 w-4" /> Ecossistema do Produto
+          </Button>
           {viewMode === "funis" && (
             <>
               <Button size="sm" variant="outline" asChild className="gap-1">
