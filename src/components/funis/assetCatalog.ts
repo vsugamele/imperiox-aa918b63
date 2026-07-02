@@ -14,25 +14,25 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
   },
   {
     id: "ofertas", label: "Ofertas", color: "amber", items: [
-      { id: "tripwire", label: "Tripwire", intent: "diagnostico_imperador", promptHint: "Desenhe uma oferta Tripwire (R$7-97) específica para este produto, com formato, preço-âncora, copy e quick win." },
-      { id: "core", label: "Core Offer", intent: "diagnostico_imperador", promptHint: "Desenhe a Core Offer principal (entrega + bônus + garantia + preço)." },
-      { id: "premium", label: "Oferta Premium", intent: "diagnostico_imperador", promptHint: "Desenhe a Oferta Premium / High Ticket." },
+      { id: "tripwire", label: "Tripwire", intent: "imperador_estrategista", promptHint: "Desenhe uma oferta Tripwire (R$7-97) específica para este produto, com formato, preço-âncora, copy e quick win." },
+      { id: "core", label: "Core Offer", intent: "imperador_estrategista", promptHint: "Desenhe a Core Offer principal (entrega + bônus + garantia + preço)." },
+      { id: "premium", label: "Oferta Premium", intent: "imperador_estrategista", promptHint: "Desenhe a Oferta Premium / High Ticket." },
       { id: "bonus", label: "Bônus", intent: "criativo_imperador", promptHint: "Liste 5 bônus poderosos para empilhar valor (nome + valor percebido + descrição)." },
     ]
   },
   {
     id: "publico", label: "Público-alvo", color: "sky", items: [
-      { id: "avatar_4", label: "Avatar 4 Camadas", intent: "diagnostico_imperador", promptHint: "Mapeie o avatar em 4 camadas: superficial, emocional, identidade, espiritual." },
-      { id: "dores", label: "Dores", intent: "diagnostico_imperador", promptHint: "Liste as 7 dores latentes mais profundas do avatar (frase em primeira pessoa)." },
-      { id: "desejos", label: "Desejos", intent: "diagnostico_imperador", promptHint: "Liste 7 desejos ardentes do avatar." },
-      { id: "objecoes", label: "Objeções", intent: "diagnostico_imperador", promptHint: "Liste as 10 objeções mais comuns e como quebrar cada uma." },
+      { id: "avatar_4", label: "Avatar 4 Camadas", intent: "imperador_estrategista", promptHint: "Mapeie o avatar em 4 camadas: superficial, emocional, identidade, espiritual." },
+      { id: "dores", label: "Dores", intent: "imperador_estrategista", promptHint: "Liste as 7 dores latentes mais profundas do avatar (frase em primeira pessoa)." },
+      { id: "desejos", label: "Desejos", intent: "imperador_estrategista", promptHint: "Liste 7 desejos ardentes do avatar." },
+      { id: "objecoes", label: "Objeções", intent: "imperador_estrategista", promptHint: "Liste as 10 objeções mais comuns e como quebrar cada uma." },
     ]
   },
   {
     id: "estrategias", label: "Estratégias", color: "violet", items: [
-      { id: "escada_valor", label: "Escada de Valor", intent: "diagnostico_imperador", promptHint: "Desenhe a Escada de Valor completa: isca → tripwire → core → premium → recorrente." },
-      { id: "mapa_funil", label: "Mapa de Funil", intent: "diagnostico_imperador", promptHint: "Desenhe o funil completo (tráfego → lead → pitch → venda → upsell)." },
-      { id: "reposicionamento", label: "Reposicionamento", intent: "diagnostico_imperador", promptHint: "Reposicione o produto contra os concorrentes mais óbvios." },
+      { id: "escada_valor", label: "Escada de Valor", intent: "imperador_estrategista", promptHint: "Desenhe a Escada de Valor completa: isca → tripwire → core → premium → recorrente." },
+      { id: "mapa_funil", label: "Mapa de Funil", intent: "imperador_estrategista", promptHint: "Desenhe o funil completo (tráfego → lead → pitch → venda → upsell)." },
+      { id: "reposicionamento", label: "Reposicionamento", intent: "imperador_estrategista", promptHint: "Reposicione o produto contra os concorrentes mais óbvios." },
     ]
   },
   {
@@ -52,8 +52,8 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
       { id: "nomes_viciantes", label: "Nomes Viciantes", intent: "criativo_imperador", promptHint: "Crie 10 nomes viciantes para o produto/método (com marca ©/®)." },
       { id: "promessas", label: "Promessas", intent: "criativo_imperador", promptHint: "Crie 7 promessas específicas e mensuráveis (resultado + prazo)." },
       { id: "mecanismos", label: "Mecanismos", intent: "criativo_imperador", promptHint: "Crie o Mecanismo Único do produto (nome + como funciona em 5 passos)." },
-      { id: "metodologia", label: "Metodologia", intent: "diagnostico_imperador", promptHint: "Estruture a metodologia em pilares (3-5 pilares com nome próprio)." },
-      { id: "oferta_devastadora", label: "Oferta Devastadora", intent: "diagnostico_imperador", promptHint: "Empilhe a oferta devastadora: entrega + bônus + garantia + preço + urgência." },
+      { id: "metodologia", label: "Metodologia", intent: "imperador_estrategista", promptHint: "Estruture a metodologia em pilares (3-5 pilares com nome próprio)." },
+      { id: "oferta_devastadora", label: "Oferta Devastadora", intent: "imperador_estrategista", promptHint: "Empilhe a oferta devastadora: entrega + bônus + garantia + preço + urgência." },
       { id: "proposta_unica", label: "Proposta Única", intent: "criativo_imperador", promptHint: "Escreva a USP em 1 frase + 3 variações." },
     ]
   },
