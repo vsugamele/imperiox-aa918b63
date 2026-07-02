@@ -20550,6 +20550,7 @@ export type Database = {
           dm_sent_count: number
           id: string
           is_active: boolean
+          like_comment: boolean
           match_count: number
           media_type_filter: string | null
           negative_keywords: string[] | null
@@ -20569,6 +20570,7 @@ export type Database = {
           dm_sent_count?: number
           id?: string
           is_active?: boolean
+          like_comment?: boolean
           match_count?: number
           media_type_filter?: string | null
           negative_keywords?: string[] | null
@@ -20588,6 +20590,7 @@ export type Database = {
           dm_sent_count?: number
           id?: string
           is_active?: boolean
+          like_comment?: boolean
           match_count?: number
           media_type_filter?: string | null
           negative_keywords?: string[] | null
@@ -21037,12 +21040,15 @@ export type Database = {
           author_key: string | null
           comment_id: string
           created_at: string
+          dm_status: string | null
           event_type: string
           executed_at: string
           idempotency_key: string | null
           last_error: string | null
+          like_status: string | null
           next_retry_at: string | null
           payload: Json | null
+          reply_status: string | null
           status: string
           trigger_id: string
           updated_at: string
@@ -21052,12 +21058,15 @@ export type Database = {
           author_key?: string | null
           comment_id: string
           created_at?: string
+          dm_status?: string | null
           event_type?: string
           executed_at?: string
           idempotency_key?: string | null
           last_error?: string | null
+          like_status?: string | null
           next_retry_at?: string | null
           payload?: Json | null
+          reply_status?: string | null
           status?: string
           trigger_id: string
           updated_at?: string
@@ -21067,12 +21076,15 @@ export type Database = {
           author_key?: string | null
           comment_id?: string
           created_at?: string
+          dm_status?: string | null
           event_type?: string
           executed_at?: string
           idempotency_key?: string | null
           last_error?: string | null
+          like_status?: string | null
           next_retry_at?: string | null
           payload?: Json | null
+          reply_status?: string | null
           status?: string
           trigger_id?: string
           updated_at?: string

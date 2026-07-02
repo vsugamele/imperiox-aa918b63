@@ -526,6 +526,55 @@ Deno.serve(async (req) => {
       return json({ success: true, id: data.id });
     }
 
+    // ============ LIKE_COMMENT ============
+    if (action === "like_comment") {
+      const { project_id, comment_id } = body;
+      if (!project_id || !comment_id) return json({ error: "Faltam campos" }, 400);
+      const creds = await getCreds(supa, project_id);
+      if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        const { data: row } = await supa.from("imphq_ig_comments").select("media_id").eq("comment_id", comment_id).maybeSingle();
+        const rawCid = comment_id.startsWith("zernio-") ? comment_id.slice(7) : comment_id;
+        const mediaId = row?.media_id || null;
+        // Cascata de endpoints — para no primeiro 2xx; avança em 400/404/405.
+        const endpoints: Array<{ endpoint: string; method?: string; body?: any }> = [];
+        if (mediaId) {
+          endpoints.push({ endpoint: `/api/v1/inbox/comments/${encodeURIComponent(mediaId)}/${encodeURIComponent(rawCid)}/like`, body: { accountId: creds.zernio_account_id } });
+          endpoints.push({ endpoint: `/api/v1/inbox/comments/${encodeURIComponent(mediaId)}/like`, body: { accountId: creds.zernio_account_id, commentId: rawCid } });
+        }
+        endpoints.push({ endpoint: `/api/v1/inbox/comments/${encodeURIComponent(rawCid)}/like`, body: { accountId: creds.zernio_account_id } });
+        endpoints.push({ endpoint: `/api/v1/instagram/comments/${encodeURIComponent(rawCid)}/like`, body: { accountId: creds.zernio_account_id } });
+
+        let last: any = null;
+        for (let i = 0; i < endpoints.length; i++) {
+          const ep = endpoints[i];
+          const r = await callZernio(supa, {
+            project_id, action: "like_comment",
+            endpoint: ep.endpoint, method: ep.method || "POST",
+            apiKey: creds.zernio_api_key, body: ep.body, attempt: i + 1,
+          });
+          last = r;
+          if (r.ok) {
+            await supa.from("imphq_ig_comments").update({ liked: true }).eq("comment_id", comment_id).then(()=>{}, ()=>{});
+            return json({ success: true, endpoint: ep.endpoint });
+          }
+          // Erros permanentes → interrompe cascata
+          if (r.status === 401 || r.status === 403) break;
+          const es = String(r.errorSummary || "").toLowerCase();
+          if (/window|24.?hour|7.?day|not allowed|permission|blocked|deleted|expired/.test(es)) break;
+          // 400/404/405 → tenta próximo
+        }
+        return json({ error: `Zernio like ${last?.status}: ${last?.errorSummary || "falha"}`, request_id: last?.requestId }, 400);
+      }
+
+      // Meta Graph API não expõe like de comentário para IG Business — retorna no-op silencioso.
+      return json({ success: true, skipped: true, reason: "meta_graph_unsupported" });
+    }
+
+
+
     // ============ HIDE/UNHIDE_COMMENT ============
     if (action === "hide_comment" || action === "unhide_comment") {
       const { project_id, comment_id } = body;

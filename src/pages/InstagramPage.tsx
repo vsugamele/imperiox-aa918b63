@@ -143,8 +143,10 @@ export default function InstagramPage() {
     post_id: "all",
     reply_comment_template: "",
     send_dm_template: "",
+    like_comment: true,
     is_active: true
   });
+
 
   // AI Brain state
   const [aiConfig, setAiConfig] = useState<any>(null);
@@ -745,8 +747,10 @@ export default function InstagramPage() {
         post_id: newTrigger.post_id.trim() || "all",
         reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
         send_dm_template: newTrigger.send_dm_template.trim(),
+        like_comment: isCommentSource ? !!newTrigger.like_comment : false,
         is_active: newTrigger.is_active,
       };
+
 
       if (editingTriggerId) {
         const { error } = await supabase
@@ -777,6 +781,7 @@ export default function InstagramPage() {
         post_id: "all",
         reply_comment_template: "",
         send_dm_template: "",
+        like_comment: true,
         is_active: true
       });
       loadTriggers();
@@ -799,8 +804,10 @@ export default function InstagramPage() {
       post_id: pid,
       reply_comment_template: trigger.reply_comment_template || "",
       send_dm_template: trigger.send_dm_template || "",
+      like_comment: trigger.like_comment !== false,
       is_active: trigger.is_active ?? true,
     });
+
     setShowAddTrigger(true);
   };
 
@@ -3766,7 +3773,7 @@ export default function InstagramPage() {
         if (!open) {
           setEditingTriggerId(null);
           setTriggerSourceType("all");
-          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", is_active: true });
+          setNewTrigger({ trigger_keyword: "", post_id: "all", reply_comment_template: "", send_dm_template: "", like_comment: true, is_active: true });
         }
       }}>
         <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg">
@@ -3849,18 +3856,28 @@ export default function InstagramPage() {
               </div>
 
               {(triggerSourceType === "all" || triggerSourceType === "specific") && (
-                <div className="space-y-1.5 animate-fade-in">
+                <div className="space-y-2 animate-fade-in">
+                  <label className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 cursor-pointer hover:border-amber-500/40">
+                    <input
+                      type="checkbox"
+                      checked={newTrigger.like_comment}
+                      onChange={(e) => setNewTrigger({ ...newTrigger, like_comment: e.target.checked })}
+                      className="accent-amber-500"
+                    />
+                    <span className="text-xs text-slate-200">👍 Curtir o comentário do lead automaticamente</span>
+                  </label>
 
                   <Label className="text-xs text-slate-300">Resposta Pública no Post (Opcional)</Label>
                   <Input
                     value={newTrigger.reply_comment_template}
                     onChange={(e) => setNewTrigger({ ...newTrigger, reply_comment_template: e.target.value })}
-                    placeholder="ex: Te enviei os detalhes no privado! Confere lá 😉"
+                    placeholder="ex: Obrigada por comentar! 💛 Te enviei no privado com todos os detalhes."
                     className="bg-slate-950 border-slate-800 text-xs h-8 text-slate-100 focus-visible:ring-amber-500 focus-visible:ring-offset-0 focus-visible:border-amber-500"
                   />
-                  <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead.</span>
+                  <span className="text-[9px] text-slate-500 block">Comentário público que a conta fará respondendo ao lead. Use &#123;&#123;nome&#125;&#125; para o @username.</span>
                 </div>
               )}
+
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-300">Mensagem Enviada no Direct (DM) (Obrigatório)</Label>
