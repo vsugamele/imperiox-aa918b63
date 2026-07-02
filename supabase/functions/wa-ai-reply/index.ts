@@ -181,14 +181,17 @@ Deno.serve(async (req) => {
 
               console.log(`[wa-ai-reply] Message exchange count for step #${activeExecutionStep}: ${replyCount}`);
 
-              // ── wait_reply: lead respondeu → retoma fluxo no próximo step ──
-              if (activeStep?.tipo === "wait_reply" && activeExec.status === "waiting") {
-                console.log(`[wa-ai-reply] wait_reply detected at step ${activeExecutionStep} — resuming flow with reply.`);
+              // ── wait_reply / input_capture: lead respondeu → retoma fluxo ──
+              const isWaitReply = activeStep?.tipo === "wait_reply";
+              const isInputCapture = activeStep?.tipo === "input_capture";
+              if ((isWaitReply || isInputCapture) && activeExec.status === "waiting") {
+                console.log(`[wa-ai-reply] ${activeStep.tipo} detected at step ${activeExecutionStep} — resuming flow with reply.`);
                 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
                 const SUPABASE_URL_LOCAL = Deno.env.get("SUPABASE_URL")!;
-                // Avança para o próximo step passando a resposta como contexto
+                // input_capture precisa executar o próprio step (save da variável); wait_reply pula p/ próximo
+                const resumeStep = isInputCapture ? activeExecutionStep : activeExecutionStep + 1;
                 await supabase.from("imphq_flow_executions")
-                  .update({ status: "running", current_step: activeExecutionStep + 1 })
+                  .update({ status: "running", current_step: resumeStep })
                   .eq("id", activeExec.id);
 
                 fetch(`${SUPABASE_URL_LOCAL}/functions/v1/openflow-executor`, {
@@ -198,7 +201,7 @@ Deno.serve(async (req) => {
                     trigger_tipo: activeTriggerTipo || "whatsapp",
                     project_id,
                     automacao_id: activeExec.automacao_id,
-                    resume_from_step: activeExecutionStep + 1,
+                    resume_from_step: resumeStep,
                     lead_data: {
                       lead_id: leadRow?.id,
                       nome: leadRow?.name || "",
@@ -209,7 +212,7 @@ Deno.serve(async (req) => {
                       conversation_id: body.conversation_id || "",
                     },
                   }),
-                }).catch((e: any) => console.error("[wa-ai-reply] wait_reply resume error:", e.message));
+                }).catch((e: any) => console.error("[wa-ai-reply] resume error:", e.message));
               }
             }
           }
