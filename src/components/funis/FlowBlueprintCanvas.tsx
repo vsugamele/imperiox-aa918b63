@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
 import { FlowLiveControl, NodeStatsBadge, type NodeStat } from "./FlowLiveOverlay";
 import { FlowVariantsPanel } from "./FlowVariantsPanel";
+import { GeneratedImagesPanel } from "./GeneratedImagesPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ImageTipo = "mockup_pagina" | "mensagem_autoridade" | "icone";
@@ -64,6 +65,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ctxExtra, setCtxExtra] = useState("");
   const [ctxRefUrl, setCtxRefUrl] = useState("");
   const [ctxLoading, setCtxLoading] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -203,6 +205,9 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, z + 0.1))}><ZoomIn className="h-3.5 w-3.5" /></Button>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setZoom(0.8); setPan({ x: 0, y: 0 }); }}><Maximize2 className="h-3.5 w-3.5" /></Button>
         </div>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setGalleryOpen(true)}>
+          <Images className="h-3.5 w-3.5" /> Imagens
+        </Button>
         <Button size="sm" variant="outline" className="h-8" onClick={onClose}><X className="h-4 w-4" /></Button>
       </div>
 
@@ -447,6 +452,13 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           originalCopy={variantsNode.copy}
         />
       )}
+
+      <GeneratedImagesPanel
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        blueprintId={blueprintId}
+        blueprint={blueprint}
+      />
     </div>
   );
 }
