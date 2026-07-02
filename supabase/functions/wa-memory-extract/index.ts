@@ -75,9 +75,22 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
   "gatilhos_positivos": ["coisas que o lead reagiu positivamente"],
   "produtos_mencionados": ["produtos/serviços citados pelo lead"],
   "informacoes_pessoais": {"profissao": null, "objetivo": null, "dor_principal": null},
+  "qualificacao": {
+    "nivel": "iniciante | intermediario | avancado | null — experiência do lead na área",
+    "objetivo": "hobby | renda_extra | profissionalizar | escalar | null — o que quer alcançar",
+    "formato_pref": "online | presencial | hibrido | null — formato preferido",
+    "orcamento_sinal": "baixo | medio | alto | null — sinais de poder de compra ou objeção de preço",
+    "urgencia": "agora | 30d | explorando | null — quando pretende decidir"
+  },
   "proximo_passo_sugerido": "ação recomendada para a próxima interação ou null",
   "notas_ia": "observações relevantes para próxima abordagem ou null"
-}`;
+}
+
+REGRAS DE QUALIFICACAO:
+- Preencha SÓ o que o lead disse EXPLICITAMENTE ou deu sinal claro. Nunca invente.
+- Se não houver evidência, deixe null. Prefira null a chute.
+- Mantenha o que já foi capturado antes, só sobrescreva com evidência nova.`;
+
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -126,6 +139,26 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
     if (extracted.informacoes_pessoais) {
       newMemory.informacoes_pessoais = { ...(newMemory.informacoes_pessoais || {}), ...extracted.informacoes_pessoais };
     }
+
+    // Qualificação consultiva — merge preservando dimensões já preenchidas
+    if (extracted.qualificacao && typeof extracted.qualificacao === "object") {
+      const prev = newMemory.qualificacao || {};
+      const next: Record<string, any> = { ...prev };
+      const validEnums: Record<string, string[]> = {
+        nivel: ["iniciante", "intermediario", "avancado"],
+        objetivo: ["hobby", "renda_extra", "profissionalizar", "escalar"],
+        formato_pref: ["online", "presencial", "hibrido"],
+        orcamento_sinal: ["baixo", "medio", "alto"],
+        urgencia: ["agora", "30d", "explorando"],
+      };
+      for (const [k, allowed] of Object.entries(validEnums)) {
+        const v = String(extracted.qualificacao?.[k] || "").toLowerCase().trim();
+        if (allowed.includes(v)) next[k] = v;
+      }
+      newMemory.qualificacao = next;
+      newMemory.qualificacao_updated_at = new Date().toISOString();
+    }
+
 
     // Atualiza tanto lead_memory (JSONB) quanto as colunas FLAT consumidas pelo CRM
     const leadUpdate: Record<string, any> = {

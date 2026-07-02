@@ -766,6 +766,33 @@ Deno.serve(async (req) => {
         if (mem.notas_ia) lines.push(`- Notas internas: ${String(mem.notas_ia).slice(0, 250)}`);
         if (lead?.nivel_qualificacao) lines.push(`- Nível de qualificação: ${lead.nivel_qualificacao.toUpperCase()}`);
 
+        // 🧭 QUALIFICAÇÃO CONSULTIVA (dimensões preenchidas → não repetir pergunta)
+        const q = mem.qualificacao || {};
+        const qFilled: string[] = [];
+        const qMissing: string[] = [];
+        const qLabels: Record<string, string> = {
+          nivel: "Nível (iniciante/intermediário/avançado)",
+          objetivo: "Objetivo (hobby/renda extra/profissionalizar/escalar)",
+          formato_pref: "Formato (online/presencial/híbrido)",
+          orcamento_sinal: "Orçamento (baixo/médio/alto)",
+          urgencia: "Urgência (agora/30d/explorando)",
+        };
+        for (const [k, label] of Object.entries(qLabels)) {
+          if (q[k]) qFilled.push(`  ✓ ${label}: ${q[k]}`);
+          else qMissing.push(`  ✗ ${label}`);
+        }
+        if (qFilled.length > 0 || qMissing.length > 0) {
+          lines.push("");
+          lines.push("🧭 QUALIFICAÇÃO CONSULTIVA DO LEAD:");
+          if (qFilled.length) lines.push(...qFilled);
+          if (qMissing.length) {
+            lines.push("  DIMENSÕES AINDA NÃO DESCOBERTAS (faça UMA pergunta natural para descobrir a próxima, nunca 2 juntas):");
+            lines.push(...qMissing);
+          }
+          lines.push(`  REGRA DE OURO: só envie link de checkout depois de ter AO MENOS 2 dimensões preenchidas E confirmar encaixe. Antes disso, priorize descoberta consultiva.`);
+        }
+
+
         // Histórico de compras (últimas 3 pagas)
         if (lead?.id) {
           try {

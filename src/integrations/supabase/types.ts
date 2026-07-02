@@ -25127,6 +25127,7 @@ export type Database = {
           closer_mode_enabled: boolean | null
           cold_lead_hours: number | null
           cold_lead_reactivation_enabled: boolean | null
+          consultive_followup_enabled: boolean
           context_sources: string[] | null
           cooldown_seconds: number | null
           created_at: string | null
@@ -25195,6 +25196,7 @@ export type Database = {
           closer_mode_enabled?: boolean | null
           cold_lead_hours?: number | null
           cold_lead_reactivation_enabled?: boolean | null
+          consultive_followup_enabled?: boolean
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
@@ -25263,6 +25265,7 @@ export type Database = {
           closer_mode_enabled?: boolean | null
           cold_lead_hours?: number | null
           cold_lead_reactivation_enabled?: boolean | null
+          consultive_followup_enabled?: boolean
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
@@ -26445,6 +26448,7 @@ export type Database = {
           memory_type: string
           phone: string | null
           project_id: string
+          qualification: Json
           updated_at: string
         }
         Insert: {
@@ -26459,6 +26463,7 @@ export type Database = {
           memory_type?: string
           phone?: string | null
           project_id: string
+          qualification?: Json
           updated_at?: string
         }
         Update: {
@@ -26473,6 +26478,7 @@ export type Database = {
           memory_type?: string
           phone?: string | null
           project_id?: string
+          qualification?: Json
           updated_at?: string
         }
         Relationships: [
