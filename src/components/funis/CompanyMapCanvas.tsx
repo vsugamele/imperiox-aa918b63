@@ -392,6 +392,21 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleAutopopulate}>
           <Wand2 className="h-3 w-3" /> Gerar do meu negócio
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Wand2 className="h-3 w-3" /> Gerar do projeto
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[240px] max-h-[400px] overflow-y-auto">
+            {projects.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum projeto</div>}
+            {projects.map(p => (
+              <DropdownMenuItem key={p.id} onClick={() => handleAutopopulateProject(p.id)}>
+                {p.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
