@@ -212,6 +212,14 @@ export interface Acao {
   position_y?: number;
   // media attachment (WhatsApp node)
   media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
+  // input_capture
+  capture_variable?: string;
+  ai_extract_prompt?: string;
+  // generate_image
+  image_prompt?: string;
+  image_style?: string;
+  image_ratio?: "1:1" | "9:16" | "16:9";
+  send_after?: boolean;
 }
 
 export interface WaProvider {
