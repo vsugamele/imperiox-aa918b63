@@ -798,7 +798,199 @@ Deno.serve(async (req) => {
             }
           }
 
-          else if (step.tipo === "ab_split") {
+          // ── input_capture: aguarda resposta do lead e salva em variável (opcional extração via IA) ──
+          else if (step.tipo === "input_capture") {
+            const timeoutMin = Number(step.timeout_min || 1440);
+            const convId = lead_data?.conversation_id || lead_data?.conversationId;
+            const varName = String(step.capture_variable || "").trim();
+
+            const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
+              && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
+
+            if (isResumedByReply) {
+              let rawReply = String(lead_data?.reply_content || "").trim();
+              let finalValue = rawReply;
+
+              // Opcional: passa pela IA para extrair essência
+              if (step.ai_extract_prompt && rawReply) {
+                try {
+                  const extractRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}` },
+                    body: JSON.stringify({
+                      model: "google/gemini-3-flash-preview",
+                      messages: [
+                        { role: "system", content: String(step.ai_extract_prompt) },
+                        { role: "user", content: rawReply },
+                      ],
+                      max_tokens: 200,
+                    }),
+                  });
+                  if (extractRes.ok) {
+                    const j = await extractRes.json();
+                    const ext = j?.choices?.[0]?.message?.content?.trim();
+                    if (ext) finalValue = ext;
+                  }
+                } catch (e) {
+                  console.warn("[input_capture] extração IA falhou, salvando resposta bruta:", (e as any)?.message);
+                }
+              }
+
+              // Salva em lead_memory (aparece em {{VAR}} de forma nativa)
+              if (varName && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = (ld as any)?.lead_memory || {};
+                const updated = { ...current, [varName]: finalValue };
+                await supabase.from("imphq_leads")
+                  .update({ lead_memory: updated, updated_at: new Date().toISOString() })
+                  .eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+              // Espelha em conversation.variables para consulta rápida
+              if (varName && convId) {
+                const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
+                const cur = (conv as any)?.variables || {};
+                await supabase.from("imphq_wa_conversations")
+                  .update({ variables: { ...cur, [varName]: finalValue } })
+                  .eq("id", convId);
+              }
+
+              stepResult.status = "completed";
+              stepResult.capture_variable = varName;
+              stepResult.captured_value = finalValue.slice(0, 200);
+              stepResult.reason = `Capturado {{${varName}}}: "${finalValue.slice(0, 80)}"`;
+            } else {
+              const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  next_run_at: timeoutAt.toISOString(),
+                  step_results: [...stepResults, {
+                    ...stepResult,
+                    status: "waiting_reply",
+                    waiting_for: "reply",
+                    capture_variable: varName,
+                    conversation_id: convId || null,
+                    timeout_at: timeoutAt.toISOString(),
+                    notes: `Aguardando resposta para salvar em {{${varName}}}.`,
+                  }],
+                })
+                .eq("id", executionId);
+              console.log(`[openflow-executor] input_capture aguardando resposta em {{${varName}}} (exec=${executionId})`);
+              status = "waiting";
+              break;
+            }
+          }
+
+          // ── generate_image: gera imagem inline via flow-image-worker, opcionalmente envia no WhatsApp ──
+          else if (step.tipo === "generate_image") {
+            const promptTpl = String(step.image_prompt || step.template || "").trim();
+            if (!promptTpl) {
+              stepResult.status = "skipped";
+              stepResult.reason = "image_prompt vazio";
+            } else {
+              const finalPrompt = replaceVariables(promptTpl, lead_data, leadDb);
+              const styleHint = step.image_style ? ` Estilo: ${step.image_style}.` : "";
+              const size = step.image_ratio === "9:16" ? "1024x1792" : step.image_ratio === "16:9" ? "1792x1024" : "1024x1024";
+              const blockId = String(step.id || `step-${i}`);
+
+              // Reusa job pré-existente concluído (retomada)
+              const { data: existing } = await supabase.from("imphq_flow_image_jobs")
+                .select("id, status, url")
+                .eq("execution_id", executionId)
+                .eq("block_id", blockId)
+                .maybeSingle();
+
+              let imageUrl: string | null = existing?.status === "done" ? existing.url : null;
+
+              if (!imageUrl) {
+                let jobId = existing?.id as string | undefined;
+                if (!jobId) {
+                  const { data: job, error: jobErr } = await supabase.from("imphq_flow_image_jobs").insert({
+                    execution_id: executionId,
+                    automacao_id: String(automacao_id || auto?.id || ""),
+                    block_id: blockId,
+                    prompt: finalPrompt + styleHint,
+                    style: step.image_style || null,
+                    size,
+                    send_after: step.send_after ?? true,
+                    status: "pending",
+                    context: { lead_id: lead_data?.lead_id || null, step: i },
+                  }).select("id").single();
+                  if (jobErr) throw jobErr;
+                  jobId = job.id;
+                }
+
+                // Dispara worker fire-and-forget
+                fetch(`${supabaseUrl}/functions/v1/flow-image-worker`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({ job_id: jobId }),
+                }).catch(() => {});
+
+                // Poll curto: até ~55s
+                for (let t = 0; t < 11; t++) {
+                  await new Promise(r => setTimeout(r, 5000));
+                  const { data: j } = await supabase.from("imphq_flow_image_jobs").select("status, url, error").eq("id", jobId).maybeSingle();
+                  if (j?.status === "done" && j.url) { imageUrl = j.url; break; }
+                  if (j?.status === "error") { stepResult.reason = j.error || "erro na geração"; break; }
+                }
+              }
+
+              if (!imageUrl) {
+                // Ainda pending → coloca fluxo em espera para retomar via cron
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i,
+                    next_run_at: new Date(Date.now() + 60_000).toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "waiting_image", notes: "Aguardando geração de imagem." }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+
+              // Envia no WhatsApp se pedido
+              const phone = lead_data?.phone || lead_data?.telefone;
+              if ((step.send_after ?? true) && phone) {
+                let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers")
+                    .select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+                const caption = step.template ? replaceVariables(step.template, lead_data, leadDb) : "";
+                await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    content: caption,
+                    media_url: imageUrl,
+                    media_type: "image",
+                    project_id,
+                  }),
+                }).catch(e => console.warn("[generate_image] envio falhou:", e?.message));
+                messagesSent++;
+              }
+
+              // Injeta na memória para uso downstream: {{IMG_<blockId>}}
+              if (lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = (ld as any)?.lead_memory || {};
+                const updated = { ...current, [`IMG_${blockId}`]: imageUrl };
+                await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+
+              stepResult.status = "completed";
+              stepResult.image_url = imageUrl;
+              stepResult.reason = "Imagem gerada" + ((step.send_after ?? true) && phone ? " e enviada." : ".");
+            }
+          }
             const pctA = Number(step.rota_a_porcentagem ?? 50);
             const jumpSteps = Number(step.jump_steps ?? 1);
             
