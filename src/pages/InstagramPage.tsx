@@ -20,6 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 import { formatCompactTime } from "@/lib/formatCompactTime";
 import { ptBR } from "date-fns/locale";
 import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
+import ZernioMonitorPanel from "@/components/instagram/ZernioMonitorPanel";
 
 interface IgAccount {
   id: string;
