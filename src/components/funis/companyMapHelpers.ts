@@ -88,6 +88,83 @@ export async function autopopulateFromBusiness(mapId: string) {
   }
 }
 
+export async function autopopulateFromProject(mapId: string, projectId: string) {
+  await supabase.from("imphq_company_map_edges").delete().eq("map_id", mapId);
+  await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
+
+  const [projR, flowsR, providersR, funisR] = await Promise.all([
+    supabase.from("imphq_projects").select("id,name,data").eq("id", projectId).maybeSingle(),
+    supabase.from("imphq_flows").select("id,nome,project_id").eq("project_id", projectId).limit(30),
+    supabase.from("imphq_wa_providers").select("id,display_name,instance_name,project_id").eq("project_id", projectId).limit(20),
+    supabase.from("imphq_funis" as any).select("id,nome,project_id").eq("project_id", projectId).limit(20),
+  ]);
+
+  const proj = projR.data as any;
+  if (!proj) throw new Error("Projeto não encontrado");
+  const flows = (flowsR.data || []) as any[];
+  const providers = (providersR.data || []) as any[];
+  const funis = ((funisR as any).data || []) as any[];
+  const produtos: any[] = Array.isArray(proj.data?.produtos) ? proj.data.produtos : [];
+
+  const { data: root } = await supabase.from("imphq_company_map_nodes").insert({
+    map_id: mapId, kind: "vertical", color: KIND_COLORS.vertical,
+    label: proj.name || "Projeto", description: "Centro do projeto",
+    linked_project_id: proj.id, show_live_kpis: true,
+    position: { x: 500, y: 30 },
+  }).select("id").single();
+
+  const rowY = (y: number, items: any[], insertFn: (item: any, x: number) => Promise<string | null>) => {
+    const spacing = 220;
+    const startX = 500 - ((items.length - 1) * spacing) / 2;
+    return Promise.all(items.map(async (it, i) => {
+      const id = await insertFn(it, startX + i * spacing);
+      if (id && root) await supabase.from("imphq_company_map_edges").insert({ map_id: mapId, source_id: root.id, target_id: id });
+    }));
+  };
+
+  // Produtos (do briefing)
+  await rowY(220, produtos.length ? produtos : [{ nome: "Produto principal" }], async (p, x) => {
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "oferta", color: KIND_COLORS.oferta,
+      label: p.nome || p.name || "Produto",
+      description: p.tipo || p.descricao || null,
+      linked_project_id: proj.id, show_live_kpis: true,
+      position: { x, y: 220 },
+    }).select("id").single();
+    return data?.id || null;
+  });
+
+  // Funis
+  if (funis.length) await rowY(400, funis, async (f, x) => {
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "processo", color: KIND_COLORS.processo,
+      label: `Funil: ${f.nome}`, linked_funnel_id: f.id,
+      position: { x, y: 400 },
+    }).select("id").single();
+    return data?.id || null;
+  });
+
+  // Fluxos OpenFlow
+  if (flows.length) await rowY(580, flows, async (f, x) => {
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "processo", color: KIND_COLORS.processo,
+      label: `Fluxo: ${f.nome}`, linked_flow_id: f.id,
+      position: { x, y: 580 },
+    }).select("id").single();
+    return data?.id || null;
+  });
+
+  // Canais WhatsApp
+  if (providers.length) await rowY(760, providers, async (w, x) => {
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "canal", color: KIND_COLORS.canal,
+      label: `WA: ${w.display_name || w.instance_name || "Chip"}`,
+      position: { x, y: 760 },
+    }).select("id").single();
+    return data?.id || null;
+  });
+}
+
 export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 90 });
