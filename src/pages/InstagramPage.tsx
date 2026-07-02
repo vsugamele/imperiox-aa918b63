@@ -747,8 +747,10 @@ export default function InstagramPage() {
         post_id: newTrigger.post_id.trim() || "all",
         reply_comment_template: isCommentSource ? (newTrigger.reply_comment_template.trim() || null) : null,
         send_dm_template: newTrigger.send_dm_template.trim(),
+        like_comment: isCommentSource ? !!newTrigger.like_comment : false,
         is_active: newTrigger.is_active,
       };
+
 
       if (editingTriggerId) {
         const { error } = await supabase
