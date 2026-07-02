@@ -145,18 +145,39 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
     console.log(`[ig-trigger] match comment="${commentText.slice(0, 60)}" trigger="${t.trigger_keyword}" post=${mediaId}`);
     await incMatch(supa, t);
 
-    const payload = {
+    const payload: any = {
       kind: "comment",
       project_id: projectId,
       comment_id: commentId,
+      like_enabled: t.like_comment !== false,
       reply_template: t.reply_comment_template || null,
       dm_template: t.send_dm_template || null,
       from_username: fromUsername || null,
+      like_done: false,
+      reply_done: !t.reply_comment_template,
+      dm_done: !t.send_dm_template,
     };
 
     let anyFailed = false;
     let lastErr: string | null = null;
 
+    // 1) Curtir comentário (opcional, não bloqueia demais passos)
+    if (payload.like_enabled) {
+      try {
+        const rl = await supa.functions.invoke("instagram-api", {
+          body: { action: "like_comment", project_id: projectId, comment_id: commentId },
+        });
+        if (rl.error || (rl.data && rl.data.error)) {
+          console.warn(`[ig-trigger] like falhou: ${rl.data?.error || rl.error?.message}`);
+        } else {
+          payload.like_done = true;
+        }
+      } catch (e: any) { console.warn(`[ig-trigger] like exception: ${e?.message || e}`); }
+    } else {
+      payload.like_done = true;
+    }
+
+    // 2) Reply público
     if (t.reply_comment_template) {
       const replyText = t.reply_comment_template.replace("{{nome}}", fromUsername || "você");
       try {
@@ -164,9 +185,11 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
           body: { action: "reply_comment", project_id: projectId, comment_id: commentId, message: replyText },
         });
         if (r.error || (r.data && r.data.error)) { anyFailed = true; lastErr = r.data?.error || r.error?.message || "reply_comment failed"; }
+        else payload.reply_done = true;
       } catch (e: any) { anyFailed = true; lastErr = e?.message || String(e); }
     }
 
+    // 3) DM privada
     if (t.send_dm_template) {
       const dmText = t.send_dm_template.replace("{{nome}}", fromUsername || "você");
       try {
@@ -174,7 +197,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
           body: { action: "private_reply", project_id: projectId, comment_id: commentId, message: dmText },
         });
         if (res.error || (res.data && res.data.error)) { anyFailed = true; lastErr = res.data?.error || res.error?.message || "private_reply failed"; }
-        else if (res.data?.success) await incDmSent(supa, t);
+        else { payload.dm_done = true; await incDmSent(supa, t); }
       } catch (e: any) { anyFailed = true; lastErr = e?.message || String(e); }
     }
 
@@ -186,6 +209,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
     });
 
     return { matched: true, trigger_id: t.id };
+
   }
 
   return { matched: false };
