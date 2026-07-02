@@ -23225,6 +23225,45 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_rag_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          project_id: string | null
+          source_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          source_id: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          source_id?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_recovery_logs: {
         Row: {
           acao: string
@@ -24712,6 +24751,7 @@ export type Database = {
           lead_id: string | null
           learned_at: string | null
           meta_offline_synced_at: string | null
+          nome: string | null
           pais: string | null
           plataforma: string
           produto_id_ext: string | null
@@ -24738,6 +24778,7 @@ export type Database = {
           lead_id?: string | null
           learned_at?: string | null
           meta_offline_synced_at?: string | null
+          nome?: string | null
           pais?: string | null
           plataforma: string
           produto_id_ext?: string | null
@@ -24764,6 +24805,7 @@ export type Database = {
           lead_id?: string | null
           learned_at?: string | null
           meta_offline_synced_at?: string | null
+          nome?: string | null
           pais?: string | null
           plataforma?: string
           produto_id_ext?: string | null
@@ -25808,6 +25850,7 @@ export type Database = {
           lead_id: string | null
           message_count: number
           metadata: Json | null
+          nome: string | null
           phone: string
           pitch_followup_last_at: string | null
           pitch_followup_stage: number
@@ -25868,6 +25911,7 @@ export type Database = {
           lead_id?: string | null
           message_count?: number
           metadata?: Json | null
+          nome?: string | null
           phone: string
           pitch_followup_last_at?: string | null
           pitch_followup_stage?: number
@@ -25928,6 +25972,7 @@ export type Database = {
           lead_id?: string | null
           message_count?: number
           metadata?: Json | null
+          nome?: string | null
           phone?: string
           pitch_followup_last_at?: string | null
           pitch_followup_stage?: number
