@@ -365,6 +365,11 @@ function acoesToNodesEdges(
       label = `Loop: Repetir ${acao.loop_count ?? 3}x`;
     } else if (acao.tipo === "stop_on_event") {
       label = `Parar se: ${acao.stop_event_type || "Compra Aprovada"}`;
+    } else if (acao.tipo === "input_capture") {
+      label = acao.capture_variable ? `Definir {{${acao.capture_variable}}}` : "Definir variável…";
+    } else if (acao.tipo === "generate_image") {
+      const p = acao.image_prompt || acao.template || "";
+      label = p ? `🎨 ${p.slice(0, 60)}${p.length > 60 ? "…" : ""}` : "Gerar imagem…";
     }
 
     if (acao.tipo === "whatsapp" && acao.media?.url) {
