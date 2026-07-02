@@ -781,6 +781,7 @@ export default function InstagramPage() {
         post_id: "all",
         reply_comment_template: "",
         send_dm_template: "",
+        like_comment: true,
         is_active: true
       });
       loadTriggers();
@@ -803,8 +804,10 @@ export default function InstagramPage() {
       post_id: pid,
       reply_comment_template: trigger.reply_comment_template || "",
       send_dm_template: trigger.send_dm_template || "",
+      like_comment: trigger.like_comment !== false,
       is_active: trigger.is_active ?? true,
     });
+
     setShowAddTrigger(true);
   };
 
