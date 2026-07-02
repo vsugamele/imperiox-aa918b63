@@ -31,13 +31,14 @@ async function generateImage(prompt: string): Promise<Uint8Array> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    const { blueprint_id, job_id } = await req.json();
+    const { blueprint_id, job_id, execution_id } = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
     let q = supabase.from('imphq_flow_image_jobs').select('*').eq('status', 'pending');
     if (job_id) q = q.eq('id', job_id);
+    else if (execution_id) q = q.eq('execution_id', execution_id);
     else if (blueprint_id) q = q.eq('blueprint_id', blueprint_id);
-    else return new Response(JSON.stringify({ error: 'blueprint_id ou job_id' }), { status: 400, headers: corsHeaders });
+    else return new Response(JSON.stringify({ error: 'blueprint_id, execution_id ou job_id' }), { status: 400, headers: corsHeaders });
 
     const { data: jobs } = await q.limit(20);
     if (!jobs?.length) return new Response(JSON.stringify({ processed: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -46,7 +47,8 @@ Deno.serve(async (req) => {
     for (const job of jobs) {
       try {
         const bytes = await generateImage(job.prompt);
-        const path = `${job.blueprint_id}/${job.block_id}-${Date.now()}.png`;
+        const folder = job.blueprint_id || job.execution_id || 'openflow';
+        const path = `${folder}/${job.block_id || 'img'}-${Date.now()}.png`;
         const { error: upErr } = await supabase.storage.from('flow-media').upload(path, bytes, {
           contentType: 'image/png', upsert: true,
         });
@@ -56,15 +58,17 @@ Deno.serve(async (req) => {
 
         await supabase.from('imphq_flow_image_jobs').update({ status: 'done', url }).eq('id', job.id);
 
-        // Atualiza o blueprint inline
-        const { data: bp } = await supabase.from('imphq_flow_blueprints').select('blueprint').eq('id', job.blueprint_id).maybeSingle();
-        if (bp) {
-          const blueprint: any = bp.blueprint;
-          blueprint.nodes = (blueprint.nodes || []).map((n: any) => ({
-            ...n,
-            blocks: (n.blocks || []).map((b: any) => b.id === job.block_id ? { ...b, image_url: url } : b),
-          }));
-          await supabase.from('imphq_flow_blueprints').update({ blueprint }).eq('id', job.blueprint_id);
+        // Atualiza o blueprint inline (apenas se veio de blueprint)
+        if (job.blueprint_id) {
+          const { data: bp } = await supabase.from('imphq_flow_blueprints').select('blueprint').eq('id', job.blueprint_id).maybeSingle();
+          if (bp) {
+            const blueprint: any = bp.blueprint;
+            blueprint.nodes = (blueprint.nodes || []).map((n: any) => ({
+              ...n,
+              blocks: (n.blocks || []).map((b: any) => b.id === job.block_id ? { ...b, image_url: url } : b),
+            }));
+            await supabase.from('imphq_flow_blueprints').update({ blueprint }).eq('id', job.blueprint_id);
+          }
         }
         done++;
       } catch (e: any) {

@@ -55,6 +55,8 @@ const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: s
   aguardar:        { color: "#f59e0b", bg: "#78350f", icon: Clock, emoji: "⏱", label: "Aguardar" },
   wait_event:      { color: "#06b6d4", bg: "#164e63", icon: Timer, emoji: "⏱️", label: "Aguardar Evento" },
   wait_reply:      { color: "#84cc16", bg: "#1a2e05", icon: MessageCircle, emoji: "💬", label: "Aguardar Resposta" },
+  input_capture:   { color: "#f97316", bg: "#7c2d12", icon: Zap, emoji: "📥", label: "Capturar Resposta" },
+  generate_image:  { color: "#ec4899", bg: "#831843", icon: Sparkles, emoji: "🎨", label: "Gerar Imagem" },
   ab_split:        { color: "#d946ef", bg: "#701a75", icon: Split, emoji: "🔀", label: "Divisão A/B" },
   condicao:        { color: "#8b5cf6", bg: "#4c1d95", icon: GitBranch, emoji: "🔀", label: "Condição" },
   condicao_lead:   { color: "#f97316", bg: "#7c2d12", icon: GitBranch, emoji: "🔀", label: "Condição Lead" },
@@ -363,6 +365,11 @@ function acoesToNodesEdges(
       label = `Loop: Repetir ${acao.loop_count ?? 3}x`;
     } else if (acao.tipo === "stop_on_event") {
       label = `Parar se: ${acao.stop_event_type || "Compra Aprovada"}`;
+    } else if (acao.tipo === "input_capture") {
+      label = acao.capture_variable ? `Definir {{${acao.capture_variable}}}` : "Definir variável…";
+    } else if (acao.tipo === "generate_image") {
+      const p = acao.image_prompt || acao.template || "";
+      label = p ? `🎨 ${p.slice(0, 60)}${p.length > 60 ? "…" : ""}` : "Gerar imagem…";
     }
 
     if (acao.tipo === "whatsapp" && acao.media?.url) {

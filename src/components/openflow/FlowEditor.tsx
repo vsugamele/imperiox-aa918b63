@@ -46,6 +46,8 @@ const ACAO_TIPOS = [
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "wait_event", label: "Aguardar Evento", icon: Clock, emoji: "⏱️", color: "border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400" },
   { value: "wait_reply", label: "Aguardar Resposta do Lead", icon: MessageSquare, emoji: "💬", color: "border-lime-500/40 bg-lime-500/5 hover:border-lime-400" },
+  { value: "input_capture", label: "Capturar Resposta → Variável", icon: Variable, emoji: "📥", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
+  { value: "generate_image", label: "Gerar Imagem (IA)", icon: Sparkles, emoji: "🎨", color: "border-pink-500/40 bg-pink-500/5 hover:border-pink-400" },
   { value: "ab_split", label: "Teste A/B de Caminho", icon: Split, emoji: "🔀", color: "border-fuchsia-500/40 bg-fuchsia-500/5 hover:border-fuchsia-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "condicao_lead", label: "Condição por Dado do Lead", icon: GitBranch, emoji: "🔀", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
@@ -210,6 +212,14 @@ export interface Acao {
   position_y?: number;
   // media attachment (WhatsApp node)
   media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
+  // input_capture
+  capture_variable?: string;
+  ai_extract_prompt?: string;
+  // generate_image
+  image_prompt?: string;
+  image_style?: string;
+  image_ratio?: "1:1" | "9:16" | "16:9";
+  send_after?: boolean;
 }
 
 export interface WaProvider {
@@ -1697,6 +1707,116 @@ export function FlowEditor({
                     </div>
                   </div>
                 )}
+
+                {/* input_capture Fields */}
+                {acao.tipo === "input_capture" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3">
+                      <p className="text-[10px] text-orange-300/90 leading-relaxed">
+                        📥 <strong>Capturar Resposta:</strong> pausa o fluxo, aguarda a próxima mensagem do lead e salva em uma variável (ex: <code>DOR_PRINCIPAL</code>). Depois use como <code>{"{{DOR_PRINCIPAL}}"}</code> em qualquer mensagem.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nome da variável</Label>
+                      <Input
+                        value={acao.capture_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "capture_variable", e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                        placeholder="DOR_PRINCIPAL"
+                        className="h-9 text-xs bg-background/50 border-border/80 font-mono uppercase"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60">Só letras, números e _. Fica em MAIÚSCULO.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Extração via IA (opcional)</Label>
+                      <Textarea
+                        value={acao.ai_extract_prompt || ""}
+                        onChange={e => updateAcao(selectedIdx, "ai_extract_prompt", e.target.value)}
+                        placeholder="Ex: Extraia a dor central do lead em 1 frase curta, sem enfeites."
+                        className="min-h-[70px] text-xs bg-background/50 border-border/80"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60">Se preenchido, a IA processa a resposta antes de salvar. Vazio = salva o texto exato.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Timeout (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={acao.timeout_min ?? 1440}
+                        onChange={e => updateAcao(selectedIdx, "timeout_min", Math.max(1, parseInt(e.target.value) || 1440))}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* generate_image Fields */}
+                {acao.tipo === "generate_image" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-pink-500/30 bg-pink-500/5 p-3">
+                      <p className="text-[10px] text-pink-300/90 leading-relaxed">
+                        🎨 <strong>Gerar Imagem:</strong> cria uma imagem via IA no meio do fluxo (autoridade, prova social, infográfico) e envia no WhatsApp. Pode usar variáveis capturadas, ex: <code>{"{{DOR_PRINCIPAL}}"}</code>.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Prompt da imagem</Label>
+                      <Textarea
+                        value={acao.image_prompt || ""}
+                        onChange={e => updateAcao(selectedIdx, "image_prompt", e.target.value)}
+                        placeholder='Ex: Infográfico "3 Etapas Simples" mostrando Limpar → Construir → Selar, estilo minimalista'
+                        className="min-h-[80px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Estilo</Label>
+                        <Select value={acao.image_style || "autoridade"} onValueChange={v => updateAcao(selectedIdx, "image_style", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="autoridade">Autoridade</SelectItem>
+                            <SelectItem value="prova_social">Prova Social</SelectItem>
+                            <SelectItem value="infografico">Infográfico</SelectItem>
+                            <SelectItem value="meme">Meme / Casual</SelectItem>
+                            <SelectItem value="produto">Mockup Produto</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Formato</Label>
+                        <Select value={acao.image_ratio || "1:1"} onValueChange={v => updateAcao(selectedIdx, "image_ratio", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1:1">Quadrado 1:1</SelectItem>
+                            <SelectItem value="9:16">Vertical 9:16</SelectItem>
+                            <SelectItem value="16:9">Horizontal 16:9</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Legenda (opcional)</Label>
+                      <Textarea
+                        value={acao.template || ""}
+                        onChange={e => updateAcao(selectedIdx, "template", e.target.value)}
+                        placeholder="Texto que acompanha a imagem no WhatsApp"
+                        className="min-h-[50px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-border/30">
+                      <Label className="text-xs text-foreground flex flex-col gap-0.5 cursor-pointer" htmlFor="img-send-after">
+                        <span>Enviar automaticamente no WhatsApp?</span>
+                        <span className="text-[9px] text-muted-foreground">Desligue para só gerar e salvar em {"{{IMG_<id>}}"}</span>
+                      </Label>
+                      <Switch
+                        id="img-send-after"
+                        checked={acao.send_after ?? true}
+                        onCheckedChange={c => updateAcao(selectedIdx, "send_after", c)}
+                        className="scale-90"
+                      />
+                    </div>
+                  </div>
+                )}
+
+
 
                 {/* ab_split Fields */}
                 {isAbSplit && (
