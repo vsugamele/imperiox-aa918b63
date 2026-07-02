@@ -991,6 +991,8 @@ Deno.serve(async (req) => {
               stepResult.reason = "Imagem gerada" + ((step.send_after ?? true) && phone ? " e enviada." : ".");
             }
           }
+
+          else if (step.tipo === "ab_split") {
             const pctA = Number(step.rota_a_porcentagem ?? 50);
             const jumpSteps = Number(step.jump_steps ?? 1);
             
