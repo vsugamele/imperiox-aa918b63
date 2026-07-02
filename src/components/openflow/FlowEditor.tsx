@@ -46,6 +46,8 @@ const ACAO_TIPOS = [
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "wait_event", label: "Aguardar Evento", icon: Clock, emoji: "⏱️", color: "border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400" },
   { value: "wait_reply", label: "Aguardar Resposta do Lead", icon: MessageSquare, emoji: "💬", color: "border-lime-500/40 bg-lime-500/5 hover:border-lime-400" },
+  { value: "input_capture", label: "Capturar Resposta → Variável", icon: Variable, emoji: "📥", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
+  { value: "generate_image", label: "Gerar Imagem (IA)", icon: Sparkles, emoji: "🎨", color: "border-pink-500/40 bg-pink-500/5 hover:border-pink-400" },
   { value: "ab_split", label: "Teste A/B de Caminho", icon: Split, emoji: "🔀", color: "border-fuchsia-500/40 bg-fuchsia-500/5 hover:border-fuchsia-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "condicao_lead", label: "Condição por Dado do Lead", icon: GitBranch, emoji: "🔀", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
