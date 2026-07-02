@@ -306,19 +306,27 @@ export async function retryPendingExecutions(supa: Supa, batchSize = 25): Promis
 
     try {
       if (p.kind === "comment") {
-        if (p.reply_template) {
+        if (p.like_enabled && !p.like_done) {
+          const rl = await supa.functions.invoke("instagram-api", {
+            body: { action: "like_comment", project_id: p.project_id, comment_id: p.comment_id },
+          });
+          if (!rl.error && !rl.data?.error) p.like_done = true;
+        }
+        if (p.reply_template && !p.reply_done) {
           const rr = await supa.functions.invoke("instagram-api", {
             body: { action: "reply_comment", project_id: p.project_id, comment_id: p.comment_id, message: p.reply_template.replace("{{nome}}", p.from_username || "você") },
           });
           if (rr.error || rr.data?.error) lastErr = rr.data?.error || rr.error?.message || "reply failed";
+          else p.reply_done = true;
         }
-        if (p.dm_template) {
+        if (p.dm_template && !p.dm_done) {
           const rd = await supa.functions.invoke("instagram-api", {
             body: { action: "private_reply", project_id: p.project_id, comment_id: p.comment_id, message: p.dm_template.replace("{{nome}}", p.from_username || "você") },
           });
           if (rd.error || rd.data?.error) lastErr = rd.data?.error || rd.error?.message || "private_reply failed";
-          else ok = true;
-        } else if (!lastErr) ok = true;
+          else p.dm_done = true;
+        }
+        ok = (!p.reply_template || p.reply_done) && (!p.dm_template || p.dm_done);
       } else if (p.kind === "dm") {
         const rd = await supa.functions.invoke("instagram-api", {
           body: { action: "send_text", project_id: p.project_id, recipient_id: p.participant_id, text: (p.dm_template || "").replace("{{nome}}", p.username || "você") },
@@ -331,7 +339,7 @@ export async function retryPendingExecutions(supa: Supa, batchSize = 25): Promis
     } catch (e: any) { lastErr = e?.message || String(e); }
 
     if (ok) {
-      await supa.from("imphq_ig_trigger_executions").update({ status: "sent", attempts: attempt, last_error: null, next_retry_at: null }).eq("comment_id", row.comment_id);
+      await supa.from("imphq_ig_trigger_executions").update({ status: "sent", attempts: attempt, last_error: null, next_retry_at: null, payload: p }).eq("comment_id", row.comment_id);
       recovered++;
     } else {
       const idx = Math.min(attempt - 1, RETRY_BACKOFF_MS.length - 1);
@@ -341,9 +349,11 @@ export async function retryPendingExecutions(supa: Supa, batchSize = 25): Promis
         attempts: attempt,
         last_error: lastErr,
         next_retry_at: willDie ? null : new Date(Date.now() + RETRY_BACKOFF_MS[idx]).toISOString(),
+        payload: p,
       }).eq("comment_id", row.comment_id);
       if (willDie) dead++;
     }
+
   }
 
   return { processed: rows.length, recovered, dead };
