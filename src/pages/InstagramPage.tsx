@@ -20,6 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 import { formatCompactTime } from "@/lib/formatCompactTime";
 import { ptBR } from "date-fns/locale";
 import ZernioHealthCard from "@/components/instagram/ZernioHealthCard";
+import ZernioMonitorPanel from "@/components/instagram/ZernioMonitorPanel";
 
 interface IgAccount {
   id: string;
@@ -3510,7 +3511,10 @@ export default function InstagramPage() {
 
             {activeMainTab === "triggers" && (
               <div className="lg:col-span-3 space-y-6">
-                
+
+                {/* ─── MONITOR ZERNIO (Retry / Falhas) ─── */}
+                <ZernioMonitorPanel projectId={selectedProjectId} />
+
                 {/* ─── FUNIL VISUAL DE CONVERSÃO ─── */}
                 <Card className="bg-card border-border/60 shadow-lg">
                   <CardHeader className="border-b border-border/40 pb-3">
