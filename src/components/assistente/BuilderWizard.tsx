@@ -133,7 +133,12 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
                 placeholder={tipo === "lancamento" ? "Ex: lançar curso X em 30 dias com R$ 50k" : "Ex: converter leads em compradores em 1 ano"} />
             </div>
             <div>
-              <Label className="text-xs">Briefing detalhado (opcional, mas recomendado)</Label>
+              <Label className="text-xs flex items-center gap-1.5">
+                Briefing detalhado (opcional, mas recomendado)
+                {autoLoading && <Loader2 className="h-3 w-3 animate-spin text-gold" />}
+                {!autoLoading && briefing && <span className="text-[10px] text-gold flex items-center gap-1"><Wand2 className="h-2.5 w-2.5" /> pré-preenchido do projeto</span>}
+              </Label>
+
               <Textarea value={briefing} onChange={(e) => setBriefing(e.target.value)} rows={5}
                 placeholder="Tom de voz, dores principais, oferta, bônus, urgência, restrições..." />
             </div>
