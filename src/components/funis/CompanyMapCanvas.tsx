@@ -52,7 +52,6 @@ const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
 ];
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
-interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
   description?: string | null; notes?: string | null;
