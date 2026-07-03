@@ -866,9 +866,21 @@ function InnerMap({ projects }: { projects: any[] }) {
           )}
         </SheetContent>
       </Sheet>
+
+      {copyDialog && (
+        <NodeCopyDialog
+          open={!!copyDialog}
+          onClose={() => setCopyDialog(null)}
+          projectId={copyDialog.projectId}
+          nodeId={copyDialog.nodeId}
+          assetKind={copyDialog.kind}
+          assetLabel={copyDialog.label}
+        />
+      )}
     </div>
   );
 }
+
 
 export function CompanyMapCanvas({ projects }: { projects: any[] }) {
   return <ReactFlowProvider><InnerMap projects={projects} /></ReactFlowProvider>;
