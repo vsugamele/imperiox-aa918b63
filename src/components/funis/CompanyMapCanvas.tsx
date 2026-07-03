@@ -359,6 +359,30 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (data) { setMaps(m => [...m, data]); setMapId(data.id); }
   };
 
+  const renameMap = async () => {
+    if (!mapId) return;
+    const cur = maps.find(m => m.id === mapId);
+    const name = prompt("Novo nome do mapa:", cur?.name || "");
+    if (!name || name === cur?.name) return;
+    await supabase.from("imphq_company_maps").update({ name }).eq("id", mapId);
+    setMaps(ms => ms.map(m => m.id === mapId ? { ...m, name } : m));
+    toast.success("Mapa renomeado");
+  };
+
+  const deleteMap = async () => {
+    if (!mapId) return;
+    if (maps.length <= 1) { toast.error("Mantenha pelo menos 1 mapa"); return; }
+    const cur = maps.find(m => m.id === mapId);
+    if (!confirm(`Excluir o mapa "${cur?.name}"? Todos os nós e conexões serão perdidos.`)) return;
+    await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
+    await supabase.from("imphq_company_map_edges").delete().eq("map_id", mapId);
+    await supabase.from("imphq_company_maps").delete().eq("id", mapId);
+    const next = maps.filter(m => m.id !== mapId);
+    setMaps(next);
+    setMapId(next[0]?.id || null);
+    toast.success("Mapa excluído");
+  };
+
   const onNodeClick = (_: any, node: Node) => {
     // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
     if (selectedIds.length > 1 && selectedIds.includes(node.id)) return;
