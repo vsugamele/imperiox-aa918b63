@@ -478,6 +478,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // === HANDOFF HUMANO — detecta sinais de fricção e pausa IA ===
+    // Patterns: pedido explícito de humano, raiva, ameaça, insulto, "quero cancelar", "quero reclamar"
+    const HANDOFF_PATTERNS: { rx: RegExp; reason: string }[] = [
+      { rx: /\b(falar|atendimento) com (humano|pessoa|gente|atendente|algu[eé]m real|dono|respons[aá]vel)\b/i, reason: "pediu humano" },
+      { rx: /\b(voc[eê]|isso|isto) [eé] (um )?(rob[oô]|bot|ia|intelig[eê]ncia)\b/i, reason: "identificou bot" },
+      { rx: /\b(quero (cancelar|reclamar|reembolso|meu dinheiro)|estou (com )?raiva|indignad[oa]|revoltad[oa])\b/i, reason: "reclamação/raiva" },
+      { rx: /\b(golpe|enganad[oa]|fraude|processo|advogado|procon|reclame ?aqui)\b/i, reason: "risco jurídico" },
+      { rx: /\b(fdp|merda|porra|caralho|filha? da puta|otari[oa]|idiota|imbecil)\b/i, reason: "linguagem hostil" },
+      { rx: /\b(para|pare|chega) de (mandar|me mandar|responder|enviar)\b/i, reason: "pediu parar" },
+    ];
+    if (!isTestMode && message && typeof message === "string") {
+      const hit = HANDOFF_PATTERNS.find(p => p.rx.test(message));
+      if (hit) {
+        console.log(`[wa-ai-reply] HANDOFF detectado: ${hit.reason} — pausando IA e marcando needs_human`);
+        try {
+          await supabase.from("imphq_wa_conversations").update({
+            status: "needs_human",
+            ai_paused_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+          }).eq("id", conversation_id);
+          await supabase.from("imphq_notifications").insert({
+            projeto_id: project_id || null,
+            tipo: "handoff_humano",
+            titulo: `🔥 Precisa humano: ${hit.reason}`,
+            mensagem: `Conversa ${conv?.contact_name || conv?.phone || conversation_id}: "${String(message).slice(0, 180)}"`,
+            payload: { conversation_id, reason: hit.reason, snippet: String(message).slice(0, 300) },
+            lida: false,
+          });
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] handoff persist error: ${e?.message}`);
+        }
+        return new Response(JSON.stringify({ skipped: "handoff_humano", reason: hit.reason }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Verifica pausa manual (humano respondeu recentemente) — com auto-resume se lead voltou com pergunta nova
     if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
