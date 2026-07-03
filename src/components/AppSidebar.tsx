@@ -30,7 +30,6 @@ const venderItems = [
   { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
   { title: "Campanhas",            url: "/campanhas",  icon: Target },
   { title: "Funis",                url: "/funis",      icon: Target },
-  { title: "Mapa da Empresa",      url: "/mapa-empresa", icon: Network },
   { title: "Sites",                url: "/sites",      icon: Globe },
   { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
 ];
