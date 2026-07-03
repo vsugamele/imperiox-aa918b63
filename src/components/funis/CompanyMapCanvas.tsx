@@ -52,23 +52,6 @@ const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
 ];
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
-interface MapNode {
-  id: string; map_id: string; label: string; kind: string; color: string;
-  description?: string | null; notes?: string | null;
-  position: { x: number; y: number }; size: string;
-  checklist: ChecklistItem[];
-  show_live_kpis?: boolean;
-  linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
-}
-
-function MapNodeCard({ data }: { data: any }) {
-  const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
-  const Icon = preset.icon;
-  const checklist: ChecklistItem[] = data.checklist || [];
-  const done = checklist.filter((c) => c.done).length;
-  const total = checklist.length;
-  const preview = checklist.slice(0, 3);
-  const rest = Math.max(0, total - preview.length);
 interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
