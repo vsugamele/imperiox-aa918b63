@@ -275,6 +275,7 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
     if (!kwMatch) continue;
     if (!matchesFilters(t, content || "")) continue;
     if (!(await respectsCooldown(supa, t.id, authorKey, t.cooldown_hours || 0))) continue;
+    if (!(await respectsCrossCooldown(supa, projectId, authorKey, t.id))) { console.log(`[ig-trigger] cross-cooldown DM project=${projectId} author=${authorKey}`); continue; }
     if (!(await underDailyCap(supa, t.id, t.daily_cap || null))) continue;
 
     if (dedupKey) {
