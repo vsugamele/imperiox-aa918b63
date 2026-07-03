@@ -161,6 +161,10 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
       console.log(`[ig-trigger] cooldown ativo trigger=${t.id} author=${authorKey}`);
       continue;
     }
+    if (!(await respectsCrossCooldown(supa, projectId, authorKey, t.id))) {
+      console.log(`[ig-trigger] cross-cooldown ativo (${CROSS_COOLDOWN_HOURS}h) project=${projectId} author=${authorKey}`);
+      continue;
+    }
     if (!(await underDailyCap(supa, t.id, t.daily_cap || null))) {
       console.log(`[ig-trigger] daily_cap atingido trigger=${t.id}`);
       continue;
