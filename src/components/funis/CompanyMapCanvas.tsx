@@ -21,6 +21,8 @@ import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, 
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
+import { NodeCopyDialog } from "./NodeCopyDialog";
+
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
   vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
