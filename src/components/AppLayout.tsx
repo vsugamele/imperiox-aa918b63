@@ -51,7 +51,6 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   rascunhos: { kicker: "IA", title: "Rascunhos" },
   docs: { kicker: "KB", title: "Docs" },
   empresa: { kicker: "Setup", title: "Empresa" },
-  "mapa-empresa": { kicker: "Estratégia", title: "Mapa da Empresa" },
   equipe: { kicker: "Setup", title: "Equipe" },
   cofre: { kicker: "Setup", title: "Cofre" },
   configuracoes: { kicker: "Setup", title: "Configurações" },

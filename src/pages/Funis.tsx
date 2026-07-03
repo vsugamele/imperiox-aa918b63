@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { JourneyCanvas } from "@/components/funis/journey/JourneyCanvas";
 import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Copy, Calculator } from "lucide-react";
 import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
