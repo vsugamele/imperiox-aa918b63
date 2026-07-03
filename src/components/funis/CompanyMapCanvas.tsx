@@ -399,6 +399,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
+      linked_wa_provider_id: selected.linked_wa_provider_id || null,
     }).eq("id", selected.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo");
