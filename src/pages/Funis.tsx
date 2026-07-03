@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { JourneyCanvas } from "@/components/funis/journey/JourneyCanvas";
 import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Copy, Calculator } from "lucide-react";
 import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 import { FunnelTemplatesDialog } from "@/components/funis/FunnelTemplatesDialog";
@@ -138,6 +138,7 @@ export default function Funis() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada">("hub");
+  const [searchParams] = useSearchParams();
   const [showEcosystem, setShowEcosystem] = useState(false);
   const [aiOrganizing, setAiOrganizing] = useState(false);
   const [showAiGen, setShowAiGen] = useState(false);
@@ -385,6 +386,15 @@ export default function Funis() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Sync viewMode from URL query param (e.g. /funis?view=mapa)
+  useEffect(() => {
+    const view = searchParams.get("view");
+    if (view === "hub" || view === "funis" || view === "ecossistema" || view === "mapa" || view === "jornada") {
+      setViewMode(view);
+    }
+  }, [searchParams]);
+
 
 
   // Load project products when a funnel with project_id is selected
