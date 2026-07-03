@@ -69,12 +69,51 @@ function MapNodeCard({ data }: { data: any }) {
   const total = checklist.length;
   const preview = checklist.slice(0, 3);
   const rest = Math.max(0, total - preview.length);
+interface ChecklistItem { id: string; text: string; done: boolean; }
+interface MapNode {
+  id: string; map_id: string; label: string; kind: string; color: string;
+  description?: string | null; notes?: string | null;
+  position: { x: number; y: number }; size: string;
+  checklist: ChecklistItem[];
+  show_live_kpis?: boolean;
+  linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
+  linked_wa_provider_id?: string | null;
+}
+
+function MapNodeCard({ data }: { data: any }) {
+  const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
+  const Icon = preset.icon;
+  const checklist: ChecklistItem[] = data.checklist || [];
+  const done = checklist.filter((c) => c.done).length;
+  const total = checklist.length;
+  const preview = checklist.slice(0, 3);
+  const rest = Math.max(0, total - preview.length);
+  const waInfo = data.waInfo; // { phone, instance, provider, conversations }
   return (
     <div
-      className="rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
       style={{ borderColor: data.color }}
     >
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
+
+      {/* Quick actions on hover */}
+      <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
+        <button
+          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          onClick={(e) => { e.stopPropagation(); data.onDuplicate?.(data.id); }}
+          title="Duplicar"
+        >
+          <Copy className="h-3 w-3" />
+        </button>
+        <button
+          className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400"
+          onClick={(e) => { e.stopPropagation(); data.onDelete?.(data.id); }}
+          title="Excluir"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+
       <div className="flex items-center gap-2 mb-1">
         <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
           <Icon className="h-3.5 w-3.5" />
@@ -83,6 +122,27 @@ function MapNodeCard({ data }: { data: any }) {
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
+
+      {/* WhatsApp channel enrichment */}
+      {waInfo && (
+        <div className="mt-2 pt-2 border-t border-border/40 space-y-0.5">
+          {waInfo.phone && (
+            <div className="flex items-center gap-1 text-[10px] text-emerald-400">
+              <Phone className="h-2.5 w-2.5" /> {waInfo.phone}
+            </div>
+          )}
+          {waInfo.instance && (
+            <div className="text-[9px] text-muted-foreground truncate">📱 {waInfo.instance}</div>
+          )}
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-muted-foreground">{waInfo.provider || "wa"}</span>
+            {typeof waInfo.conversations === "number" && (
+              <Badge variant="outline" className="h-4 px-1 text-[9px]">{waInfo.conversations} conv.</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
       {total > 0 && (
         <div className="mt-2 pt-2 border-t border-border/40">
           <div className="flex items-center justify-between text-[10px] mb-1">
@@ -123,6 +183,13 @@ function MapNodeCard({ data }: { data: any }) {
 
 const nodeTypes = { mapnode: MapNodeCard };
 
+interface WaProvider {
+  id: string; project_id: string; provider: string;
+  display_name?: string | null; instance_name?: string | null;
+  phone_number_id?: string | null; twilio_from?: string | null;
+  is_active?: boolean | null;
+}
+
 function InnerMap({ projects }: { projects: any[] }) {
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
@@ -132,6 +199,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [selected, setSelected] = useState<MapNode | null>(null);
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [flows, setFlows] = useState<{ id: string; name: string }[]>([]);
+  const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
+  const [waConvCounts, setWaConvCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
