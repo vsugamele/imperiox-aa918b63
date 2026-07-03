@@ -780,6 +780,31 @@ function InnerMap({ projects }: { projects: any[] }) {
               </div>
 
               <div>
+                <Label className="text-xs">Chip / Canal WhatsApp</Label>
+                <Select value={selected.linked_wa_provider_id || "none"}
+                  onValueChange={(v) => setSelected({ ...selected, linked_wa_provider_id: v === "none" ? null : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {waProviders.map(w => {
+                      const proj = projects.find(p => p.id === w.project_id);
+                      const label = `${w.display_name || w.instance_name || w.provider}${proj ? ` · ${proj.name}` : ""}`;
+                      return <SelectItem key={w.id} value={w.id}>{label}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+                {selected.linked_wa_provider_id && (() => {
+                  const w = waProviders.find(p => p.id === selected.linked_wa_provider_id);
+                  if (!w) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {w.twilio_from || w.phone_number_id || "sem telefone"} · {waConvCounts[w.project_id] ?? 0} conversas
+                    </p>
+                  );
+                })()}
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-xs">Checklist</Label>
                   <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1"
