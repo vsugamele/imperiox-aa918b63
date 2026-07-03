@@ -288,7 +288,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     })));
   }, [toggleChecklistItem, duplicateNode, deleteNodeById, waProviders, waConvCounts]);
 
-  const loadMapRef = { current: null as null | ((id: string) => Promise<void>) };
+  const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
   loadMapRef.current = loadMap;
 
   // live KPIs for project-linked nodes
