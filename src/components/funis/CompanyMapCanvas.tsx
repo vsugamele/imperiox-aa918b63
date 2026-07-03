@@ -83,6 +83,13 @@ function MapNodeCard({ data }: { data: any }) {
       {/* Quick actions on hover */}
       <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
         <button
+          className="p-1 rounded hover:bg-pink-500/20 text-muted-foreground hover:text-pink-400"
+          onClick={(e) => { e.stopPropagation(); data.onGenerateCopy?.(data.id); }}
+          title="Gerar copy IA para este nó"
+        >
+          <Sparkles className="h-3 w-3" />
+        </button>
+        <button
           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
           onClick={(e) => { e.stopPropagation(); data.onDuplicate?.(data.id); }}
           title="Duplicar"
@@ -97,6 +104,7 @@ function MapNodeCard({ data }: { data: any }) {
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
+
 
       <div className="flex items-center gap-2 mb-1">
         <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
