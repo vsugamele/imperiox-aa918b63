@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Check } from "lucide-react";
+import { Sparkles, Loader2, Check, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+
 
 type Tipo = "campanha" | "lancamento" | "nutricao";
 interface Props {
@@ -32,9 +34,45 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
   const [prazoDias, setPrazoDias] = useState(30);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(false);
 
   const reset = () => { setStep(1); setBriefing(""); setObjetivo(""); setPreview(null); };
   const close = () => { reset(); onClose(); };
+
+  // Auto-preencher briefing com contexto do projeto ao abrir
+  useEffect(() => {
+    if (!open || !projectId || briefing.trim()) return;
+    (async () => {
+      setAutoLoading(true);
+      try {
+        const { data: proj } = await supabase.from("imphq_projects").select("name,data").eq("id", projectId).maybeSingle();
+        if (!proj) return;
+
+        const d: any = (proj as any).data || {};
+        const avatar = d.avatar || d.avatars_por_produto || null;
+        const branding = d.branding || d.brand || null;
+        const produtos: any[] = Array.isArray(d.produtos) ? d.produtos : [];
+        const prod = produto ? produtos.find(p => p.nome === produto || p.slug === produto) : produtos[0];
+
+        const parts: string[] = [];
+        parts.push(`Projeto: ${(proj as any).name || ""}`);
+        if (prod?.nome) parts.push(`Produto: ${prod.nome}${prod.preco_por || prod.preco ? ` (R$ ${prod.preco_por || prod.preco})` : ""}`);
+        if (prod?.promessa || prod?.descricao) parts.push(`Promessa: ${prod.promessa || prod.descricao}`);
+        if (avatar) {
+          const av = typeof avatar === "string" ? avatar : (avatar?.descricao || avatar?.resumo || JSON.stringify(avatar).slice(0, 400));
+          parts.push(`Avatar: ${av}`);
+        }
+        if (branding) {
+          const tom = typeof branding === "string" ? branding : (branding?.tom_voz || branding?.tom || branding?.voz || "");
+          if (tom) parts.push(`Tom de voz: ${tom}`);
+        }
+        setBriefing(parts.join("\n"));
+      } catch { /* silent */ }
+      finally { setAutoLoading(false); }
+    })();
+  }, [open, projectId, produto]);
+
+
 
   const gerar = async () => {
     setLoading(true);
@@ -95,7 +133,12 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
                 placeholder={tipo === "lancamento" ? "Ex: lançar curso X em 30 dias com R$ 50k" : "Ex: converter leads em compradores em 1 ano"} />
             </div>
             <div>
-              <Label className="text-xs">Briefing detalhado (opcional, mas recomendado)</Label>
+              <Label className="text-xs flex items-center gap-1.5">
+                Briefing detalhado (opcional, mas recomendado)
+                {autoLoading && <Loader2 className="h-3 w-3 animate-spin text-gold" />}
+                {!autoLoading && briefing && <span className="text-[10px] text-gold flex items-center gap-1"><Wand2 className="h-2.5 w-2.5" /> pré-preenchido do projeto</span>}
+              </Label>
+
               <Textarea value={briefing} onChange={(e) => setBriefing(e.target.value)} rows={5}
                 placeholder="Tom de voz, dores principais, oferta, bônus, urgência, restrições..." />
             </div>

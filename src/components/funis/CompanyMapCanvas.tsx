@@ -21,6 +21,8 @@ import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, 
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
+import { NodeCopyDialog } from "./NodeCopyDialog";
+
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
   vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
@@ -81,6 +83,13 @@ function MapNodeCard({ data }: { data: any }) {
       {/* Quick actions on hover */}
       <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
         <button
+          className="p-1 rounded hover:bg-pink-500/20 text-muted-foreground hover:text-pink-400"
+          onClick={(e) => { e.stopPropagation(); data.onGenerateCopy?.(data.id); }}
+          title="Gerar copy IA para este nó"
+        >
+          <Sparkles className="h-3 w-3" />
+        </button>
+        <button
           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
           onClick={(e) => { e.stopPropagation(); data.onDuplicate?.(data.id); }}
           title="Duplicar"
@@ -95,6 +104,7 @@ function MapNodeCard({ data }: { data: any }) {
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
+
 
       <div className="flex items-center gap-2 mb-1">
         <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
@@ -186,7 +196,9 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
+  const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
   const { setCenter } = useReactFlow();
+
 
   // load maps list
   useEffect(() => {
@@ -258,6 +270,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (cur?.map_id) await loadMapRef.current?.(cur.map_id);
   }, [rawNodes]);
 
+  const openCopyDialog = useCallback((nodeId: string) => {
+    const n = rawNodes.find(r => r.id === nodeId);
+    if (!n) return;
+    const pid = n.linked_project_id || projects[0]?.id;
+    if (!pid) { toast.error("Vincule um projeto ao nó (ou crie um projeto) para gerar copy contextual."); return; }
+    setCopyDialog({ nodeId, label: n.label, kind: n.kind, projectId: pid });
+  }, [rawNodes, projects]);
+
+
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
     const [{ data: nds }, { data: eds }] = await Promise.all([
@@ -277,7 +298,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       return {
         id: n.id, type: "mapnode",
         position: n.position || { x: 0, y: 0 },
-        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, waInfo },
+        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
       };
     }));
     setEdges((eds || []).map((e: any) => ({
@@ -286,7 +307,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, [toggleChecklistItem, duplicateNode, deleteNodeById, waProviders, waConvCounts]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, waProviders, waConvCounts]);
 
   const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
   loadMapRef.current = loadMap;
@@ -845,9 +866,21 @@ function InnerMap({ projects }: { projects: any[] }) {
           )}
         </SheetContent>
       </Sheet>
+
+      {copyDialog && (
+        <NodeCopyDialog
+          open={!!copyDialog}
+          onClose={() => setCopyDialog(null)}
+          projectId={copyDialog.projectId}
+          nodeId={copyDialog.nodeId}
+          assetKind={copyDialog.kind}
+          assetLabel={copyDialog.label}
+        />
+      )}
     </div>
   );
 }
+
 
 export function CompanyMapCanvas({ projects }: { projects: any[] }) {
   return <ReactFlowProvider><InnerMap projects={projects} /></ReactFlowProvider>;
