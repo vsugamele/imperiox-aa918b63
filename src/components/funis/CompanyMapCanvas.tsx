@@ -517,6 +517,12 @@ function InnerMap({ projects }: { projects: any[] }) {
             {maps.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={renameMap} title="Renomear mapa">
+          <Pencil className="h-3 w-3" />
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400" onClick={deleteMap} title="Excluir mapa">
+          <Trash2 className="h-3 w-3" />
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={createMap}>
           <Plus className="h-3 w-3" /> Novo mapa
         </Button>
