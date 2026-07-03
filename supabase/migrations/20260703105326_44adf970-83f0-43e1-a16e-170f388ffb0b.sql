@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_company_map_nodes ADD COLUMN IF NOT EXISTS linked_wa_provider_id UUID REFERENCES public.imphq_wa_providers(id) ON DELETE SET NULL;

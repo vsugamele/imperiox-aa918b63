@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
@@ -17,20 +17,39 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
-  vertical:   { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
-  area:       { label: "Área / Time",         color: "#3b82f6", icon: Users },
-  oferta:     { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
-  canal:      { label: "Canal",               color: "#f59e0b", icon: Megaphone },
-  processo:   { label: "Processo",            color: "#8b5cf6", icon: Wrench },
-  meta:       { label: "Meta / KPI",          color: "#ef4444", icon: Target },
-  doc:        { label: "Documento",           color: "#64748b", icon: FileText },
+  vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
+  area:          { label: "Área / Time",         color: "#3b82f6", icon: Users },
+  oferta:        { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
+  processo:      { label: "Processo",            color: "#8b5cf6", icon: Wrench },
+  meta:          { label: "Meta / KPI",          color: "#ef4444", icon: Target },
+  doc:           { label: "Documento",           color: "#64748b", icon: FileText },
+  // Produtos digitais
+  area_membros:  { label: "Área de Membros",     color: "#a855f7", icon: GraduationCap },
+  app:           { label: "APP / Produto",       color: "#0ea5e9", icon: Smartphone },
+  // Canais
+  canal:         { label: "Canal (genérico)",    color: "#f59e0b", icon: Megaphone },
+  whatsapp:      { label: "WhatsApp",            color: "#25d366", icon: MessageCircle },
+  // Redes sociais
+  instagram:     { label: "Instagram",           color: "#e1306c", icon: Instagram },
+  facebook:      { label: "Facebook",            color: "#1877f2", icon: Facebook },
+  youtube:       { label: "YouTube",             color: "#ff0000", icon: Youtube },
+  tiktok:        { label: "TikTok",              color: "#000000", icon: Music2 },
+  linkedin:      { label: "LinkedIn",            color: "#0a66c2", icon: Linkedin },
+  twitter:       { label: "X / Twitter",         color: "#1da1f2", icon: Twitter },
 };
+
+const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
+  { label: "Estrutura",         keys: ["vertical", "area", "processo", "meta", "doc"] },
+  { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
+  { label: "Canais",            keys: ["whatsapp", "canal"] },
+  { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
+];
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
@@ -40,6 +59,7 @@ interface MapNode {
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
+  linked_wa_provider_id?: string | null;
 }
 
 function MapNodeCard({ data }: { data: any }) {
@@ -50,12 +70,32 @@ function MapNodeCard({ data }: { data: any }) {
   const total = checklist.length;
   const preview = checklist.slice(0, 3);
   const rest = Math.max(0, total - preview.length);
+  const waInfo = data.waInfo; // { phone, instance, provider, conversations }
   return (
     <div
-      className="rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
       style={{ borderColor: data.color }}
     >
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
+
+      {/* Quick actions on hover */}
+      <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
+        <button
+          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+          onClick={(e) => { e.stopPropagation(); data.onDuplicate?.(data.id); }}
+          title="Duplicar"
+        >
+          <Copy className="h-3 w-3" />
+        </button>
+        <button
+          className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400"
+          onClick={(e) => { e.stopPropagation(); data.onDelete?.(data.id); }}
+          title="Excluir"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+
       <div className="flex items-center gap-2 mb-1">
         <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
           <Icon className="h-3.5 w-3.5" />
@@ -64,6 +104,27 @@ function MapNodeCard({ data }: { data: any }) {
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
+
+      {/* WhatsApp channel enrichment */}
+      {waInfo && (
+        <div className="mt-2 pt-2 border-t border-border/40 space-y-0.5">
+          {waInfo.phone && (
+            <div className="flex items-center gap-1 text-[10px] text-emerald-400">
+              <Phone className="h-2.5 w-2.5" /> {waInfo.phone}
+            </div>
+          )}
+          {waInfo.instance && (
+            <div className="text-[9px] text-muted-foreground truncate">📱 {waInfo.instance}</div>
+          )}
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-muted-foreground">{waInfo.provider || "wa"}</span>
+            {typeof waInfo.conversations === "number" && (
+              <Badge variant="outline" className="h-4 px-1 text-[9px]">{waInfo.conversations} conv.</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
       {total > 0 && (
         <div className="mt-2 pt-2 border-t border-border/40">
           <div className="flex items-center justify-between text-[10px] mb-1">
@@ -104,6 +165,13 @@ function MapNodeCard({ data }: { data: any }) {
 
 const nodeTypes = { mapnode: MapNodeCard };
 
+interface WaProvider {
+  id: string; project_id: string; provider: string;
+  display_name?: string | null; instance_name?: string | null;
+  phone_number_id?: string | null; twilio_from?: string | null;
+  is_active?: boolean | null;
+}
+
 function InnerMap({ projects }: { projects: any[] }) {
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
@@ -113,6 +181,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [selected, setSelected] = useState<MapNode | null>(null);
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [flows, setFlows] = useState<{ id: string; name: string }[]>([]);
+  const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
+  const [waConvCounts, setWaConvCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
@@ -133,7 +203,25 @@ function InnerMap({ projects }: { projects: any[] }) {
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
+    supabase.from("imphq_wa_providers").select("id,project_id,provider,display_name,instance_name,phone_number_id,twilio_from,is_active")
+      .then(({ data }) => setWaProviders((data || []) as WaProvider[]));
   }, []);
+
+  // conversation counts per provider (best-effort — grouped by project)
+  useEffect(() => {
+    (async () => {
+      const projectIds = Array.from(new Set(waProviders.map(p => p.project_id).filter(Boolean)));
+      if (projectIds.length === 0) return;
+      const counts: Record<string, number> = {};
+      await Promise.all(projectIds.map(async (pid) => {
+        const { count } = await supabase.from("imphq_wa_conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", pid);
+        counts[pid] = count || 0;
+      }));
+      setWaConvCounts(counts);
+    })();
+  }, [waProviders]);
 
   // Toggle single checklist item directly on the canvas (stable ref via setState updater)
   const toggleChecklistItem = useCallback(async (nodeId: string, itemId: string, done: boolean) => {
@@ -147,6 +235,29 @@ function InnerMap({ projects }: { projects: any[] }) {
     await supabase.from("imphq_company_map_nodes").update({ checklist: nextChecklist as any }).eq("id", nodeId);
   }, []);
 
+  // single-node quick actions (declared before loadMap to be injected in data)
+  const duplicateNode = useCallback(async (nodeId: string) => {
+    const src = await supabase.from("imphq_company_map_nodes").select("*").eq("id", nodeId).single();
+    const n: any = src.data;
+    if (!n) return;
+    const { map_id, kind, color, label, description, notes, checklist, position, show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id } = n;
+    await supabase.from("imphq_company_map_nodes").insert({
+      map_id, kind, color, label: `${label} (cópia)`, description, notes,
+      checklist: (checklist || []) as any,
+      position: { x: (position?.x || 0) + 40, y: (position?.y || 0) + 40 },
+      show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id,
+    });
+    if (n.map_id) await loadMapRef.current?.(n.map_id);
+    toast.success("Duplicado");
+  }, []);
+
+  const deleteNodeById = useCallback(async (nodeId: string) => {
+    if (!confirm("Excluir este nó?")) return;
+    const cur = rawNodes.find(r => r.id === nodeId);
+    await supabase.from("imphq_company_map_nodes").delete().eq("id", nodeId);
+    if (cur?.map_id) await loadMapRef.current?.(cur.map_id);
+  }, [rawNodes]);
+
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
     const [{ data: nds }, { data: eds }] = await Promise.all([
@@ -155,18 +266,30 @@ function InnerMap({ projects }: { projects: any[] }) {
     ]);
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
-    setNodes(list.map(n => ({
-      id: n.id, type: "mapnode",
-      position: n.position || { x: 0, y: 0 },
-      data: { ...n, onToggleItem: toggleChecklistItem },
-    })));
+    setNodes(list.map(n => {
+      const wa = n.linked_wa_provider_id ? waProviders.find(p => p.id === n.linked_wa_provider_id) : null;
+      const waInfo = wa ? {
+        phone: wa.twilio_from || wa.phone_number_id || null,
+        instance: wa.instance_name || wa.display_name || null,
+        provider: wa.provider,
+        conversations: waConvCounts[wa.project_id],
+      } : null;
+      return {
+        id: n.id, type: "mapnode",
+        position: n.position || { x: 0, y: 0 },
+        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, waInfo },
+      };
+    }));
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, [toggleChecklistItem]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, waProviders, waConvCounts]);
+
+  const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
+  loadMapRef.current = loadMap;
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
@@ -236,6 +359,30 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (data) { setMaps(m => [...m, data]); setMapId(data.id); }
   };
 
+  const renameMap = async () => {
+    if (!mapId) return;
+    const cur = maps.find(m => m.id === mapId);
+    const name = prompt("Novo nome do mapa:", cur?.name || "");
+    if (!name || name === cur?.name) return;
+    await supabase.from("imphq_company_maps").update({ name }).eq("id", mapId);
+    setMaps(ms => ms.map(m => m.id === mapId ? { ...m, name } : m));
+    toast.success("Mapa renomeado");
+  };
+
+  const deleteMap = async () => {
+    if (!mapId) return;
+    if (maps.length <= 1) { toast.error("Mantenha pelo menos 1 mapa"); return; }
+    const cur = maps.find(m => m.id === mapId);
+    if (!confirm(`Excluir o mapa "${cur?.name}"? Todos os nós e conexões serão perdidos.`)) return;
+    await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
+    await supabase.from("imphq_company_map_edges").delete().eq("map_id", mapId);
+    await supabase.from("imphq_company_maps").delete().eq("id", mapId);
+    const next = maps.filter(m => m.id !== mapId);
+    setMaps(next);
+    setMapId(next[0]?.id || null);
+    toast.success("Mapa excluído");
+  };
+
   const onNodeClick = (_: any, node: Node) => {
     // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
     if (selectedIds.length > 1 && selectedIds.includes(node.id)) return;
@@ -252,6 +399,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
+      linked_wa_provider_id: selected.linked_wa_provider_id || null,
     }).eq("id", selected.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo");
@@ -370,6 +518,12 @@ function InnerMap({ projects }: { projects: any[] }) {
             {maps.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={renameMap} title="Renomear mapa">
+          <Pencil className="h-3 w-3" />
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400" onClick={deleteMap} title="Excluir mapa">
+          <Trash2 className="h-3 w-3" />
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={createMap}>
           <Plus className="h-3 w-3" /> Novo mapa
         </Button>
@@ -419,21 +573,27 @@ function InnerMap({ projects }: { projects: any[] }) {
         </Button>
       </div>
 
-      {/* Palette */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-2">
-        <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 px-1">Adicionar nó</p>
-        {Object.entries(KIND_PRESETS).map(([key, p]) => {
-          const Icon = p.icon;
-          return (
-            <Button key={key} size="sm" variant="ghost" className="h-7 text-xs justify-start gap-2"
-              onClick={() => addNode(key)}>
-              <div className="p-0.5 rounded" style={{ background: `${p.color}30`, color: p.color }}>
-                <Icon className="h-3 w-3" />
-              </div>
-              {p.label}
-            </Button>
-          );
-        })}
+      {/* Palette (grouped by category) */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-2 max-h-[calc(100vh-260px)] overflow-y-auto w-[210px]">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground px-1">Adicionar nó</p>
+        {KIND_CATEGORIES.map(cat => (
+          <div key={cat.label} className="space-y-0.5">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">{cat.label}</p>
+            {cat.keys.map(key => {
+              const p = KIND_PRESETS[key]; if (!p) return null;
+              const Icon = p.icon;
+              return (
+                <Button key={key} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
+                  onClick={() => addNode(key)}>
+                  <div className="p-0.5 rounded" style={{ background: `${p.color}30`, color: p.color }}>
+                    <Icon className="h-3 w-3" />
+                  </div>
+                  <span className="truncate">{p.label}</span>
+                </Button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* Bulk selection toolbar */}
@@ -617,6 +777,31 @@ function InnerMap({ projects }: { projects: any[] }) {
                     {flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Chip / Canal WhatsApp</Label>
+                <Select value={selected.linked_wa_provider_id || "none"}
+                  onValueChange={(v) => setSelected({ ...selected, linked_wa_provider_id: v === "none" ? null : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {waProviders.map(w => {
+                      const proj = projects.find(p => p.id === w.project_id);
+                      const label = `${w.display_name || w.instance_name || w.provider}${proj ? ` · ${proj.name}` : ""}`;
+                      return <SelectItem key={w.id} value={w.id}>{label}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+                {selected.linked_wa_provider_id && (() => {
+                  const w = waProviders.find(p => p.id === selected.linked_wa_provider_id);
+                  if (!w) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {w.twilio_from || w.phone_number_id || "sem telefone"} · {waConvCounts[w.project_id] ?? 0} conversas
+                    </p>
+                  );
+                })()}
               </div>
 
               <div>
