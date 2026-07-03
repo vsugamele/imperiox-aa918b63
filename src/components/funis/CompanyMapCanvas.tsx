@@ -196,7 +196,9 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
+  const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
   const { setCenter } = useReactFlow();
+
 
   // load maps list
   useEffect(() => {
