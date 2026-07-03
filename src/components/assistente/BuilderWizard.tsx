@@ -55,7 +55,7 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
         const prod = produto ? produtos.find(p => p.nome === produto || p.slug === produto) : produtos[0];
 
         const parts: string[] = [];
-        parts.push(`Projeto: ${proj.nome || ""}`);
+        parts.push(`Projeto: ${(proj as any).name || ""}`);
         if (prod?.nome) parts.push(`Produto: ${prod.nome}${prod.preco_por || prod.preco ? ` (R$ ${prod.preco_por || prod.preco})` : ""}`);
         if (prod?.promessa || prod?.descricao) parts.push(`Promessa: ${prod.promessa || prod.descricao}`);
         if (avatar) {
