@@ -298,7 +298,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       return {
         id: n.id, type: "mapnode",
         position: n.position || { x: 0, y: 0 },
-        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, waInfo },
+        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
       };
     }));
     setEdges((eds || []).map((e: any) => ({
