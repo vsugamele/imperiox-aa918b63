@@ -18364,6 +18364,7 @@ export type Database = {
           linked_flow_id: string | null
           linked_funnel_id: string | null
           linked_project_id: string | null
+          linked_wa_provider_id: string | null
           map_id: string
           notes: string | null
           position: Json
@@ -18382,6 +18383,7 @@ export type Database = {
           linked_flow_id?: string | null
           linked_funnel_id?: string | null
           linked_project_id?: string | null
+          linked_wa_provider_id?: string | null
           map_id: string
           notes?: string | null
           position?: Json
@@ -18400,6 +18402,7 @@ export type Database = {
           linked_flow_id?: string | null
           linked_funnel_id?: string | null
           linked_project_id?: string | null
+          linked_wa_provider_id?: string | null
           map_id?: string
           notes?: string | null
           position?: Json
@@ -18408,6 +18411,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_nodes_linked_wa_provider_id_fkey"
+            columns: ["linked_wa_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_company_map_nodes_map_id_fkey"
             columns: ["map_id"]

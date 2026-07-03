@@ -17,20 +17,39 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
-  vertical:   { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
-  area:       { label: "Área / Time",         color: "#3b82f6", icon: Users },
-  oferta:     { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
-  canal:      { label: "Canal",               color: "#f59e0b", icon: Megaphone },
-  processo:   { label: "Processo",            color: "#8b5cf6", icon: Wrench },
-  meta:       { label: "Meta / KPI",          color: "#ef4444", icon: Target },
-  doc:        { label: "Documento",           color: "#64748b", icon: FileText },
+  vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
+  area:          { label: "Área / Time",         color: "#3b82f6", icon: Users },
+  oferta:        { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
+  processo:      { label: "Processo",            color: "#8b5cf6", icon: Wrench },
+  meta:          { label: "Meta / KPI",          color: "#ef4444", icon: Target },
+  doc:           { label: "Documento",           color: "#64748b", icon: FileText },
+  // Produtos digitais
+  area_membros:  { label: "Área de Membros",     color: "#a855f7", icon: GraduationCap },
+  app:           { label: "APP / Produto",       color: "#0ea5e9", icon: Smartphone },
+  // Canais
+  canal:         { label: "Canal (genérico)",    color: "#f59e0b", icon: Megaphone },
+  whatsapp:      { label: "WhatsApp",            color: "#25d366", icon: MessageCircle },
+  // Redes sociais
+  instagram:     { label: "Instagram",           color: "#e1306c", icon: Instagram },
+  facebook:      { label: "Facebook",            color: "#1877f2", icon: Facebook },
+  youtube:       { label: "YouTube",             color: "#ff0000", icon: Youtube },
+  tiktok:        { label: "TikTok",              color: "#000000", icon: Music2 },
+  linkedin:      { label: "LinkedIn",            color: "#0a66c2", icon: Linkedin },
+  twitter:       { label: "X / Twitter",         color: "#1da1f2", icon: Twitter },
 };
+
+const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
+  { label: "Estrutura",         keys: ["vertical", "area", "processo", "meta", "doc"] },
+  { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
+  { label: "Canais",            keys: ["whatsapp", "canal"] },
+  { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
+];
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
