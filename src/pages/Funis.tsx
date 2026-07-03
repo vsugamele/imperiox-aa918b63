@@ -387,6 +387,15 @@ export default function Funis() {
 
   useEffect(() => { load(); }, []);
 
+  // Sync viewMode from URL query param (e.g. /funis?view=mapa)
+  useEffect(() => {
+    const view = searchParams.get("view");
+    if (view === "hub" || view === "funis" || view === "ecossistema" || view === "mapa" || view === "jornada") {
+      setViewMode(view);
+    }
+  }, [searchParams]);
+
+
 
   // Load project products when a funnel with project_id is selected
   useEffect(() => {
