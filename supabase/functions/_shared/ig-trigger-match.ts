@@ -35,6 +35,30 @@ async function respectsCooldown(supa: Supa, triggerId: string, authorKey: string
   return !data || data.length === 0;
 }
 
+// Cooldown cross-trigger por lead (autor): evita spam quando o mesmo user
+// dispara múltiplos gatilhos do mesmo projeto em curto período.
+// Default: 6h. Retorna false se já recebeu qualquer execução "sent" nesse período.
+const CROSS_COOLDOWN_HOURS = 6;
+async function respectsCrossCooldown(supa: Supa, projectId: string, authorKey: string | null, currentTriggerId: string): Promise<boolean> {
+  if (!authorKey || !projectId) return true;
+  const since = new Date(Date.now() - CROSS_COOLDOWN_HOURS * 3600 * 1000).toISOString();
+  try {
+    const { data } = await supa
+      .from("imphq_ig_trigger_executions")
+      .select("id, trigger_id")
+      .eq("author_key", authorKey)
+      .in("status", ["sent", "retrying"])
+      .gte("created_at", since)
+      .limit(5);
+    if (!data || data.length === 0) return true;
+    // permite se todas execuções recentes forem do MESMO gatilho (já filtrado pelo cooldown normal)
+    const others = data.filter((r: any) => r.trigger_id !== currentTriggerId);
+    return others.length === 0;
+  } catch {
+    return true; // falha segura: não bloqueia
+  }
+}
+
 async function underDailyCap(supa: Supa, triggerId: string, dailyCap: number | null): Promise<boolean> {
   if (!dailyCap) return true;
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
