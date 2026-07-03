@@ -235,6 +235,29 @@ function InnerMap({ projects }: { projects: any[] }) {
     await supabase.from("imphq_company_map_nodes").update({ checklist: nextChecklist as any }).eq("id", nodeId);
   }, []);
 
+  // single-node quick actions (declared before loadMap to be injected in data)
+  const duplicateNode = useCallback(async (nodeId: string) => {
+    const src = await supabase.from("imphq_company_map_nodes").select("*").eq("id", nodeId).single();
+    const n: any = src.data;
+    if (!n) return;
+    const { map_id, kind, color, label, description, notes, checklist, position, show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id } = n;
+    await supabase.from("imphq_company_map_nodes").insert({
+      map_id, kind, color, label: `${label} (cópia)`, description, notes,
+      checklist: (checklist || []) as any,
+      position: { x: (position?.x || 0) + 40, y: (position?.y || 0) + 40 },
+      show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id,
+    });
+    if (n.map_id) await loadMapRef.current?.(n.map_id);
+    toast.success("Duplicado");
+  }, []);
+
+  const deleteNodeById = useCallback(async (nodeId: string) => {
+    if (!confirm("Excluir este nó?")) return;
+    const cur = rawNodes.find(r => r.id === nodeId);
+    await supabase.from("imphq_company_map_nodes").delete().eq("id", nodeId);
+    if (cur?.map_id) await loadMapRef.current?.(cur.map_id);
+  }, [rawNodes]);
+
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
     const [{ data: nds }, { data: eds }] = await Promise.all([
@@ -243,18 +266,30 @@ function InnerMap({ projects }: { projects: any[] }) {
     ]);
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
-    setNodes(list.map(n => ({
-      id: n.id, type: "mapnode",
-      position: n.position || { x: 0, y: 0 },
-      data: { ...n, onToggleItem: toggleChecklistItem },
-    })));
+    setNodes(list.map(n => {
+      const wa = n.linked_wa_provider_id ? waProviders.find(p => p.id === n.linked_wa_provider_id) : null;
+      const waInfo = wa ? {
+        phone: wa.twilio_from || wa.phone_number_id || null,
+        instance: wa.instance_name || wa.display_name || null,
+        provider: wa.provider,
+        conversations: waConvCounts[wa.project_id],
+      } : null;
+      return {
+        id: n.id, type: "mapnode",
+        position: n.position || { x: 0, y: 0 },
+        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, waInfo },
+      };
+    }));
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, [toggleChecklistItem]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, waProviders, waConvCounts]);
+
+  const loadMapRef = { current: null as null | ((id: string) => Promise<void>) };
+  loadMapRef.current = loadMap;
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
