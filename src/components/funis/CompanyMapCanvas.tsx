@@ -270,6 +270,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (cur?.map_id) await loadMapRef.current?.(cur.map_id);
   }, [rawNodes]);
 
+  const openCopyDialog = useCallback((nodeId: string) => {
+    const n = rawNodes.find(r => r.id === nodeId);
+    if (!n) return;
+    const pid = n.linked_project_id || projects[0]?.id;
+    if (!pid) { toast.error("Vincule um projeto ao nó (ou crie um projeto) para gerar copy contextual."); return; }
+    setCopyDialog({ nodeId, label: n.label, kind: n.kind, projectId: pid });
+  }, [rawNodes, projects]);
+
+
   // load nodes/edges
   const loadMap = useCallback(async (id: string) => {
     const [{ data: nds }, { data: eds }] = await Promise.all([
