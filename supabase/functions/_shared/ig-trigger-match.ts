@@ -35,6 +35,30 @@ async function respectsCooldown(supa: Supa, triggerId: string, authorKey: string
   return !data || data.length === 0;
 }
 
+// Cooldown cross-trigger por lead (autor): evita spam quando o mesmo user
+// dispara múltiplos gatilhos do mesmo projeto em curto período.
+// Default: 6h. Retorna false se já recebeu qualquer execução "sent" nesse período.
+const CROSS_COOLDOWN_HOURS = 6;
+async function respectsCrossCooldown(supa: Supa, projectId: string, authorKey: string | null, currentTriggerId: string): Promise<boolean> {
+  if (!authorKey || !projectId) return true;
+  const since = new Date(Date.now() - CROSS_COOLDOWN_HOURS * 3600 * 1000).toISOString();
+  try {
+    const { data } = await supa
+      .from("imphq_ig_trigger_executions")
+      .select("id, trigger_id")
+      .eq("author_key", authorKey)
+      .in("status", ["sent", "retrying"])
+      .gte("created_at", since)
+      .limit(5);
+    if (!data || data.length === 0) return true;
+    // permite se todas execuções recentes forem do MESMO gatilho (já filtrado pelo cooldown normal)
+    const others = data.filter((r: any) => r.trigger_id !== currentTriggerId);
+    return others.length === 0;
+  } catch {
+    return true; // falha segura: não bloqueia
+  }
+}
+
 async function underDailyCap(supa: Supa, triggerId: string, dailyCap: number | null): Promise<boolean> {
   if (!dailyCap) return true;
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
@@ -135,6 +159,10 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
     if (!matchesFilters(t, commentText)) continue;
     if (!(await respectsCooldown(supa, t.id, authorKey, t.cooldown_hours || 0))) {
       console.log(`[ig-trigger] cooldown ativo trigger=${t.id} author=${authorKey}`);
+      continue;
+    }
+    if (!(await respectsCrossCooldown(supa, projectId, authorKey, t.id))) {
+      console.log(`[ig-trigger] cross-cooldown ativo (${CROSS_COOLDOWN_HOURS}h) project=${projectId} author=${authorKey}`);
       continue;
     }
     if (!(await underDailyCap(supa, t.id, t.daily_cap || null))) {
@@ -247,6 +275,7 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
     if (!kwMatch) continue;
     if (!matchesFilters(t, content || "")) continue;
     if (!(await respectsCooldown(supa, t.id, authorKey, t.cooldown_hours || 0))) continue;
+    if (!(await respectsCrossCooldown(supa, projectId, authorKey, t.id))) { console.log(`[ig-trigger] cross-cooldown DM project=${projectId} author=${authorKey}`); continue; }
     if (!(await underDailyCap(supa, t.id, t.daily_cap || null))) continue;
 
     if (dedupKey) {

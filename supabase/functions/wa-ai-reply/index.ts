@@ -478,6 +478,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // === HANDOFF HUMANO — detecta sinais de fricção e pausa IA ===
+    // Patterns: pedido explícito de humano, raiva, ameaça, insulto, "quero cancelar", "quero reclamar"
+    const HANDOFF_PATTERNS: { rx: RegExp; reason: string }[] = [
+      { rx: /\b(falar|atendimento) com (humano|pessoa|gente|atendente|algu[eé]m real|dono|respons[aá]vel)\b/i, reason: "pediu humano" },
+      { rx: /\b(voc[eê]|isso|isto) [eé] (um )?(rob[oô]|bot|ia|intelig[eê]ncia)\b/i, reason: "identificou bot" },
+      { rx: /\b(quero (cancelar|reclamar|reembolso|meu dinheiro)|estou (com )?raiva|indignad[oa]|revoltad[oa])\b/i, reason: "reclamação/raiva" },
+      { rx: /\b(golpe|enganad[oa]|fraude|processo|advogado|procon|reclame ?aqui)\b/i, reason: "risco jurídico" },
+      { rx: /\b(fdp|merda|porra|caralho|filha? da puta|otari[oa]|idiota|imbecil)\b/i, reason: "linguagem hostil" },
+      { rx: /\b(para|pare|chega) de (mandar|me mandar|responder|enviar)\b/i, reason: "pediu parar" },
+    ];
+    if (!isTestMode && message && typeof message === "string") {
+      const hit = HANDOFF_PATTERNS.find(p => p.rx.test(message));
+      if (hit) {
+        console.log(`[wa-ai-reply] HANDOFF detectado: ${hit.reason} — pausando IA e marcando needs_human`);
+        try {
+          await supabase.from("imphq_wa_conversations").update({
+            status: "needs_human",
+            ai_paused_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+          }).eq("id", conversation_id);
+          await supabase.from("imphq_notifications").insert({
+            projeto_id: project_id || null,
+            tipo: "handoff_humano",
+            titulo: `🔥 Precisa humano: ${hit.reason}`,
+            mensagem: `Conversa ${conv?.contact_name || conv?.phone || conversation_id}: "${String(message).slice(0, 180)}"`,
+            payload: { conversation_id, reason: hit.reason, snippet: String(message).slice(0, 300) },
+            lida: false,
+          });
+        } catch (e: any) {
+          console.warn(`[wa-ai-reply] handoff persist error: ${e?.message}`);
+        }
+        return new Response(JSON.stringify({ skipped: "handoff_humano", reason: hit.reason }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Verifica pausa manual (humano respondeu recentemente) — com auto-resume se lead voltou com pergunta nova
     if (conv?.ai_paused_until && !isTestMode) {
       const pausedUntil = new Date(conv.ai_paused_until);
@@ -1287,6 +1323,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       };
 
       // Build explicit product→link mapping block to prevent link hallucination
+      // Enriquecido com público-alvo/descrição/prioridade para permitir recomendação inteligente
       let productLinkMapBlock = "";
       if (d && Array.isArray(d.produtos) && d.produtos.length > 0) {
         const entries = d.produtos
@@ -1294,13 +1331,19 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
             const link = p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === 'string' ? p.links : null);
             if (!link || !p.nome) return null;
             const price = p.preco ? ` · R$ ${p.preco}` : "";
-            return `  - "${p.nome}"${price} → ${link}`;
+            const publico = p.publico_alvo || p.target || p.para_quem || "";
+            const nivel = p.nivel || p.level || "";
+            const desc = (p.descricao_curta || p.descricao || "").toString().slice(0, 120);
+            const tag = p.tipo === "orderbump" ? " [orderbump]" : p.tipo === "downsell" ? " [downsell/entrada]" : p.tipo === "upsell" ? " [upsell]" : (p.principal || p.tipo === "principal") ? " [principal]" : "";
+            const extras = [publico && `pra: ${publico}`, nivel && `nível: ${nivel}`, desc].filter(Boolean).join(" · ");
+            return `  - "${p.nome}"${price}${tag} → ${link}${extras ? `\n      ${extras}` : ""}`;
           })
           .filter(Boolean);
         if (entries.length > 0) {
-          productLinkMapBlock = `\nMAPEAMENTO PRODUTO → LINK (use EXATAMENTE estes links, nunca invente):\n${entries.join("\n")}\n`;
+          productLinkMapBlock = `\nCATÁLOGO DE PRODUTOS (use EXATAMENTE estes links, nunca invente):\n${entries.join("\n")}\n\nREGRA DE RECOMENDAÇÃO:\n- Antes de sugerir/enviar link, compare o momento do lead (nível/objetivo/orçamento se souber) com o público-alvo de cada produto.\n- Se o principal for MUITO acima do momento dele (ex: iniciante vs avançado, orçamento apertado vs ticket alto), ofereça primeiro o produto de entrada/downsell com racional curto ("pra você começar leve") e só suba se ele quiser mais.\n- Nunca liste 4 produtos de uma vez — recomende 1 (ou no máx 2 comparando) com motivo concreto.\n\nREGRA DE ENVIO DE LINK:\n- Se o lead JÁ PEDIU link/preço/checkout/"quero comprar" → envie direto.\n- Caso contrário, ANTES de mandar o link, pergunte em 1 linha se ele quer que você mande ("Posso te enviar o link agora?" ou "Quer que eu já te mando o checkout?"). Só dispare o link depois do "sim/pode/manda/quero".\n`;
         }
       }
+
 
       // Fallback checkout link from project data
       let fallbackLink = null;
