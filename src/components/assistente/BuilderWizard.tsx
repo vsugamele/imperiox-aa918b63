@@ -45,8 +45,9 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
     (async () => {
       setAutoLoading(true);
       try {
-        const { data: proj } = await supabase.from("imphq_projects").select("nome,data").eq("id", projectId).maybeSingle();
+        const { data: proj } = await supabase.from("imphq_projects").select("name,data").eq("id", projectId).maybeSingle();
         if (!proj) return;
+
         const d: any = (proj as any).data || {};
         const avatar = d.avatar || d.avatars_por_produto || null;
         const branding = d.branding || d.brand || null;
