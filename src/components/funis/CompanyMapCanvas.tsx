@@ -247,53 +247,70 @@ function InnerMap({ projects }: { projects: any[] }) {
     await supabase.from("imphq_company_map_nodes").update({ checklist: nextChecklist as any }).eq("id", nodeId);
   }, []);
 
-  // single-node quick actions (declared before loadMap to be injected in data)
+  // Refs to break the loadMap → data → callback recreation loop
+  const rawNodesRef = useRef<MapNode[]>([]);
+  const projectsRef = useRef<any[]>(projects);
+  const waProvidersRef = useRef<WaProvider[]>([]);
+  const waConvCountsRef = useRef<Record<string, number>>({});
+  useEffect(() => { rawNodesRef.current = rawNodes; }, [rawNodes]);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
+  useEffect(() => { waProvidersRef.current = waProviders; }, [waProviders]);
+  useEffect(() => { waConvCountsRef.current = waConvCounts; }, [waConvCounts]);
+
+  const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
+
+  // single-node quick actions (stable — read from refs)
   const duplicateNode = useCallback(async (nodeId: string) => {
-    const src = await supabase.from("imphq_company_map_nodes").select("*").eq("id", nodeId).single();
+    const src = await supabase.from("imphq_company_map_nodes").select("*").eq("id", nodeId).maybeSingle();
     const n: any = src.data;
-    if (!n) return;
+    if (!n) { toast.error("Nó não encontrado"); return; }
     const { map_id, kind, color, label, description, notes, checklist, position, show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id } = n;
-    await supabase.from("imphq_company_map_nodes").insert({
+    const { error } = await supabase.from("imphq_company_map_nodes").insert({
       map_id, kind, color, label: `${label} (cópia)`, description, notes,
       checklist: (checklist || []) as any,
       position: { x: (position?.x || 0) + 40, y: (position?.y || 0) + 40 },
       show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id,
     });
+    if (error) { toast.error("Erro ao duplicar"); return; }
     if (n.map_id) await loadMapRef.current?.(n.map_id);
     toast.success("Duplicado");
   }, []);
 
   const deleteNodeById = useCallback(async (nodeId: string) => {
     if (!confirm("Excluir este nó?")) return;
-    const cur = rawNodes.find(r => r.id === nodeId);
-    await supabase.from("imphq_company_map_nodes").delete().eq("id", nodeId);
+    const cur = rawNodesRef.current.find(r => r.id === nodeId);
+    const { error } = await supabase.from("imphq_company_map_nodes").delete().eq("id", nodeId);
+    if (error) { toast.error("Erro ao excluir"); return; }
     if (cur?.map_id) await loadMapRef.current?.(cur.map_id);
-  }, [rawNodes]);
+  }, []);
 
   const openCopyDialog = useCallback((nodeId: string) => {
-    const n = rawNodes.find(r => r.id === nodeId);
+    const n = rawNodesRef.current.find(r => r.id === nodeId);
     if (!n) return;
-    const pid = n.linked_project_id || projects[0]?.id;
+    const pid = n.linked_project_id || projectsRef.current[0]?.id;
     if (!pid) { toast.error("Vincule um projeto ao nó (ou crie um projeto) para gerar copy contextual."); return; }
     setCopyDialog({ nodeId, label: n.label, kind: n.kind, projectId: pid });
-  }, [rawNodes, projects]);
+  }, []);
 
 
-  // load nodes/edges
+  // load nodes/edges — stable (deps são refs), sem loop de recarga
   const loadMap = useCallback(async (id: string) => {
-    const [{ data: nds }, { data: eds }] = await Promise.all([
+    const [{ data: nds, error: nErr }, { data: eds, error: eErr }] = await Promise.all([
       supabase.from("imphq_company_map_nodes").select("*").eq("map_id", id),
       supabase.from("imphq_company_map_edges").select("*").eq("map_id", id),
     ]);
+    if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
+    const providers = waProvidersRef.current;
+    const counts = waConvCountsRef.current;
     setNodes(list.map(n => {
-      const wa = n.linked_wa_provider_id ? waProviders.find(p => p.id === n.linked_wa_provider_id) : null;
+      const wa = n.linked_wa_provider_id ? providers.find(p => p.id === n.linked_wa_provider_id) : null;
       const waInfo = wa ? {
         phone: wa.twilio_from || wa.phone_number_id || null,
         instance: wa.instance_name || wa.display_name || null,
         provider: wa.provider,
-        conversations: waConvCounts[wa.project_id],
+        conversations: counts[wa.project_id],
       } : null;
       return {
         id: n.id, type: "mapnode",
@@ -307,10 +324,26 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, waProviders, waConvCounts]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog]);
 
-  const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
   loadMapRef.current = loadMap;
+
+  // Re-inject waInfo quando providers/contagens chegam depois do carregamento inicial
+  useEffect(() => {
+    setNodes(nds => nds.map(n => {
+      const pid = (n.data as any)?.linked_wa_provider_id;
+      if (!pid) return n;
+      const wa = waProviders.find(p => p.id === pid);
+      if (!wa) return n;
+      const waInfo = {
+        phone: wa.twilio_from || wa.phone_number_id || null,
+        instance: wa.instance_name || wa.display_name || null,
+        provider: wa.provider,
+        conversations: waConvCounts[wa.project_id],
+      };
+      return { ...n, data: { ...n.data, waInfo } };
+    }));
+  }, [waProviders, waConvCounts]);
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
