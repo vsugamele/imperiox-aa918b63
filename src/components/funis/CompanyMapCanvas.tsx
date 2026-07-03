@@ -203,7 +203,25 @@ function InnerMap({ projects }: { projects: any[] }) {
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
+    supabase.from("imphq_wa_providers").select("id,project_id,provider,display_name,instance_name,phone_number_id,twilio_from,is_active")
+      .then(({ data }) => setWaProviders((data || []) as WaProvider[]));
   }, []);
+
+  // conversation counts per provider (best-effort — grouped by project)
+  useEffect(() => {
+    (async () => {
+      const projectIds = Array.from(new Set(waProviders.map(p => p.project_id).filter(Boolean)));
+      if (projectIds.length === 0) return;
+      const counts: Record<string, number> = {};
+      await Promise.all(projectIds.map(async (pid) => {
+        const { count } = await supabase.from("imphq_wa_conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", pid);
+        counts[pid] = count || 0;
+      }));
+      setWaConvCounts(counts);
+    })();
+  }, [waProviders]);
 
   // Toggle single checklist item directly on the canvas (stable ref via setState updater)
   const toggleChecklistItem = useCallback(async (nodeId: string, itemId: string, done: boolean) => {
