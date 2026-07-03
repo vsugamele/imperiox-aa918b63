@@ -307,7 +307,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: e.label || undefined,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
     })));
-  }, [toggleChecklistItem, duplicateNode, deleteNodeById, waProviders, waConvCounts]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, waProviders, waConvCounts]);
 
   const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
   loadMapRef.current = loadMap;
