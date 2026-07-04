@@ -292,7 +292,7 @@ CONTEXTO ATUAL:
               finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
             }
           } else {
-            finalText = "Não consegui interpretar o pedido. Reformula? Ex: 'últimas mensagens no WhatsApp', 'vendas de hoje', 'leads travados'.";
+            finalText = "Preciso de mais detalhe pra investigar. Ex: 'leads com tag X em julho no projeto JP', 'quem preencheu formulário Y esse mês', 'leads sem venda últimos 15 dias'. Também posso buscar por plataforma, status ou evento.";
           }
           try {
             controller.enqueue(
