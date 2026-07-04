@@ -199,14 +199,21 @@ function MapNodeCard({ data }: { data: any }) {
           </div>
         </div>
       )}
-      {data.show_live_kpis && data.liveStats && (
-        <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
-          <span className="text-emerald-400 font-medium">
-            R$ {(data.liveStats.revenue30d || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
-          </span>
-          <span className="text-muted-foreground">{data.liveStats.leadsAbertos || 0} leads</span>
-        </div>
-      )}
+      {(() => {
+        const kpi = pickKpiForKind(data.kind, data.liveStats);
+        if (!kpi) return null;
+        const toneClass = kpi.tone === "good" ? "text-emerald-400" : kpi.tone === "warn" ? "text-amber-400" : kpi.tone === "bad" ? "text-red-400" : "text-muted-foreground";
+        const dotClass = kpi.tone === "good" ? "bg-emerald-400" : kpi.tone === "warn" ? "bg-amber-400" : kpi.tone === "bad" ? "bg-red-400" : "bg-muted-foreground";
+        return (
+          <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
+            <span className={`${toneClass} font-medium flex items-center gap-1`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotClass}`} />
+              {kpi.primary}
+            </span>
+            <span className="text-muted-foreground">{kpi.secondary}</span>
+          </div>
+        );
+      })()}
       <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
     </div>
   );
