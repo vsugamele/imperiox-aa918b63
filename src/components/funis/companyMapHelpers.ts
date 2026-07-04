@@ -122,13 +122,23 @@ export async function autopopulateFromProject(mapId: string, projectId: string) 
     }));
   };
 
-  // Produtos (do briefing)
+  // Produtos (do briefing) — mapeia tipo → kind estratégico
+  const tipoToKind = (t?: string): string => {
+    const s = (t || "").toLowerCase();
+    if (s.includes("upsell")) return "upsell";
+    if (s.includes("downsell")) return "downsell";
+    if (s.includes("orderbump") || s.includes("bump")) return "orderbump";
+    if (s.includes("vsl")) return "vsl";
+    return "oferta";
+  };
   await rowY(220, produtos.length ? produtos : [{ nome: "Produto principal" }], async (p, x) => {
+    const kind = tipoToKind(p.tipo);
+    const preset = (KIND_COLORS as any)[kind] || KIND_COLORS.oferta;
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
-      map_id: mapId, kind: "oferta", color: KIND_COLORS.oferta,
+      map_id: mapId, kind, color: preset,
       label: p.nome || p.name || "Produto",
       description: p.tipo || p.descricao || null,
-      linked_project_id: proj.id, show_live_kpis: true,
+      linked_project_id: proj.id, show_live_kpis: kind === "oferta",
       position: { x, y: 220 },
     }).select("id").single();
     return data?.id || null;
