@@ -18300,6 +18300,59 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_company_map_annotations: {
+        Row: {
+          created_at: string
+          height: number
+          id: string
+          kind: string
+          map_id: string
+          style: Json
+          text: string | null
+          updated_at: string
+          width: number
+          x: number
+          y: number
+          z_index: number
+        }
+        Insert: {
+          created_at?: string
+          height?: number
+          id?: string
+          kind: string
+          map_id: string
+          style?: Json
+          text?: string | null
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Update: {
+          created_at?: string
+          height?: number
+          id?: string
+          kind?: string
+          map_id?: string
+          style?: Json
+          text?: string | null
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_annotations_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_company_map_edges: {
         Row: {
           created_at: string
