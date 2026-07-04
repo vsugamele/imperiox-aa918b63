@@ -384,11 +384,104 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
+  // ---------- Annotations helpers ----------
+  const updateAnnotationText = useCallback(async (id: string, text: string) => {
+    const annId = id.startsWith(ANN_PREFIX) ? id.slice(ANN_PREFIX.length) : id;
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, text } : a));
+    setEditingAnnotationId(null);
+    await supabase.from(annTable).update({ text }).eq("id", annId);
+  }, []);
+
+  // Merge annotations into React Flow nodes whenever they (or edit state) change.
+  useEffect(() => {
+    setNodes(nds => {
+      const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
+      const annNodes: Node[] = annotations.map(a => ({
+        id: `${ANN_PREFIX}${a.id}`,
+        type: ANNOTATION_KIND_TO_TYPE[a.kind],
+        position: { x: a.x, y: a.y },
+        width: a.width,
+        height: a.height,
+        style: { width: a.width, height: a.height },
+        zIndex: a.z_index ?? 0,
+        draggable: true,
+        selectable: true,
+        data: {
+          kind: a.kind,
+          text: a.text || "",
+          style: a.style || {},
+          editingId: editingAnnotationId,
+          onTextChange: updateAnnotationText,
+        } as AnnotationData,
+      }));
+      return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
+    });
+  }, [annotations, editingAnnotationId, updateAnnotationText]);
+
+  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number) => {
+    if (!mapId) return;
+    const def = ANNOTATION_DEFAULTS[kind];
+    const payload = {
+      map_id: mapId, kind,
+      x: x - def.w / 2, y: y - def.h / 2,
+      width: def.w, height: def.h,
+      text: def.text, style: def.style as any, z_index: 0,
+    };
+    const { data, error } = await (supabase.from(annTable) as any).insert(payload).select().single();
+    if (error) { toast.error("Erro ao adicionar anotação"); return; }
+    setAnnotations(list => [...list, data as MapAnnotation]);
+    if ((kind === "note" || kind === "label" || kind === "frame")) setEditingAnnotationId(`${ANN_PREFIX}${data.id}`);
+  }, [mapId]);
+
+  const deleteAnnotation = useCallback(async (annId: string) => {
+    setAnnotations(list => list.filter(a => a.id !== annId));
+    await supabase.from(annTable).delete().eq("id", annId);
+  }, []);
+
+  const duplicateAnnotation = useCallback(async (annId: string) => {
+    const src = annotations.find(a => a.id === annId);
+    if (!src || !mapId) return;
+    const { data, error } = await (supabase.from(annTable) as any).insert({
+      map_id: mapId, kind: src.kind, x: src.x + 30, y: src.y + 30,
+      width: src.width, height: src.height, text: src.text, style: src.style as any, z_index: src.z_index,
+    }).select().single();
+    if (error) { toast.error("Erro"); return; }
+    setAnnotations(list => [...list, data as MapAnnotation]);
+  }, [annotations, mapId]);
+
+  const changeAnnotationZ = useCallback(async (annId: string, dir: "up" | "down") => {
+    const src = annotations.find(a => a.id === annId); if (!src) return;
+    const next = (src.z_index || 0) + (dir === "up" ? 1 : -1);
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, z_index: next } : a));
+    await supabase.from(annTable).update({ z_index: next }).eq("id", annId);
+  }, [annotations]);
+
+  const changeArrowOrientation = useCallback(async (annId: string, orientation: "diag-down" | "diag-up" | "horizontal" | "vertical") => {
+    const src = annotations.find(a => a.id === annId); if (!src) return;
+    const nextStyle = { ...(src.style || {}), orientation };
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, style: nextStyle } : a));
+    await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
+  }, [annotations]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
     changes.forEach(async (c: any) => {
+      const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
+      const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
-        await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
+        if (isAnn) {
+          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, x: c.position.x, y: c.position.y } : a));
+          await supabase.from(annTable).update({ x: c.position.x, y: c.position.y }).eq("id", rawId);
+        } else {
+          await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
+        }
+      }
+      if (c.type === "dimensions" && isAnn && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
+        const { width, height } = c.dimensions;
+        if (width && height) {
+          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
+          await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+        }
       }
     });
   }, []);
