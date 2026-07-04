@@ -1867,6 +1867,26 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         }
       }
 
+      // JP FREITAS — REDE DE SEGURANÇA 2: se o lead JÁ TEM acesso ativo (bridge confirmou)
+      // e a IA ainda pediu comprovante / perguntou qual curso comprou / pediu email de novo,
+      // sobrescreve por resposta correta com magic link.
+      if (isJPProject(project_id) && jpHasAccount && jpEffectiveEmail && finalAiReply) {
+        try {
+          const badPatterns = /(comprovante|qual curso|qual dos dois|qual dos cursos|você comprou o|voce comprou o|me confirma.*compr|me passa.*email|qual email|passa.*e-?mail)/i;
+          if (badPatterns.test(finalAiReply)) {
+            const res = await jpIssueMagicLink(jpEffectiveEmail);
+            const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
+            if (link) {
+              finalAiReply = `Vi seu cadastro aqui e você já tem acesso ativo. Segue o link direto pra entrar sem senha: ${link}`;
+              jpLogEvent(jpEffectiveEmail, "wpp_override_pergunta_indevida", { source: "wa-ai-reply", original_snippet: finalAiReply.slice(0, 120) }).catch(() => {});
+              console.log(`[wa-ai-reply] JP_FREITAS override pergunta indevida para ${jpEffectiveEmail}`);
+            }
+          }
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] JP_FREITAS override error: ${e?.message}`);
+        }
+      }
+
       // Prefixo "Bom dia" quando flush invoca esta função (lead mandou fora do horário)
       if (body.from_flush === true && finalAiReply) {
         const prefix = (aiConfig.back_to_hours_prefix || "Bom dia! Voltamos ao atendimento 👋\n\n").trim();
