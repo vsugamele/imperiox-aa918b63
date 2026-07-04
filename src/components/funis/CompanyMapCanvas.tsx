@@ -174,7 +174,15 @@ function MapNodeCard({ data }: { data: any }) {
   );
 }
 
-const nodeTypes = { mapnode: MapNodeCard };
+const nodeTypes = { mapnode: MapNodeCard, ...annotationNodeTypes };
+
+interface MapAnnotation {
+  id: string; map_id: string; kind: AnnotationKind;
+  x: number; y: number; width: number; height: number;
+  text: string; style: AnnotationData["style"]; z_index: number;
+}
+const ANN_PREFIX = "ann-";
+const annTable = "imphq_company_map_annotations" as any;
 
 interface WaProvider {
   id: string; project_id: string; provider: string;
