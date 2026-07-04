@@ -9,6 +9,8 @@ import {
   jpBuildContextBlock,
   jpBuildInstructionsBlock,
   jpProcessTags,
+  jpIssueMagicLink,
+  jpLogEvent,
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
@@ -1828,6 +1830,30 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           finalAiReply = await jpProcessTags(finalAiReply, jpEffectiveEmail);
         } catch (e: any) {
           console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
+        }
+      }
+
+      // JP FREITAS — REDE DE SEGURANÇA: se sabemos o email e o lead pediu acesso mas
+      // a IA mandou o domínio cru (sem magic link real), gera o link e substitui.
+      if (isJPProject(project_id) && jpEffectiveEmail && finalAiReply) {
+        try {
+          const userMsg = String(message || "").toLowerCase();
+          const accessIntent = /(acesso|acessar|entrar|logar|login|senha|plataforma|área de membros|area de membros|curso|aula|não consigo|nao consigo)/i.test(userMsg);
+          const hasRawDomain = /https?:\/\/(www\.)?jphaireducation\.com\.br\/?(\s|$|[^\/\w])/i.test(finalAiReply);
+          const hasMagicLink = /jphaireducation\.com\.br\/[^\s]+/i.test(finalAiReply) && !/jphaireducation\.com\.br\/?(\s|$)/i.test(finalAiReply.replace(/jphaireducation\.com\.br\/[a-z0-9\-_?=&%\.]+/gi, "MAGIC"));
+          if (accessIntent && hasRawDomain && !hasMagicLink) {
+            const res = await jpIssueMagicLink(jpEffectiveEmail);
+            const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
+            if (link) {
+              finalAiReply = finalAiReply.replace(/https?:\/\/(www\.)?jphaireducation\.com\.br\/?/gi, link);
+              jpLogEvent(jpEffectiveEmail, "wpp_auto_magic_link_fallback", { source: "wa-ai-reply" }).catch(() => {});
+              console.log(`[wa-ai-reply] JP_FREITAS fallback magic_link injetado para ${jpEffectiveEmail}`);
+            } else {
+              console.warn(`[wa-ai-reply] JP_FREITAS fallback magic_link falhou para ${jpEffectiveEmail}`);
+            }
+          }
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] JP_FREITAS fallback error: ${e?.message}`);
         }
       }
 
