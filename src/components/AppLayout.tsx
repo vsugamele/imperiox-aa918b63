@@ -131,14 +131,14 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="relative h-14 flex items-center px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-3">
-            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors" />
-            <div className="h-5 w-px bg-border/60" />
+          <header className="relative h-14 flex items-center px-3 md:px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors h-10 w-10 md:h-8 md:w-8" />
+            <div className="hidden md:block h-5 w-px bg-border/60" />
             <EditorialBreadcrumb />
-            <div className="flex-1 flex justify-center px-4 max-w-2xl mx-auto">
+            <div className="hidden md:flex flex-1 justify-center px-4 max-w-2xl mx-auto">
               <GlobalSearch />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 md:gap-2">
               <CmdKHint />
               <CommandPalette />
               <ActionInbox />
@@ -149,7 +149,7 @@ export function AppLayout() {
 
             <div className="header-hairline" />
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
+          <main className="flex-1 overflow-auto p-3 md:p-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
             <Outlet />
           </main>
         </div>
