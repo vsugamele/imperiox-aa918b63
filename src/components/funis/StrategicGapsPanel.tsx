@@ -12,10 +12,14 @@ export interface GapRule {
 }
 
 export interface NodeLite {
+  id?: string;
   kind: string;
   label: string;
   description?: string | null;
 }
+
+export interface EdgeLite { source: string; target: string; }
+
 
 const impactStyle: Record<string, string> = {
   alto: "bg-red-500/10 text-red-400 border-red-500/30",
