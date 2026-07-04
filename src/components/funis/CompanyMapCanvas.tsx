@@ -792,26 +792,46 @@ function InnerMap({ projects }: { projects: any[] }) {
       </div>
 
       {/* Palette (grouped by category) */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-2 max-h-[calc(100vh-260px)] overflow-y-auto w-[210px]">
-        <p className="text-[9px] uppercase tracking-wider text-muted-foreground px-1">Adicionar nó</p>
-        {KIND_CATEGORIES.map(cat => (
-          <div key={cat.label} className="space-y-0.5">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">{cat.label}</p>
-            {cat.keys.map(key => {
-              const p = KIND_PRESETS[key]; if (!p) return null;
-              const Icon = p.icon;
-              return (
-                <Button key={key} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
-                  onClick={() => addNode(key)}>
-                  <div className="p-0.5 rounded" style={{ background: `${p.color}30`, color: p.color }}>
-                    <Icon className="h-3 w-3" />
-                  </div>
-                  <span className="truncate">{p.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        ))}
+      <div
+        className={cn(
+          "absolute top-3 right-3 z-10 flex flex-col bg-card/80 backdrop-blur border border-border/40 rounded-lg transition-all",
+          paletteCollapsed
+            ? "w-9 h-9 p-1 overflow-hidden items-center justify-center cursor-pointer"
+            : "p-2 gap-2 w-[210px] max-h-[calc(100vh-260px)] overflow-y-auto"
+        )}
+        onClick={() => paletteCollapsed && setPaletteCollapsed(false)}
+        title={paletteCollapsed ? "Adicionar nó" : undefined}
+      >
+        {!paletteCollapsed ? (
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground px-1">Adicionar nó</p>
+              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setPaletteCollapsed(true)}>
+                <ChevronsRight className="h-3 w-3" />
+              </Button>
+            </div>
+            {KIND_CATEGORIES.map(cat => (
+              <div key={cat.label} className="space-y-0.5">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">{cat.label}</p>
+                {cat.keys.map(key => {
+                  const p = KIND_PRESETS[key]; if (!p) return null;
+                  const Icon = p.icon;
+                  return (
+                    <Button key={key} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
+                      onClick={() => addNode(key)}>
+                      <div className="p-0.5 rounded" style={{ background: `${p.color}30`, color: p.color }}>
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <span className="truncate">{p.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            ))}
+          </>
+        ) : (
+          <Plus className="h-4 w-4 text-muted-foreground" />
+        )}
       </div>
 
       {/* Bulk selection toolbar */}
