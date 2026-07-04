@@ -279,18 +279,18 @@ export default function Projetos() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">Projetos</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">Projetos</h1>
+        <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" variant="default" onClick={() => setAutopilotOpen(true)} className="bg-primary/90 hover:bg-primary">
-            <Sparkles className="h-4 w-4 mr-1" /> Autopilot
+            <Sparkles className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Autopilot</span>
           </Button>
           <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)}>
-            <BookTemplate className="h-4 w-4 mr-1" /> Criar de Template
+            <BookTemplate className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Template</span>
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Novo Projeto</Button>
+              <Button size="sm"><Plus className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Novo Projeto</span><span className="sm:hidden">Novo</span></Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader><DialogTitle className="font-display">Novo Projeto</DialogTitle></DialogHeader>

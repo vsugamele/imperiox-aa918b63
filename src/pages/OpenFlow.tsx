@@ -300,9 +300,9 @@ export default function OpenFlow() {
 
         <TabsContent value="fluxos" className="space-y-6 pt-4">
           <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-1 md:flex-none">
               <Select value={filterProject} onValueChange={setFilterProject}>
-                <SelectTrigger className="w-[240px] h-9 bg-slate-900 border-white/5"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full md:w-[240px] h-9 bg-slate-900 border-white/5"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="__all__">Todos os Projetos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
