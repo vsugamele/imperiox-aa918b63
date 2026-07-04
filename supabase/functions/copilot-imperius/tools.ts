@@ -73,6 +73,29 @@ export const TOOL_SPECS = [
   {
     type: "function",
     function: {
+      name: "buscarLeads",
+      description: "Consulta INVESTIGATIVA de leads com filtros combináveis. Use SEMPRE que o usuário quiser listar/contar leads por período (mês, semana, entre datas), tag, formulário, plataforma, status ou evento (ex: 'preencheram formulário em julho', 'leads com tag X', 'quem respondeu pesquisa esse mês', 'leads sem venda últimos 15 dias'). Prefira esta tool antes de dizer 'não consegui interpretar'.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          desde: { type: "string", description: "ISO YYYY-MM-DD (início do período)" },
+          ate: { type: "string", description: "ISO YYYY-MM-DD (fim do período, inclusivo)" },
+          tag: { type: "string", description: "Tag exata em imphq_leads.tags" },
+          form_id: { type: "string", description: "ID/slug do formulário (form_id ou data->>form_id)" },
+          plataforma: { type: "string", description: "hotmart, meta, membros, manychat, etc." },
+          status: { type: "string", description: "novo, quente, cliente, perdido..." },
+          evento: { type: "string", description: "acao em imphq_lead_scores_log (pesquisa_respondida, membro_cadastrado, prova_enviada, aula_concluida, evento_custom...)" },
+          tem_venda: { type: "boolean", description: "true=só com venda aprovada; false=só sem venda" },
+          limite: { type: "number", description: "default 50, max 200" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "vendasResumo",
       description: "Resumo de vendas por período (default 30d). Receita, ticket médio, top produtos.",
       parameters: {
