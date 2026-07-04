@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
