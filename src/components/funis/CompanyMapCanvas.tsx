@@ -305,31 +305,38 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, []);
 
 
-  // load nodes/edges — stable (deps são refs), sem loop de recarga
+  // load nodes/edges/annotations — stable (deps são refs), sem loop de recarga
   const loadMap = useCallback(async (id: string) => {
-    const [{ data: nds, error: nErr }, { data: eds, error: eErr }] = await Promise.all([
+    const [{ data: nds, error: nErr }, { data: eds, error: eErr }, { data: anns }] = await Promise.all([
       supabase.from("imphq_company_map_nodes").select("*").eq("map_id", id),
       supabase.from("imphq_company_map_edges").select("*").eq("map_id", id),
+      supabase.from(annTable).select("*").eq("map_id", id) as any,
     ]);
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
+    setAnnotations(((anns || []) as any) as MapAnnotation[]);
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
-    setNodes(list.map(n => {
-      const wa = n.linked_wa_provider_id ? providers.find(p => p.id === n.linked_wa_provider_id) : null;
-      const waInfo = wa ? {
-        phone: wa.twilio_from || wa.phone_number_id || null,
-        instance: wa.instance_name || wa.display_name || null,
-        provider: wa.provider,
-        conversations: counts[wa.project_id],
-      } : null;
-      return {
-        id: n.id, type: "mapnode",
-        position: n.position || { x: 0, y: 0 },
-        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
-      };
-    }));
+    setNodes(nds2 => {
+      // preserve annotations already merged (they get re-merged by a dedicated effect)
+      const annNodes = nds2.filter(n => n.id.startsWith(ANN_PREFIX));
+      const baseNodes = list.map(n => {
+        const wa = n.linked_wa_provider_id ? providers.find(p => p.id === n.linked_wa_provider_id) : null;
+        const waInfo = wa ? {
+          phone: wa.twilio_from || wa.phone_number_id || null,
+          instance: wa.instance_name || wa.display_name || null,
+          provider: wa.provider,
+          conversations: counts[wa.project_id],
+        } : null;
+        return {
+          id: n.id, type: "mapnode",
+          position: n.position || { x: 0, y: 0 },
+          data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
+        } as Node;
+      });
+      return [...baseNodes, ...annNodes];
+    });
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
