@@ -1381,6 +1381,12 @@ export default function Leads() {
         <LeadImportDialog open={showImport} onOpenChange={setShowImport} projects={projects} defaultProjectId={projectFilter !== "all" && projectFilter !== "none" ? projectFilter : undefined} onComplete={load} />
         <LeadWhatsAppDialog open={showWaDialog} onOpenChange={setShowWaDialog} target={waTarget} waProviders={waProviders} waTemplates={waTemplates} projects={projects} />
         <LeadJourneyDrawer open={!!journeyLead} onClose={() => setJourneyLead(null)} lead={journeyLead} automations={automations} />
+        <Sheet open={webhookGuideOpen} onOpenChange={setWebhookGuideOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+            <SheetHeader><SheetTitle>Como enviar respostas de formulário</SheetTitle></SheetHeader>
+            <div className="mt-4"><MembrosWebhookGuide projectId={editLead?.project_id || undefined} /></div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
