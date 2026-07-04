@@ -12,10 +12,14 @@ export interface GapRule {
 }
 
 export interface NodeLite {
+  id?: string;
   kind: string;
   label: string;
   description?: string | null;
 }
+
+export interface EdgeLite { source: string; target: string; }
+
 
 const impactStyle: Record<string, string> = {
   alto: "bg-red-500/10 text-red-400 border-red-500/30",
@@ -23,7 +27,7 @@ const impactStyle: Record<string, string> = {
   baixo: "bg-muted text-muted-foreground border-border/40",
 };
 
-export function analyzeGaps(nodes: NodeLite[]): GapRule[] {
+export function analyzeGaps(nodes: NodeLite[], edges: EdgeLite[] = []): GapRule[] {
   const has = (k: string) => nodes.some(n => n.kind === k);
   const gaps: GapRule[] = [];
 
@@ -42,18 +46,18 @@ export function analyzeGaps(nodes: NodeLite[]): GapRule[] {
     desc: "Sem checkout mapeado você não vê onde o dinheiro entra — nem consegue anexar orderbump.",
     impact: "alto", suggest: { kind: "checkout", label: "Checkout" },
   });
-  if (!has("orderbump")) gaps.push({
-    id: "no-orderbump", title: "Sem Orderbump",
+  if (has("checkout") && !has("orderbump")) gaps.push({
+    id: "no-orderbump", title: "Checkout sem Orderbump",
     desc: "Ticket médio limitado. Orderbump é a forma mais barata de aumentar receita por cliente.",
     impact: "medio", suggest: { kind: "orderbump", label: "Orderbump" },
   });
-  if (!has("upsell")) gaps.push({
-    id: "no-upsell", title: "Sem Upsell",
+  if (has("checkout") && !has("upsell")) gaps.push({
+    id: "no-upsell", title: "Checkout sem Upsell",
     desc: "Você está deixando ticket na mesa. Cliente comprando é o momento mais quente para vender de novo.",
     impact: "alto", suggest: { kind: "upsell", label: "Upsell 1" },
   });
-  if (!has("downsell")) gaps.push({
-    id: "no-downsell", title: "Sem Downsell",
+  if (has("upsell") && !has("downsell")) gaps.push({
+    id: "no-downsell", title: "Upsell sem Downsell",
     desc: "Quem recusa o upsell some sem chance de recuperação. Downsell resgata parte da receita perdida.",
     impact: "medio", suggest: { kind: "downsell", label: "Downsell" },
   });
@@ -77,19 +81,38 @@ export function analyzeGaps(nodes: NodeLite[]): GapRule[] {
     desc: "Você tem anúncio rodando mas ninguém sendo capturado. Todo o investimento vai pro ralo.",
     impact: "alto", suggest: { kind: "captura", label: "Captura para o Anúncio" },
   });
+  if (has("vsl") && !has("pagina_vendas") && !has("checkout")) gaps.push({
+    id: "vsl-no-next", title: "VSL sem próximo passo",
+    desc: "VSL sem página de vendas ou checkout depois. Quem assiste até o fim não tem para onde ir.",
+    impact: "alto", suggest: { kind: "pagina_vendas", label: "Página pós-VSL" },
+  });
+
+  // Detecção de nós órfãos (sem nenhuma conexão)
+  if (edges.length > 0 && nodes.some(n => n.id)) {
+    const connected = new Set<string>();
+    edges.forEach(e => { connected.add(e.source); connected.add(e.target); });
+    const orphans = nodes.filter(n => n.id && !connected.has(n.id) && !["doc", "meta"].includes(n.kind));
+    if (orphans.length > 0) gaps.push({
+      id: "orphans", title: `${orphans.length} nó(s) órfão(s)`,
+      desc: `Sem conexão: ${orphans.slice(0, 3).map(o => o.label).join(", ")}${orphans.length > 3 ? "…" : ""}. Nó isolado não gera fluxo.`,
+      impact: "medio", suggest: { kind: "__orphan__", label: "Ver órfãos" },
+    });
+  }
 
   return gaps;
 }
 
 interface Props {
   nodes: NodeLite[];
+  edges?: EdgeLite[];
   onCreateNode: (kind: string, label: string) => void;
 }
 
-export function StrategicGapsPanel({ nodes, onCreateNode }: Props) {
+export function StrategicGapsPanel({ nodes, edges = [], onCreateNode }: Props) {
   const [open, setOpen] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const gaps = useMemo(() => analyzeGaps(nodes).filter(g => !dismissed.has(g.id)), [nodes, dismissed]);
+  const gaps = useMemo(() => analyzeGaps(nodes, edges).filter(g => !dismissed.has(g.id)), [nodes, edges, dismissed]);
+
 
   if (gaps.length === 0) {
     return (
@@ -142,14 +165,16 @@ export function StrategicGapsPanel({ nodes, onCreateNode }: Props) {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground leading-4 mb-2">{g.desc}</p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 text-[10px] gap-1 w-full"
-                onClick={() => onCreateNode(g.suggest.kind, g.suggest.label)}
-              >
-                <Plus className="h-3 w-3" /> Criar {g.suggest.label}
-              </Button>
+              {g.suggest.kind !== "__orphan__" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] gap-1 w-full"
+                  onClick={() => onCreateNode(g.suggest.kind, g.suggest.label)}
+                >
+                  <Plus className="h-3 w-3" /> Criar {g.suggest.label}
+                </Button>
+              )}
             </div>
           ))}
         </div>

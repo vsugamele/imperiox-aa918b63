@@ -1,32 +1,57 @@
-Objetivo: remover o item redundante "Mapa da Empresa" da sidebar, já que a funcionalidade já está disponível como aba dentro de Funis. Todos os links antigos para `/mapa-empresa` devem continuar funcionando, levando o usuário para a aba correspondente em `/funis`.
 
-Escopo de mudanças:
+# Próximas evoluções do Mapa da Empresa
 
-1. `src/components/AppSidebar.tsx` — Remover o item "Mapa da Empresa" do grupo "Vender".
-2. `src/App.tsx` — Trocar a rota `/mapa-empresa` de renderizar o componente `MapaEmpresa` para redirecionar para `/funis?view=mapa`.
-3. `src/pages/Funis.tsx` — Ler o query param `view` e definir `viewMode === "mapa"` quando `view=mapa` estiver presente.
-4. `src/components/AppLayout.tsx` — Remover ou atualizar o registro de título/breadcrumb do path `mapa-empresa` (evitar referência órfã).
-5. `src/pages/MapaEmpresa.tsx` — Avaliar se ainda é necessária; remover o arquivo se não for mais usado após o redirecionamento, para não deixar código morto.
+Escolhi 6 frentes de alto impacto, ordenadas por ROI. Você aprova as que quiser — implemento só as marcadas.
 
-Estrutura da sidebar após a mudança:
+## 1. KPIs vivos em cada nó (receita, leads, conversão)
+Hoje só `oferta` mostra KPIs. Estender para:
+- **checkout**: taxa de conversão (vendas / sessões) + receita 7d
+- **upsell/downsell/orderbump**: take-rate (%) e receita incremental
+- **vsl/pagina_vendas**: view→lead e lead→venda
+- **anuncio**: CPA, ROAS, CTR (puxando de `imphq_ads_daily`)
+- **whatsapp**: mensagens 24h + hot leads ativos
+Badge colorido no canto do card (verde/amarelo/vermelho) segundo meta.
 
-```text
-Vender
-  - Projetos
-  - Campanhas
-  - Funis          (contém: Hub, Funis, Ecossistema, Mapa da Empresa, Jornada)
-  - Sites
-  - OpenFlow
-```
+## 2. Conexões automáticas inteligentes
+Hoje `autopopulateFromProject` cria nós mas conecta tudo na raiz. Melhorar:
+- Traçar o **caminho canônico**: Anúncio → Captura → VSL → Página → Checkout → Orderbump → Upsell → Downsell
+- Vincular WhatsApp aos nós de Checkout e Captura (recuperação)
+- Vincular sequência de e-mail à Captura
+- Edges tracejadas para "recuperação", sólidas para "fluxo principal"
 
-Comportamento de redirecionamento:
+## 3. Painel Gaps 2.0 — contextual e acionável
+Além dos gaps atuais:
+- Detectar **nós órfãos** (sem conexão)
+- Detectar **VSL sem página de vendas depois**
+- Detectar **checkout sem orderbump/upsell**
+- Detectar **anúncio sem UTM configurado** (cruzar com `imphq_ads`)
+- Cada gap com botão "Corrigir agora" que já cria o nó **e conecta** no lugar certo
 
-```text
-/mapa-empresa  →  /funis?view=mapa  →  Funis abre na aba "Mapa da Empresa"
-```
+## 4. Modo apresentação / foco
+- Botão "Apresentar": fullscreen, esconde controles, aumenta fontes
+- Filtro por camada: só Aquisição / só Conversão / só Retenção
+- Highlight de caminho: clicar num nó destaca upstream+downstream, escurece o resto
 
-Checklist técnico:
-- [ ] Não quebrar nenhum link interno ou favorito salvo com `/mapa-empresa`.
-- [ ] Preservar título e breadcrumb corretos quando o usuário chegar em `/funis?view=mapa`.
-- [ ] Remover imports/componentes não utilizados do `App.tsx` caso `MapaEmpresa` seja deletado.
-- [ ] Validação rápida: acessar `/mapa-empresa` e confirmar que redireciona para `/funis?view=mapa` com a aba Mapa ativa.
+## 5. Snapshot e versionamento do mapa
+- Botão "Salvar versão" cria snapshot em `imphq_company_map_snapshots`
+- Comparar versões (o que mudou entre semana passada e hoje)
+- Útil para review de crescimento com equipe
+
+## 6. Templates estratégicos prontos
+Adicionar em `mapTemplates.ts`:
+- **Lançamento Interno** (captura → aulas → CPL → carrinho aberto/fechado → upsell)
+- **Perpétuo VSL** (ads → VSL → checkout → order/up/down → nurture)
+- **Webinar automático** (ads → inscrição → live → replay → pitch → checkout)
+- **High-ticket** (ads → VSL → aplicação → call → proposta)
+
+---
+
+## Fora de escopo desta rodada
+- Colaboração em tempo real (multi-cursor)
+- Export para Miro/Figma
+- IA gerando mapa a partir de descrição em texto
+
+## Recomendação
+Se quiser máximo impacto rápido: **1 + 2 + 3**. É o que transforma o mapa de "diagrama bonito" em "cockpit operacional".
+
+Quais frentes aprovo?

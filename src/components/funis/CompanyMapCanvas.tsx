@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
-import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
+import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
 import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
@@ -199,14 +199,21 @@ function MapNodeCard({ data }: { data: any }) {
           </div>
         </div>
       )}
-      {data.show_live_kpis && data.liveStats && (
-        <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
-          <span className="text-emerald-400 font-medium">
-            R$ {(data.liveStats.revenue30d || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
-          </span>
-          <span className="text-muted-foreground">{data.liveStats.leadsAbertos || 0} leads</span>
-        </div>
-      )}
+      {(() => {
+        const kpi = pickKpiForKind(data.kind, data.liveStats);
+        if (!kpi) return null;
+        const toneClass = kpi.tone === "good" ? "text-emerald-400" : kpi.tone === "warn" ? "text-amber-400" : kpi.tone === "bad" ? "text-red-400" : "text-muted-foreground";
+        const dotClass = kpi.tone === "good" ? "bg-emerald-400" : kpi.tone === "warn" ? "bg-amber-400" : kpi.tone === "bad" ? "bg-red-400" : "bg-muted-foreground";
+        return (
+          <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
+            <span className={`${toneClass} font-medium flex items-center gap-1`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotClass}`} />
+              {kpi.primary}
+            </span>
+            <span className="text-muted-foreground">{kpi.secondary}</span>
+          </div>
+        );
+      })()}
       <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
     </div>
   );
@@ -404,7 +411,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
-    () => rawNodes.filter(n => n.show_live_kpis && n.linked_project_id).map(n => n.linked_project_id!),
+    () => Array.from(new Set(rawNodes.filter(n => n.linked_project_id).map(n => n.linked_project_id!))),
     [rawNodes]
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
@@ -875,7 +882,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       {/* Strategic gaps floating panel */}
       <div className="absolute bottom-3 right-3 z-10 hidden md:block">
         <StrategicGapsPanel
-          nodes={rawNodes.map(n => ({ kind: n.kind, label: n.label, description: n.description }))}
+          nodes={rawNodes.map(n => ({ id: n.id, kind: n.kind, label: n.label, description: n.description }))}
+          edges={edges.map(e => ({ source: e.source, target: e.target }))}
           onCreateNode={(kind, label) => addNode(kind, label)}
         />
       </div>
