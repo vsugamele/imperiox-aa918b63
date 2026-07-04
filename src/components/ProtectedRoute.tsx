@@ -7,7 +7,7 @@ import { Shield, Clock } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isPending, userStatus } = useAuth();
-  useMobileAutoRedirect();
+  
 
   if (loading) {
     return (
