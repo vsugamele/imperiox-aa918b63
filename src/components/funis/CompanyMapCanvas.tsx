@@ -872,6 +872,15 @@ function InnerMap({ projects }: { projects: any[] }) {
         <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
       </ReactFlow>
 
+      {/* Strategic gaps floating panel */}
+      <div className="absolute bottom-3 right-3 z-10 hidden md:block">
+        <StrategicGapsPanel
+          nodes={rawNodes.map(n => ({ kind: n.kind, label: n.label, description: n.description }))}
+          onCreateNode={(kind, label) => addNode(kind, label)}
+        />
+      </div>
+
+
       {/* Canvas context menu (annotations) */}
       {ctxMenu && (
         <div
