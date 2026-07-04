@@ -143,6 +143,16 @@ function MapNodeCard({ data }: { data: any }) {
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
+      {url && (
+        <a
+          href={url} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="nodrag mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline truncate max-w-full"
+        >
+          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
+        </a>
+      )}
 
       {/* WhatsApp channel enrichment */}
       {waInfo && (
