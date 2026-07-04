@@ -33,10 +33,12 @@ function preMatchTool(text: string): string | null {
   const t = text.toLowerCase();
   if (/quem (mandou|enviou|falou)|últimas? mensage|mensagens? recente|chegou no whats/.test(t)) return "ultimasMensagensWhatsapp";
   if (/(vendas?|compr(ou|aram)|faturou|faturamento|receita)( de)? hoje/.test(t)) return "vendasDoDia";
-  if (/(leads?)( de)? hoje|capturei hoje|quantos leads/.test(t)) return "leadsDoDia";
+  if (/(leads?)( de)? hoje\b|capturei hoje|quantos leads hoje/.test(t)) return "leadsDoDia";
   if (/(leads?|conversas?) (travad|parad|sem resposta|sem retorno)/.test(t)) return "leadsTravadosWhatsapp";
   if (/(cpa|roas|gasto( em)? ads|campanha (pior|melhor)|performance (do |dos )?ads)/.test(t)) return "adsPerformance";
   if (/leads? quent|hot lead|pix gerado|boleto gerado/.test(t)) return "leadsQuentes";
+  // Investigativa: filtros de período, tag, formulário, evento
+  if (/leads?.*(preench|formul[áa]rio|tag |da tag|com tag|sem tag|em (janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)|esse m[êe]s|[úu]ltimos? \d+ dias|entre \d|sem venda|com venda|responderam|preencheram)/.test(t)) return "buscarLeads";
   return null;
 }
 
