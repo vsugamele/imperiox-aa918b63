@@ -17,12 +17,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
 import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
+import { StrategicGapsPanel } from "./StrategicGapsPanel";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -32,6 +33,16 @@ const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> 
   processo:      { label: "Processo",            color: "#8b5cf6", icon: Wrench },
   meta:          { label: "Meta / KPI",          color: "#ef4444", icon: Target },
   doc:           { label: "Documento",           color: "#64748b", icon: FileText },
+  // Estratégia de vendas
+  vsl:           { label: "VSL",                 color: "#ec4899", icon: Film },
+  pagina_vendas: { label: "Página de Vendas",    color: "#f97316", icon: Globe },
+  captura:       { label: "Captura / Optin",     color: "#06b6d4", icon: MousePointerClick },
+  checkout:      { label: "Checkout",            color: "#84cc16", icon: CreditCard },
+  orderbump:     { label: "Orderbump",           color: "#fbbf24", icon: PackagePlus },
+  upsell:        { label: "Upsell",              color: "#22c55e", icon: TrendingUp },
+  downsell:      { label: "Downsell",            color: "#f43f5e", icon: TrendingDown },
+  email:         { label: "E-mail / Nurture",    color: "#818cf8", icon: Mail },
+  anuncio:       { label: "Anúncio / Tráfego",   color: "#eab308", icon: Target },
   // Produtos digitais
   area_membros:  { label: "Área de Membros",     color: "#a855f7", icon: GraduationCap },
   app:           { label: "APP / Produto",       color: "#0ea5e9", icon: Smartphone },
@@ -49,9 +60,24 @@ const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> 
 
 const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
   { label: "Estrutura",         keys: ["vertical", "area", "processo", "meta", "doc"] },
+  { label: "Estratégia de Vendas", keys: ["captura", "vsl", "pagina_vendas", "checkout", "orderbump", "upsell", "downsell", "email", "anuncio"] },
   { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
   { label: "Canais",            keys: ["whatsapp", "canal"] },
   { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
+];
+
+const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
+  S: { min: 160, max: 200, label: "Pequeno" },
+  M: { min: 200, max: 260, label: "Médio" },
+  L: { min: 260, max: 340, label: "Grande" },
+  XL:{ min: 340, max: 440, label: "Extra" },
+};
+
+const COLOR_PALETTE = [
+  "#c9922a", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#64748b",
+  "#ec4899", "#f97316", "#06b6d4", "#84cc16", "#fbbf24", "#22c55e",
+  "#f43f5e", "#818cf8", "#eab308", "#a855f7", "#0ea5e9", "#f59e0b",
+  "#25d366", "#e1306c", "#1877f2", "#ff0000",
 ];
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
@@ -74,10 +100,12 @@ function MapNodeCard({ data }: { data: any }) {
   const preview = checklist.slice(0, 3);
   const rest = Math.max(0, total - preview.length);
   const waInfo = data.waInfo; // { phone, instance, provider, conversations }
+  const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
+  const url: string | null = data.url || null;
   return (
     <div
-      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
-      style={{ borderColor: data.color }}
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+      style={{ borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
 
