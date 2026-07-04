@@ -9,6 +9,8 @@ import {
   jpBuildContextBlock,
   jpBuildInstructionsBlock,
   jpProcessTags,
+  jpIssueMagicLink,
+  jpLogEvent,
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
