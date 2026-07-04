@@ -545,15 +545,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, style: { stroke: "#c9922a", strokeWidth: 2 } }, eds));
   }, [mapId]);
 
-  const addNode = async (kind: string) => {
+  const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
-    const preset = KIND_PRESETS[kind];
+    const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: `Novo ${preset.label}`,
+      label: customLabel || `Novo ${preset.label}`,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
     }).select().single();
-    if (data) await loadMap(mapId);
+    if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
   const createMap = async () => {
