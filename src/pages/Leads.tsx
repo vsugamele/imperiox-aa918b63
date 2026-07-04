@@ -178,6 +178,11 @@ export default function Leads() {
 
 
   const [mainTab, setMainTab] = useState("leads");
+  const [editTab, setEditTab] = useState<string>(() => {
+    try { return localStorage.getItem("leads:editTab") || "dados"; } catch { return "dados"; }
+  });
+  useEffect(() => { try { localStorage.setItem("leads:editTab", editTab); } catch {} }, [editTab]);
+  const [webhookGuideOpen, setWebhookGuideOpen] = useState(false);
   const [automations, setAutomations] = useState<any[]>([]);
   
   const [allVendasRaw, setAllVendasRaw] = useState<any[]>([]);
