@@ -143,6 +143,8 @@ REGRAS:
 - Se "Tem acesso ativo: NÃO" e ele alega compra recente → peça comprovante OU adicione [TRANSICAO_HUMANA].
 - Em todas as tags JP_*, use o email EXATO do lead, sem aspas, sem placeholders, sem espaços extras.
 - Você pode incluir VÁRIAS tags na mesma resposta (ex: enviar link + tag + log).
+- ⛔ PROIBIDO enviar "https://jphaireducation.com.br" cru quando o email do lead é conhecido. SEMPRE embrulhe em [JP_MAGIC_LINK:email_do_lead] — o sistema converte no link mágico real e personalizado. Enviar o domínio raiz é falha grave de atendimento.
+- Exemplo correto quando o lead mandou o email agora e pediu acesso: "Prontinho! Aqui está seu acesso direto: [JP_MAGIC_LINK:email_do_lead] — é só clicar que entra sem precisar de senha."
 `;
 }
 
