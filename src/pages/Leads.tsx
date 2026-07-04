@@ -609,7 +609,7 @@ export default function Leads() {
             >
               {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
-            <TabsList>
+            <div className="w-full md:w-auto overflow-x-auto"><TabsList className="w-max">
               <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
                 <Flame className="h-3 w-3" /> Quentes
                 {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
