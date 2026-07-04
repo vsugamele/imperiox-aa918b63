@@ -122,24 +122,9 @@ export function AppLayout() {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
   }, [open]);
 
-  // Mobile auto-redirect → /mobile-cockpit
-  // Escape persistente: ?desktop=1 grava localStorage; usuário só precisa fazer 1x.
+  // Mobile auto-redirect removido — app desktop agora responsivo no celular.
+  // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
-  const { pathname, search } = useLocation();
-  useEffect(() => {
-    if (!isMobile) return;
-    if (pathname.startsWith("/mobile-cockpit")) return;
-    try {
-      const params = new URLSearchParams(search);
-      if (params.get("desktop") === "1") {
-        localStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
-        return;
-      }
-      if (localStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
-    } catch {}
-    navigate("/mobile-cockpit", { replace: true });
-  }, [isMobile, pathname, search, navigate]);
 
 
   return (
