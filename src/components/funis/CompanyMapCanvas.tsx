@@ -412,7 +412,7 @@ function InnerMap({ projects }: { projects: any[] }) {
           style: a.style || {},
           editingId: editingAnnotationId,
           onTextChange: updateAnnotationText,
-        } as AnnotationData,
+        } as unknown as Record<string, unknown>,
       }));
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
