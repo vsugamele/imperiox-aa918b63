@@ -1011,7 +1011,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
       {/* Editor sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent className="w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
+        <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
           <SheetHeader><SheetTitle className="font-serif">Editar nó do mapa</SheetTitle></SheetHeader>
           {selected && (
             <div className="space-y-4 mt-4">
@@ -1019,14 +1019,65 @@ function InnerMap({ projects }: { projects: any[] }) {
                 <Label className="text-xs">Tipo</Label>
                 <Select value={selected.kind} onValueChange={(v) => setSelected({ ...selected, kind: v, color: KIND_PRESETS[v].color })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(KIND_PRESETS).map(([k, p]) => <SelectItem key={k} value={k}>{p.label}</SelectItem>)}
+                  <SelectContent className="max-h-[360px]">
+                    {KIND_CATEGORIES.map(cat => (
+                      <div key={cat.label}>
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{cat.label}</div>
+                        {cat.keys.map(k => KIND_PRESETS[k] && (
+                          <SelectItem key={k} value={k}>{KIND_PRESETS[k].label}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-xs">Rótulo</Label>
                 <Input value={selected.label} onChange={e => setSelected({ ...selected, label: e.target.value })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><Palette className="h-3 w-3" /> Cor</Label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {COLOR_PALETTE.map(c => (
+                      <button
+                        key={c} type="button"
+                        onClick={() => setSelected({ ...selected, color: c })}
+                        className={`w-5 h-5 rounded border transition-all ${selected.color === c ? "ring-2 ring-offset-1 ring-offset-background ring-primary scale-110" : "border-border/40"}`}
+                        style={{ background: c }}
+                      />
+                    ))}
+                    <input
+                      type="color" value={selected.color}
+                      onChange={e => setSelected({ ...selected, color: e.target.value })}
+                      className="w-5 h-5 rounded border border-border/40 bg-transparent cursor-pointer"
+                      title="Cor customizada"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Tamanho</Label>
+                  <div className="grid grid-cols-4 gap-1 mt-1">
+                    {(["S","M","L","XL"] as const).map(s => (
+                      <Button
+                        key={s} size="sm" type="button"
+                        variant={(selected.size || "M") === s ? "default" : "outline"}
+                        className="h-7 text-[10px] px-0"
+                        onClick={() => setSelected({ ...selected, size: s })}
+                      >{s}</Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs flex items-center gap-1"><Link2 className="h-3 w-3" /> URL (opcional)</Label>
+                <Input
+                  type="url" placeholder="https://..."
+                  value={selected.url || ""}
+                  onChange={e => setSelected({ ...selected, url: e.target.value })}
+                />
               </div>
               <div>
                 <Label className="text-xs">Descrição (o que cuida)</Label>
