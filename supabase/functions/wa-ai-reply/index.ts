@@ -1537,7 +1537,17 @@ A resposta deve soar como CONVERSA REAL, não artigo, não texto de IA.
 - Em conflito com REGRAS DE COMUNICACAO HUMANA acima, as humanas vencem (especialmente nominação e abertura).
 `;
 
-      const paymentConfirmationBlock = isPaymentConfirmation ? `
+      const jpBypassPayment = isJPProject(project_id) && jpHasAccount && !!jpEffectiveEmail;
+      const paymentConfirmationBlock = isPaymentConfirmation ? (jpBypassPayment ? `
+
+💸 LEAD JP FREITAS COM ACESSO ATIVO — INSTRUÇÃO PRIORITÁRIA:
+O CRM confirma que este lead JÁ TEM conta e acesso ativo. NÃO peça comprovante, NÃO pergunte qual curso ele comprou, NÃO peça o email de novo.
+Sua ÚNICA missão NESTA resposta:
+1. Frase curta acolhedora reconhecendo o acesso já liberado (cite o programa pelo nome se estiver no STATUS acima).
+2. Enviar o link mágico direto: [JP_MAGIC_LINK:${jpEffectiveEmail}]
+3. Adicionar [JP_LOG:${jpEffectiveEmail}|wpp_acesso_liberado_via_bridge] no final (silencioso).
+Máximo 2 frases. Sem perguntas.
+` : `
 
 💸 LEAD CONFIRMOU PAGAMENTO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE TUDO ABAIXO):
 O lead acabou de avisar que pagou${recentVendaContext?.produto_nome ? ` o produto "${recentVendaContext.produto_nome}"` : ""}${recentVendaContext?.status ? ` (status atual no sistema: ${recentVendaContext.status})` : ""}.
@@ -1549,7 +1559,7 @@ ${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pe
 - NÃO tente vender mais nada agora.
 - NÃO faça pergunta de qualificação ou triagem.
 - Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
-` : "";
+`) : "";
 
       const consultiveBlock = (isConsultiveProductQuery && !isPaymentConfirmation) ? `
 
@@ -1854,6 +1864,26 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           }
         } catch (e: any) {
           console.error(`[wa-ai-reply] JP_FREITAS fallback error: ${e?.message}`);
+        }
+      }
+
+      // JP FREITAS — REDE DE SEGURANÇA 2: se o lead JÁ TEM acesso ativo (bridge confirmou)
+      // e a IA ainda pediu comprovante / perguntou qual curso comprou / pediu email de novo,
+      // sobrescreve por resposta correta com magic link.
+      if (isJPProject(project_id) && jpHasAccount && jpEffectiveEmail && finalAiReply) {
+        try {
+          const badPatterns = /(comprovante|qual curso|qual dos dois|qual dos cursos|você comprou o|voce comprou o|me confirma.*compr|me passa.*email|qual email|passa.*e-?mail)/i;
+          if (badPatterns.test(finalAiReply)) {
+            const res = await jpIssueMagicLink(jpEffectiveEmail);
+            const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
+            if (link) {
+              finalAiReply = `Vi seu cadastro aqui e você já tem acesso ativo. Segue o link direto pra entrar sem senha: ${link}`;
+              jpLogEvent(jpEffectiveEmail, "wpp_override_pergunta_indevida", { source: "wa-ai-reply", original_snippet: finalAiReply.slice(0, 120) }).catch(() => {});
+              console.log(`[wa-ai-reply] JP_FREITAS override pergunta indevida para ${jpEffectiveEmail}`);
+            }
+          }
+        } catch (e: any) {
+          console.error(`[wa-ai-reply] JP_FREITAS override error: ${e?.message}`);
         }
       }
 
