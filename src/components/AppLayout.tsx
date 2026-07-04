@@ -11,7 +11,7 @@ import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
 import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
-import { useIsMobile } from "@/hooks/use-mobile";
+
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
