@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
-import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
+import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
 import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
