@@ -124,7 +124,6 @@ export function AppLayout() {
 
   // Mobile auto-redirect removido — app desktop agora responsivo no celular.
   // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
-  const isMobile = useIsMobile();
 
 
   return (
