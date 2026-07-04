@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -11,7 +11,7 @@ import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
 import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
-import { useIsMobile } from "@/hooks/use-mobile";
+
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -122,24 +122,8 @@ export function AppLayout() {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
   }, [open]);
 
-  // Mobile auto-redirect → /mobile-cockpit
-  // Escape persistente: ?desktop=1 grava localStorage; usuário só precisa fazer 1x.
-  const isMobile = useIsMobile();
-  const navigate = useNavigate();
-  const { pathname, search } = useLocation();
-  useEffect(() => {
-    if (!isMobile) return;
-    if (pathname.startsWith("/mobile-cockpit")) return;
-    try {
-      const params = new URLSearchParams(search);
-      if (params.get("desktop") === "1") {
-        localStorage.setItem(MOBILE_OVERRIDE_KEY, "1");
-        return;
-      }
-      if (localStorage.getItem(MOBILE_OVERRIDE_KEY) === "1") return;
-    } catch {}
-    navigate("/mobile-cockpit", { replace: true });
-  }, [isMobile, pathname, search, navigate]);
+  // Mobile auto-redirect removido — app desktop agora responsivo no celular.
+  // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
 
 
   return (
@@ -147,14 +131,14 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="relative h-14 flex items-center px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-3">
-            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors" />
-            <div className="h-5 w-px bg-border/60" />
+          <header className="relative h-14 flex items-center px-3 md:px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors h-10 w-10 md:h-8 md:w-8" />
+            <div className="hidden md:block h-5 w-px bg-border/60" />
             <EditorialBreadcrumb />
-            <div className="flex-1 flex justify-center px-4 max-w-2xl mx-auto">
+            <div className="hidden md:flex flex-1 justify-center px-4 max-w-2xl mx-auto">
               <GlobalSearch />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 md:gap-2">
               <CmdKHint />
               <CommandPalette />
               <ActionInbox />
@@ -165,7 +149,7 @@ export function AppLayout() {
 
             <div className="header-hairline" />
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
+          <main className="flex-1 overflow-auto p-3 md:p-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
             <Outlet />
           </main>
         </div>

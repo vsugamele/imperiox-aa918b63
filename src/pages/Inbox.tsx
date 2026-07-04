@@ -307,32 +307,34 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-full -m-4 md:-m-6">
+    <div className="flex flex-col h-full -m-3 md:-m-6">
       {/* Editorial header + KPI strip + tabs */}
       <div className="bg-background/70 backdrop-blur-xl shrink-0 border-b border-border/60">
-        <div className="px-6 pt-5 pb-3">
+        <div className="px-4 md:px-6 pt-4 md:pt-5 pb-3">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <div className="kicker">Inbox · Operação</div>
-              <h1 className="section-title mt-1">Central de Conversas</h1>
+              <h1 className="section-title mt-1 text-2xl md:text-3xl">Central de Conversas</h1>
             </div>
-            <div className="text-[11px] text-muted-foreground tracking-editorial uppercase">
+            <div className="hidden md:block text-[11px] text-muted-foreground tracking-editorial uppercase">
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
             </div>
           </div>
           <div className="hairline mt-4" />
         </div>
 
-        <InboxKpiStrip collapsed={!showKpiStrip} onToggle={() => setShowKpiStrip(v => !v)} />
+        <div className="hidden md:block">
+          <InboxKpiStrip collapsed={!showKpiStrip} onToggle={() => setShowKpiStrip(v => !v)} />
+        </div>
 
         <Tabs value={active} onValueChange={handleChange}>
-          <div className="px-6">
-            <TabsList className="editorial-tabs">
+          <div className="px-3 md:px-6 overflow-x-auto">
+            <TabsList className="editorial-tabs w-max">
               {TABS.map(({ value, label, icon: Icon }) => (
-                <TabsTrigger key={value} value={value} className="editorial-tab">
-                  <span className="inline-flex items-center gap-2">
+                <TabsTrigger key={value} value={value} className="editorial-tab shrink-0">
+                  <span className="inline-flex items-center gap-1.5 md:gap-2">
                     <Icon className="h-3.5 w-3.5" />
-                    {label}
+                    <span className="hidden xs:inline sm:inline">{label}</span>
                     {badgeCount[value] > 0 && (
                       <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full border border-gold/40 text-gold text-[10px] font-mono tracking-wider">
                         {badgeCount[value] > 99 ? "99+" : badgeCount[value]}
