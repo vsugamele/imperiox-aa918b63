@@ -73,6 +73,29 @@ export const TOOL_SPECS = [
   {
     type: "function",
     function: {
+      name: "buscarLeads",
+      description: "Consulta INVESTIGATIVA de leads com filtros combináveis. Use SEMPRE que o usuário quiser listar/contar leads por período (mês, semana, entre datas), tag, formulário, plataforma, status ou evento (ex: 'preencheram formulário em julho', 'leads com tag X', 'quem respondeu pesquisa esse mês', 'leads sem venda últimos 15 dias'). Prefira esta tool antes de dizer 'não consegui interpretar'.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          desde: { type: "string", description: "ISO YYYY-MM-DD (início do período)" },
+          ate: { type: "string", description: "ISO YYYY-MM-DD (fim do período, inclusivo)" },
+          tag: { type: "string", description: "Tag exata em imphq_leads.tags" },
+          form_id: { type: "string", description: "ID/slug do formulário (form_id ou data->>form_id)" },
+          plataforma: { type: "string", description: "hotmart, meta, membros, manychat, etc." },
+          status: { type: "string", description: "novo, quente, cliente, perdido..." },
+          evento: { type: "string", description: "acao em imphq_lead_scores_log (pesquisa_respondida, membro_cadastrado, prova_enviada, aula_concluida, evento_custom...)" },
+          tem_venda: { type: "boolean", description: "true=só com venda aprovada; false=só sem venda" },
+          limite: { type: "number", description: "default 50, max 200" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "vendasResumo",
       description: "Resumo de vendas por período (default 30d). Receita, ticket médio, top produtos.",
       parameters: {
@@ -914,6 +937,82 @@ async function leadsResumo(ctx: ToolCtx, args: { projeto_id?: string; dias?: num
     top_plataformas: Object.entries(porPlat).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([plataforma, count]) => ({ plataforma, count })),
   };
 }
+
+async function buscarLeads(ctx: ToolCtx, args: {
+  projeto_id?: string; desde?: string; ate?: string;
+  tag?: string; form_id?: string; plataforma?: string; status?: string;
+  evento?: string; tem_venda?: boolean; limite?: number;
+}) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = Math.min(Math.max(args.limite ?? 50, 1), 200);
+  const desde = args.desde ? `${args.desde}T00:00:00` : null;
+  const ate = args.ate ? `${args.ate}T23:59:59.999` : null;
+
+  // 1. Se evento -> pega lead_ids via score log
+  let idsFilter: string[] | null = null;
+  if (args.evento) {
+    let sq = ctx.supabase.from("imphq_lead_scores_log").select("lead_id").eq("acao", args.evento).limit(5000);
+    if (desde) sq = sq.gte("created_at", desde);
+    if (ate) sq = sq.lte("created_at", ate);
+    const { data: logs, error: le } = await sq;
+    if (le) return { error: `evento: ${le.message}` };
+    idsFilter = [...new Set((logs || []).map((r: any) => r.lead_id).filter(Boolean))];
+    if (idsFilter.length === 0) {
+      return { total: 0, filtros: { ...args, projeto_id: pid }, leads: [], resumo_por_plataforma: {}, resumo_por_tag: {}, nota: `Nenhum lead com evento '${args.evento}' no período.` };
+    }
+  }
+
+  let q = ctx.supabase.from("imphq_leads")
+    .select("id, nome, email, phone, plataforma, status, tags, form_id, created_at, data, total_gasto")
+    .order("created_at", { ascending: false })
+    .limit(limite);
+  if (pid) q = q.eq("project_id", pid);
+  if (desde) q = q.gte("created_at", desde);
+  if (ate) q = q.lte("created_at", ate);
+  if (args.plataforma) q = q.eq("plataforma", args.plataforma);
+  if (args.status) q = q.eq("status", args.status);
+  if (args.tag) q = q.contains("tags", [args.tag]);
+  if (args.form_id) q = q.or(`form_id.eq.${args.form_id},data->>form_id.eq.${args.form_id}`);
+  if (idsFilter) q = q.in("id", idsFilter.slice(0, 500));
+
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+
+  let leads = data || [];
+
+  // Filtro tem_venda (post-query)
+  if (typeof args.tem_venda === "boolean" && leads.length > 0) {
+    const leadIds = leads.map((l: any) => l.id);
+    const { data: vendas } = await ctx.supabase.from("imphq_vendas")
+      .select("lead_id").eq("status", "aprovado").in("lead_id", leadIds);
+    const comVenda = new Set((vendas || []).map((v: any) => v.lead_id));
+    leads = leads.filter((l: any) => args.tem_venda ? comVenda.has(l.id) : !comVenda.has(l.id));
+  }
+
+  const porPlat: Record<string, number> = {};
+  const porTag: Record<string, number> = {};
+  for (const l of leads) {
+    const p = l.plataforma || "—";
+    porPlat[p] = (porPlat[p] || 0) + 1;
+    for (const t of (l.tags || [])) porTag[t] = (porTag[t] || 0) + 1;
+  }
+
+  return {
+    filtros: { ...args, projeto_id: pid },
+    total: leads.length,
+    resumo_por_plataforma: porPlat,
+    resumo_por_tag: Object.entries(porTag).sort((a, b) => b[1] - a[1]).slice(0, 10).reduce((acc: any, [k, v]) => (acc[k] = v, acc), {}),
+    leads: leads.slice(0, Math.min(limite, 30)).map((l: any) => ({
+      id: l.id, nome: l.nome, email: l.email, phone: l.phone,
+      plataforma: l.plataforma, status: l.status, tags: l.tags,
+      form_id: l.form_id || l.data?.form_id, total_gasto: l.total_gasto,
+      criado_em: l.created_at,
+    })),
+    truncado: leads.length >= limite,
+  };
+}
+
+
 
 async function vendasDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: string }) {
   const pid = resolveProjectId(ctx, args.projeto_id);
@@ -2280,6 +2379,7 @@ export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<an
       case "vendasDoDia": return await vendasDoDia(ctx, args);
       case "leadsDoDia": return await leadsDoDia(ctx, args);
       case "leadsResumo": return await leadsResumo(ctx, args);
+      case "buscarLeads": return await buscarLeads(ctx, args);
       case "vendasResumo": return await vendasResumo(ctx, args);
       case "leadsTravadosWhatsapp": return await leadsTravadosWhatsapp(ctx, args);
       case "ultimasMensagensWhatsapp": return await ultimasMensagensWhatsapp(ctx, args);

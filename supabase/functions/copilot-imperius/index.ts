@@ -33,10 +33,12 @@ function preMatchTool(text: string): string | null {
   const t = text.toLowerCase();
   if (/quem (mandou|enviou|falou)|últimas? mensage|mensagens? recente|chegou no whats/.test(t)) return "ultimasMensagensWhatsapp";
   if (/(vendas?|compr(ou|aram)|faturou|faturamento|receita)( de)? hoje/.test(t)) return "vendasDoDia";
-  if (/(leads?)( de)? hoje|capturei hoje|quantos leads/.test(t)) return "leadsDoDia";
+  if (/(leads?)( de)? hoje\b|capturei hoje|quantos leads hoje/.test(t)) return "leadsDoDia";
   if (/(leads?|conversas?) (travad|parad|sem resposta|sem retorno)/.test(t)) return "leadsTravadosWhatsapp";
   if (/(cpa|roas|gasto( em)? ads|campanha (pior|melhor)|performance (do |dos )?ads)/.test(t)) return "adsPerformance";
   if (/leads? quent|hot lead|pix gerado|boleto gerado/.test(t)) return "leadsQuentes";
+  // Investigativa: filtros de período, tag, formulário, evento
+  if (/leads?.*(preench|formul[áa]rio|tag |da tag|com tag|sem tag|em (janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)|esse m[êe]s|[úu]ltimos? \d+ dias|entre \d|sem venda|com venda|responderam|preencheram)/.test(t)) return "buscarLeads";
   return null;
 }
 
@@ -57,8 +59,8 @@ async function callAI(body: any, signal: AbortSignal, model = MODEL_PRIMARY) {
 const PERSONA = `Você é Imperius, copiloto estratégico do Imperio HQ. Tom: direto, afiado, sem rodeios. Português brasileiro.
 
 CAPACIDADES (via tools):
-- LEITURA: vendasDoDia, vendasResumo, leadsDoDia, leadsResumo, adsPerformance, buscarLead, leadsTravadosWhatsapp, leadsQuentes, ultimasMensagensWhatsapp.
-- IMPORTANTE: "leads capturados/hoje/quantos leads" → use leadsDoDia (tabela imphq_leads). NUNCA use vendasDoDia para responder pergunta sobre leads — venda ≠ lead.
+- LEITURA: vendasDoDia, vendasResumo, leadsDoDia, leadsResumo, buscarLeads (investigativa: período+tag+form+plataforma+evento+tem_venda), adsPerformance, buscarLead, leadsTravadosWhatsapp, leadsQuentes, ultimasMensagensWhatsapp.
+- IMPORTANTE: "leads capturados/hoje/quantos leads" → use leadsDoDia. Consultas com FILTROS (mês, tag, formulário, evento, "quem preencheu", "quem respondeu", "sem venda") → use buscarLeads. NUNCA use vendasDoDia para pergunta sobre leads.
 - Resolver projeto por nome (buscarProjeto) ANTES de qualquer ação que mencione projeto.
 - EXECUÇÃO AUTO (low-risk, sem confirmar): criarTarefas, adicionarChecklistNaTarefa, moverTarefa, agendarLembrete, anotarLead.
 - EXECUÇÃO COM APROVAÇÃO (entra na Caixa de Ações): enviarWhatsapp, enviarWhatsappEmMassa.
@@ -66,7 +68,7 @@ CAPACIDADES (via tools):
 REGRAS:
 1. Projeto pelo nome → buscarProjeto primeiro. 1 match = use; múltiplos = pergunte qual.
 2. Se buscarProjeto retornar matches:[] (fallback "sem_match_exato"), NÃO desista: cite os candidatos retornados (até 5 nomes) e pergunte ao usuário qual é o projeto. NUNCA encerre sem texto.
-3. Perguntas sobre "hoje", "agora", "quem", SEMPRE use tools — nunca diga "não tenho dados".
+3. Perguntas sobre "hoje", "agora", "quem", SEMPRE use tools — nunca diga "não tenho dados". Se pergunta tiver filtros (mês, tag, formulário, evento), chame buscarLeads com os filtros que conseguir extrair — mesmo parciais. Converta "agora de julho"/"esse mês de julho" em desde/ate ISO (julho do ano corrente). Nunca desista sem tentar buscarLeads pelo menos uma vez.
 4. Para criar tarefas em vários projetos, 1 call de criarTarefas POR projeto.
 5. WhatsApp: SEMPRE via enviarWhatsapp/enviarWhatsappEmMassa — explique ao usuário que entrou na fila de aprovação.
 6. Disparo em massa (>5 leads): confirme com o usuário ANTES de chamar a tool.
@@ -290,7 +292,7 @@ CONTEXTO ATUAL:
               finalText = `Coletei os dados, mas a IA não escreveu resposta. Resumo bruto:\n\n${resumo}`;
             }
           } else {
-            finalText = "Não consegui interpretar o pedido. Reformula? Ex: 'últimas mensagens no WhatsApp', 'vendas de hoje', 'leads travados'.";
+            finalText = "Preciso de mais detalhe pra investigar. Ex: 'leads com tag X em julho no projeto JP', 'quem preencheu formulário Y esse mês', 'leads sem venda últimos 15 dias'. Também posso buscar por plataforma, status ou evento.";
           }
           try {
             controller.enqueue(
