@@ -985,7 +985,7 @@ export default function Leads() {
                 </div>
 
                 {/* 2. Main Dialog Tabs */}
-                <Tabs defaultValue="dados" className="space-y-3">
+                <Tabs value={editTab} onValueChange={setEditTab} className="space-y-3">
                   <TabsList className="w-full grid grid-cols-6 h-9 bg-slate-900 border border-slate-800 p-0.5 rounded-lg">
                     <TabsTrigger value="dados" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Dados</TabsTrigger>
                     <TabsTrigger value="qualificacao" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Qualificar</TabsTrigger>
