@@ -83,7 +83,7 @@ const COLOR_PALETTE = [
 interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
-  description?: string | null; notes?: string | null;
+  description?: string | null; notes?: string | null; url?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;

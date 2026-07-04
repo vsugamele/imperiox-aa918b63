@@ -18424,6 +18424,7 @@ export type Database = {
           show_live_kpis: boolean | null
           size: string
           updated_at: string
+          url: string | null
         }
         Insert: {
           checklist?: Json
@@ -18443,6 +18444,7 @@ export type Database = {
           show_live_kpis?: boolean | null
           size?: string
           updated_at?: string
+          url?: string | null
         }
         Update: {
           checklist?: Json
@@ -18462,6 +18464,7 @@ export type Database = {
           show_live_kpis?: boolean | null
           size?: string
           updated_at?: string
+          url?: string | null
         }
         Relationships: [
           {
