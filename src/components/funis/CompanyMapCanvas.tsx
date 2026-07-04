@@ -17,11 +17,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
+import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
