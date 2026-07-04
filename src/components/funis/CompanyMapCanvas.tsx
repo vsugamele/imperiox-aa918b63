@@ -411,7 +411,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   // live KPIs for project-linked nodes
   const liveProjectIds = useMemo(
-    () => rawNodes.filter(n => n.show_live_kpis && n.linked_project_id).map(n => n.linked_project_id!),
+    () => Array.from(new Set(rawNodes.filter(n => n.linked_project_id).map(n => n.linked_project_id!))),
     [rawNodes]
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
