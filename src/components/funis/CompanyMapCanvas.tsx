@@ -795,13 +795,29 @@ function InnerMap({ projects }: { projects: any[] }) {
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Arraste um nó selecionado = mover todos
+        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique = editar texto
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick}
         onSelectionChange={onSelectionChange}
+        onPaneContextMenu={(event) => {
+          const e = event as unknown as React.MouseEvent;
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y });
+        }}
+        onNodeContextMenu={(e, node) => {
+          if (!node.id.startsWith(ANN_PREFIX)) return;
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
+        }}
+        onNodeDoubleClick={(_, node) => {
+          if (node.id.startsWith(ANN_PREFIX)) setEditingAnnotationId(node.id);
+        }}
+        onPaneClick={() => { setCtxMenu(null); setEditingAnnotationId(null); }}
         selectionOnDrag
         selectionMode={"partial" as any}
         panOnDrag={[1, 2]}
@@ -815,6 +831,79 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Controls className="!bg-card !border-border" />
         <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
       </ReactFlow>
+
+      {/* Canvas context menu (annotations) */}
+      {ctxMenu && (
+        <div
+          className="fixed z-50 min-w-[200px] bg-card border border-border/60 rounded-md shadow-xl py-1 text-sm"
+          style={{ left: ctxMenu.screenX, top: ctxMenu.screenY }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {!ctxMenu.annotationId && (
+            <>
+              <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar anotação</div>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("frame", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <Square className="h-3.5 w-3.5" /> Caixa tracejada
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("note", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <StickyNote className="h-3.5 w-3.5" /> Nota (sticky)
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("label", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <Type className="h-3.5 w-3.5" /> Título/label grande
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("arrow", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <ArrowUpRight className="h-3.5 w-3.5" /> Seta / linha
+              </button>
+            </>
+          )}
+          {ctxMenu.annotationId && (() => {
+            const ann = annotations.find(a => a.id === ctxMenu.annotationId);
+            if (!ann) return null;
+            return (
+              <>
+                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Anotação</div>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { setEditingAnnotationId(`${ANN_PREFIX}${ann.id}`); setCtxMenu(null); }}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar texto
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { duplicateAnnotation(ann.id); setCtxMenu(null); }}>
+                  <Copy className="h-3.5 w-3.5" /> Duplicar
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { changeAnnotationZ(ann.id, "up"); setCtxMenu(null); }}>
+                  <ChevronsUp className="h-3.5 w-3.5" /> Trazer pra frente
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { changeAnnotationZ(ann.id, "down"); setCtxMenu(null); }}>
+                  <ChevronsDown className="h-3.5 w-3.5" /> Enviar pra trás
+                </button>
+                {ann.kind === "arrow" && (
+                  <>
+                    <div className="border-t border-border/40 my-1" />
+                    <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Direção</div>
+                    {(["diag-down","diag-up","horizontal","vertical"] as const).map(o => (
+                      <button key={o} className="w-full text-left px-3 py-1 hover:bg-secondary/60 text-xs"
+                        onClick={() => { changeArrowOrientation(ann.id, o); setCtxMenu(null); }}>
+                        {o === "diag-down" ? "Diagonal ↘" : o === "diag-up" ? "Diagonal ↗" : o === "horizontal" ? "Horizontal →" : "Vertical ↓"}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <div className="border-t border-border/40 my-1" />
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 text-red-400"
+                  onClick={() => { deleteAnnotation(ann.id); setCtxMenu(null); }}>
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Aggregated checklist panel */}
       <Sheet open={checklistPanel} onOpenChange={setChecklistPanel}>
