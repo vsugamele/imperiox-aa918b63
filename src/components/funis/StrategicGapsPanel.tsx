@@ -165,14 +165,16 @@ export function StrategicGapsPanel({ nodes, edges = [], onCreateNode }: Props) {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground leading-4 mb-2">{g.desc}</p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 text-[10px] gap-1 w-full"
-                onClick={() => onCreateNode(g.suggest.kind, g.suggest.label)}
-              >
-                <Plus className="h-3 w-3" /> Criar {g.suggest.label}
-              </Button>
+              {g.suggest.kind !== "__orphan__" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] gap-1 w-full"
+                  onClick={() => onCreateNode(g.suggest.kind, g.suggest.label)}
+                >
+                  <Plus className="h-3 w-3" /> Criar {g.suggest.label}
+                </Button>
+              )}
             </div>
           ))}
         </div>
