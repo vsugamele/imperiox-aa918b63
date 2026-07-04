@@ -1,31 +1,9 @@
-import { Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Clock } from "lucide-react";
 
-const MOBILE_EXEMPT_PREFIXES = [
-  "/mobile-cockpit",
-  "/login",
-  "/expert",
-  "/f/",
-  "/w/",
-  "/privacy",
-];
-
-function useMobileAutoRedirect() {
-  const location = useLocation();
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      if (localStorage.getItem("imphq_force_desktop") === "1") return;
-      const isMobile = window.matchMedia("(max-width: 768px)").matches;
-      if (!isMobile) return;
-      const path = location.pathname;
-      if (MOBILE_EXEMPT_PREFIXES.some((p) => path.startsWith(p))) return;
-      window.location.replace("/mobile-cockpit");
-    } catch {}
-  }, [location.pathname]);
-}
+// Redirect mobile → /mobile-cockpit removido. App agora é responsivo no celular.
+// Cockpit continua acessível manualmente via /mobile-cockpit.
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isPending, userStatus } = useAuth();
