@@ -620,8 +620,8 @@ export default function Leads() {
               <TabsTrigger value="predicoes" className="text-[10px] uppercase tracking-wider gap-1.5"><Brain className="h-3 w-3" /> Predições</TabsTrigger>
               <TabsTrigger value="custo" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Custo</TabsTrigger>
               {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
-            </TabsList>
-            <div className="ml-auto flex items-center gap-2">
+            </TabsList></div>
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
               {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
                 <div className="hidden md:flex items-center gap-2 text-[11px] px-2.5 py-1 rounded-md bg-secondary/60 border border-border" title="CPL = gasto em ads ÷ leads no período">
                   <span className="text-muted-foreground">CPL</span>
