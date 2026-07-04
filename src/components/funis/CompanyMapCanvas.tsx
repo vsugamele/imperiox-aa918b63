@@ -882,7 +882,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       {/* Strategic gaps floating panel */}
       <div className="absolute bottom-3 right-3 z-10 hidden md:block">
         <StrategicGapsPanel
-          nodes={rawNodes.map(n => ({ kind: n.kind, label: n.label, description: n.description }))}
+          nodes={rawNodes.map(n => ({ id: n.id, kind: n.kind, label: n.label, description: n.description }))}
+          edges={edges.map(e => ({ source: e.source, target: e.target }))}
           onCreateNode={(kind, label) => addNode(kind, label)}
         />
       </div>
