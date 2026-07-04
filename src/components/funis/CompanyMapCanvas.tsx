@@ -206,7 +206,10 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
-  const { setCenter } = useReactFlow();
+  const [annotations, setAnnotations] = useState<MapAnnotation[]>([]);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
+  const { setCenter, screenToFlowPosition } = useReactFlow();
 
 
   // load maps list
