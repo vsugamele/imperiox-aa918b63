@@ -33702,6 +33702,4824 @@ export type Database = {
           },
         ]
       }
+      orion_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          role: string | null
+          social_links: Json
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_badge_definitions: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          position: number
+          rule_type: string
+          rule_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_banners: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          hide_title: boolean
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          link_url: string | null
+          position: number
+          starts_at: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      orion_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_cancellation_notices: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_sent: boolean
+          id: string
+          plan_id: string | null
+          program_id: string | null
+          provider: string | null
+          push_sent: boolean
+          reactivation_url: string | null
+          scope: string
+          source_event: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_certificate_templates: {
+        Row: {
+          accent_color: string
+          background_height: number | null
+          background_url: string | null
+          background_width: number | null
+          body_text: string
+          created_at: string
+          field_positions: Json
+          id: string
+          is_active: boolean
+          is_default: boolean
+          logo_url: string | null
+          mode: string
+          name: string
+          primary_color: string
+          signature_name: string | null
+          signature_role: string | null
+          signature_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name?: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_certificates: {
+        Row: {
+          duration_hours: number | null
+          id: string
+          instructor_name_snapshot: string | null
+          issued_at: string
+          pdf_url: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Insert: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id?: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Update: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id?: string
+          program_title_snapshot?: string
+          template_id?: string | null
+          user_id?: string
+          user_name_snapshot?: string
+          validation_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "orion_certificate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          program_id: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_chat_messages_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_crm_exports: {
+        Row: {
+          created_at: string
+          exported_by: string | null
+          filters: Json
+          format: string
+          id: string
+          row_count: number
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      orion_crm_member_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          tag_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          tag_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_crm_member_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "orion_crm_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_crm_notes: {
+        Row: {
+          author_id: string | null
+          category: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string | null
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_crm_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_crm_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      orion_cta_leads: {
+        Row: {
+          created_at: string
+          cta_id: string | null
+          email: string
+          id: string
+          metadata: Json
+          name: string
+          source_id: string | null
+          source_type: string | null
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_id?: string | null
+          email: string
+          id?: string
+          metadata?: Json
+          name: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_id?: string | null
+          email?: string
+          id?: string
+          metadata?: Json
+          name?: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_cta_leads_cta_id_fkey"
+            columns: ["cta_id"]
+            isOneToOne: false
+            referencedRelation: "orion_ctas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_ctas: {
+        Row: {
+          button_label: string
+          capture_lead: boolean
+          created_at: string
+          delay_seconds: number
+          description: string | null
+          ends_at: string | null
+          frequency: string
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: string
+          random_display: boolean
+          scope: string
+          scope_id: string | null
+          starts_at: string | null
+          target_url: string
+          title: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url: string
+          title: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url?: string
+          title?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_custom_palettes: {
+        Row: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at: string
+          created_by: string | null
+          foreground_hsl: string
+          id: string
+          mode: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Insert: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl: string
+          id?: string
+          mode?: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Update: {
+          accent_hsl?: string
+          background_hsl?: string
+          card_hsl?: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl?: string
+          id?: string
+          mode?: string
+          muted_hsl?: string
+          name?: string
+          primary_hsl?: string
+        }
+        Relationships: []
+      }
+      orion_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          from_email: string | null
+          html: string | null
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          body_static_html: string | null
+          created_at: string
+          delay_hours: number
+          dynamic_reason: string | null
+          id: string
+          render_mode: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+          subject_static: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      orion_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_hair_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_enabled: boolean
+          label: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_enabled?: boolean
+          label: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_enabled?: boolean
+          label?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Relationships: []
+      }
+      orion_install_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          platform: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      orion_languages: {
+        Row: {
+          code: string
+          created_at: string
+          is_default: boolean
+          is_enabled: boolean
+          name: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lesson_notes: {
+        Row: {
+          content: string
+          id: string
+          lesson_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          id?: string
+          lesson_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          lesson_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lesson_playback: {
+        Row: {
+          duration_seconds: number | null
+          lesson_id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          lesson_id: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          lesson_id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_playback_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lessons: {
+        Row: {
+          attachments: Json
+          created_at: string
+          description: string | null
+          description_html: string | null
+          duration_min: number
+          id: string
+          is_hidden: boolean
+          is_preview: boolean
+          module_id: string
+          position: number
+          thumbnail_url: string | null
+          title: string
+          transcript: string | null
+          transcript_error: string | null
+          transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_hidden?: boolean
+          is_preview?: boolean
+          module_id: string
+          position?: number
+          thumbnail_url?: string | null
+          title: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_hidden?: boolean
+          is_preview?: boolean
+          module_id?: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "orion_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lessons_backup_reorg: {
+        Row: {
+          id: string | null
+          module_id: string | null
+          position: number | null
+          snapshotted_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Relationships: []
+      }
+      orion_levels: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level?: number
+          min_xp?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      orion_library_config: {
+        Row: {
+          created_at: string
+          description: string | null
+          fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_library_entries: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_published: boolean
+          position: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_link_presets: {
+        Row: {
+          created_at: string
+          href: string
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          href: string
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          href?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_lives: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          host_name: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          link_url: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_meditations: {
+        Row: {
+          audio_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      orion_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "orion_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "orion_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_mini_apps: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_modules: {
+        Row: {
+          author_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_hidden: boolean
+          position: number
+          program_id: string
+          title: string
+        }
+        Insert: {
+          author_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          position?: number
+          program_id: string
+          title: string
+        }
+        Update: {
+          author_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          position?: number
+          program_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_modules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_nav_items: {
+        Row: {
+          action_type: string
+          admin_only: boolean
+          created_at: string
+          has_megamenu: boolean
+          href: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          label: string
+          megamenu_config: Json
+          position: number
+          scope: string
+          show_in_mobile: boolean
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label: string
+          megamenu_config?: Json
+          position?: number
+          scope: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label?: string
+          megamenu_config?: Json
+          position?: number
+          scope?: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      orion_notification_prefs: {
+        Row: {
+          enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "orion_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          link: string | null
+          media_url: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      orion_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          id: string
+          is_published: boolean
+          seo_description: string | null
+          seo_image_url: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_payment_webhooks: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          matched_program_id: string | null
+          matched_user_id: string | null
+          processed: boolean
+          processed_at: string | null
+          provider: string
+          raw_payload: Json
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider: string
+          raw_payload: Json
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json
+          user_email?: string | null
+        }
+        Relationships: []
+      }
+      orion_plan_external_products: {
+        Row: {
+          access_duration_days: number | null
+          created_at: string
+          delivery_name: string | null
+          external_product_id: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          plan_id: string | null
+          program_id: string | null
+          provider: string
+          sale_mode: string
+          scope: string
+          tag_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          access_duration_days?: number | null
+          created_at?: string
+          delivery_name?: string | null
+          external_product_id: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider: string
+          sale_mode?: string
+          scope?: string
+          tag_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          access_duration_days?: number | null
+          created_at?: string
+          delivery_name?: string | null
+          external_product_id?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string
+          sale_mode?: string
+          scope?: string
+          tag_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_plan_programs: {
+        Row: {
+          created_at: string
+          plan_id: string
+          program_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan_id: string
+          program_id: string
+        }
+        Update: {
+          created_at?: string
+          plan_id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_programs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_plans: {
+        Row: {
+          billing_period: string
+          color: string
+          created_at: string
+          currency: string
+          description: string | null
+          exclusion_program_ids: string[]
+          grants_all_programs: boolean
+          id: string
+          inclusion_program_ids: string[]
+          is_active: boolean
+          is_default: boolean
+          name: string
+          price_cents: number
+          reactivation_url: string | null
+          slug: string
+          tags: string[] | null
+          tier_level: number
+          trail_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug?: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plans_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_comments_v2: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          is_seed: boolean
+          parent_id: string | null
+          post_id: string
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id?: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "orion_post_comments_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          is_seed: boolean
+          post_id: string
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id?: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          position: number
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url: string
+          position?: number
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string
+          position?: number
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_posts: {
+        Row: {
+          comments_count: number
+          content: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          is_seed: boolean
+          likes_count: number
+          media_type: string | null
+          media_url: string | null
+          pinned_until: string | null
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+          visibility: string
+        }
+        Insert: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Update: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_posts_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_presence_signals: {
+        Row: {
+          created_at: string
+          entity_label: string | null
+          entity_url: string | null
+          id: string
+          is_seed: boolean
+          persona_avatar: string | null
+          persona_name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      orion_profiles: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
+          created_at: string
+          email: string | null
+          engagement_score: number
+          id: string
+          is_blocked: boolean
+          last_seen_at: string | null
+          lifecycle_stage: string
+          lifecycle_updated_at: string | null
+          name: string | null
+          push_enabled: boolean
+          score_breakdown: Json
+          score_updated_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          email?: string | null
+          engagement_score?: number
+          id: string
+          is_blocked?: boolean
+          last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
+          name?: string | null
+          push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          email?: string | null
+          engagement_score?: number
+          id?: string
+          is_blocked?: boolean
+          last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
+          name?: string | null
+          push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_program_ai_config: {
+        Row: {
+          avatar: string | null
+          model: string
+          name: string
+          persona_id: string | null
+          program_id: string
+          provider: string
+          suggestions: Json
+          system_prompt: string
+          welcome: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          model?: string
+          name: string
+          persona_id?: string | null
+          program_id: string
+          provider?: string
+          suggestions?: Json
+          system_prompt: string
+          welcome?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          model?: string
+          name?: string
+          persona_id?: string | null
+          program_id?: string
+          provider?: string
+          suggestions?: Json
+          system_prompt?: string
+          welcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_brand_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_programs: {
+        Row: {
+          author_avatar: string | null
+          author_avatar_url: string | null
+          author_bio: string | null
+          author_id: string | null
+          author_name: string | null
+          author_role: string | null
+          banner_url: string | null
+          banner_url_mobile: string | null
+          bonus_items: Json
+          category: string | null
+          checkout_url: string | null
+          created_at: string
+          curriculum_intro: string | null
+          description: string | null
+          duration_min: number
+          enrolled_count: number
+          hair_types: string[]
+          hero_media_type: string
+          hero_media_type_mobile: string | null
+          hero_media_url: string | null
+          hero_media_url_mobile: string | null
+          id: string
+          is_active: boolean
+          is_free: boolean
+          is_hidden: boolean
+          is_new: boolean
+          is_premium: boolean
+          is_published: boolean
+          is_trending: boolean
+          language: string
+          learnings: Json
+          long_description: string | null
+          paywall_config: Json | null
+          position: number
+          price_brl: number | null
+          reactivation_url: string | null
+          related_program_ids: string[]
+          subtitle: string | null
+          testimonials: Json
+          thumbnail_url: string | null
+          title: string
+          total_minutes: number
+          trailer_url: string | null
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          paywall_config?: Json | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Update: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          paywall_config?: Json | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title?: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_programs_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "orion_authors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_push_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          notif_type: string
+          recipients_count: number
+          removed_count: number
+          segment: Json
+          sent_by: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      orion_push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          platform: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string
+          id: string
+          passed: boolean
+          quiz_id: string
+          score: number
+          started_at: string | null
+          time_spent_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id?: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "orion_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quiz_questions: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: string
+          image_url: string | null
+          options: Json
+          points: number
+          position: number
+          question: string
+          quiz_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question: string
+          quiz_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question?: string
+          quiz_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "orion_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quizzes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          lesson_id: string | null
+          max_attempts: number | null
+          pass_score: number
+          program_id: string | null
+          show_explanations: boolean
+          shuffle_options: boolean
+          shuffle_questions: boolean
+          time_limit_minutes: number | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          max_attempts?: number | null
+          pass_score?: number
+          program_id?: string | null
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          max_attempts?: number | null
+          pass_score?: number
+          program_id?: string | null
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_quizzes_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_searches: {
+        Row: {
+          created_at: string
+          had_results: boolean | null
+          id: string
+          query: string
+          results_count: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query?: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_seed_personas: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profession: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      orion_shop_config: {
+        Row: {
+          categories: Json
+          created_at: string
+          cta_label: string
+          currency: string
+          description: string | null
+          extra_fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_shop_products: {
+        Row: {
+          affiliate_url: string | null
+          badge: string | null
+          category: string | null
+          compare_at_cents: number | null
+          created_at: string
+          currency: string
+          data: Json
+          description: string | null
+          gallery: Json
+          id: string
+          image_url: string | null
+          is_published: boolean
+          position: number
+          price_cents: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_stories: {
+        Row: {
+          author_name: string
+          author_photo: string | null
+          country: string | null
+          created_at: string
+          featured_on_home: boolean
+          home_order: number | null
+          id: string
+          media_type: string
+          profession: string | null
+          program_id: string | null
+          quote: string
+          video_file_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          author_name: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          author_name?: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote?: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_stories_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question: string
+          required: boolean
+          survey_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question: string
+          required?: boolean
+          survey_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question?: string
+          required?: boolean
+          survey_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "orion_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_survey_responses: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          scope_id: string | null
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "orion_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          title: string
+          trigger_scope_id: string | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_tenant_magic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_path: string
+          tenant_origin: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_path?: string
+          tenant_origin: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_path?: string
+          tenant_origin?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_tenant_settings: {
+        Row: {
+          accent_hsl: string
+          app_name: string
+          authors_card_aspect: string
+          background_hsl: string
+          body_font: string
+          card_hsl: string
+          category_hidden: Json | null
+          category_order: Json | null
+          community_free_post_quota: number
+          community_free_reel_quota: number
+          community_gating_mode: string
+          community_lock_create: boolean
+          community_lock_engage: boolean
+          community_paywall_message: string
+          community_paywall_preview_chars: number
+          default_theme: string
+          email_api_key: string | null
+          email_welcome_enabled: boolean
+          email_welcome_html: string | null
+          email_welcome_subject: string
+          favicon_url: string | null
+          footer_about_links: Json
+          footer_about_title: string
+          footer_app_availability: string
+          footer_app_eyebrow: string
+          footer_app_subtitle: string
+          footer_app_title: string
+          footer_appstore_url: string | null
+          footer_brand_description: string
+          footer_copyright_tagline: string
+          footer_facebook_url: string | null
+          footer_instagram_url: string | null
+          footer_playstore_url: string | null
+          footer_social_subtitle: string
+          footer_social_title: string
+          footer_support_links: Json
+          footer_support_title: string
+          footer_twitter_url: string | null
+          footer_youtube_url: string | null
+          foreground_hsl: string
+          hair_types_label: string
+          hair_types_label_singular: string
+          heading_font: string
+          home_authors_subtitle: string
+          home_meditations_eyebrow: string
+          home_recommend_cta: Json | null
+          home_section_order: Json
+          home_section_titles: Json
+          home_sections_enabled: Json
+          home_welcome_image: string | null
+          home_welcome_image_mobile: string | null
+          id: boolean
+          landing_cta_text: string
+          landing_footer_html: string | null
+          landing_gradient_desktop: string | null
+          landing_gradient_mobile: string | null
+          landing_hero_image: string | null
+          landing_hero_image_mobile: string | null
+          landing_logo_url: string | null
+          landing_signin_label: string
+          landing_signup_label: string
+          landing_subtitle: string
+          landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
+          logo_url: string | null
+          meditations_label: string
+          meditations_label_singular: string
+          muted_hsl: string
+          notify_on_admin_post: boolean
+          onboarding_step: number
+          outbound_webhook_events: string[] | null
+          outbound_webhook_secret: string | null
+          outbound_webhook_tags: string[] | null
+          outbound_webhook_url: string | null
+          primary_hsl: string
+          program_card_aspect: string
+          program_card_aspect_by_section: Json
+          program_card_aspect_by_section_mobile: Json
+          program_card_aspect_mobile: string | null
+          programs_section_order: Json
+          programs_sections_enabled: Json
+          resend_from_email: string | null
+          resend_from_name: string | null
+          seed_engine_enabled: boolean
+          seed_likes_per_hour: number
+          seed_online_offset: number
+          seed_presence_frequency_seconds: number
+          seed_show_online_count: boolean
+          seed_show_ticker: boolean
+          show_continue_hero_text: boolean
+          show_program_card_text: boolean
+          show_quest_hero_text: boolean
+          show_trail_card_text: boolean
+          site_url: string | null
+          updated_at: string
+          webhook_secret: string | null
+          welcome_text: string
+        }
+        Insert: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Update: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Relationships: []
+      }
+      orion_trail_enrollments: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string
+          id: string
+          source: string
+          trail_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_enrollments_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_trail_programs: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          position: number
+          program_id: string
+          trail_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id: string
+          trail_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id?: string
+          trail_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_trail_programs_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_trails: {
+        Row: {
+          auto_enroll_on_signup: boolean
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          is_sequential: boolean
+          position: number
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_upsell_events: {
+        Row: {
+          context_lesson_id: string | null
+          context_program_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id: string
+          offer_id: string
+          user_id: string
+        }
+        Insert: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id?: string
+          offer_id: string
+          user_id: string
+        }
+        Update: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id?: string
+          offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "orion_upsell_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_upsell_offers: {
+        Row: {
+          created_at: string
+          cta_label: string | null
+          headline: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          priority: number
+          sales_url: string | null
+          source_lesson_id: string | null
+          source_program_id: string | null
+          subheadline: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          priority?: number
+          sales_url?: string | null
+          source_lesson_id?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          priority?: number
+          sales_url?: string | null
+          source_lesson_id?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id?: string
+          trigger_type?: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_program_id_fkey"
+            columns: ["source_program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_target_program_id_fkey"
+            columns: ["target_program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_badges: {
+        Row: {
+          badge_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "orion_badge_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          plan_id: string | null
+          program_id: string | null
+          scope: string
+          source: string
+          source_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_favorites: {
+        Row: {
+          created_at: string
+          program_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          program_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          program_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_favorites_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_user_onboarding: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          goal: string | null
+          level: string | null
+          skipped: boolean
+          time_per_day: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_progress: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["orion_app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["orion_app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["orion_app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_xp: {
+        Row: {
+          level: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_webhook_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string | null
+          external_product_id: string | null
+          id: string
+          message: string | null
+          payload: Json | null
+          plan_id: string | null
+          provider: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_webhook_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_welcome_popup_views: {
+        Row: {
+          dismissed_at: string
+          popup_id: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          popup_id: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          popup_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_welcome_popup_views_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "orion_welcome_popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_welcome_popups: {
+        Row: {
+          audience: string
+          body_html: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          display_mode: string
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_xp_events: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          xp: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+      orion_xp_rules: {
+        Row: {
+          action: string
+          created_at: string
+          daily_cap: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       pa_admin_lesson_profiles: {
         Row: {
           created_at: string | null
@@ -46076,6 +50894,31 @@ export type Database = {
         Returns: Json
       }
       normalize_br_phone: { Args: { p_phone: string }; Returns: string[] }
+      orion_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
+      orion_has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["orion_app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      orion_is_admin: { Args: { _uid: string }; Returns: boolean }
+      orion_link_legacy_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      orion_lookup_auth_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
+      orion_program_metrics: { Args: { p_program_id: string }; Returns: Json }
+      orion_promote_admin_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
@@ -46207,6 +51050,23 @@ export type Database = {
         | "registration"
         | "instagram"
         | "telegram"
+      orion_app_role: "admin" | "member"
+      orion_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      orion_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
+        | "lessons_completed_count"
+      orion_upsell_event_type: "view" | "click" | "dismiss" | "convert"
+      orion_upsell_trigger: "lesson_preview_complete" | "program_complete"
       pa_app_role: "admin" | "user"
       point_transaction_type:
         | "mission_completed"
@@ -46408,6 +51268,25 @@ export const Constants = {
         "instagram",
         "telegram",
       ],
+      orion_app_role: ["admin", "member"],
+      orion_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      orion_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+        "lessons_completed_count",
+      ],
+      orion_upsell_event_type: ["view", "click", "dismiss", "convert"],
+      orion_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       pa_app_role: ["admin", "user"],
       point_transaction_type: [
         "mission_completed",
