@@ -7,6 +7,10 @@ import { MAP_TEMPLATES, type MapTemplate } from "./mapTemplates";
 const KIND_COLORS: Record<string, string> = {
   vertical: "#c9922a", area: "#3b82f6", oferta: "#10b981",
   canal: "#f59e0b", processo: "#8b5cf6", meta: "#ef4444", doc: "#64748b",
+  vsl: "#ec4899", pagina_vendas: "#f97316", captura: "#06b6d4",
+  checkout: "#84cc16", orderbump: "#fbbf24", upsell: "#22c55e",
+  downsell: "#f43f5e", email: "#818cf8", anuncio: "#eab308",
+  whatsapp: "#25d366", area_membros: "#a855f7", app: "#0ea5e9",
 };
 
 export async function applyTemplate(mapId: string, tpl: MapTemplate) {
