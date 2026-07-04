@@ -104,13 +104,15 @@ export function analyzeGaps(nodes: NodeLite[], edges: EdgeLite[] = []): GapRule[
 
 interface Props {
   nodes: NodeLite[];
+  edges?: EdgeLite[];
   onCreateNode: (kind: string, label: string) => void;
 }
 
-export function StrategicGapsPanel({ nodes, onCreateNode }: Props) {
+export function StrategicGapsPanel({ nodes, edges = [], onCreateNode }: Props) {
   const [open, setOpen] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const gaps = useMemo(() => analyzeGaps(nodes).filter(g => !dismissed.has(g.id)), [nodes, dismissed]);
+  const gaps = useMemo(() => analyzeGaps(nodes, edges).filter(g => !dismissed.has(g.id)), [nodes, edges, dismissed]);
+
 
   if (gaps.length === 0) {
     return (
