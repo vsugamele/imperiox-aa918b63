@@ -100,10 +100,12 @@ function MapNodeCard({ data }: { data: any }) {
   const preview = checklist.slice(0, 3);
   const rest = Math.max(0, total - preview.length);
   const waInfo = data.waInfo; // { phone, instance, provider, conversations }
+  const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
+  const url: string | null = data.url || null;
   return (
     <div
-      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 min-w-[200px] max-w-[260px] shadow-lg hover:shadow-xl transition-all cursor-pointer"
-      style={{ borderColor: data.color }}
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+      style={{ borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
 
