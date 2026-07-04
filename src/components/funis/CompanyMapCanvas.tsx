@@ -83,7 +83,7 @@ const COLOR_PALETTE = [
 interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
-  description?: string | null; notes?: string | null;
+  description?: string | null; notes?: string | null; url?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
@@ -143,6 +143,16 @@ function MapNodeCard({ data }: { data: any }) {
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
+      {url && (
+        <a
+          href={url} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="nodrag mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline truncate max-w-full"
+        >
+          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
+        </a>
+      )}
 
       {/* WhatsApp channel enrichment */}
       {waInfo && (
@@ -535,15 +545,15 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, style: { stroke: "#c9922a", strokeWidth: 2 } }, eds));
   }, [mapId]);
 
-  const addNode = async (kind: string) => {
+  const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
-    const preset = KIND_PRESETS[kind];
+    const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: `Novo ${preset.label}`,
+      label: customLabel || `Novo ${preset.label}`,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
     }).select().single();
-    if (data) await loadMap(mapId);
+    if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
   const createMap = async () => {
@@ -589,12 +599,14 @@ function InnerMap({ projects }: { projects: any[] }) {
     const { error } = await supabase.from("imphq_company_map_nodes").update({
       label: selected.label, description: selected.description, notes: selected.notes,
       color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
+      size: selected.size || "M",
+      url: selected.url || null,
       show_live_kpis: !!selected.show_live_kpis,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
       linked_flow_id: selected.linked_flow_id || null,
       linked_wa_provider_id: selected.linked_wa_provider_id || null,
-    }).eq("id", selected.id);
+    } as any).eq("id", selected.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo");
     if (mapId) await loadMap(mapId);
@@ -860,6 +872,15 @@ function InnerMap({ projects }: { projects: any[] }) {
         <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
       </ReactFlow>
 
+      {/* Strategic gaps floating panel */}
+      <div className="absolute bottom-3 right-3 z-10 hidden md:block">
+        <StrategicGapsPanel
+          nodes={rawNodes.map(n => ({ kind: n.kind, label: n.label, description: n.description }))}
+          onCreateNode={(kind, label) => addNode(kind, label)}
+        />
+      </div>
+
+
       {/* Canvas context menu (annotations) */}
       {ctxMenu && (
         <div
@@ -990,7 +1011,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
       {/* Editor sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent className="w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
+        <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
           <SheetHeader><SheetTitle className="font-serif">Editar nó do mapa</SheetTitle></SheetHeader>
           {selected && (
             <div className="space-y-4 mt-4">
@@ -998,14 +1019,65 @@ function InnerMap({ projects }: { projects: any[] }) {
                 <Label className="text-xs">Tipo</Label>
                 <Select value={selected.kind} onValueChange={(v) => setSelected({ ...selected, kind: v, color: KIND_PRESETS[v].color })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(KIND_PRESETS).map(([k, p]) => <SelectItem key={k} value={k}>{p.label}</SelectItem>)}
+                  <SelectContent className="max-h-[360px]">
+                    {KIND_CATEGORIES.map(cat => (
+                      <div key={cat.label}>
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{cat.label}</div>
+                        {cat.keys.map(k => KIND_PRESETS[k] && (
+                          <SelectItem key={k} value={k}>{KIND_PRESETS[k].label}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-xs">Rótulo</Label>
                 <Input value={selected.label} onChange={e => setSelected({ ...selected, label: e.target.value })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><Palette className="h-3 w-3" /> Cor</Label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {COLOR_PALETTE.map(c => (
+                      <button
+                        key={c} type="button"
+                        onClick={() => setSelected({ ...selected, color: c })}
+                        className={`w-5 h-5 rounded border transition-all ${selected.color === c ? "ring-2 ring-offset-1 ring-offset-background ring-primary scale-110" : "border-border/40"}`}
+                        style={{ background: c }}
+                      />
+                    ))}
+                    <input
+                      type="color" value={selected.color}
+                      onChange={e => setSelected({ ...selected, color: e.target.value })}
+                      className="w-5 h-5 rounded border border-border/40 bg-transparent cursor-pointer"
+                      title="Cor customizada"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Tamanho</Label>
+                  <div className="grid grid-cols-4 gap-1 mt-1">
+                    {(["S","M","L","XL"] as const).map(s => (
+                      <Button
+                        key={s} size="sm" type="button"
+                        variant={(selected.size || "M") === s ? "default" : "outline"}
+                        className="h-7 text-[10px] px-0"
+                        onClick={() => setSelected({ ...selected, size: s })}
+                      >{s}</Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs flex items-center gap-1"><Link2 className="h-3 w-3" /> URL (opcional)</Label>
+                <Input
+                  type="url" placeholder="https://..."
+                  value={selected.url || ""}
+                  onChange={e => setSelected({ ...selected, url: e.target.value })}
+                />
               </div>
               <div>
                 <Label className="text-xs">Descrição (o que cuida)</Label>
