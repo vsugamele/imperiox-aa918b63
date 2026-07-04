@@ -1537,7 +1537,17 @@ A resposta deve soar como CONVERSA REAL, não artigo, não texto de IA.
 - Em conflito com REGRAS DE COMUNICACAO HUMANA acima, as humanas vencem (especialmente nominação e abertura).
 `;
 
-      const paymentConfirmationBlock = isPaymentConfirmation ? `
+      const jpBypassPayment = isJPProject(project_id) && jpHasAccount && !!jpEffectiveEmail;
+      const paymentConfirmationBlock = isPaymentConfirmation ? (jpBypassPayment ? `
+
+💸 LEAD JP FREITAS COM ACESSO ATIVO — INSTRUÇÃO PRIORITÁRIA:
+O CRM confirma que este lead JÁ TEM conta e acesso ativo. NÃO peça comprovante, NÃO pergunte qual curso ele comprou, NÃO peça o email de novo.
+Sua ÚNICA missão NESTA resposta:
+1. Frase curta acolhedora reconhecendo o acesso já liberado (cite o programa pelo nome se estiver no STATUS acima).
+2. Enviar o link mágico direto: [JP_MAGIC_LINK:${jpEffectiveEmail}]
+3. Adicionar [JP_LOG:${jpEffectiveEmail}|wpp_acesso_liberado_via_bridge] no final (silencioso).
+Máximo 2 frases. Sem perguntas.
+` : `
 
 💸 LEAD CONFIRMOU PAGAMENTO — INSTRUÇÃO PRIORITÁRIA (SOBRESCREVE TUDO ABAIXO):
 O lead acabou de avisar que pagou${recentVendaContext?.produto_nome ? ` o produto "${recentVendaContext.produto_nome}"` : ""}${recentVendaContext?.status ? ` (status atual no sistema: ${recentVendaContext.status})` : ""}.
@@ -1549,7 +1559,7 @@ ${recentVendaContext && ["pix_gerado","boleto_gerado","aguardando_pagamento","pe
 - NÃO tente vender mais nada agora.
 - NÃO faça pergunta de qualificação ou triagem.
 - Máximo 2 a 3 frases curtas. Tom acolhedor e humano.
-` : "";
+`) : "";
 
       const consultiveBlock = (isConsultiveProductQuery && !isPaymentConfirmation) ? `
 
