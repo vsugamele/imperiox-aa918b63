@@ -17,11 +17,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown } from "lucide-react";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
+import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -173,7 +174,15 @@ function MapNodeCard({ data }: { data: any }) {
   );
 }
 
-const nodeTypes = { mapnode: MapNodeCard };
+const nodeTypes = { mapnode: MapNodeCard, ...annotationNodeTypes };
+
+interface MapAnnotation {
+  id: string; map_id: string; kind: AnnotationKind;
+  x: number; y: number; width: number; height: number;
+  text: string; style: AnnotationData["style"]; z_index: number;
+}
+const ANN_PREFIX = "ann-";
+const annTable = "imphq_company_map_annotations" as any;
 
 interface WaProvider {
   id: string; project_id: string; provider: string;
@@ -197,7 +206,10 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
-  const { setCenter } = useReactFlow();
+  const [annotations, setAnnotations] = useState<MapAnnotation[]>([]);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
+  const { setCenter, screenToFlowPosition } = useReactFlow();
 
 
   // load maps list
@@ -293,31 +305,38 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, []);
 
 
-  // load nodes/edges — stable (deps são refs), sem loop de recarga
+  // load nodes/edges/annotations — stable (deps são refs), sem loop de recarga
   const loadMap = useCallback(async (id: string) => {
-    const [{ data: nds, error: nErr }, { data: eds, error: eErr }] = await Promise.all([
+    const [{ data: nds, error: nErr }, { data: eds, error: eErr }, { data: anns }] = await Promise.all([
       supabase.from("imphq_company_map_nodes").select("*").eq("map_id", id),
       supabase.from("imphq_company_map_edges").select("*").eq("map_id", id),
+      supabase.from(annTable).select("*").eq("map_id", id) as any,
     ]);
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
+    setAnnotations(((anns || []) as any) as MapAnnotation[]);
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
-    setNodes(list.map(n => {
-      const wa = n.linked_wa_provider_id ? providers.find(p => p.id === n.linked_wa_provider_id) : null;
-      const waInfo = wa ? {
-        phone: wa.twilio_from || wa.phone_number_id || null,
-        instance: wa.instance_name || wa.display_name || null,
-        provider: wa.provider,
-        conversations: counts[wa.project_id],
-      } : null;
-      return {
-        id: n.id, type: "mapnode",
-        position: n.position || { x: 0, y: 0 },
-        data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
-      };
-    }));
+    setNodes(nds2 => {
+      // preserve annotations already merged (they get re-merged by a dedicated effect)
+      const annNodes = nds2.filter(n => n.id.startsWith(ANN_PREFIX));
+      const baseNodes = list.map(n => {
+        const wa = n.linked_wa_provider_id ? providers.find(p => p.id === n.linked_wa_provider_id) : null;
+        const waInfo = wa ? {
+          phone: wa.twilio_from || wa.phone_number_id || null,
+          instance: wa.instance_name || wa.display_name || null,
+          provider: wa.provider,
+          conversations: counts[wa.project_id],
+        } : null;
+        return {
+          id: n.id, type: "mapnode",
+          position: n.position || { x: 0, y: 0 },
+          data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
+        } as Node;
+      });
+      return [...baseNodes, ...annNodes];
+    });
     setEdges((eds || []).map((e: any) => ({
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
@@ -365,11 +384,104 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
+  // ---------- Annotations helpers ----------
+  const updateAnnotationText = useCallback(async (id: string, text: string) => {
+    const annId = id.startsWith(ANN_PREFIX) ? id.slice(ANN_PREFIX.length) : id;
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, text } : a));
+    setEditingAnnotationId(null);
+    await supabase.from(annTable).update({ text }).eq("id", annId);
+  }, []);
+
+  // Merge annotations into React Flow nodes whenever they (or edit state) change.
+  useEffect(() => {
+    setNodes(nds => {
+      const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
+      const annNodes: Node[] = annotations.map(a => ({
+        id: `${ANN_PREFIX}${a.id}`,
+        type: ANNOTATION_KIND_TO_TYPE[a.kind],
+        position: { x: a.x, y: a.y },
+        width: a.width,
+        height: a.height,
+        style: { width: a.width, height: a.height },
+        zIndex: a.z_index ?? 0,
+        draggable: true,
+        selectable: true,
+        data: {
+          kind: a.kind,
+          text: a.text || "",
+          style: a.style || {},
+          editingId: editingAnnotationId,
+          onTextChange: updateAnnotationText,
+        } as unknown as Record<string, unknown>,
+      }));
+      return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
+    });
+  }, [annotations, editingAnnotationId, updateAnnotationText]);
+
+  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number) => {
+    if (!mapId) return;
+    const def = ANNOTATION_DEFAULTS[kind];
+    const payload = {
+      map_id: mapId, kind,
+      x: x - def.w / 2, y: y - def.h / 2,
+      width: def.w, height: def.h,
+      text: def.text, style: def.style as any, z_index: 0,
+    };
+    const { data, error } = await (supabase.from(annTable) as any).insert(payload).select().single();
+    if (error) { toast.error("Erro ao adicionar anotação"); return; }
+    setAnnotations(list => [...list, data as MapAnnotation]);
+    if ((kind === "note" || kind === "label" || kind === "frame")) setEditingAnnotationId(`${ANN_PREFIX}${data.id}`);
+  }, [mapId]);
+
+  const deleteAnnotation = useCallback(async (annId: string) => {
+    setAnnotations(list => list.filter(a => a.id !== annId));
+    await supabase.from(annTable).delete().eq("id", annId);
+  }, []);
+
+  const duplicateAnnotation = useCallback(async (annId: string) => {
+    const src = annotations.find(a => a.id === annId);
+    if (!src || !mapId) return;
+    const { data, error } = await (supabase.from(annTable) as any).insert({
+      map_id: mapId, kind: src.kind, x: src.x + 30, y: src.y + 30,
+      width: src.width, height: src.height, text: src.text, style: src.style as any, z_index: src.z_index,
+    }).select().single();
+    if (error) { toast.error("Erro"); return; }
+    setAnnotations(list => [...list, data as MapAnnotation]);
+  }, [annotations, mapId]);
+
+  const changeAnnotationZ = useCallback(async (annId: string, dir: "up" | "down") => {
+    const src = annotations.find(a => a.id === annId); if (!src) return;
+    const next = (src.z_index || 0) + (dir === "up" ? 1 : -1);
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, z_index: next } : a));
+    await supabase.from(annTable).update({ z_index: next }).eq("id", annId);
+  }, [annotations]);
+
+  const changeArrowOrientation = useCallback(async (annId: string, orientation: "diag-down" | "diag-up" | "horizontal" | "vertical") => {
+    const src = annotations.find(a => a.id === annId); if (!src) return;
+    const nextStyle = { ...(src.style || {}), orientation };
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, style: nextStyle } : a));
+    await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
+  }, [annotations]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
     changes.forEach(async (c: any) => {
+      const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
+      const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
-        await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
+        if (isAnn) {
+          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, x: c.position.x, y: c.position.y } : a));
+          await supabase.from(annTable).update({ x: c.position.x, y: c.position.y }).eq("id", rawId);
+        } else {
+          await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
+        }
+      }
+      if (c.type === "dimensions" && isAnn && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
+        const { width, height } = c.dimensions;
+        if (width && height) {
+          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
+          await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+        }
       }
     });
   }, []);
@@ -683,13 +795,29 @@ function InnerMap({ projects }: { projects: any[] }) {
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Arraste um nó selecionado = mover todos
+        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique = editar texto
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick}
         onSelectionChange={onSelectionChange}
+        onPaneContextMenu={(event) => {
+          const e = event as unknown as React.MouseEvent;
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y });
+        }}
+        onNodeContextMenu={(e, node) => {
+          if (!node.id.startsWith(ANN_PREFIX)) return;
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
+        }}
+        onNodeDoubleClick={(_, node) => {
+          if (node.id.startsWith(ANN_PREFIX)) setEditingAnnotationId(node.id);
+        }}
+        onPaneClick={() => { setCtxMenu(null); setEditingAnnotationId(null); }}
         selectionOnDrag
         selectionMode={"partial" as any}
         panOnDrag={[1, 2]}
@@ -703,6 +831,79 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Controls className="!bg-card !border-border" />
         <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
       </ReactFlow>
+
+      {/* Canvas context menu (annotations) */}
+      {ctxMenu && (
+        <div
+          className="fixed z-50 min-w-[200px] bg-card border border-border/60 rounded-md shadow-xl py-1 text-sm"
+          style={{ left: ctxMenu.screenX, top: ctxMenu.screenY }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {!ctxMenu.annotationId && (
+            <>
+              <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar anotação</div>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("frame", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <Square className="h-3.5 w-3.5" /> Caixa tracejada
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("note", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <StickyNote className="h-3.5 w-3.5" /> Nota (sticky)
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("label", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <Type className="h-3.5 w-3.5" /> Título/label grande
+              </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                onClick={() => { addAnnotation("arrow", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
+                <ArrowUpRight className="h-3.5 w-3.5" /> Seta / linha
+              </button>
+            </>
+          )}
+          {ctxMenu.annotationId && (() => {
+            const ann = annotations.find(a => a.id === ctxMenu.annotationId);
+            if (!ann) return null;
+            return (
+              <>
+                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Anotação</div>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { setEditingAnnotationId(`${ANN_PREFIX}${ann.id}`); setCtxMenu(null); }}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar texto
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { duplicateAnnotation(ann.id); setCtxMenu(null); }}>
+                  <Copy className="h-3.5 w-3.5" /> Duplicar
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { changeAnnotationZ(ann.id, "up"); setCtxMenu(null); }}>
+                  <ChevronsUp className="h-3.5 w-3.5" /> Trazer pra frente
+                </button>
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
+                  onClick={() => { changeAnnotationZ(ann.id, "down"); setCtxMenu(null); }}>
+                  <ChevronsDown className="h-3.5 w-3.5" /> Enviar pra trás
+                </button>
+                {ann.kind === "arrow" && (
+                  <>
+                    <div className="border-t border-border/40 my-1" />
+                    <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Direção</div>
+                    {(["diag-down","diag-up","horizontal","vertical"] as const).map(o => (
+                      <button key={o} className="w-full text-left px-3 py-1 hover:bg-secondary/60 text-xs"
+                        onClick={() => { changeArrowOrientation(ann.id, o); setCtxMenu(null); }}>
+                        {o === "diag-down" ? "Diagonal ↘" : o === "diag-up" ? "Diagonal ↗" : o === "horizontal" ? "Horizontal →" : "Vertical ↓"}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <div className="border-t border-border/40 my-1" />
+                <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 text-red-400"
+                  onClick={() => { deleteAnnotation(ann.id); setCtxMenu(null); }}>
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Aggregated checklist panel */}
       <Sheet open={checklistPanel} onOpenChange={setChecklistPanel}>
