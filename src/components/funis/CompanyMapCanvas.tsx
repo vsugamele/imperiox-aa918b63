@@ -90,6 +90,7 @@ interface MapNode {
   description?: string | null; notes?: string | null; url?: string | null;
   image_url?: string | null;
   position: { x: number; y: number }; size: string;
+  width?: number | null; height?: number | null;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
