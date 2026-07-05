@@ -3,7 +3,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
   type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
-  Handle, Position, useReactFlow,
+  Handle, Position, useReactFlow, NodeResizer,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
