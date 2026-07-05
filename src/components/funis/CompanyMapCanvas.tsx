@@ -1166,6 +1166,28 @@ function InnerMap({ projects }: { projects: any[] }) {
                   onChange={e => setSelected({ ...selected, url: e.target.value })}
                 />
               </div>
+              {selected.kind === "imagem" && (
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Imagem</Label>
+                  {selected.image_url && (
+                    <img src={selected.image_url} alt={selected.label}
+                      className="w-full max-h-48 object-contain rounded border border-border/40 my-2 bg-black/20" />
+                  )}
+                  <Button size="sm" variant="outline" className="w-full gap-1 mt-1"
+                    onClick={async () => {
+                      const file = await pickImageFile();
+                      if (!file || !mapId) return;
+                      const t = toast.loading("Enviando imagem...");
+                      const url = await uploadMapImage(mapId, file);
+                      toast.dismiss(t);
+                      if (!url) return;
+                      setSelected({ ...selected, image_url: url });
+                      toast.success("Imagem atualizada — clique em Salvar");
+                    }}>
+                    <Upload className="h-3 w-3" /> {selected.image_url ? "Trocar imagem" : "Enviar imagem"}
+                  </Button>
+                </div>
+              )}
               <div>
                 <Label className="text-xs">Descrição (o que cuida)</Label>
                 <Textarea rows={2} value={selected.description || ""}
