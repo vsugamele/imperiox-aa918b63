@@ -123,7 +123,7 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
   return data.signedUrl;
 }
 
-function MapNodeCard({ data }: { data: any }) {
+function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
   const Icon = preset.icon;
   const checklist: ChecklistItem[] = data.checklist || [];
@@ -134,11 +134,23 @@ function MapNodeCard({ data }: { data: any }) {
   const waInfo = data.waInfo; // { phone, instance, provider, conversations }
   const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
   const url: string | null = data.url || null;
+  const hasCustomSize = !!(data.width && data.height);
   return (
     <div
-      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
-      style={{ borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+      style={
+        hasCustomSize
+          ? { borderColor: data.color, width: "100%", height: "100%" }
+          : { borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }
+      }
     >
+      <NodeResizer
+        isVisible={selected}
+        minWidth={140}
+        minHeight={60}
+        lineClassName="!border-primary/60"
+        handleClassName="!bg-primary !border-primary !w-2 !h-2"
+      />
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
 
       {/* Quick actions on hover */}
