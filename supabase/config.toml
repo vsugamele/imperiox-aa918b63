@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.ig-closer-trigger]
 verify_jwt = false
+
+[functions.link-preview]
+verify_jwt = false
