@@ -18411,6 +18411,7 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
+          height: number | null
           id: string
           image_url: string | null
           kind: string
@@ -18426,12 +18427,14 @@ export type Database = {
           size: string
           updated_at: string
           url: string | null
+          width: number | null
         }
         Insert: {
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          height?: number | null
           id?: string
           image_url?: string | null
           kind?: string
@@ -18447,12 +18450,14 @@ export type Database = {
           size?: string
           updated_at?: string
           url?: string | null
+          width?: number | null
         }
         Update: {
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          height?: number | null
           id?: string
           image_url?: string | null
           kind?: string
@@ -18468,6 +18473,7 @@ export type Database = {
           size?: string
           updated_at?: string
           url?: string | null
+          width?: number | null
         }
         Relationships: [
           {
