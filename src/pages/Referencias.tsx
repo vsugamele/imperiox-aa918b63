@@ -672,12 +672,25 @@ export default function Referencias() {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-          <button
-            className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-            onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
-          >
-            <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-          </button>
+          {r.url ? (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              title="Abrir link original"
+            >
+              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+            </a>
+          ) : (
+            <button
+              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+            >
+              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+            </button>
+          )}
           {isLib && (
             <button
               className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
