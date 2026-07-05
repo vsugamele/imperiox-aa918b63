@@ -18412,6 +18412,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           kind: string
           label: string
           linked_flow_id: string | null
@@ -18432,6 +18433,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           kind?: string
           label?: string
           linked_flow_id?: string | null
@@ -18452,6 +18454,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           kind?: string
           label?: string
           linked_flow_id?: string | null
