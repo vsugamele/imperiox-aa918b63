@@ -722,12 +722,27 @@ export default function Referencias() {
       );
     }
 
-    // Fallback gradient
-    return (
-      <div className={`${height} bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+    // Fallback gradient — clickable when a URL exists
+    const fallback = (
+      <div className={`${height} bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2`}>
         <Icon className="h-10 w-10 text-muted-foreground/20" />
+        {r.url && <span className="text-[10px] text-primary/70 flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Abrir link</span>}
       </div>
     );
+    if (r.url) {
+      return (
+        <a
+          href={r.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="block hover:opacity-90 transition-opacity"
+        >
+          {fallback}
+        </a>
+      );
+    }
+    return fallback;
   };
 
   const renderCard = (r: Ref, i: number) => {
