@@ -190,7 +190,10 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         <img
           src={data.image_url}
           alt={data.label}
-          className="mt-2 w-full max-h-64 object-cover rounded border border-border/30"
+          className={cn(
+            "mt-2 w-full rounded border border-border/30 object-cover",
+            hasCustomSize ? "flex-1 h-auto max-h-full" : "max-h-64"
+          )}
           draggable={false}
         />
       )}
