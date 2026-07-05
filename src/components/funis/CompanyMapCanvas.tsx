@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
@@ -57,6 +57,8 @@ const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> 
   tiktok:        { label: "TikTok",              color: "#000000", icon: Music2 },
   linkedin:      { label: "LinkedIn",            color: "#0a66c2", icon: Linkedin },
   twitter:       { label: "X / Twitter",         color: "#1da1f2", icon: Twitter },
+  // Mídia
+  imagem:        { label: "Imagem",               color: "#c9922a", icon: ImageIcon },
 };
 
 const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
@@ -65,6 +67,7 @@ const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
   { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
   { label: "Canais",            keys: ["whatsapp", "canal"] },
   { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
+  { label: "Mídia",             keys: ["imagem"] },
 ];
 
 const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
@@ -85,11 +88,38 @@ interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
   description?: string | null; notes?: string | null; url?: string | null;
+  image_url?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
   linked_wa_provider_id?: string | null;
+}
+
+// Helpers for image nodes
+async function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "image/*";
+    inp.onchange = () => resolve(inp.files?.[0] || null);
+    (inp as any).oncancel = () => resolve(null);
+    inp.click();
+  });
+}
+
+async function uploadMapImage(mapId: string, file: File): Promise<string | null> {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `${mapId}/${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from("company-map-images").upload(path, file, {
+    upsert: false, contentType: file.type || undefined,
+  });
+  if (upErr) { toast.error("Erro ao enviar imagem"); return null; }
+  // Long-lived signed URL (10 years) — bucket is private
+  const { data, error } = await supabase.storage
+    .from("company-map-images")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+  if (error || !data?.signedUrl) { toast.error("Erro ao gerar URL da imagem"); return null; }
+  return data.signedUrl;
 }
 
 function MapNodeCard({ data }: { data: any }) {
@@ -143,6 +173,14 @@ function MapNodeCard({ data }: { data: any }) {
         <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{preset.label}</span>
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
+      {data.kind === "imagem" && data.image_url && (
+        <img
+          src={data.image_url}
+          alt={data.label}
+          className="mt-2 w-full max-h-64 object-cover rounded border border-border/30"
+          draggable={false}
+        />
+      )}
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
       {url && (
         <a
@@ -560,11 +598,26 @@ function InnerMap({ projects }: { projects: any[] }) {
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
+
+    // Imagem: pede arquivo antes, faz upload, e só então cria o nó
+    let image_url: string | null = null;
+    let autoLabel: string | null = null;
+    if (kind === "imagem") {
+      const file = await pickImageFile();
+      if (!file) return;
+      const t = toast.loading("Enviando imagem...");
+      image_url = await uploadMapImage(mapId, file);
+      toast.dismiss(t);
+      if (!image_url) return;
+      autoLabel = file.name.replace(/\.[^.]+$/, "");
+    }
+
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: customLabel || `Novo ${preset.label}`,
+      label: customLabel || autoLabel || `Novo ${preset.label}`,
+      image_url,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
-    }).select().single();
+    } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
@@ -613,6 +666,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
       size: selected.size || "M",
       url: selected.url || null,
+      image_url: selected.image_url || null,
       show_live_kpis: !!selected.show_live_kpis,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
@@ -1112,6 +1166,28 @@ function InnerMap({ projects }: { projects: any[] }) {
                   onChange={e => setSelected({ ...selected, url: e.target.value })}
                 />
               </div>
+              {selected.kind === "imagem" && (
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Imagem</Label>
+                  {selected.image_url && (
+                    <img src={selected.image_url} alt={selected.label}
+                      className="w-full max-h-48 object-contain rounded border border-border/40 my-2 bg-black/20" />
+                  )}
+                  <Button size="sm" variant="outline" className="w-full gap-1 mt-1"
+                    onClick={async () => {
+                      const file = await pickImageFile();
+                      if (!file || !mapId) return;
+                      const t = toast.loading("Enviando imagem...");
+                      const url = await uploadMapImage(mapId, file);
+                      toast.dismiss(t);
+                      if (!url) return;
+                      setSelected({ ...selected, image_url: url });
+                      toast.success("Imagem atualizada — clique em Salvar");
+                    }}>
+                    <Upload className="h-3 w-3" /> {selected.image_url ? "Trocar imagem" : "Enviar imagem"}
+                  </Button>
+                </div>
+              )}
               <div>
                 <Label className="text-xs">Descrição (o que cuida)</Label>
                 <Textarea rows={2} value={selected.description || ""}
