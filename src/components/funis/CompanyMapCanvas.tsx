@@ -88,11 +88,38 @@ interface ChecklistItem { id: string; text: string; done: boolean; }
 interface MapNode {
   id: string; map_id: string; label: string; kind: string; color: string;
   description?: string | null; notes?: string | null; url?: string | null;
+  image_url?: string | null;
   position: { x: number; y: number }; size: string;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
   linked_wa_provider_id?: string | null;
+}
+
+// Helpers for image nodes
+async function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "image/*";
+    inp.onchange = () => resolve(inp.files?.[0] || null);
+    inp.oncancel = () => resolve(null);
+    inp.click();
+  });
+}
+
+async function uploadMapImage(mapId: string, file: File): Promise<string | null> {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `${mapId}/${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from("company-map-images").upload(path, file, {
+    upsert: false, contentType: file.type || undefined,
+  });
+  if (upErr) { toast.error("Erro ao enviar imagem"); return null; }
+  // Long-lived signed URL (10 years) — bucket is private
+  const { data, error } = await supabase.storage
+    .from("company-map-images")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+  if (error || !data?.signedUrl) { toast.error("Erro ao gerar URL da imagem"); return null; }
+  return data.signedUrl;
 }
 
 function MapNodeCard({ data }: { data: any }) {
