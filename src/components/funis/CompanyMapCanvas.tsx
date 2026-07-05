@@ -3,7 +3,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
   type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
-  Handle, Position, useReactFlow,
+  Handle, Position, useReactFlow, NodeResizer,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +90,7 @@ interface MapNode {
   description?: string | null; notes?: string | null; url?: string | null;
   image_url?: string | null;
   position: { x: number; y: number }; size: string;
+  width?: number | null; height?: number | null;
   checklist: ChecklistItem[];
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
@@ -122,7 +123,7 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
   return data.signedUrl;
 }
 
-function MapNodeCard({ data }: { data: any }) {
+function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
   const Icon = preset.icon;
   const checklist: ChecklistItem[] = data.checklist || [];
@@ -133,11 +134,23 @@ function MapNodeCard({ data }: { data: any }) {
   const waInfo = data.waInfo; // { phone, instance, provider, conversations }
   const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
   const url: string | null = data.url || null;
+  const hasCustomSize = !!(data.width && data.height);
   return (
     <div
-      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
-      style={{ borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
+      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+      style={
+        hasCustomSize
+          ? { borderColor: data.color, width: "100%", height: "100%" }
+          : { borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }
+      }
     >
+      <NodeResizer
+        isVisible={selected}
+        minWidth={140}
+        minHeight={60}
+        lineClassName="!border-primary/60"
+        handleClassName="!bg-primary !border-primary !w-2 !h-2"
+      />
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
 
       {/* Quick actions on hover */}
@@ -177,7 +190,10 @@ function MapNodeCard({ data }: { data: any }) {
         <img
           src={data.image_url}
           alt={data.label}
-          className="mt-2 w-full max-h-64 object-cover rounded border border-border/30"
+          className={cn(
+            "mt-2 w-full rounded border border-border/30 object-cover",
+            hasCustomSize ? "flex-1 h-auto max-h-full" : "max-h-64"
+          )}
           draggable={false}
         />
       )}
@@ -420,6 +436,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         return {
           id: n.id, type: "mapnode",
           position: n.position || { x: 0, y: 0 },
+          ...(n.width && n.height ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } } : {}),
           data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
         } as Node;
       });
@@ -564,11 +581,16 @@ function InnerMap({ projects }: { projects: any[] }) {
           await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
         }
       }
-      if (c.type === "dimensions" && isAnn && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
+      if (c.type === "dimensions" && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
         const { width, height } = c.dimensions;
         if (width && height) {
-          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
-          await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+          if (isAnn) {
+            setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
+            await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+          } else {
+            setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
+            await (supabase.from("imphq_company_map_nodes") as any).update({ width, height }).eq("id", c.id);
+          }
         }
       }
     });
