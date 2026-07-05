@@ -57,6 +57,8 @@ const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> 
   tiktok:        { label: "TikTok",              color: "#000000", icon: Music2 },
   linkedin:      { label: "LinkedIn",            color: "#0a66c2", icon: Linkedin },
   twitter:       { label: "X / Twitter",         color: "#1da1f2", icon: Twitter },
+  // Mídia
+  imagem:        { label: "Imagem",               color: "#c9922a", icon: ImageIcon },
 };
 
 const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
@@ -65,6 +67,7 @@ const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
   { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
   { label: "Canais",            keys: ["whatsapp", "canal"] },
   { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
+  { label: "Mídia",             keys: ["imagem"] },
 ];
 
 const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
