@@ -1457,7 +1457,23 @@ export default function Referencias() {
             ) : (
               <>
                 <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-                <Button onClick={saveEdit}>Salvar</Button>
+                <div className="flex gap-2">
+                  {editing?.url && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!editing?.url) return;
+                        toast.info("Buscando preview...");
+                        await fetchLinkPreview(editing.id, editing.url, { forceTitle: false });
+                        toast.success("Preview atualizado (se disponível)");
+                      }}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" /> Buscar preview
+                    </Button>
+                  )}
+                  <Button onClick={saveEdit}>Salvar</Button>
+                </div>
               </>
             )}
           </DialogFooter>
