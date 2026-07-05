@@ -459,6 +459,26 @@ export default function Referencias() {
   const libraryCount = refs.filter(r => r.source === "library").length;
   const adsCount = refs.filter(r => r.source === "ads").length;
 
+  const fetchLinkPreview = async (
+    id: string,
+    url: string,
+    opts: { forceTitle?: boolean } = {},
+  ) => {
+    try {
+      const { data } = await supabase.functions.invoke("link-preview", { body: { url } });
+      if (!data || data.fallback) return;
+      const patch: Record<string, unknown> = {};
+      if (data.image) patch.image_url = data.image;
+      if (data.video && !data.image) patch.url = data.video;
+      if (opts.forceTitle && data.title) patch.titulo = data.title;
+      if (Object.keys(patch).length === 0) return;
+      await supabase.from("imphq_referencias").update(patch as any).eq("id", id);
+      load();
+    } catch (e) {
+      console.warn("[link-preview]", e);
+    }
+  };
+
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
@@ -474,6 +494,10 @@ export default function Referencias() {
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Referência criada!");
     setShowNew(false);
+    if (form.url && !form.image_url) {
+      toast.info("Buscando preview do link...");
+      fetchLinkPreview(id, form.url);
+    }
     setForm({ titulo: "", tipo: "criativo", tags: [] });
     load();
   };
