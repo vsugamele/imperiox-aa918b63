@@ -581,11 +581,16 @@ function InnerMap({ projects }: { projects: any[] }) {
           await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
         }
       }
-      if (c.type === "dimensions" && isAnn && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
+      if (c.type === "dimensions" && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
         const { width, height } = c.dimensions;
         if (width && height) {
-          setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
-          await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+          if (isAnn) {
+            setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
+            await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+          } else {
+            setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
+            await (supabase.from("imphq_company_map_nodes") as any).update({ width, height }).eq("id", c.id);
+          }
         }
       }
     });
