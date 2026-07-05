@@ -459,6 +459,26 @@ export default function Referencias() {
   const libraryCount = refs.filter(r => r.source === "library").length;
   const adsCount = refs.filter(r => r.source === "ads").length;
 
+  const fetchLinkPreview = async (
+    id: string,
+    url: string,
+    opts: { forceTitle?: boolean } = {},
+  ) => {
+    try {
+      const { data } = await supabase.functions.invoke("link-preview", { body: { url } });
+      if (!data || data.fallback) return;
+      const patch: Record<string, unknown> = {};
+      if (data.image) patch.image_url = data.image;
+      if (data.video && !data.image) patch.url = data.video;
+      if (opts.forceTitle && data.title) patch.titulo = data.title;
+      if (Object.keys(patch).length === 0) return;
+      await supabase.from("imphq_referencias").update(patch as any).eq("id", id);
+      load();
+    } catch (e) {
+      console.warn("[link-preview]", e);
+    }
+  };
+
   const createRef = async () => {
     if (!form.titulo?.trim()) { toast.error("Título obrigatório"); return; }
     const id = crypto.randomUUID();
@@ -474,6 +494,10 @@ export default function Referencias() {
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Referência criada!");
     setShowNew(false);
+    if (form.url && !form.image_url) {
+      toast.info("Buscando preview do link...");
+      fetchLinkPreview(id, form.url);
+    }
     setForm({ titulo: "", tipo: "criativo", tags: [] });
     load();
   };
@@ -648,12 +672,25 @@ export default function Referencias() {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-          <button
-            className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-            onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
-          >
-            <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-          </button>
+          {r.url ? (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              title="Abrir link original"
+            >
+              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+            </a>
+          ) : (
+            <button
+              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+            >
+              <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+            </button>
+          )}
           {isLib && (
             <button
               className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
@@ -698,12 +735,27 @@ export default function Referencias() {
       );
     }
 
-    // Fallback gradient
-    return (
-      <div className={`${height} bg-gradient-to-br ${style.gradient} flex items-center justify-center`}>
+    // Fallback gradient — clickable when a URL exists
+    const fallback = (
+      <div className={`${height} bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2`}>
         <Icon className="h-10 w-10 text-muted-foreground/20" />
+        {r.url && <span className="text-[10px] text-primary/70 flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Abrir link</span>}
       </div>
     );
+    if (r.url) {
+      return (
+        <a
+          href={r.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="block hover:opacity-90 transition-opacity"
+        >
+          {fallback}
+        </a>
+      );
+    }
+    return fallback;
   };
 
   const renderCard = (r: Ref, i: number) => {
@@ -1405,7 +1457,23 @@ export default function Referencias() {
             ) : (
               <>
                 <Button variant="destructive" size="sm" onClick={() => editing && deleteRef(editing.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-                <Button onClick={saveEdit}>Salvar</Button>
+                <div className="flex gap-2">
+                  {editing?.url && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!editing?.url) return;
+                        toast.info("Buscando preview...");
+                        await fetchLinkPreview(editing.id, editing.url, { forceTitle: false });
+                        toast.success("Preview atualizado (se disponível)");
+                      }}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" /> Buscar preview
+                    </Button>
+                  )}
+                  <Button onClick={saveEdit}>Salvar</Button>
+                </div>
               </>
             )}
           </DialogFooter>
