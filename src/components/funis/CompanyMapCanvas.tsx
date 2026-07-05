@@ -436,6 +436,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         return {
           id: n.id, type: "mapnode",
           position: n.position || { x: 0, y: 0 },
+          ...(n.width && n.height ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } } : {}),
           data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
         } as Node;
       });
