@@ -666,6 +666,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
       size: selected.size || "M",
       url: selected.url || null,
+      image_url: selected.image_url || null,
       show_live_kpis: !!selected.show_live_kpis,
       linked_funnel_id: selected.linked_funnel_id || null,
       linked_project_id: selected.linked_project_id || null,
