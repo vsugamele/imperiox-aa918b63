@@ -598,11 +598,26 @@ function InnerMap({ projects }: { projects: any[] }) {
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
+
+    // Imagem: pede arquivo antes, faz upload, e só então cria o nó
+    let image_url: string | null = null;
+    let autoLabel: string | null = null;
+    if (kind === "imagem") {
+      const file = await pickImageFile();
+      if (!file) return;
+      const t = toast.loading("Enviando imagem...");
+      image_url = await uploadMapImage(mapId, file);
+      toast.dismiss(t);
+      if (!image_url) return;
+      autoLabel = file.name.replace(/\.[^.]+$/, "");
+    }
+
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: customLabel || `Novo ${preset.label}`,
+      label: customLabel || autoLabel || `Novo ${preset.label}`,
+      image_url,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
-    }).select().single();
+    } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
