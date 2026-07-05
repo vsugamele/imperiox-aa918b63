@@ -15477,6 +15477,838 @@ export type Database = {
         }
         Relationships: []
       }
+      guiadobuscador_admin_users: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          level: Database["public"]["Enums"]["diri_admin_level"] | null
+          location: string | null
+          permissions: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_banners: {
+        Row: {
+          category_id: string | null
+          category_ids: string[] | null
+          clicks: number
+          client_name: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          link_url: string | null
+          position: string | null
+          show_on_homepage: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_banners_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_blog_posts: {
+        Row: {
+          blog_id: string
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          hat: string | null
+          id: string
+          keywords: string[] | null
+          published_at: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          blog_id: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          blog_id?: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_blog_posts_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_blogs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_blogs: {
+        Row: {
+          author: string
+          avatar_url: string | null
+          cover_image: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          author: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_breaking_news: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          link: string | null
+          order_index: number
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          menu_order: number | null
+          name: string
+          show_in_header: boolean
+          show_in_menu: boolean | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name?: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_contacts: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_read: boolean | null
+          message: string
+          name: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          name: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          name?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_galleries: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_gallery_images: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          display_order: number | null
+          gallery_id: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_gallery_images_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_homepage_blocks: {
+        Row: {
+          block_type: string
+          category_id: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_visible: boolean | null
+          layout: string | null
+          posts_count: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_homepage_blocks_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          is_active: boolean
+          subscribed_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_pages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          show_in_menu: boolean
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_post_shares: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_posts: {
+        Row: {
+          audio_url: string | null
+          author: string | null
+          category_id: string | null
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          gallery_id: string | null
+          hat: string | null
+          id: string
+          image_caption: string | null
+          is_featured: boolean | null
+          keywords: string[] | null
+          published_at: string | null
+          scheduled_at: string | null
+          show_in_you_need_to_know: boolean
+          slug: string | null
+          source: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_posts_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_site_settings: {
+        Row: {
+          ads_txt: string | null
+          blogs_title: string | null
+          breaking_news_enabled: boolean | null
+          breaking_news_text: string | null
+          breaking_news_title: string | null
+          category_color_blocks: boolean | null
+          contact_email: string | null
+          created_at: string | null
+          custom_footer_html: string | null
+          custom_head_html: string | null
+          drop_caps_enabled: boolean | null
+          favicon_url: string | null
+          featured_post_ids: string[] | null
+          footer_logo_style: string | null
+          footer_text: string | null
+          google_analytics_id: string | null
+          id: string
+          logo_url: string | null
+          maintenance_mode: boolean | null
+          meta_description: string | null
+          meta_keywords: string | null
+          newsletter_enabled: boolean | null
+          portal_color: string | null
+          primary_color: string | null
+          radio_enabled: boolean | null
+          radio_title: string | null
+          radio_url: string | null
+          section_order_blogs: number
+          section_order_latest_news: number
+          section_order_most_read: number
+          section_order_videos: number
+          section_order_you_need_to_know: number
+          separate_breaking_news: boolean | null
+          show_blogs_block: boolean | null
+          show_categories_footer: boolean | null
+          show_footer_logo: boolean | null
+          show_videos_block: boolean | null
+          site_slogan: string | null
+          site_title: string | null
+          site_url: string | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_twitter: string | null
+          social_whatsapp: string | null
+          social_youtube: string | null
+          sticky_menu: boolean | null
+          top_bar_enabled: boolean | null
+          updated_at: string | null
+          videos_title: string | null
+          weather_city: string | null
+          weather_state: string | null
+        }
+        Insert: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Update: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_site_stats: {
+        Row: {
+          id: string
+          total_visits: number
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_videos: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          youtube_url: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          youtube_url: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          youtube_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_videos_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hq_activity: {
         Row: {
           action: string
@@ -50650,6 +51482,15 @@ export type Database = {
       }
       get_user_points: { Args: { user_uuid: string }; Returns: number }
       get_user_salao_id: { Args: { _user_id: string }; Returns: string }
+      guiadobuscador_increment_banner_clicks: {
+        Args: { banner_id: string }
+        Returns: undefined
+      }
+      guiadobuscador_increment_site_visits: { Args: never; Returns: undefined }
+      guiadobuscador_increment_views: {
+        Args: { post_id: string }
+        Returns: undefined
+      }
       handle_points_deduction: {
         Args: { points_to_deduct: number; user_uuid: string }
         Returns: boolean
@@ -50720,6 +51561,7 @@ export type Database = {
       is_admin_user: { Args: never; Returns: boolean }
       is_appbrabas_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_diri_admin: { Args: never; Returns: boolean }
+      is_guiadobuscador_admin: { Args: never; Returns: boolean }
       is_imphq_admin: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
