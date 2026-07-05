@@ -173,6 +173,14 @@ function MapNodeCard({ data }: { data: any }) {
         <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{preset.label}</span>
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
+      {data.kind === "imagem" && data.image_url && (
+        <img
+          src={data.image_url}
+          alt={data.label}
+          className="mt-2 w-full max-h-64 object-cover rounded border border-border/30"
+          draggable={false}
+        />
+      )}
       {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
       {url && (
         <a
