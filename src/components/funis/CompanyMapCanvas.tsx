@@ -102,7 +102,7 @@ async function pickImageFile(): Promise<File | null> {
     const inp = document.createElement("input");
     inp.type = "file"; inp.accept = "image/*";
     inp.onchange = () => resolve(inp.files?.[0] || null);
-    inp.oncancel = () => resolve(null);
+    (inp as any).oncancel = () => resolve(null);
     inp.click();
   });
 }
