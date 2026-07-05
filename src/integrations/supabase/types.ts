@@ -18462,6 +18462,101 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_avatar_studio_generations: {
+        Row: {
+          avatar_project_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          library_id: string | null
+          media_type: string
+          media_url: string | null
+          metadata: Json | null
+          modo: string
+          produto_id: string | null
+          project_id: string
+          prompt: string
+          status: string
+          thumbnail_url: string | null
+        }
+        Insert: {
+          avatar_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          library_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          metadata?: Json | null
+          modo: string
+          produto_id?: string | null
+          project_id: string
+          prompt: string
+          status?: string
+          thumbnail_url?: string | null
+        }
+        Update: {
+          avatar_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          library_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          metadata?: Json | null
+          modo?: string
+          produto_id?: string | null
+          project_id?: string
+          prompt?: string
+          status?: string
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_avatar_studio_generations_avatar_project_id_fkey"
+            columns: ["avatar_project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_avatar_studio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_avatar_studio_projects: {
+        Row: {
+          avatar_photos: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          estilo_base: string | null
+          id: string
+          nome: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_photos?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          estilo_base?: string | null
+          id?: string
+          nome: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_photos?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          estilo_base?: string | null
+          id?: string
+          nome?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_business_hours: {
         Row: {
           channel: string
