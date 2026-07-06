@@ -16,12 +16,10 @@ interface PipelineBriefing {
   transformacao: string;
   preco: string;
   nicho: string;
-  publico: string;
-  nao_publico: string;
-  palavras_proibidas: string[];
   objection: string;
   modelo: "vsl" | "webinar" | "isca" | "tripwire" | "lancamento";
 }
+
 
 
 interface PipelinePhase {
