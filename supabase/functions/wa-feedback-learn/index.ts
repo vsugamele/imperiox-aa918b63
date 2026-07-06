@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json();
     const { message_id, feedback, correction, project_id } = body;
-    let correction_type: "answer" | "rule" | "unavailable" | "auto" = body.correction_type || "auto";
+    let correction_type: "answer" | "rule" | "unavailable" | "complement" | "auto" = body.correction_type || "auto";
 
     if (!message_id || !feedback) {
       return new Response(JSON.stringify({ error: "message_id e feedback obrigatórios" }), {
