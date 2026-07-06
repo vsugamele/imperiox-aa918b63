@@ -30,9 +30,12 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-6xl grid-cols-8">
+        <TabsList className="grid w-full max-w-6xl grid-cols-9">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="avatar-studio" className="gap-2">
+            <UserSquare2 className="h-4 w-4" /> Avatar Studio
           </TabsTrigger>
           <TabsTrigger value="video" className="gap-2">
             <Film className="h-4 w-4" /> Vídeo
@@ -56,6 +59,10 @@ export default function Studio() {
             <BookOpen className="h-4 w-4" /> Playbook
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="avatar-studio" className="mt-6">
+          <AvatarStudioTab />
+        </TabsContent>
 
         <TabsContent value="generator" className="mt-6">
           <StudioGenerator />
