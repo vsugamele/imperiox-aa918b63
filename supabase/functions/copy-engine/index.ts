@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       .eq("enabled", true)
       .maybeSingle();
 
-    if (cfgErr) console.error("[copy-engine] cfg error", cfgErr);
+    if (cfgErr) log.error("cfg error", cfgErr);
     if (!cfg) return json({ error: `intent não encontrado: ${body.intent}` }, 404);
 
     const ctx = body.context
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
 
     if (!upstream.ok) {
       const txt = await upstream.text();
-      console.error("[copy-engine] upstream", upstream.status, txt);
+      log.error("upstream", { status: upstream.status, body: txt.slice(0,300) });
       return json({ error: txt }, upstream.status);
     }
 
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     if (guardrails.palavrasProibidas.length && content && !stream) {
       guardrailViolations = findForbiddenHits(content, guardrails.palavrasProibidas);
       if (guardrailViolations.length) {
-        console.warn("[copy-engine] guardrail violado:", guardrailViolations);
+        log.warn("guardrail violado", { violations: guardrailViolations });
         const retryPayload: Record<string, unknown> = {
           model,
           messages: [
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       guardrail_violations: guardrailViolations,
     });
   } catch (err: any) {
-    console.error("[copy-engine] error", err);
+    log.error("erro interno", { message: err?.message });
     return json({ error: err?.message || "erro interno" }, 500);
   }
 });
