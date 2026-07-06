@@ -29,27 +29,37 @@ function resolveProvider(model: string): { url: string; apiKey: string } {
   return { url: "https://openrouter.ai/api/v1/chat/completions", apiKey: OPENROUTER_API_KEY };
 }
 
-interface ReqBody {
-  intent: string;
-  input: string | { messages: Array<{ role: string; content: string }> };
-  context?: {
-    project_id?: string;
-    product_slug?: string;
-    lead_id?: string;
-    extra?: Record<string, unknown>;
-  };
-  model_override?: string;
-  stream?: boolean;
-}
+const MessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant"]),
+  content: z.string().min(1).max(50000),
+});
+
+const BodySchema = z.object({
+  intent: z.string().min(1).max(120),
+  input: z.union([
+    z.string().min(1).max(50000),
+    z.object({ messages: z.array(MessageSchema).min(1).max(50) }),
+  ]),
+  context: z.object({
+    project_id: z.string().uuid().optional(),
+    product_slug: z.string().max(200).optional(),
+    lead_id: z.string().uuid().optional(),
+    extra: z.record(z.unknown()).optional(),
+  }).optional(),
+  model_override: z.string().max(120).optional(),
+  stream: z.boolean().optional(),
+});
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = (await req.json()) as ReqBody;
-    if (!body?.intent) {
-      return json({ error: "intent obrigatório" }, 400);
+    const raw = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return json({ error: "invalid_body", details: parsed.error.flatten() }, 400);
     }
+    const body = parsed.data;
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: cfg, error: cfgErr } = await sb
