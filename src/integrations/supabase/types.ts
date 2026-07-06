@@ -28094,6 +28094,27 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_webhook_dedup: {
+        Row: {
+          event_id: string
+          id: string
+          processed_at: string
+          source: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          processed_at?: string
+          source: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          processed_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       imphq_webhook_errors: {
         Row: {
           created_at: string
@@ -36411,6 +36432,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           description: string | null
+          external_url: string | null
           html_path: string | null
           icon_emoji: string | null
           id: string
@@ -36428,6 +36450,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          external_url?: string | null
           html_path?: string | null
           icon_emoji?: string | null
           id?: string
@@ -36445,6 +36468,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          external_url?: string | null
           html_path?: string | null
           icon_emoji?: string | null
           id?: string
@@ -51896,6 +51920,7 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
+      purge_old_webhook_dedup: { Args: never; Returns: undefined }
       recalc_lead_total_gasto: {
         Args: { p_lead_id: string }
         Returns: undefined
