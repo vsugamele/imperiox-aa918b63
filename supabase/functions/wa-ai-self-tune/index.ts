@@ -40,7 +40,7 @@ async function llmTunerAnalysis(currentPersona: string, currentRules: string, wi
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "deepseek/deepseek-chat-v3.1";
+  const model = "google/gemini-2.5-flash";
 
   const winsBlock = wins.map((w, i) => `--- VENDA ${i + 1} (CONVERTEU) ---\n${w.digest}`).join("\n\n");
   const lossesBlock = losses.map((l, i) => `--- PERDA ${i + 1} (NÃO CONVERTEU) ---\n${l.digest}`).join("\n\n");

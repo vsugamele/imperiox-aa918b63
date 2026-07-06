@@ -36,7 +36,7 @@ async function llmPostmortem(digest: string, hint: { score: number; outcome: str
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "deepseek/deepseek-chat-v3.1";
+  const model = "google/gemini-2.5-flash";
 
   const prompt = `Você é um analista de conversas de vendas. Analise esta conversa concluída e gere postmortem curto.
 

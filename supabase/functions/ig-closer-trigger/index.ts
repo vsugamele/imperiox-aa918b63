@@ -178,7 +178,7 @@ MISSÃO: UMA mensagem curta de fechamento que:
           method: "POST",
           headers: { Authorization: `Bearer ${OPENROUTER_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001",
+            model: "google/gemini-3-flash-preview",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `Gere a mensagem de fechamento para ${leadName}.` },

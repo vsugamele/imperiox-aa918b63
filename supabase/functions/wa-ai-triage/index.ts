@@ -78,7 +78,7 @@ Nível de consciência (awareness_level — Eugene Schwartz):
       "X-Title": "Imperio HQ",
     },
     body: JSON.stringify({
-      model: "deepseek/deepseek-chat-v3.1",
+      model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: sys },
         { role: "user", content: `Mensagem: "${message}"${ctx}` },
