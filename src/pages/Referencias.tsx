@@ -1393,8 +1393,25 @@ export default function Referencias() {
             {filtered.length === 0 && subfolders.length === 0 && (
               <div className="col-span-full text-center py-12 space-y-2">
                 <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-                <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-                <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                {currentFolder.length > 0 && rawInCurrentFolder > 0 ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma referência com os filtros atuais.
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setSearchInput(""); setFilterTipo("all"); setFilterPlat("all");
+                      setFilterProject("all"); setFilterOrigem("all"); setFilterCategory("all");
+                    }}>Limpar filtros</Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                    <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1405,12 +1422,30 @@ export default function Referencias() {
           {filtered.length === 0 && subfolders.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-              <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-              <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+              {currentFolder.length > 0 && rawInCurrentFolder > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma referência com os filtros atuais.
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setSearchInput(""); setFilterTipo("all"); setFilterPlat("all");
+                    setFilterProject("all"); setFilterOrigem("all"); setFilterCategory("all");
+                  }}>Limpar filtros</Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                  <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                </>
+              )}
             </div>
           )}
         </div>
       )}
+
 
       {/* New Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
