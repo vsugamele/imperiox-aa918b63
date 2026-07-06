@@ -54,45 +54,30 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     transformacao: "",
     preco: "",
     nicho: "",
-    publico: "",
-    nao_publico: "",
-    palavras_proibidas: [],
     objection: "",
     modelo: "vsl",
   });
-  const [proibidaInput, setProibidaInput] = useState("");
 
   const [phases, setPhases] = useState<PipelinePhase[]>([]);
   const [result, setResult] = useState<{ etapas: unknown[]; estrategia: string; assets: Record<string, unknown> } | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [ctxLoaded, setCtxLoaded] = useState<{ avatar: boolean; produto: boolean; branding: boolean }>({ avatar: false, produto: false, branding: false });
 
-  // Auto-fill do briefing com dados do avatar do projeto e público-alvo dos produtos
+  // Detecta contexto disponível no projeto (só pra exibir badge — a IA lê tudo do backend)
   useEffect(() => {
     if (!open || !projectId) return;
     (async () => {
       try {
-        const sb: any = supabase;
-        const [{ data: proj }, { data: prods }] = await Promise.all([
-          sb.from("imphq_projetos").select("avatar, nicho, publico_alvo").eq("id", projectId).maybeSingle(),
-          sb.from("imphq_produtos").select("publico_alvo").eq("projeto_id", projectId).limit(3),
-        ]);
-
-        const avatar = (proj?.avatar as any) || {};
-        const perfil = avatar?.perfil_psicologico || {};
-        const publicoFromAvatar = [
-          perfil?.retrato,
-          avatar?.linguagem,
-          proj?.publico_alvo,
-          (prods || []).map((p: any) => p.publico_alvo).filter(Boolean).join(" | "),
-        ].filter(Boolean).join(" — ").slice(0, 400);
-
-        setBriefing(b => ({
-          ...b,
-          nicho: b.nicho || proj?.nicho || "",
-          publico: b.publico || publicoFromAvatar,
-        }));
+        const { data: proj } = await (supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle() as any);
+        const d: any = (proj as any)?.data || {};
+        setCtxLoaded({
+          avatar: !!(d.avatar || d.avatars_por_produto),
+          produto: Array.isArray(d.produtos) && d.produtos.length > 0,
+          branding: !!(d.branding || d.brand),
+        });
+        if (!briefing.nicho && d.nicho) setBriefing(b => ({ ...b, nicho: d.nicho }));
       } catch (e) {
-        console.warn("auto-fill avatar failed", e);
+        console.warn("ctx probe failed", e);
       }
     })();
   }, [open, projectId]);
@@ -102,16 +87,6 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     setPhases(prev => prev.map(p => p.id === id ? { ...p, ...update } : p));
   };
 
-  const addProibida = () => {
-    const t = proibidaInput.trim().toLowerCase();
-    if (!t) return;
-    if (briefing.palavras_proibidas.includes(t)) { setProibidaInput(""); return; }
-    setBriefing(b => ({ ...b, palavras_proibidas: [...b.palavras_proibidas, t] }));
-    setProibidaInput("");
-  };
-  const removeProibida = (t: string) => {
-    setBriefing(b => ({ ...b, palavras_proibidas: b.palavras_proibidas.filter(x => x !== t) }));
-  };
 
 
   const runPipeline = async () => {
