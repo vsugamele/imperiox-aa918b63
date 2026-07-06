@@ -2188,34 +2188,7 @@ Retorne apenas o array "angles" com ${invalid.length} novos ângulos válidos.`;
 
   const anglesList = intelResult.angles.map((a: any) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}${a.risk_warning ? ` ⚠️ ${a.risk_warning}` : ""}`);
 
-            dores: { type: "array", items: { type: "string" } },
-            desejos: { type: "array", items: { type: "string" } },
-            linguagem: { type: "string" },
-            nivel_consciencia: { type: "string" },
-            nivel_numero: { type: "number" },
-          }, required: ["dores", "desejos", "linguagem", "nivel_consciencia", "nivel_numero"], additionalProperties: false },
-          mecanismo_unico: { type: "string" },
-          angles: { type: "array", items: { type: "object", properties: {
-            slug: { type: "string", enum: ALL_SLUGS, description: "Slug do ângulo escolhido no catálogo canônico" },
-            headline: { type: "string", description: "Headline pronta seguindo a estrutura do ângulo (até 140 chars)" },
-            corpo: { type: "string", description: "Corpo curto do anúncio (2-4 linhas)" },
-            cta: { type: "string", description: "CTA específico (evitar 'clique aqui')" },
-          }, required: ["slug", "headline", "corpo", "cta"], additionalProperties: false } },
-          posicionamento: { type: "string" },
-        },
-        required: ["avatar", "mecanismo_unico", "angles", "posicionamento"],
-        additionalProperties: false,
-      },
-    },
-  }], "intel_analysis", baseUrl);
 
-  if (intelResult instanceof Response) return intelResult;
-
-  // Valida + hidrata os ângulos com metadados do catálogo canônico
-  const { angles: cleanAngles, drops: angleDrops } = validateAndFixAngles(intelResult.angles, { min: 4, seed: produto });
-  intelResult.angles = cleanAngles;
-  if (angleDrops.length) console.warn("[openflow-ai] angles saneados:", angleDrops);
-  const anglesList = intelResult.angles.map((a: any) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}${a.risk_warning ? ` ⚠️ ${a.risk_warning}` : ""}`);
 
   // ── PHASE 2 — Funnel structure ──
   const MODELO_CONFIGS: Record<string, string> = {
