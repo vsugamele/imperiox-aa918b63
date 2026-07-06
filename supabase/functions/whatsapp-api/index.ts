@@ -1024,10 +1024,53 @@ Deno.serve(async (req) => {
 
       // Try getting ElevenLabs API Key from Deno Env
       const ELEVEN_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+      const LOCAL_TTS_URL = Deno.env.get("LOCAL_TTS_URL");
       let audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; // High quality fallback sound
       let synthesizedReal = false;
 
-      if (ELEVEN_API_KEY && voice_provider === "elevenlabs") {
+      // ── LOCAL TTS (edge-tts / XTTS clone) ──
+      if (!synthesizedReal && (voice_provider === "local" || voice_provider === "local_clone") && LOCAL_TTS_URL) {
+        try {
+          const isClone = voice_provider === "local_clone";
+          const endpoint = isClone ? `${LOCAL_TTS_URL}/tts/clone` : `${LOCAL_TTS_URL}/tts/edge`;
+          const payload = isClone
+            ? { text, language: "pt", speed: 1.0 }
+            : { text, voice: voice_id || "pt-BR-FranciscaNeural", rate: "+0%", pitch: "+0Hz" };
+          console.log(`[send_voice_synthesis] Local TTS (${isClone ? "XTTS clone" : "edge-tts"}): ${endpoint}`);
+          const ttsRes = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(30000),
+          });
+          if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
+            const ext = isClone ? "wav" : "mp3";
+            const contentType = isClone ? "audio/wav" : "audio/mpeg";
+            const fileName = `voice_local_${Date.now()}_${Math.random().toString(36).substring(3, 8)}.${ext}`;
+            const bucketName = "imphq_media_vault";
+            await supabase.storage.createBucket(bucketName, { public: true }).catch(() => {});
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from(bucketName)
+              .upload(`voice_notes/${fileName}`, audioBlob, { contentType, cacheControl: "3600" });
+            if (!uploadError && uploadData) {
+              const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(`voice_notes/${fileName}`);
+              audioUrl = publicUrl;
+              synthesizedReal = true;
+              console.log(`[send_voice_synthesis] Local TTS salvo: ${audioUrl}`);
+            } else {
+              console.warn("[send_voice_synthesis] Falha upload local TTS:", uploadError?.message);
+            }
+          } else {
+            console.warn(`[send_voice_synthesis] Local TTS erro ${ttsRes.status}:`, await ttsRes.text());
+          }
+        } catch (err: any) {
+          console.error("[send_voice_synthesis] Local TTS crashed:", err.message);
+        }
+      }
+
+      // ── ElevenLabs (default ou fallback) ──
+      if (!synthesizedReal && ELEVEN_API_KEY && (voice_provider === "elevenlabs" || voice_provider === "local_clone")) {
         try {
           console.log(`[send_voice_synthesis] Chamando ElevenLabs API com voz ID: ${targetVoiceId}...`);
           const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}`, {
@@ -1081,8 +1124,8 @@ Deno.serve(async (req) => {
         } catch (err) {
           console.error("[send_voice_synthesis] ElevenLabs integration crashed:", err.message);
         }
-      } else {
-        console.log("[send_voice_synthesis] ElevenLabs API Key não configurada ou provedor OpenAI. Executando simulação de áudio Opus OGG de alta fidelidade.");
+      } else if (!synthesizedReal) {
+        console.log("[send_voice_synthesis] Sem TTS disponível para provider=" + voice_provider + ". Usando fallback de URL.");
       }
 
       // Send Voice Note via Evolution API / Meta Cloud
