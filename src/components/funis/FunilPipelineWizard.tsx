@@ -16,12 +16,10 @@ interface PipelineBriefing {
   transformacao: string;
   preco: string;
   nicho: string;
-  publico: string;
-  nao_publico: string;
-  palavras_proibidas: string[];
   objection: string;
   modelo: "vsl" | "webinar" | "isca" | "tripwire" | "lancamento";
 }
+
 
 
 interface PipelinePhase {
@@ -56,45 +54,30 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     transformacao: "",
     preco: "",
     nicho: "",
-    publico: "",
-    nao_publico: "",
-    palavras_proibidas: [],
     objection: "",
     modelo: "vsl",
   });
-  const [proibidaInput, setProibidaInput] = useState("");
 
   const [phases, setPhases] = useState<PipelinePhase[]>([]);
   const [result, setResult] = useState<{ etapas: unknown[]; estrategia: string; assets: Record<string, unknown> } | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [ctxLoaded, setCtxLoaded] = useState<{ avatar: boolean; produto: boolean; branding: boolean }>({ avatar: false, produto: false, branding: false });
 
-  // Auto-fill do briefing com dados do avatar do projeto e público-alvo dos produtos
+  // Detecta contexto disponível no projeto (só pra exibir badge — a IA lê tudo do backend)
   useEffect(() => {
     if (!open || !projectId) return;
     (async () => {
       try {
-        const sb: any = supabase;
-        const [{ data: proj }, { data: prods }] = await Promise.all([
-          sb.from("imphq_projetos").select("avatar, nicho, publico_alvo").eq("id", projectId).maybeSingle(),
-          sb.from("imphq_produtos").select("publico_alvo").eq("projeto_id", projectId).limit(3),
-        ]);
-
-        const avatar = (proj?.avatar as any) || {};
-        const perfil = avatar?.perfil_psicologico || {};
-        const publicoFromAvatar = [
-          perfil?.retrato,
-          avatar?.linguagem,
-          proj?.publico_alvo,
-          (prods || []).map((p: any) => p.publico_alvo).filter(Boolean).join(" | "),
-        ].filter(Boolean).join(" — ").slice(0, 400);
-
-        setBriefing(b => ({
-          ...b,
-          nicho: b.nicho || proj?.nicho || "",
-          publico: b.publico || publicoFromAvatar,
-        }));
+        const { data: proj } = await (supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle() as any);
+        const d: any = (proj as any)?.data || {};
+        setCtxLoaded({
+          avatar: !!(d.avatar || d.avatars_por_produto),
+          produto: Array.isArray(d.produtos) && d.produtos.length > 0,
+          branding: !!(d.branding || d.brand),
+        });
+        if (!briefing.nicho && d.nicho) setBriefing(b => ({ ...b, nicho: d.nicho }));
       } catch (e) {
-        console.warn("auto-fill avatar failed", e);
+        console.warn("ctx probe failed", e);
       }
     })();
   }, [open, projectId]);
@@ -104,16 +87,6 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     setPhases(prev => prev.map(p => p.id === id ? { ...p, ...update } : p));
   };
 
-  const addProibida = () => {
-    const t = proibidaInput.trim().toLowerCase();
-    if (!t) return;
-    if (briefing.palavras_proibidas.includes(t)) { setProibidaInput(""); return; }
-    setBriefing(b => ({ ...b, palavras_proibidas: [...b.palavras_proibidas, t] }));
-    setProibidaInput("");
-  };
-  const removeProibida = (t: string) => {
-    setBriefing(b => ({ ...b, palavras_proibidas: b.palavras_proibidas.filter(x => x !== t) }));
-  };
 
 
   const runPipeline = async () => {
@@ -256,58 +229,25 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
                 />
               </div>
 
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Público específico <span className="text-primary/70">(quem é exatamente?)</span>
-                </Label>
-                <Textarea
-                  value={briefing.publico}
-                  onChange={e => setBriefing(b => ({ ...b, publico: e.target.value }))}
-                  placeholder="Ex: Mulheres 25-45 com cabelo cacheado, crespo ou ondulado que sofrem com frizz e ressecamento"
-                  className="bg-secondary text-sm min-h-[60px]"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Auto-preenchido do avatar do projeto. Quanto mais específico, menos a IA inventa.</p>
-              </div>
-
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Público que NÃO é <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <Input
-                  value={briefing.nao_publico}
-                  onChange={e => setBriefing(b => ({ ...b, nao_publico: e.target.value }))}
-                  placeholder="Ex: NÃO é para cabelo liso, NÃO é para homens/barbearia"
-                  className="bg-secondary text-sm"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Palavras proibidas nas headlines <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <div className="flex gap-1">
-                  <Input
-                    value={proibidaInput}
-                    onChange={e => setProibidaInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addProibida(); } }}
-                    placeholder="Ex: barbeiro, corte masculino, liso..."
-                    className="bg-secondary text-sm flex-1"
-                  />
-                  <Button type="button" size="sm" variant="secondary" onClick={addProibida}>Adicionar</Button>
+              <div className="col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                <p className="text-[11px] font-medium text-primary mb-1">Contexto do projeto (a IA lê tudo automaticamente):</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant={ctxLoaded.avatar ? "default" : "secondary"} className="text-[10px]">
+                    Avatar {ctxLoaded.avatar ? "✓" : "—"}
+                  </Badge>
+                  <Badge variant={ctxLoaded.produto ? "default" : "secondary"} className="text-[10px]">
+                    Produto {ctxLoaded.produto ? "✓" : "—"}
+                  </Badge>
+                  <Badge variant={ctxLoaded.branding ? "default" : "secondary"} className="text-[10px]">
+                    Branding {ctxLoaded.branding ? "✓" : "—"}
+                  </Badge>
                 </div>
-                {briefing.palavras_proibidas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {briefing.palavras_proibidas.map(t => (
-                      <Badge key={t} variant="destructive" className="text-[10px] gap-1 pr-1">
-                        {t}
-                        <button type="button" onClick={() => removeProibida(t)} className="hover:bg-white/20 rounded">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Público, tom de voz e palavras proibidas são derivadas do avatar/produto do projeto. Edite em <span className="text-primary">Projeto → Briefing</span>.
+                </p>
               </div>
+
+
 
               <div className="col-span-2">
                 <Label className="text-xs text-muted-foreground mb-1 block">Objeção principal do avatar</Label>
