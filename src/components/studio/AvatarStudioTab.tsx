@@ -122,18 +122,28 @@ export function AvatarStudioTab() {
     setPreviewFinal(false);
 
     try {
-      // Sign reference URLs
-      const paths = selectedAvatar.avatar_photos.map((p) => p.path);
-      const { data: signed, error: signErr } = await supabase.storage
-        .from("avatar-refs")
-        .createSignedUrls(paths, 60 * 30);
-      if (signErr) throw signErr;
-      const refUrls = (signed || []).map((s) => s.signedUrl).filter(Boolean);
+      // Sign local storage paths; external references use their URL directly
+      const localPaths = selectedAvatar.avatar_photos
+        .filter((p) => !p.path.startsWith("external:"))
+        .map((p) => p.path);
+      const externalUrls = selectedAvatar.avatar_photos
+        .filter((p) => p.path.startsWith("external:"))
+        .map((p) => p.url);
+      let signedUrls: string[] = [];
+      if (localPaths.length) {
+        const { data: signed, error: signErr } = await supabase.storage
+          .from("avatar-refs")
+          .createSignedUrls(localPaths, 60 * 30);
+        if (signErr) throw signErr;
+        signedUrls = (signed || []).map((s) => s.signedUrl).filter(Boolean);
+      }
+      const refUrls = [...signedUrls, ...externalUrls];
 
       const modoDef = MODOS.find((m) => m.value === modo)!;
       const fullPrompt = `${prompt.trim()}\n\n${modoDef.suffix}${
         selectedAvatar.estilo_base ? `\n\nEstilo: ${selectedAvatar.estilo_base}` : ""
       }`;
+
 
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
