@@ -127,7 +127,42 @@ Deno.serve(async (req) => {
     }
 
     const data = await upstream.json();
-    const content = data.choices?.[0]?.message?.content ?? "";
+    let content: string = data.choices?.[0]?.message?.content ?? "";
+
+    // Validador determinístico: se output viola palavras proibidas, tenta 1 retry corretivo.
+    let guardrailViolations: string[] = [];
+    if (guardrails.palavrasProibidas.length && content && !stream) {
+      guardrailViolations = findForbiddenHits(content, guardrails.palavrasProibidas);
+      if (guardrailViolations.length) {
+        console.warn("[copy-engine] guardrail violado:", guardrailViolations);
+        const retryPayload: Record<string, unknown> = {
+          model,
+          messages: [
+            ...messages,
+            { role: "assistant", content },
+            {
+              role: "user",
+              content: `Sua resposta violou a REGRA CRÍTICA DE PÚBLICO. Reescreva a resposta INTEIRA removendo/substituindo estas palavras proibidas: ${guardrailViolations.join(", ")}. Mantenha o mesmo formato e intenção original. Responda APENAS com o texto corrigido.`,
+            },
+          ],
+          stream: false,
+        };
+        if (cfg.output_format === "json") retryPayload.response_format = { type: "json_object" };
+        const retryRes = await fetch(providerUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${providerKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(retryPayload),
+        });
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          const retryContent = retryData.choices?.[0]?.message?.content ?? "";
+          if (retryContent && findForbiddenHits(retryContent, guardrails.palavrasProibidas).length === 0) {
+            content = retryContent;
+            guardrailViolations = [];
+          }
+        }
+      }
+    }
 
     return json({
       intent: body.intent,
@@ -135,6 +170,7 @@ Deno.serve(async (req) => {
       output_format: cfg.output_format,
       content,
       raw: data,
+      guardrail_violations: guardrailViolations,
     });
   } catch (err: any) {
     console.error("[copy-engine] error", err);
