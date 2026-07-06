@@ -56,9 +56,14 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     transformacao: "",
     preco: "",
     nicho: "",
+    publico: "",
+    nao_publico: "",
+    palavras_proibidas: [],
     objection: "",
     modelo: "vsl",
   });
+  const [proibidaInput, setProibidaInput] = useState("");
+
   const [phases, setPhases] = useState<PipelinePhase[]>([]);
   const [result, setResult] = useState<{ etapas: unknown[]; estrategia: string; assets: Record<string, unknown> } | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
