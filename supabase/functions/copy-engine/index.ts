@@ -2,6 +2,7 @@
 // Resolve system_prompt + model + reasoning + output_format via tabela imphq_copy_engine_prompts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { loadCopyContext, contextToSystemAddendum } from "../_shared/context-loader.ts";
+import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
