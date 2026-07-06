@@ -1029,7 +1029,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [correctionText, setCorrectionText] = useState("");
     const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable" | "complement">("auto");
 
-    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable") => {
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable" | "complement") => {
       try {
         const { data } = await supabase.functions.invoke("wa-feedback-learn", {
           body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId, correction_type: ctype || "auto" },
@@ -1041,6 +1041,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         const finalType = (data as any)?.correction_type;
         const typeLabel = finalType === "rule" ? "📜 regra do projeto"
           : finalType === "unavailable" ? "🚫 produto indisponível"
+          : finalType === "complement" ? "➕ complemento (P/R + regra)"
           : "✏️ resposta corrigida";
         toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
       } catch (err: any) {
