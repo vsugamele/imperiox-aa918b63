@@ -238,6 +238,18 @@ export function AvatarStudioTab() {
             Envie fotos do seu avatar e gere criativos, UGC e keyframes já no estilo desejado.
           </p>
         </div>
+        <div className="w-56">
+          <Select value={activeProjectId} onValueChange={setActiveProjectId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Novo Avatar
         </Button>
