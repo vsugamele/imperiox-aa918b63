@@ -73,9 +73,10 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     if (!open || !projectId) return;
     (async () => {
       try {
+        const sb: any = supabase;
         const [{ data: proj }, { data: prods }] = await Promise.all([
-          supabase.from("imphq_projetos").select("avatar, nicho, publico_alvo").eq("id", projectId).maybeSingle(),
-          supabase.from("imphq_produtos").select("publico_alvo").eq("projeto_id", projectId).limit(3),
+          sb.from("imphq_projetos").select("avatar, nicho, publico_alvo").eq("id", projectId).maybeSingle(),
+          sb.from("imphq_produtos").select("publico_alvo").eq("projeto_id", projectId).limit(3),
         ]);
 
         const avatar = (proj?.avatar as any) || {};
@@ -83,13 +84,13 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
         const publicoFromAvatar = [
           perfil?.retrato,
           avatar?.linguagem,
-          (proj as any)?.publico_alvo,
+          proj?.publico_alvo,
           (prods || []).map((p: any) => p.publico_alvo).filter(Boolean).join(" | "),
         ].filter(Boolean).join(" — ").slice(0, 400);
 
         setBriefing(b => ({
           ...b,
-          nicho: b.nicho || (proj as any)?.nicho || "",
+          nicho: b.nicho || proj?.nicho || "",
           publico: b.publico || publicoFromAvatar,
         }));
       } catch (e) {
@@ -97,6 +98,7 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
       }
     })();
   }, [open, projectId]);
+
 
   const updatePhase = (id: string, update: Partial<PipelinePhase>) => {
     setPhases(prev => prev.map(p => p.id === id ? { ...p, ...update } : p));
