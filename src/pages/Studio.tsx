@@ -7,6 +7,7 @@ import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
 import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
 import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
+import { AvatarStudioTab } from "@/components/studio/AvatarStudioTab";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
 import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 
