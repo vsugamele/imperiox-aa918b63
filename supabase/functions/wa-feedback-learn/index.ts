@@ -35,7 +35,10 @@ async function classifyCorrection(correction: string, leadMsg: string): Promise<
     return "answer";
   } catch {
     return "answer";
+  }
 }
+
+
 
 async function extractRuleFromComplement(originalAnswer: string, complement: string, leadMsg: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
