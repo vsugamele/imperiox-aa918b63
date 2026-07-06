@@ -122,18 +122,28 @@ export function AvatarStudioTab() {
     setPreviewFinal(false);
 
     try {
-      // Sign reference URLs
-      const paths = selectedAvatar.avatar_photos.map((p) => p.path);
-      const { data: signed, error: signErr } = await supabase.storage
-        .from("avatar-refs")
-        .createSignedUrls(paths, 60 * 30);
-      if (signErr) throw signErr;
-      const refUrls = (signed || []).map((s) => s.signedUrl).filter(Boolean);
+      // Sign local storage paths; external references use their URL directly
+      const localPaths = selectedAvatar.avatar_photos
+        .filter((p) => !p.path.startsWith("external:"))
+        .map((p) => p.path);
+      const externalUrls = selectedAvatar.avatar_photos
+        .filter((p) => p.path.startsWith("external:"))
+        .map((p) => p.url);
+      let signedUrls: string[] = [];
+      if (localPaths.length) {
+        const { data: signed, error: signErr } = await supabase.storage
+          .from("avatar-refs")
+          .createSignedUrls(localPaths, 60 * 30);
+        if (signErr) throw signErr;
+        signedUrls = (signed || []).map((s) => s.signedUrl).filter(Boolean);
+      }
+      const refUrls = [...signedUrls, ...externalUrls];
 
       const modoDef = MODOS.find((m) => m.value === modo)!;
       const fullPrompt = `${prompt.trim()}\n\n${modoDef.suffix}${
         selectedAvatar.estilo_base ? `\n\nEstilo: ${selectedAvatar.estilo_base}` : ""
       }`;
+
 
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -450,7 +460,9 @@ function AvatarPhotosStrip({
   };
 
   const removePhoto = async (path: string) => {
-    await supabase.storage.from("avatar-refs").remove([path]);
+    if (!path.startsWith("external:")) {
+      await supabase.storage.from("avatar-refs").remove([path]);
+    }
     await supabase
       .from("imphq_avatar_studio_projects")
       .update({
@@ -459,6 +471,22 @@ function AvatarPhotosStrip({
       .eq("id", avatar.id);
     onChanged();
   };
+
+  const addImported = async (items: { url: string; titulo?: string | null }[]) => {
+    const existing = new Set(avatar.avatar_photos.map((p) => p.url));
+    const additions: AvatarPhoto[] = items
+      .filter((i) => i.url && !existing.has(i.url))
+      .map((i) => ({ path: `external:${i.url}`, url: i.url }));
+    if (!additions.length) return;
+    await supabase
+      .from("imphq_avatar_studio_projects")
+      .update({ avatar_photos: [...avatar.avatar_photos, ...additions] as any })
+      .eq("id", avatar.id);
+    toast.success(`${additions.length} referência(s) importada(s).`);
+    onChanged();
+  };
+
+  const [importOpen, setImportOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -491,9 +519,152 @@ function AvatarPhotosStrip({
         {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
         Enviar fotos
       </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setImportOpen(true)}
+        className="gap-1 h-16"
+      >
+        <ImageIcon className="h-3 w-3" />
+        Importar de Referências
+      </Button>
+      <ImportReferenciasDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onPick={addImported}
+      />
     </div>
   );
 }
+
+// ---------- Import from /referencias dialog ----------
+function isVideoUrl(u?: string | null) {
+  if (!u) return false;
+  return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u) || u.includes("video");
+}
+
+function ImportReferenciasDialog({
+  open,
+  onOpenChange,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onPick: (items: { url: string; titulo?: string | null }[]) => void | Promise<void>;
+}) {
+  const [items, setItems] = useState<{ id: string; image_url: string; titulo?: string | null; pasta?: string | null }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected(new Set());
+    setLoading(true);
+    supabase
+      .from("imphq_referencias")
+      .select("id, image_url, titulo, pasta")
+      .not("image_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        const rows = (data || []).filter((r: any) => r.image_url && !isVideoUrl(r.image_url));
+        setItems(rows as any);
+        setLoading(false);
+      });
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return items;
+    return items.filter(
+      (r) =>
+        (r.titulo || "").toLowerCase().includes(term) ||
+        (r.pasta || "").toLowerCase().includes(term),
+    );
+  }, [items, q]);
+
+  const toggle = (url: string) => {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const confirm = async () => {
+    const picks = items.filter((r) => selected.has(r.image_url));
+    await onPick(picks.map((p) => ({ url: p.image_url, titulo: p.titulo })));
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-secondary/95 border-border max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl text-primary">
+            Importar imagens de Referências
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input
+            placeholder="Buscar por título ou pasta..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando referências...
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nenhuma imagem encontrada em /referencias.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-[420px] overflow-y-auto pr-1">
+              {filtered.map((r) => {
+                const isSel = selected.has(r.image_url);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggle(r.image_url)}
+                    className={`relative rounded-md overflow-hidden border transition ${
+                      isSel ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/60"
+                    }`}
+                  >
+                    <img src={r.image_url} alt="" className="w-full aspect-square object-cover" />
+                    {isSel && (
+                      <div className="absolute top-1 right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                        ✓
+                      </div>
+                    )}
+                    {r.titulo && (
+                      <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] px-1 py-0.5 truncate">
+                        {r.titulo}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground leading-6">
+            {selected.size} selecionada(s). As URLs são usadas diretamente como referência para a IA.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={confirm} disabled={selected.size === 0} className="gap-2">
+            <Plus className="h-4 w-4" /> Importar {selected.size || ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 // ---------- Create dialog ----------
 function CreateAvatarDialog({
