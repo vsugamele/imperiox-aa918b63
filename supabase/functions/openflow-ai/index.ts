@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
 import { validateAndFixAngles, withRetry } from "./_validators.ts";
+import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
