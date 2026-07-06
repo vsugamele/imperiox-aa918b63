@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, CheckCircle2, Circle, ChevronRight, Zap, FileText, Mail, Target, Layers } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle2, Circle, ChevronRight, Zap, FileText, Mail, Target, Layers, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,9 +16,13 @@ interface PipelineBriefing {
   transformacao: string;
   preco: string;
   nicho: string;
+  publico: string;
+  nao_publico: string;
+  palavras_proibidas: string[];
   objection: string;
   modelo: "vsl" | "webinar" | "isca" | "tripwire" | "lancamento";
 }
+
 
 interface PipelinePhase {
   id: string;
