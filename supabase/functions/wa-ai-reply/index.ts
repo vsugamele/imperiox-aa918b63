@@ -230,27 +230,31 @@ Deno.serve(async (req) => {
     let audioTranscription: string | null = null; // Track transcription for metadata
 
     if (isAudio && body.media_url) {
-      console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via Whisper...`);
-      const openaiKey = Deno.env.get("OPENAI_API_KEY");
-      if (openaiKey) {
+      console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via ElevenLabs Scribe v2...`);
+      const elevenSttKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+      if (elevenSttKey) {
         try {
           const audioFetch = await fetch(body.media_url);
           if (audioFetch.ok) {
             const audioBlob = await audioFetch.blob();
             const formData = new FormData();
             formData.append("file", audioBlob, "audio.ogg");
-            formData.append("model", "whisper-1");
+            formData.append("model_id", "scribe_v2");
+            formData.append("language_code", "por");
+            formData.append("tag_audio_events", "false");
+            formData.append("diarize", "false");
 
-            const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            const sttRes = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
               method: "POST",
-              headers: { Authorization: `Bearer ${openaiKey}` },
+              headers: { "xi-api-key": elevenSttKey },
               body: formData,
             });
 
-            if (whisperRes.ok) {
-              const whisperData = await whisperRes.json();
-              message = whisperData.text || message;
-              console.log(`[wa-ai-reply] Whisper transcribed text: "${message}"`);
+            if (sttRes.ok) {
+              const sttData = await sttRes.json();
+              const transcribed = (sttData.text || "").trim();
+              message = transcribed || message;
+              console.log(`[wa-ai-reply] ElevenLabs Scribe transcribed: "${message}"`);
 
               // Update the latest incoming audio message's transcript in DB
               try {
@@ -267,7 +271,7 @@ Deno.serve(async (req) => {
                 if (latestMsg) {
                   await supabase
                     .from("imphq_wa_messages")
-                    .update({ transcript: whisperData.text })
+                    .update({ transcript: transcribed })
                     .eq("id", latestMsg.id);
                   console.log(`[wa-ai-reply] Persisted transcript for message ${latestMsg.id}`);
                 }
@@ -293,16 +297,16 @@ Deno.serve(async (req) => {
                 }
               }
             } else {
-              console.error("[wa-ai-reply] Whisper API returned error:", await whisperRes.text());
+              console.error("[wa-ai-reply] ElevenLabs STT returned error:", sttRes.status, await sttRes.text());
             }
           } else {
             console.error("[wa-ai-reply] Failed to fetch audio file:", audioFetch.status);
           }
         } catch (err: any) {
-          console.error("[wa-ai-reply] Whisper error:", err.message);
+          console.error("[wa-ai-reply] ElevenLabs STT error:", err.message);
         }
       } else {
-        console.warn("[wa-ai-reply] OPENAI_API_KEY not configured, cannot transcribe voice message.");
+        console.warn("[wa-ai-reply] ELEVENLABS_API_KEY not configured, cannot transcribe voice message.");
       }
     }
 
