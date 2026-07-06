@@ -75,7 +75,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    const systemPrompt = `${cfg.system_prompt}${contextToSystemAddendum(ctx)}${styleAddendum}`;
+    // Guardrails de público (auto a partir do projeto) — evita alucinação de estereótipo.
+    const guardrails = ctx.project
+      ? deriveAudienceGuardrails((ctx.project as any).data, body.context?.product_slug)
+      : { publico: "", naoPublico: "", palavrasProibidas: [] as string[] };
+    const guardBlock = buildGuardBlock(guardrails);
+
+    const systemPrompt = `${cfg.system_prompt}${contextToSystemAddendum(ctx)}${guardBlock}${styleAddendum}`;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
