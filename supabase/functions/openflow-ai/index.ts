@@ -2056,14 +2056,33 @@ async function handleGenerateFunnelPipeline(body: any, projectContext: string, s
   const produto = briefing.produto || "";
   const transformacao = briefing.transformacao || "";
   const nicho = briefing.nicho || "";
+  const publico = briefing.publico || "";
+  const naoPublico = briefing.nao_publico || "";
+  const palavrasProibidas: string[] = Array.isArray(briefing.palavras_proibidas)
+    ? briefing.palavras_proibidas.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean)
+    : [];
   const preco = briefing.preco || "";
   const objection = briefing.objection || "";
   const modelo = briefing.modelo || "vsl";
+
+  const guardBlock = (publico || naoPublico || palavrasProibidas.length)
+    ? `
+
+## REGRA CRÍTICA DE PÚBLICO (INVIOLÁVEL)
+Você fala EXCLUSIVAMENTE com o público descrito abaixo. Qualquer headline, ângulo, exemplo ou linguagem que se dirija a outro público é INVÁLIDO e será rejeitado.
+${publico ? `- PÚBLICO ALVO: ${publico}` : ""}
+${naoPublico ? `- PÚBLICO QUE NÃO É (proibido citar/aludir): ${naoPublico}` : ""}
+${palavrasProibidas.length ? `- PALAVRAS/TERMOS PROIBIDOS (NUNCA use em headlines, corpo, CTA): ${palavrasProibidas.join(", ")}` : ""}
+Se você não tiver certeza sobre um termo, prefira linguagem neutra que caiba no público-alvo. Nunca invente estereótipos.`
+    : "";
 
   const briefingText = `
 PRODUTO: ${produto}
 TRANSFORMAÇÃO PROMETIDA: ${transformacao}
 NICHO/AVATAR: ${nicho}
+${publico ? `PÚBLICO ESPECÍFICO: ${publico}` : ""}
+${naoPublico ? `PÚBLICO QUE NÃO É: ${naoPublico}` : ""}
+${palavrasProibidas.length ? `PALAVRAS PROIBIDAS: ${palavrasProibidas.join(", ")}` : ""}
 PREÇO/MODELO: ${preco}
 OBJEÇÃO PRINCIPAL: ${objection}
 MODELO DE FUNIL: ${modelo.toUpperCase()}
@@ -2076,7 +2095,7 @@ ${products.length > 0 ? `\nPRODUTOS CADASTRADOS:\n${JSON.stringify(products, nul
 ${projectContext}
 ${skillsContext}
 ${anglesCatalogBlock()}
-${qualityChecklistBlock()}`;
+${qualityChecklistBlock()}${guardBlock}`;
 
   const intelPrompt = `Com base no briefing abaixo, execute a análise completa:
 
@@ -2086,7 +2105,7 @@ Você deve retornar:
 1. AVATAR DETALHADO: dores profundas (físicas, emocionais, financeiras), desejos, frustrações, linguagem que usa, dia a dia
 2. NÍVEL DE CONSCIÊNCIA (Eugene Schwartz): qual dos 5 níveis o avatar está (inconsciente / consciente do problema / consciente da solução / consciente do produto / mais consciente) — e por quê
 3. MECANISMO ÚNICO: por que esta solução funciona de forma diferente de tudo que o avatar já tentou — o elemento secreto/novo
-4. 4 ÂNGULOS CRIATIVOS: SELECIONE 4 ângulos do catálogo canônico acima (use o campo "slug"). Regras obrigatórias: cada ângulo escolhido deve ter uma EMOÇÃO DOMINANTE diferente dos outros três; a headline deve seguir a "estrutura" documentada no catálogo; NÃO invente ângulos novos.
+4. 4 ÂNGULOS CRIATIVOS: SELECIONE 4 ângulos do catálogo canônico acima (use o campo "slug"). Regras obrigatórias: cada ângulo escolhido deve ter uma EMOÇÃO DOMINANTE diferente dos outros três; a headline deve seguir a "estrutura" documentada no catálogo; NÃO invente ângulos novos; RESPEITE a REGRA CRÍTICA DE PÚBLICO acima.
 5. POSICIONAMENTO: como o produto deve ser posicionado para se diferenciar`;
 
   const intelResult = await callAI(intelSystem, intelPrompt, apiKey, model, [{
@@ -2102,15 +2121,14 @@ Você deve retornar:
             desejos: { type: "array", items: { type: "string" } },
             linguagem: { type: "string" },
             nivel_consciencia: { type: "string" },
-            nivel_numero: { type: "number" },
-          }, required: ["dores", "desejos", "linguagem", "nivel_consciencia", "nivel_numero"], additionalProperties: false },
+          }, required: ["dores", "desejos"], additionalProperties: true },
           mecanismo_unico: { type: "string" },
           angles: { type: "array", items: { type: "object", properties: {
-            slug: { type: "string", enum: ALL_SLUGS, description: "Slug do ângulo escolhido no catálogo canônico" },
-            headline: { type: "string", description: "Headline pronta seguindo a estrutura do ângulo (até 140 chars)" },
-            corpo: { type: "string", description: "Corpo curto do anúncio (2-4 linhas)" },
-            cta: { type: "string", description: "CTA específico (evitar 'clique aqui')" },
-          }, required: ["slug", "headline", "corpo", "cta"], additionalProperties: false } },
+            slug: { type: "string" },
+            nome: { type: "string" },
+            headline: { type: "string" },
+            cta: { type: "string" },
+          }, required: ["slug", "headline"], additionalProperties: true } },
           posicionamento: { type: "string" },
         },
         required: ["avatar", "mecanismo_unico", "angles", "posicionamento"],
@@ -2125,7 +2143,52 @@ Você deve retornar:
   const { angles: cleanAngles, drops: angleDrops } = validateAndFixAngles(intelResult.angles, { min: 4, seed: produto });
   intelResult.angles = cleanAngles;
   if (angleDrops.length) console.warn("[openflow-ai] angles saneados:", angleDrops);
+
+  // ── Guarda-corpo determinístico: rejeita ângulos que violem palavras proibidas ──
+  if (palavrasProibidas.length && intelResult.angles?.length) {
+    const violates = (a: any) => {
+      const blob = `${a.headline || ""} ${a.cta || ""} ${a.nome || ""}`.toLowerCase();
+      return palavrasProibidas.some(p => blob.includes(p));
+    };
+    const invalid = intelResult.angles.filter(violates);
+    if (invalid.length) {
+      console.warn(`[openflow-ai] ${invalid.length}/${intelResult.angles.length} ângulos violam palavras proibidas — regerando`);
+      const retryPrompt = `Você gerou ângulos que VIOLAM a regra crítica de público. Refaça APENAS estes ${invalid.length} ângulo(s), substituindo por novos slugs do catálogo, respeitando as PALAVRAS PROIBIDAS (${palavrasProibidas.join(", ")}) e o público (${publico || nicho}).
+
+Ângulos rejeitados:
+${invalid.map((a: any, i: number) => `${i + 1}. slug=${a.slug} headline="${a.headline}"`).join("\n")}
+
+Retorne apenas o array "angles" com ${invalid.length} novos ângulos válidos.`;
+      const retry = await callAI(intelSystem, retryPrompt, apiKey, model, [{
+        type: "function",
+        function: {
+          name: "regen_angles",
+          description: "Regenerate rejected angles",
+          parameters: {
+            type: "object",
+            properties: {
+              angles: { type: "array", items: { type: "object", properties: {
+                slug: { type: "string" }, nome: { type: "string" }, headline: { type: "string" }, cta: { type: "string" },
+              }, required: ["slug", "headline"], additionalProperties: true } },
+            },
+            required: ["angles"], additionalProperties: false,
+          },
+        },
+      }], "regen_angles", baseUrl);
+      if (!(retry instanceof Response) && Array.isArray(retry?.angles)) {
+        const { angles: retryClean } = validateAndFixAngles(retry.angles, { min: invalid.length, seed: `${produto}-retry` });
+        const stillOk = retryClean.filter((a: any) => !violates(a));
+        const keeping = intelResult.angles.filter((a: any) => !violates(a));
+        intelResult.angles = [...keeping, ...stillOk].slice(0, 4);
+      } else {
+        intelResult.angles = intelResult.angles.filter((a: any) => !violates(a));
+      }
+    }
+  }
+
   const anglesList = intelResult.angles.map((a: any) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}${a.risk_warning ? ` ⚠️ ${a.risk_warning}` : ""}`);
+
+
 
   // ── PHASE 2 — Funnel structure ──
   const MODELO_CONFIGS: Record<string, string> = {
