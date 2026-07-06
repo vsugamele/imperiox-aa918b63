@@ -408,29 +408,40 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filteredRaw = refsWithPath.filter(r => {
+  // Match everything except the folder/pasta filter — reused by folder counters
+  const matchesNonFolder = (r: Ref & { _vpath?: string }) => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
+    return ms && mt && mp && mpr && mo && mc;
+  };
+
+  const filteredRaw = refsWithPath.filter(r => {
+    if (!matchesNonFolder(r)) return false;
 
     // Virtual folder filter: applies to ALL sources via _vpath, includes subfolders (cumulative)
-    let mpa = true;
     if (filterPasta !== "all") {
-      mpa = r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
-    } else if (currentFolder.length > 0) {
-      mpa = r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
+      return r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
     }
-
-    return ms && mt && mp && mpr && mpa && mo && mc;
+    if (currentFolder.length > 0) {
+      return r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
+    }
+    return true;
   });
+
+  // Count of items in the current folder ignoring only the type/origin/plat filters
+  const rawInCurrentFolder = currentFolder.length > 0
+    ? refsWithPath.filter(r => r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false)).length
+    : 0;
 
   // Sort: when viewing ads, show top performers first by default
   const filtered = filterOrigem === "ads"
     ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     : filteredRaw;
+
 
   // Group by project for display
   const groupedByProject = () => {
@@ -925,8 +936,9 @@ export default function Referencias() {
       }
     }
     const countItems = (path: string) =>
-      refsWithPath.filter(r => r._vpath === path || r._vpath?.startsWith(path + "/")).length;
+      refsWithPath.filter(r => matchesNonFolder(r) && (r._vpath === path || r._vpath?.startsWith(path + "/"))).length;
     byPath.forEach(n => { n.count = countItems(n.path); });
+
     return root;
   };
   const folderTree = buildFolderTree();
@@ -1381,8 +1393,25 @@ export default function Referencias() {
             {filtered.length === 0 && subfolders.length === 0 && (
               <div className="col-span-full text-center py-12 space-y-2">
                 <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-                <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-                <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                {currentFolder.length > 0 && rawInCurrentFolder > 0 ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma referência com os filtros atuais.
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setSearchInput(""); setFilterTipo("all"); setFilterPlat("all");
+                      setFilterProject("all"); setFilterOrigem("all"); setFilterCategory("all");
+                    }}>Limpar filtros</Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                    <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1393,12 +1422,30 @@ export default function Referencias() {
           {filtered.length === 0 && subfolders.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-              <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-              <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+              {currentFolder.length > 0 && rawInCurrentFolder > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma referência com os filtros atuais.
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setSearchInput(""); setFilterTipo("all"); setFilterPlat("all");
+                    setFilterProject("all"); setFilterOrigem("all"); setFilterCategory("all");
+                  }}>Limpar filtros</Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                  <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                </>
+              )}
             </div>
           )}
         </div>
       )}
+
 
       {/* New Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
