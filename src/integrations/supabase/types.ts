@@ -48985,6 +48985,7 @@ export type Database = {
           project_id: string
           purchase_value: number | null
           registered_at: string | null
+          run_id: string | null
           webinar_id: string
         }
         Insert: {
@@ -48997,6 +48998,7 @@ export type Database = {
           project_id: string
           purchase_value?: number | null
           registered_at?: string | null
+          run_id?: string | null
           webinar_id: string
         }
         Update: {
@@ -49009,6 +49011,7 @@ export type Database = {
           project_id?: string
           purchase_value?: number | null
           registered_at?: string | null
+          run_id?: string | null
           webinar_id?: string
         }
         Relationships: [
@@ -49017,6 +49020,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_leads_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
             referencedColumns: ["id"]
           },
           {
@@ -51897,6 +51907,7 @@ export type Database = {
           p_name: string
           p_phone: string
           p_project_id: string
+          p_run_id?: string
           p_webinar_id: string
         }
         Returns: {
@@ -51909,6 +51920,7 @@ export type Database = {
           project_id: string
           purchase_value: number | null
           registered_at: string | null
+          run_id: string | null
           webinar_id: string
         }
         SetofOptions: {
