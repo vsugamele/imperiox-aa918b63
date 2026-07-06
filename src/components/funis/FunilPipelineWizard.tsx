@@ -68,9 +68,51 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
   const [result, setResult] = useState<{ etapas: unknown[]; estrategia: string; assets: Record<string, unknown> } | null>(null);
   const [overallProgress, setOverallProgress] = useState(0);
 
+  // Auto-fill do briefing com dados do avatar do projeto e público-alvo dos produtos
+  useEffect(() => {
+    if (!open || !projectId) return;
+    (async () => {
+      try {
+        const [{ data: proj }, { data: prods }] = await Promise.all([
+          supabase.from("imphq_projetos").select("avatar, nicho, publico_alvo").eq("id", projectId).maybeSingle(),
+          supabase.from("imphq_produtos").select("publico_alvo").eq("projeto_id", projectId).limit(3),
+        ]);
+
+        const avatar = (proj?.avatar as any) || {};
+        const perfil = avatar?.perfil_psicologico || {};
+        const publicoFromAvatar = [
+          perfil?.retrato,
+          avatar?.linguagem,
+          (proj as any)?.publico_alvo,
+          (prods || []).map((p: any) => p.publico_alvo).filter(Boolean).join(" | "),
+        ].filter(Boolean).join(" — ").slice(0, 400);
+
+        setBriefing(b => ({
+          ...b,
+          nicho: b.nicho || (proj as any)?.nicho || "",
+          publico: b.publico || publicoFromAvatar,
+        }));
+      } catch (e) {
+        console.warn("auto-fill avatar failed", e);
+      }
+    })();
+  }, [open, projectId]);
+
   const updatePhase = (id: string, update: Partial<PipelinePhase>) => {
     setPhases(prev => prev.map(p => p.id === id ? { ...p, ...update } : p));
   };
+
+  const addProibida = () => {
+    const t = proibidaInput.trim().toLowerCase();
+    if (!t) return;
+    if (briefing.palavras_proibidas.includes(t)) { setProibidaInput(""); return; }
+    setBriefing(b => ({ ...b, palavras_proibidas: [...b.palavras_proibidas, t] }));
+    setProibidaInput("");
+  };
+  const removeProibida = (t: string) => {
+    setBriefing(b => ({ ...b, palavras_proibidas: b.palavras_proibidas.filter(x => x !== t) }));
+  };
+
 
   const runPipeline = async () => {
     if (!briefing.produto.trim() || !briefing.transformacao.trim() || !briefing.nicho.trim()) {
