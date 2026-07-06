@@ -2049,28 +2049,71 @@ Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
 
 // ── Funnel Pipeline (one-click full generation) ──
 async function handleGenerateFunnelPipeline(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
-  const { extra } = body;
+  const { extra, project_id } = body;
   const briefing = extra?.briefing || {};
   const products = extra?.products || [];
 
   const produto = briefing.produto || "";
   const transformacao = briefing.transformacao || "";
   const nicho = briefing.nicho || "";
-  const publico = briefing.publico || "";
-  const naoPublico = briefing.nao_publico || "";
-  const palavrasProibidas: string[] = Array.isArray(briefing.palavras_proibidas)
+  let publico = briefing.publico || "";
+  let naoPublico = briefing.nao_publico || "";
+  let palavrasProibidas: string[] = Array.isArray(briefing.palavras_proibidas)
     ? briefing.palavras_proibidas.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean)
     : [];
   const preco = briefing.preco || "";
   const objection = briefing.objection || "";
   const modelo = briefing.modelo || "vsl";
 
+  // ── Auto-derivação: lê tudo do projeto (avatar, produtos, branding) se o wizard não passou ──
+  if (project_id) {
+    try {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).maybeSingle();
+      const d: any = (proj as any)?.data || {};
+      const avatar = d.avatar || d.avatars_por_produto || {};
+      const produtos: any[] = Array.isArray(d.produtos) ? d.produtos : [];
+      const prod = produto ? produtos.find(p => p.nome === produto || p.slug === produto) : produtos[0];
+
+      if (!publico) {
+        const parts = [
+          typeof avatar === "string" ? avatar : (avatar?.descricao || avatar?.retrato || avatar?.perfil_psicologico?.retrato || ""),
+          prod?.publico_alvo || prod?.avatar || "",
+          d.nicho || "",
+        ].filter(Boolean);
+        publico = parts.join(" — ").slice(0, 600);
+      }
+
+      // Heurísticas de palavras proibidas baseadas em segmento detectado no público/produto
+      const blob = `${publico} ${prod?.nome || ""} ${prod?.descricao || ""} ${JSON.stringify(avatar).slice(0, 800)}`.toLowerCase();
+      const auto: string[] = [];
+      const hasCacheado = /cachead|crespo|ondulad|4[abc]|3[abc]/i.test(blob);
+      const hasFeminino = /mulher|feminin|elas/i.test(blob);
+      const hasLiso = /liso|smooth/i.test(blob) && !hasCacheado;
+      if (hasCacheado || hasFeminino) {
+        auto.push("barbeiro", "barbearia", "corte masculino", "barba");
+        if (hasCacheado) auto.push("cabelo liso", "chapinha");
+      }
+      if (hasLiso) auto.push("cachead", "crespo");
+      // Sobrescritas manuais do projeto (imphq_projects.data.palavras_proibidas)
+      if (Array.isArray(d.palavras_proibidas)) {
+        auto.push(...d.palavras_proibidas.map((s: any) => String(s).toLowerCase()));
+      }
+      palavrasProibidas = Array.from(new Set([...palavrasProibidas, ...auto])).filter(Boolean);
+    } catch (e) {
+      console.warn("[openflow-ai] auto-derivação de público falhou:", (e as Error).message);
+    }
+  }
+
   const guardBlock = (publico || naoPublico || palavrasProibidas.length)
     ? `
 
 ## REGRA CRÍTICA DE PÚBLICO (INVIOLÁVEL)
 Você fala EXCLUSIVAMENTE com o público descrito abaixo. Qualquer headline, ângulo, exemplo ou linguagem que se dirija a outro público é INVÁLIDO e será rejeitado.
-${publico ? `- PÚBLICO ALVO: ${publico}` : ""}
+${publico ? `- PÚBLICO ALVO (do projeto): ${publico}` : ""}
 ${naoPublico ? `- PÚBLICO QUE NÃO É (proibido citar/aludir): ${naoPublico}` : ""}
 ${palavrasProibidas.length ? `- PALAVRAS/TERMOS PROIBIDOS (NUNCA use em headlines, corpo, CTA): ${palavrasProibidas.join(", ")}` : ""}
 Se você não tiver certeza sobre um termo, prefira linguagem neutra que caiba no público-alvo. Nunca invente estereótipos.`
@@ -2080,7 +2123,7 @@ Se você não tiver certeza sobre um termo, prefira linguagem neutra que caiba n
 PRODUTO: ${produto}
 TRANSFORMAÇÃO PROMETIDA: ${transformacao}
 NICHO/AVATAR: ${nicho}
-${publico ? `PÚBLICO ESPECÍFICO: ${publico}` : ""}
+${publico ? `PÚBLICO ESPECÍFICO (auto do projeto): ${publico}` : ""}
 ${naoPublico ? `PÚBLICO QUE NÃO É: ${naoPublico}` : ""}
 ${palavrasProibidas.length ? `PALAVRAS PROIBIDAS: ${palavrasProibidas.join(", ")}` : ""}
 PREÇO/MODELO: ${preco}
@@ -2088,6 +2131,7 @@ OBJEÇÃO PRINCIPAL: ${objection}
 MODELO DE FUNIL: ${modelo.toUpperCase()}
 ${products.length > 0 ? `\nPRODUTOS CADASTRADOS:\n${JSON.stringify(products, null, 2)}` : ""}
 `.trim();
+
 
   // ── PHASE 1 — Intel (avatar + market + mechanism + angles) ──
   const intelSystem = `${mentePrefix}Você é um estrategista de marketing digital especializado em análise de avatar e mercado. Use os frameworks dos melhores copywriters brasileiros e internacionais (Gary Bencivenga, Eugene Schwartz, Dan Kennedy, Alex Hormozi).
