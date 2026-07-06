@@ -17,9 +17,10 @@ type Preview = {
   error?: string;
 };
 
-const UA =
+const UA_CHROME =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+const UA_FACEBOOK = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
 function pickMeta(html: string, patterns: RegExp[]): string | undefined {
   for (const re of patterns) {
@@ -34,6 +35,8 @@ function decodeHtml(s: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/\\u0026/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 }
@@ -45,30 +48,32 @@ function metaRegex(prop: string, attr: "property" | "name" = "property"): RegExp
   );
 }
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchHtml(url: string, ua = UA_CHROME): Promise<string | null> {
   try {
     const r = await fetch(url, {
       headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": ua,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9,pt;q=0.8",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Dest": "document",
+        "Cache-Control": "no-cache",
       },
       redirect: "follow",
     });
     if (!r.ok) return null;
     const buf = await r.arrayBuffer();
-    // Only parse first ~256KB — og tags are always in <head>
-    const slice = buf.slice(0, 256 * 1024);
+    const slice = buf.slice(0, 512 * 1024);
     return new TextDecoder("utf-8", { fatal: false }).decode(slice);
   } catch {
     return null;
   }
 }
 
-async function tryOembed(oembedUrl: string): Promise<Preview | null> {
+async function tryOembed(oembedUrl: string, extraHeaders: Record<string, string> = {}): Promise<Preview | null> {
   try {
     const r = await fetch(oembedUrl, {
-      headers: { "User-Agent": UA, Accept: "application/json" },
+      headers: { "User-Agent": UA_CHROME, Accept: "application/json", ...extraHeaders },
     });
     if (!r.ok) return null;
     const j = await r.json();
@@ -108,6 +113,68 @@ function parseOg(html: string): Preview {
   return { title, image, video, description, site };
 }
 
+// Extract image from Instagram embedded JSON when og:image is missing
+function extractIgImageFromJson(html: string): string | undefined {
+  const patterns = [
+    /"display_url":"([^"]+)"/,
+    /"thumbnail_src":"([^"]+)"/,
+    /"thumbnail_url":"([^"]+)"/,
+    /"image_versions2":\{"candidates":\[\{"url":"([^"]+)"/,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m && m[1]) {
+      const url = decodeHtml(m[1]).replace(/\\\//g, "/").replace(/\\u([0-9a-fA-F]{4})/g, (_, c) => String.fromCharCode(parseInt(c, 16)));
+      return url;
+    }
+  }
+  return undefined;
+}
+
+async function resolveInstagram(rawUrl: string): Promise<Preview> {
+  // Attempt 1: Chrome UA
+  let html = await fetchHtml(rawUrl, UA_CHROME);
+  if (html) {
+    const og = parseOg(html);
+    if (og.image || og.video) return og;
+    const igImg = extractIgImageFromJson(html);
+    if (igImg) return { ...og, image: igImg };
+  }
+  // Attempt 2: Facebook crawler UA
+  html = await fetchHtml(rawUrl, UA_FACEBOOK);
+  if (html) {
+    const og = parseOg(html);
+    if (og.image || og.video) return og;
+    const igImg = extractIgImageFromJson(html);
+    if (igImg) return { ...og, image: igImg };
+  }
+  // Attempt 3: Instagram public oEmbed via App-ID
+  try {
+    const r = await fetch(
+      `https://i.instagram.com/api/v1/oembed/?url=${encodeURIComponent(rawUrl)}`,
+      {
+        headers: {
+          "User-Agent": UA_CHROME,
+          "X-IG-App-ID": "936619743392459",
+          Accept: "application/json",
+        },
+      },
+    );
+    if (r.ok) {
+      const j = await r.json();
+      if (j?.thumbnail_url) {
+        return {
+          image: j.thumbnail_url,
+          title: j.title,
+          author: j.author_name,
+          site: "Instagram",
+        };
+      }
+    }
+  } catch { /* ignore */ }
+  return { fallback: true, error: "Instagram bloqueou o preview automático" };
+}
+
 async function resolvePreview(rawUrl: string): Promise<Preview> {
   let url: URL;
   try {
@@ -117,7 +184,6 @@ async function resolvePreview(rawUrl: string): Promise<Preview> {
   }
   const host = url.hostname.replace(/^www\./, "");
 
-  // oEmbed providers
   try {
     if (host.endsWith("youtube.com") || host === "youtu.be") {
       const p = await tryOembed(
@@ -137,15 +203,11 @@ async function resolvePreview(rawUrl: string): Promise<Preview> {
       );
       if (p?.image) return p;
     }
-    if (host.endsWith("instagram.com")) {
-      // Instagram oEmbed público sem app token normalmente exige token,
-      // então vamos direto pro og scraping via fetch com UA de bot.
+    if (host.endsWith("instagram.com") || host === "instagr.am") {
+      return await resolveInstagram(rawUrl);
     }
-  } catch {
-    /* ignore, cai no og */
-  }
+  } catch { /* fallthrough */ }
 
-  // Generic OG scraping
   const html = await fetchHtml(rawUrl);
   if (!html) return { fallback: true, error: "Não foi possível carregar a página" };
   const og = parseOg(html);
