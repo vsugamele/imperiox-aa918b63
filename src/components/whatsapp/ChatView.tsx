@@ -1027,7 +1027,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
     const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
     const [correctionText, setCorrectionText] = useState("");
-    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable">("auto");
+    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable" | "complement">("auto");
 
     const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable") => {
       try {
