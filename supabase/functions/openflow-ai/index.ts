@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
 import { validateAndFixAngles, withRetry } from "./_validators.ts";
+import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2065,7 +2066,7 @@ async function handleGenerateFunnelPipeline(body: any, projectContext: string, s
   const objection = briefing.objection || "";
   const modelo = briefing.modelo || "vsl";
 
-  // ── Auto-derivação: lê tudo do projeto (avatar, produtos, branding) se o wizard não passou ──
+  // ── Auto-derivação via helper compartilhado (avatar + produto + heurísticas de segmento) ──
   if (project_id) {
     try {
       const sb = createClient(
@@ -2073,51 +2074,20 @@ async function handleGenerateFunnelPipeline(body: any, projectContext: string, s
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
       const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).maybeSingle();
-      const d: any = (proj as any)?.data || {};
-      const avatar = d.avatar || d.avatars_por_produto || {};
-      const produtos: any[] = Array.isArray(d.produtos) ? d.produtos : [];
-      const prod = produto ? produtos.find(p => p.nome === produto || p.slug === produto) : produtos[0];
-
-      if (!publico) {
-        const parts = [
-          typeof avatar === "string" ? avatar : (avatar?.descricao || avatar?.retrato || avatar?.perfil_psicologico?.retrato || ""),
-          prod?.publico_alvo || prod?.avatar || "",
-          d.nicho || "",
-        ].filter(Boolean);
-        publico = parts.join(" — ").slice(0, 600);
-      }
-
-      // Heurísticas de palavras proibidas baseadas em segmento detectado no público/produto
-      const blob = `${publico} ${prod?.nome || ""} ${prod?.descricao || ""} ${JSON.stringify(avatar).slice(0, 800)}`.toLowerCase();
-      const auto: string[] = [];
-      const hasCacheado = /cachead|crespo|ondulad|4[abc]|3[abc]/i.test(blob);
-      const hasFeminino = /mulher|feminin|elas/i.test(blob);
-      const hasLiso = /liso|smooth/i.test(blob) && !hasCacheado;
-      if (hasCacheado || hasFeminino) {
-        auto.push("barbeiro", "barbearia", "corte masculino", "barba");
-        if (hasCacheado) auto.push("cabelo liso", "chapinha");
-      }
-      if (hasLiso) auto.push("cachead", "crespo");
-      // Sobrescritas manuais do projeto (imphq_projects.data.palavras_proibidas)
-      if (Array.isArray(d.palavras_proibidas)) {
-        auto.push(...d.palavras_proibidas.map((s: any) => String(s).toLowerCase()));
-      }
-      palavrasProibidas = Array.from(new Set([...palavrasProibidas, ...auto])).filter(Boolean);
+      const derived = deriveAudienceGuardrails((proj as any)?.data, produto, {
+        publico,
+        naoPublico,
+        palavrasProibidas,
+      });
+      publico = derived.publico;
+      naoPublico = derived.naoPublico;
+      palavrasProibidas = derived.palavrasProibidas;
     } catch (e) {
       console.warn("[openflow-ai] auto-derivação de público falhou:", (e as Error).message);
     }
   }
 
-  const guardBlock = (publico || naoPublico || palavrasProibidas.length)
-    ? `
-
-## REGRA CRÍTICA DE PÚBLICO (INVIOLÁVEL)
-Você fala EXCLUSIVAMENTE com o público descrito abaixo. Qualquer headline, ângulo, exemplo ou linguagem que se dirija a outro público é INVÁLIDO e será rejeitado.
-${publico ? `- PÚBLICO ALVO (do projeto): ${publico}` : ""}
-${naoPublico ? `- PÚBLICO QUE NÃO É (proibido citar/aludir): ${naoPublico}` : ""}
-${palavrasProibidas.length ? `- PALAVRAS/TERMOS PROIBIDOS (NUNCA use em headlines, corpo, CTA): ${palavrasProibidas.join(", ")}` : ""}
-Se você não tiver certeza sobre um termo, prefira linguagem neutra que caiba no público-alvo. Nunca invente estereótipos.`
-    : "";
+  const guardBlock = buildGuardBlock({ publico, naoPublico, palavrasProibidas });
 
   const briefingText = `
 PRODUTO: ${produto}

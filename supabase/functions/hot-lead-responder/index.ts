@@ -77,7 +77,7 @@ async function aiCopy(nome: string, produto: string, projeto: any): Promise<stri
         Authorization: `Bearer ${OPENROUTER_API_KEY}` 
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat-v3.1",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
       }),
     });

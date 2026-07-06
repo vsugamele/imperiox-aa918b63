@@ -32,7 +32,7 @@ async function classifyResponse(leadQuestion: string, aiResponse: string): Promi
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "deepseek/deepseek-chat-v3.1";
+  const model = "google/gemini-2.5-flash";
 
   const prompt = `Classifique a qualidade da resposta de uma IA de vendas. Retorne JSON.
 
