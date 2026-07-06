@@ -229,58 +229,25 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
                 />
               </div>
 
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Público específico <span className="text-primary/70">(quem é exatamente?)</span>
-                </Label>
-                <Textarea
-                  value={briefing.publico}
-                  onChange={e => setBriefing(b => ({ ...b, publico: e.target.value }))}
-                  placeholder="Ex: Mulheres 25-45 com cabelo cacheado, crespo ou ondulado que sofrem com frizz e ressecamento"
-                  className="bg-secondary text-sm min-h-[60px]"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Auto-preenchido do avatar do projeto. Quanto mais específico, menos a IA inventa.</p>
-              </div>
-
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Público que NÃO é <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <Input
-                  value={briefing.nao_publico}
-                  onChange={e => setBriefing(b => ({ ...b, nao_publico: e.target.value }))}
-                  placeholder="Ex: NÃO é para cabelo liso, NÃO é para homens/barbearia"
-                  className="bg-secondary text-sm"
-                />
-              </div>
-
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Palavras proibidas nas headlines <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <div className="flex gap-1">
-                  <Input
-                    value={proibidaInput}
-                    onChange={e => setProibidaInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addProibida(); } }}
-                    placeholder="Ex: barbeiro, corte masculino, liso..."
-                    className="bg-secondary text-sm flex-1"
-                  />
-                  <Button type="button" size="sm" variant="secondary" onClick={addProibida}>Adicionar</Button>
+              <div className="col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                <p className="text-[11px] font-medium text-primary mb-1">Contexto do projeto (a IA lê tudo automaticamente):</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant={ctxLoaded.avatar ? "default" : "secondary"} className="text-[10px]">
+                    Avatar {ctxLoaded.avatar ? "✓" : "—"}
+                  </Badge>
+                  <Badge variant={ctxLoaded.produto ? "default" : "secondary"} className="text-[10px]">
+                    Produto {ctxLoaded.produto ? "✓" : "—"}
+                  </Badge>
+                  <Badge variant={ctxLoaded.branding ? "default" : "secondary"} className="text-[10px]">
+                    Branding {ctxLoaded.branding ? "✓" : "—"}
+                  </Badge>
                 </div>
-                {briefing.palavras_proibidas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {briefing.palavras_proibidas.map(t => (
-                      <Badge key={t} variant="destructive" className="text-[10px] gap-1 pr-1">
-                        {t}
-                        <button type="button" onClick={() => removeProibida(t)} className="hover:bg-white/20 rounded">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Público, tom de voz e palavras proibidas são derivadas do avatar/produto do projeto. Edite em <span className="text-primary">Projeto → Briefing</span>.
+                </p>
               </div>
+
+
 
               <div className="col-span-2">
                 <Label className="text-xs text-muted-foreground mb-1 block">Objeção principal do avatar</Label>
