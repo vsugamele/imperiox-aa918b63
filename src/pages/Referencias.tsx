@@ -936,8 +936,9 @@ export default function Referencias() {
       }
     }
     const countItems = (path: string) =>
-      refsWithPath.filter(r => r._vpath === path || r._vpath?.startsWith(path + "/")).length;
+      refsWithPath.filter(r => matchesNonFolder(r) && (r._vpath === path || r._vpath?.startsWith(path + "/"))).length;
     byPath.forEach(n => { n.count = countItems(n.path); });
+
     return root;
   };
   const folderTree = buildFolderTree();
