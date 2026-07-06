@@ -35,6 +35,29 @@ async function classifyCorrection(correction: string, leadMsg: string): Promise<
     return "answer";
   } catch {
     return "answer";
+}
+
+async function extractRuleFromComplement(originalAnswer: string, complement: string, leadMsg: string): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Extraia uma REGRA COMPORTAMENTAL genérica (1 frase, imperativa, em pt-BR) a partir do complemento que o operador fez. A regra deve valer para situações similares futuras, não só este caso. Responda APENAS a regra, sem aspas nem preâmbulo. Ex: 'Sempre confirmar detalhes de curso com a equipe antes de responder'." },
+          { role: "user", content: `Pergunta do lead: "${leadMsg}"\n\nResposta da IA: "${originalAnswer}"\n\nComplemento do operador: "${complement}"` },
+        ],
+        temperature: 0.2,
+      }),
+    });
+    const j = await resp.json();
+    const out = (j?.choices?.[0]?.message?.content || "").trim();
+    return out && out.length > 8 ? out.slice(0, 400) : null;
+  } catch {
+    return null;
   }
 }
 
