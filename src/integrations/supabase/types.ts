@@ -51840,8 +51840,20 @@ export type Database = {
         Returns: Json
       }
       normalize_br_phone: { Args: { p_phone: string }; Returns: string[] }
+      orion_award_xp: {
+        Args: { _action: string; _entity_id?: string; _entity_type?: string }
+        Returns: Json
+      }
+      orion_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       orion_has_mini_app_access: {
         Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
+      orion_has_program_access: {
+        Args: { _program_id: string; _user_id: string }
         Returns: boolean
       }
       orion_has_role: {
@@ -51852,6 +51864,7 @@ export type Database = {
         Returns: boolean
       }
       orion_is_admin: { Args: { _uid: string }; Returns: boolean }
+      orion_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       orion_link_legacy_for_user: {
         Args: { _user_id: string }
         Returns: number
@@ -51865,6 +51878,7 @@ export type Database = {
         Args: { _email: string }
         Returns: string
       }
+      orion_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
