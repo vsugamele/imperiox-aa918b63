@@ -1524,7 +1524,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                             <Textarea
                               value={correctionText}
                               onChange={e => setCorrectionText(e.target.value)}
-                              placeholder="Como deveria ter sido respondido? Ou que regra a IA deve seguir?"
+                              placeholder={correctionType === "complement"
+                                ? "O que faltou dizer? Ex: 'poderia acrescentar que só tem dentro da JP Hair Education'"
+                                : "Como deveria ter sido respondido? Ou que regra a IA deve seguir?"}
                               className="min-h-[56px] text-xs bg-background text-foreground"
                               autoFocus
                             />
@@ -1534,6 +1536,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                 ["answer", "✏️ Resposta melhor"],
                                 ["rule", "📜 Regra do projeto"],
                                 ["unavailable", "🚫 Produto indisponível"],
+                                ["complement", "➕ Complementar"],
                               ] as const).map(([val, label]) => (
                                 <button
                                   key={val}
