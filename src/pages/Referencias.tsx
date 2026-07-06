@@ -408,29 +408,40 @@ export default function Referencias() {
 
   const subfolders = getSubfoldersAtLevel();
 
-  const filteredRaw = refsWithPath.filter(r => {
+  // Match everything except the folder/pasta filter — reused by folder counters
+  const matchesNonFolder = (r: Ref & { _vpath?: string }) => {
     const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || r.content_category === filterCategory;
+    return ms && mt && mp && mpr && mo && mc;
+  };
+
+  const filteredRaw = refsWithPath.filter(r => {
+    if (!matchesNonFolder(r)) return false;
 
     // Virtual folder filter: applies to ALL sources via _vpath, includes subfolders (cumulative)
-    let mpa = true;
     if (filterPasta !== "all") {
-      mpa = r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
-    } else if (currentFolder.length > 0) {
-      mpa = r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
+      return r._vpath === filterPasta || (r._vpath?.startsWith(filterPasta + "/") ?? false);
     }
-
-    return ms && mt && mp && mpr && mpa && mo && mc;
+    if (currentFolder.length > 0) {
+      return r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false);
+    }
+    return true;
   });
+
+  // Count of items in the current folder ignoring only the type/origin/plat filters
+  const rawInCurrentFolder = currentFolder.length > 0
+    ? refsWithPath.filter(r => r._vpath === currentFolderPath || (r._vpath?.startsWith(currentFolderPath + "/") ?? false)).length
+    : 0;
 
   // Sort: when viewing ads, show top performers first by default
   const filtered = filterOrigem === "ads"
     ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     : filteredRaw;
+
 
   // Group by project for display
   const groupedByProject = () => {
