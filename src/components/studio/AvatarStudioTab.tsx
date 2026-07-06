@@ -59,7 +59,16 @@ const MODOS: { value: string; label: string; hint: string; suffix: string }[] = 
 ];
 
 export function AvatarStudioTab() {
-  const { activeProjectId } = useProject();
+  const { data: projects = [] } = useProjectList();
+  const [activeProjectId, setActiveProjectId] = useState<string>(
+    () => localStorage.getItem("avatar-studio.project") || "",
+  );
+  useEffect(() => {
+    if (!activeProjectId && projects[0]) setActiveProjectId(projects[0].id);
+  }, [projects, activeProjectId]);
+  useEffect(() => {
+    if (activeProjectId) localStorage.setItem("avatar-studio.project", activeProjectId);
+  }, [activeProjectId]);
   const [avatars, setAvatars] = useState<AvatarProject[]>([]);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>("");
   const [gens, setGens] = useState<Generation[]>([]);
