@@ -1,8 +1,13 @@
 // Motor de Copy unificado. Recebe { intent, input, context } e devolve texto/JSON.
 // Resolve system_prompt + model + reasoning + output_format via tabela imphq_copy_engine_prompts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { loadCopyContext, contextToSystemAddendum } from "../_shared/context-loader.ts";
 import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
+import { createLogger } from "../_shared/logger.ts";
+
+const log = createLogger("copy-engine");
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,27 +29,37 @@ function resolveProvider(model: string): { url: string; apiKey: string } {
   return { url: "https://openrouter.ai/api/v1/chat/completions", apiKey: OPENROUTER_API_KEY };
 }
 
-interface ReqBody {
-  intent: string;
-  input: string | { messages: Array<{ role: string; content: string }> };
-  context?: {
-    project_id?: string;
-    product_slug?: string;
-    lead_id?: string;
-    extra?: Record<string, unknown>;
-  };
-  model_override?: string;
-  stream?: boolean;
-}
+const MessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant"]),
+  content: z.string().min(1).max(50000),
+});
+
+const BodySchema = z.object({
+  intent: z.string().min(1).max(120),
+  input: z.union([
+    z.string().min(1).max(50000),
+    z.object({ messages: z.array(MessageSchema).min(1).max(50) }),
+  ]),
+  context: z.object({
+    project_id: z.string().uuid().optional(),
+    product_slug: z.string().max(200).optional(),
+    lead_id: z.string().uuid().optional(),
+    extra: z.record(z.unknown()).optional(),
+  }).optional(),
+  model_override: z.string().max(120).optional(),
+  stream: z.boolean().optional(),
+});
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = (await req.json()) as ReqBody;
-    if (!body?.intent) {
-      return json({ error: "intent obrigatório" }, 400);
+    const raw = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return json({ error: "invalid_body", details: parsed.error.flatten() }, 400);
     }
+    const body = parsed.data;
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: cfg, error: cfgErr } = await sb
@@ -54,7 +69,7 @@ Deno.serve(async (req) => {
       .eq("enabled", true)
       .maybeSingle();
 
-    if (cfgErr) console.error("[copy-engine] cfg error", cfgErr);
+    if (cfgErr) log.error("cfg error", cfgErr);
     if (!cfg) return json({ error: `intent não encontrado: ${body.intent}` }, 404);
 
     const ctx = body.context
@@ -111,7 +126,7 @@ Deno.serve(async (req) => {
 
     if (!upstream.ok) {
       const txt = await upstream.text();
-      console.error("[copy-engine] upstream", upstream.status, txt);
+      log.error("upstream", { status: upstream.status, body: txt.slice(0,300) });
       return json({ error: txt }, upstream.status);
     }
 
@@ -134,7 +149,7 @@ Deno.serve(async (req) => {
     if (guardrails.palavrasProibidas.length && content && !stream) {
       guardrailViolations = findForbiddenHits(content, guardrails.palavrasProibidas);
       if (guardrailViolations.length) {
-        console.warn("[copy-engine] guardrail violado:", guardrailViolations);
+        log.warn("guardrail violado", { violations: guardrailViolations });
         const retryPayload: Record<string, unknown> = {
           model,
           messages: [
@@ -173,7 +188,7 @@ Deno.serve(async (req) => {
       guardrail_violations: guardrailViolations,
     });
   } catch (err: any) {
-    console.error("[copy-engine] error", err);
+    log.error("erro interno", { message: err?.message });
     return json({ error: err?.message || "erro interno" }, 500);
   }
 });
