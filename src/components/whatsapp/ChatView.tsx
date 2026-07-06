@@ -1027,9 +1027,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
     const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
     const [correctionText, setCorrectionText] = useState("");
-    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable">("auto");
+    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable" | "complement">("auto");
 
-    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable") => {
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable" | "complement") => {
       try {
         const { data } = await supabase.functions.invoke("wa-feedback-learn", {
           body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId, correction_type: ctype || "auto" },
@@ -1041,6 +1041,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         const finalType = (data as any)?.correction_type;
         const typeLabel = finalType === "rule" ? "📜 regra do projeto"
           : finalType === "unavailable" ? "🚫 produto indisponível"
+          : finalType === "complement" ? "➕ complemento (P/R + regra)"
           : "✏️ resposta corrigida";
         toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
       } catch (err: any) {
@@ -1523,7 +1524,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                             <Textarea
                               value={correctionText}
                               onChange={e => setCorrectionText(e.target.value)}
-                              placeholder="Como deveria ter sido respondido? Ou que regra a IA deve seguir?"
+                              placeholder={correctionType === "complement"
+                                ? "O que faltou dizer? Ex: 'poderia acrescentar que só tem dentro da JP Hair Education'"
+                                : "Como deveria ter sido respondido? Ou que regra a IA deve seguir?"}
                               className="min-h-[56px] text-xs bg-background text-foreground"
                               autoFocus
                             />
@@ -1533,6 +1536,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                 ["answer", "✏️ Resposta melhor"],
                                 ["rule", "📜 Regra do projeto"],
                                 ["unavailable", "🚫 Produto indisponível"],
+                                ["complement", "➕ Complementar"],
                               ] as const).map(([val, label]) => (
                                 <button
                                   key={val}

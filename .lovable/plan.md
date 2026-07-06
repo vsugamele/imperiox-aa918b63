@@ -1,57 +1,35 @@
+## Novo tipo de feedback: "➕ Complementar"
 
-# Próximas evoluções do Mapa da Empresa
+Adiciona um 4º chip no dialog de correção do WhatsApp: a IA aprende que a resposta original **estava boa** mas faltou complemento — sem invalidá-la.
 
-Escolhi 6 frentes de alto impacto, ordenadas por ROI. Você aprova as que quiser — implemento só as marcadas.
+### Backend
 
-## 1. KPIs vivos em cada nó (receita, leads, conversão)
-Hoje só `oferta` mostra KPIs. Estender para:
-- **checkout**: taxa de conversão (vendas / sessões) + receita 7d
-- **upsell/downsell/orderbump**: take-rate (%) e receita incremental
-- **vsl/pagina_vendas**: view→lead e lead→venda
-- **anuncio**: CPA, ROAS, CTR (puxando de `imphq_ads_daily`)
-- **whatsapp**: mensagens 24h + hot leads ativos
-Badge colorido no canto do card (verde/amarelo/vermelho) segundo meta.
+**`supabase/functions/wa-feedback-learn/index.ts`**
+- Aceitar `correction_type: "complement"` no body.
+- Nova rota quando `feedback === "bad"` (semanticamente "boa mas incompleta") + `correction_type === "complement"`:
+  1. Buscar pergunta do lead + resposta original da IA (já temos a lógica).
+  2. Gravar par P/R na `imphq_wa_knowledge`:
+     - `pergunta`: pergunta do lead
+     - `resposta`: `${resposta_original}\n\n${complemento_operador}`
+     - `source: "feedback:complement:wa"`
+  3. Chamar LLM (`gemini-2.5-flash-lite`) para extrair uma **regra genérica** a partir do exemplo (ex: "sempre confirmar detalhes de curso com a equipe antes de responder").
+  4. Gravar essa regra em `imphq_wa_project_rules` com `rule_type: "behavior"`, `source_message_id`, `embedding`.
+  5. Logar em `imphq_ai_actions` com título `➕ Complemento aprendido (P/R + regra)`.
 
-## 2. Conexões automáticas inteligentes
-Hoje `autopopulateFromProject` cria nós mas conecta tudo na raiz. Melhorar:
-- Traçar o **caminho canônico**: Anúncio → Captura → VSL → Página → Checkout → Orderbump → Upsell → Downsell
-- Vincular WhatsApp aos nós de Checkout e Captura (recuperação)
-- Vincular sequência de e-mail à Captura
-- Edges tracejadas para "recuperação", sólidas para "fluxo principal"
+### Frontend
 
-## 3. Painel Gaps 2.0 — contextual e acionável
-Além dos gaps atuais:
-- Detectar **nós órfãos** (sem conexão)
-- Detectar **VSL sem página de vendas depois**
-- Detectar **checkout sem orderbump/upsell**
-- Detectar **anúncio sem UTM configurado** (cruzar com `imphq_ads`)
-- Cada gap com botão "Corrigir agora" que já cria o nó **e conecta** no lugar certo
+**`src/components/whatsapp/[dialog de correção].tsx`** (o componente que tem os chips Auto/Resposta melhor/Regra/Produto indisponível — vou localizar por grep no build mode)
+- Adicionar chip `➕ Complementar` com ícone Plus.
+- Placeholder do textarea muda para: *"O que faltou dizer? Ex: 'poderia acrescentar que só tem dentro da JP Hair Education'"*.
+- Envia `correction_type: "complement"` para a edge function.
+- Toast de sucesso: "Complemento gravado — P/R + regra criadas ✓"
 
-## 4. Modo apresentação / foco
-- Botão "Apresentar": fullscreen, esconde controles, aumenta fontes
-- Filtro por camada: só Aquisição / só Conversão / só Retenção
-- Highlight de caminho: clicar num nó destaca upstream+downstream, escurece o resto
+### Tipo na tabela
 
-## 5. Snapshot e versionamento do mapa
-- Botão "Salvar versão" cria snapshot em `imphq_company_map_snapshots`
-- Comparar versões (o que mudou entre semana passada e hoje)
-- Útil para review de crescimento com equipe
+`imphq_wa_messages.feedback_correction_type` já aceita texto livre — só adicionamos o novo valor `"complement"`. Sem migração necessária.
 
-## 6. Templates estratégicos prontos
-Adicionar em `mapTemplates.ts`:
-- **Lançamento Interno** (captura → aulas → CPL → carrinho aberto/fechado → upsell)
-- **Perpétuo VSL** (ads → VSL → checkout → order/up/down → nurture)
-- **Webinar automático** (ads → inscrição → live → replay → pitch → checkout)
-- **High-ticket** (ads → VSL → aplicação → call → proposta)
+### Não muda
 
----
-
-## Fora de escopo desta rodada
-- Colaboração em tempo real (multi-cursor)
-- Export para Miro/Figma
-- IA gerando mapa a partir de descrição em texto
-
-## Recomendação
-Se quiser máximo impacto rápido: **1 + 2 + 3**. É o que transforma o mapa de "diagrama bonito" em "cockpit operacional".
-
-Quais frentes aprovo?
+- Fluxo `answer` / `rule` / `unavailable` / `auto` existentes.
+- A/B testing de regras.
+- Nenhuma outra edge function.

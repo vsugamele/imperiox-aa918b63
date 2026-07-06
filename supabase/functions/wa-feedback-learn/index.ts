@@ -35,6 +35,29 @@ async function classifyCorrection(correction: string, leadMsg: string): Promise<
     return "answer";
   } catch {
     return "answer";
+}
+
+async function extractRuleFromComplement(originalAnswer: string, complement: string, leadMsg: string): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Extraia uma REGRA COMPORTAMENTAL genérica (1 frase, imperativa, em pt-BR) a partir do complemento que o operador fez. A regra deve valer para situações similares futuras, não só este caso. Responda APENAS a regra, sem aspas nem preâmbulo. Ex: 'Sempre confirmar detalhes de curso com a equipe antes de responder'." },
+          { role: "user", content: `Pergunta do lead: "${leadMsg}"\n\nResposta da IA: "${originalAnswer}"\n\nComplemento do operador: "${complement}"` },
+        ],
+        temperature: 0.2,
+      }),
+    });
+    const j = await resp.json();
+    const out = (j?.choices?.[0]?.message?.content || "").trim();
+    return out && out.length > 8 ? out.slice(0, 400) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -45,7 +68,7 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json();
     const { message_id, feedback, correction, project_id } = body;
-    let correction_type: "answer" | "rule" | "unavailable" | "auto" = body.correction_type || "auto";
+    let correction_type: "answer" | "rule" | "unavailable" | "complement" | "auto" = body.correction_type || "auto";
 
     if (!message_id || !feedback) {
       return new Response(JSON.stringify({ error: "message_id e feedback obrigatórios" }), {
@@ -136,8 +159,56 @@ Deno.serve(async (req) => {
           .eq("id", message_id);
       }
 
+      // ROTA 0: complemento — resposta original estava boa, faltou algo. Grava P/R combinado + extrai regra.
+      if (correction_type === "complement") {
+        // Busca resposta original da IA
+        const { data: origMsg } = await supa.from("imphq_wa_messages")
+          .select("content")
+          .eq("id", message_id)
+          .maybeSingle();
+        const originalAnswer = origMsg?.content || "";
+        const combinedAnswer = `${originalAnswer}\n\n${correction}`.trim();
+
+        // 1) Par P/R combinado
+        const kbEmb = await getCachedEmbedding(supa, `${leadQuestion}\n\n${combinedAnswer}`);
+        if (kbEmb) {
+          await supa.from("imphq_wa_knowledge").insert({
+            project_id,
+            pergunta: leadQuestion,
+            resposta: combinedAnswer,
+            embedding: kbEmb,
+            source: "feedback:complement:wa",
+            aprovada: true,
+          });
+        }
+
+        // 2) Regra genérica extraída via LLM
+        const ruleText = await extractRuleFromComplement(originalAnswer, correction, leadQuestion);
+        if (ruleText) {
+          const ruleEmb = await getCachedEmbedding(supa, ruleText);
+          await supa.from("imphq_wa_project_rules").insert({
+            project_id,
+            rule_text: ruleText,
+            rule_type: "behavior",
+            active: true,
+            created_from_message_id: message_id,
+            embedding: ruleEmb,
+          });
+        }
+
+        await supa.from("imphq_ai_actions").insert({
+          projeto_id: project_id,
+          kind: "refine_prompt",
+          risk_level: "low",
+          status: "completed",
+          title: "➕ Complemento aprendido (P/R + regra)",
+          reason: `Operador complementou resposta da IA. Par P/R salvo${ruleText ? ` e regra extraída: "${ruleText.slice(0, 120)}"` : ""}.`,
+          source: "wa-feedback-learn",
+          payload: { message_id, complement: correction.slice(0, 300), extracted_rule: ruleText?.slice(0, 300) },
+        });
+      }
       // ROTA 1: regra do projeto (comportamental ou produto indisponível)
-      if (correction_type === "rule" || correction_type === "unavailable") {
+      else if (correction_type === "rule" || correction_type === "unavailable") {
         const rule_type = correction_type === "unavailable" ? "unavailable_product" : "behavior";
         const ruleEmb = await getCachedEmbedding(supa, correction);
 
