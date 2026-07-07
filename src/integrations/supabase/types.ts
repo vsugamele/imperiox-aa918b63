@@ -36444,6 +36444,7 @@ export type Database = {
           slug: string
           subtitle: string | null
           title: string
+          token_cost: number
           updated_at: string
         }
         Insert: {
@@ -36462,6 +36463,7 @@ export type Database = {
           slug: string
           subtitle?: string | null
           title: string
+          token_cost?: number
           updated_at?: string
         }
         Update: {
@@ -36480,6 +36482,7 @@ export type Database = {
           slug?: string
           subtitle?: string | null
           title?: string
+          token_cost?: number
           updated_at?: string
         }
         Relationships: []
@@ -36698,6 +36701,30 @@ export type Database = {
         }
         Relationships: []
       }
+      orion_palm_readings: {
+        Row: {
+          created_at: string
+          id: string
+          image_path: string | null
+          result: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          result?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          result?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       orion_password_reset_tokens: {
         Row: {
           created_at: string
@@ -36785,6 +36812,7 @@ export type Database = {
           sale_mode: string
           scope: string
           tag_ids: string[]
+          token_amount: number
           updated_at: string
         }
         Insert: {
@@ -36801,6 +36829,7 @@ export type Database = {
           sale_mode?: string
           scope?: string
           tag_ids?: string[]
+          token_amount?: number
           updated_at?: string
         }
         Update: {
@@ -36817,6 +36846,7 @@ export type Database = {
           sale_mode?: string
           scope?: string
           tag_ids?: string[]
+          token_amount?: number
           updated_at?: string
         }
         Relationships: [
@@ -38660,6 +38690,51 @@ export type Database = {
           updated_at?: string
           webhook_secret?: string | null
           welcome_text?: string
+        }
+        Relationships: []
+      }
+      orion_token_ledger: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          reason: string
+          ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          reason: string
+          ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          reason?: string
+          ref?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_token_wallets: {
+        Row: {
+          balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -51878,10 +51953,20 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      orion_credit_tokens: {
+        Args: {
+          _amount: number
+          _reason: string
+          _ref?: string
+          _user_id: string
+        }
+        Returns: number
+      }
       orion_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
       }
+      orion_get_token_balance: { Args: { _user_id: string }; Returns: number }
       orion_has_mini_app_access: {
         Args: { _app_id: string; _user_id: string }
         Returns: boolean
@@ -51911,6 +51996,15 @@ export type Database = {
       orion_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
+      }
+      orion_spend_tokens: {
+        Args: {
+          _amount: number
+          _reason: string
+          _ref?: string
+          _user_id: string
+        }
+        Returns: boolean
       }
       orion_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
