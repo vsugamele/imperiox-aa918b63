@@ -70,7 +70,7 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
         background: d.style?.bgColor || "rgba(201,146,42,0.04)",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={120} minHeight={80} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={120} minHeight={80} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <div className="absolute -top-3 left-3 px-2 bg-[#0a0809]">
         <EditableText
           id={id}
