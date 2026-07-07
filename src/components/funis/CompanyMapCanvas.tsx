@@ -148,8 +148,8 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         isVisible={selected}
         minWidth={140}
         minHeight={60}
-        lineClassName="!border-primary/60"
-        handleClassName="!bg-primary !border-primary !w-2 !h-2"
+        lineClassName="!border-primary/70 !border-2"
+        handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background"
       />
       <Handle type="target" position={Position.Top} style={{ background: data.color }} />
 
