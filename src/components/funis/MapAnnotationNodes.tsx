@@ -96,7 +96,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         color: "#080607",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <EditableText
         id={id}
         text={d.text}
