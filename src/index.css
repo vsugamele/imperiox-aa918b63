@@ -296,3 +296,13 @@
   }
 }
 
+
+/* Aumenta hit-area dos handles de resize do React Flow (canvas de funis) */
+.react-flow__resize-control.handle {
+  position: relative;
+}
+.react-flow__resize-control.handle::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
