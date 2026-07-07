@@ -141,7 +141,7 @@ export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { w
   const headId = `ah-${id}`;
   return (
     <div className="w-full h-full relative">
-      <NodeResizer isVisible={selected} minWidth={40} minHeight={20} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={40} minHeight={20} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
         {showHead && (
           <defs>
