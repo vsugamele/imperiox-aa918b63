@@ -70,7 +70,7 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
         background: d.style?.bgColor || "rgba(201,146,42,0.04)",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={120} minHeight={80} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={120} minHeight={80} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <div className="absolute -top-3 left-3 px-2 bg-[#0a0809]">
         <EditableText
           id={id}
@@ -96,7 +96,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         color: "#080607",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <EditableText
         id={id}
         text={d.text}
@@ -114,7 +114,7 @@ export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
   const editing = d.editingId === id;
   return (
     <div className="w-full h-full relative flex items-center">
-      <NodeResizer isVisible={selected} minWidth={80} minHeight={30} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={80} minHeight={30} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <EditableText
         id={id}
         text={d.text}
@@ -141,7 +141,7 @@ export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { w
   const headId = `ah-${id}`;
   return (
     <div className="w-full h-full relative">
-      <NodeResizer isVisible={selected} minWidth={40} minHeight={20} lineClassName="!border-primary/60" handleClassName="!bg-primary !border-primary" />
+      <NodeResizer isVisible={selected} minWidth={40} minHeight={20} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
         {showHead && (
           <defs>
