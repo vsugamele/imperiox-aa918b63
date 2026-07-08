@@ -614,7 +614,7 @@ function acoesToNodesEdges(
       edges.push({
         id: `e-loop-${id}`,
         source: id,
-        target: targetIdx === 0 ? "trigger" : `step-${targetIdx}`,
+        target: targetIdx === 0 ? "trigger" : resolvedIds[targetIdx] ?? `step-${targetIdx}`,
         label,
         style: { stroke: "#eab308", strokeWidth: 2, strokeDasharray: "4,4" },
         labelStyle: { fill: "#eab308", fontSize: 8, fontWeight: "bold" },
