@@ -829,6 +829,21 @@ export function FlowEditorCanvas({
   );
 }
 
+// Botão que recentraliza a viewport nos nós atuais
+function FitViewButton() {
+  const rf = useReactFlow();
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      className="h-7 text-[10px] bg-slate-900/90 border border-slate-800 hover:bg-slate-800"
+      onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}
+    >
+      Ajustar à tela
+    </Button>
+  );
+}
+
 // ── Sidebar de Elementos ───────────────────────────────────────
 function FlowSidebar({
   flowObjective,
