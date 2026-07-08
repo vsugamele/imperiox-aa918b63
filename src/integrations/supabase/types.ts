@@ -34659,6 +34659,93 @@ export type Database = {
           },
         ]
       }
+      orion_astro_maps: {
+        Row: {
+          analysis: Json
+          aspects: Json
+          birth_date: string
+          birth_place: string
+          birth_time: string
+          created_at: string
+          cusps: Json
+          elemental: Json
+          id: string
+          modality: Json
+          name: string
+          positions: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json
+          aspects?: Json
+          birth_date: string
+          birth_place: string
+          birth_time: string
+          created_at?: string
+          cusps?: Json
+          elemental?: Json
+          id?: string
+          modality?: Json
+          name: string
+          positions?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          aspects?: Json
+          birth_date?: string
+          birth_place?: string
+          birth_time?: string
+          created_at?: string
+          cusps?: Json
+          elemental?: Json
+          id?: string
+          modality?: Json
+          name?: string
+          positions?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orion_authors: {
         Row: {
           avatar_url: string | null
@@ -36664,6 +36751,75 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      orion_oracle_readings: {
+        Row: {
+          created_at: string
+          id: string
+          input: Json
+          oracle_key: string
+          result: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input?: Json
+          oracle_key: string
+          result?: Json
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input?: Json
+          oracle_key?: string
+          result?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orion_pages: {
         Row: {
