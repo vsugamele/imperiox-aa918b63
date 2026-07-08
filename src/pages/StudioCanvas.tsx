@@ -411,7 +411,9 @@ function InnerCanvas() {
             onConnect={onConnect}
             onEdgesDelete={onEdgesDelete}
             onNodeClick={(_, n) => n.id !== "product-hub" && setDrawerNode(n)}
+            isValidConnection={isValidConnection}
             nodeTypes={nodeTypes}
+            deleteKeyCode={["Backspace", "Delete"]}
             fitView
             proOptions={{ hideAttribution: true }}
           >
