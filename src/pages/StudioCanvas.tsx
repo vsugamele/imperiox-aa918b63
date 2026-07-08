@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Play, Sparkles, Clapperboard } from "lucide-react";
 import { toast } from "sonner";
-import { StudioBlockLibrary } from "./StudioBlockLibrary";
-import { StudioNodeDrawer } from "./StudioNodeDrawer";
-import { CanvasBlockNode } from "./CanvasBlockNode";
-import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "./blockTypes";
+import { StudioBlockLibrary } from "@/components/studio/canvas/StudioBlockLibrary";
+import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
+import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
+import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
 
 const nodeTypes = { block: CanvasBlockNode };
 
