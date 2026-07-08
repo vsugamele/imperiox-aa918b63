@@ -277,38 +277,45 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     else toast.error("Falha ao copiar");
   };
 
+  const platformGradient =
+    platform === "instagram" ? "linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)" :
+    platform === "youtube" ? "linear-gradient(135deg,#ff0033,#8b0000)" :
+    platform === "tiktok" ? "linear-gradient(135deg,#25f4ee,#000,#fe2c55)" :
+    "linear-gradient(135deg,#c9922a,#7a5a1a)";
+  const domain = (() => {
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+  })();
+
   return (
     <div
       {...hoverProps}
-      className="w-full h-full rounded-lg relative overflow-hidden bg-[#0a0809] border border-border/60 shadow-lg flex flex-col"
+      className="group w-full h-full rounded-xl relative overflow-hidden bg-[#0a0809] border border-white/10 shadow-2xl flex flex-col transition-colors duration-500 hover:border-[#c9922a]/40"
     >
       <NodeResizer isVisible={resizeVisible} minWidth={160} minHeight={200} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
-      <div
-        className="relative flex-1 bg-gradient-to-br from-black/60 to-black/20 flex items-center justify-center overflow-hidden cursor-pointer"
-        onMouseDown={url ? stopBubble : undefined}
-        onClick={url ? copyLink : undefined}
-        title={url ? "Clique para copiar o link" : undefined}
-      >
-        {thumb ? (
-          <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : (
-          <div className="flex flex-col items-center gap-2 px-3 text-center">
-            <PlatformIcon className="h-8 w-8 opacity-40" style={{ color: platformColor }} />
-            <span className="text-[10px] text-muted-foreground leading-tight">Preview indisponível<br/>clique para copiar link</span>
-          </div>
-        )}
 
-        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1"
-          style={{ background: `${platformColor}25`, color: platformColor, border: `1px solid ${platformColor}55` }}>
-          <PlatformIcon className="h-2.5 w-2.5" /> {platform}
+      {/* Header editorial */}
+      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className="p-1 rounded-md opacity-90 shrink-0"
+            style={{ background: platformGradient }}
+          >
+            <PlatformIcon className="h-2.5 w-2.5 text-white" />
+          </div>
+          <span
+            className="text-[9px] font-semibold text-white/50 uppercase truncate"
+            style={{ letterSpacing: "0.2em", fontFamily: "'DM Sans', sans-serif" }}
+          >
+            {platform === "other" ? "Reel" : `${platform} reel`}
+          </span>
         </div>
-        <div className="absolute top-1.5 right-1.5 flex gap-1">
+        <div className="flex gap-1 shrink-0">
           {d.onUploadImage && (
             <button
               type="button"
               onMouseDown={stopBubble}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); d.onUploadImage?.(id); }}
-              className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+              className="nodrag nopan p-1 rounded text-white/30 hover:text-[#c9922a] transition-colors"
               title="Enviar imagem"
             >
               <ImagePlus className="h-3 w-3" />
@@ -320,7 +327,7 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
                 type="button"
                 onMouseDown={stopBubble}
                 onClick={copyLink}
-                className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+                className="nodrag nopan p-1 rounded text-white/30 hover:text-[#c9922a] transition-colors"
                 title="Copiar link"
               >
                 <Copy className="h-3 w-3" />
@@ -329,7 +336,7 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
                 type="button"
                 onMouseDown={stopBubble}
                 onClick={openReel}
-                className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+                className="nodrag nopan p-1 rounded text-white/30 hover:text-[#c9922a] transition-colors"
                 title="Abrir reel"
               >
                 <ExternalLink className="h-3 w-3" />
@@ -338,18 +345,56 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
           )}
         </div>
       </div>
-      <div className="px-2 py-1.5 bg-[#0a0809] border-t border-border/40">
-        {author && <div className="text-[10px] text-primary/80 font-serif truncate">{author}</div>}
-        {title && <div className="text-[11px] text-foreground font-medium leading-tight line-clamp-2 mt-0.5">{title}</div>}
-        <EditableText
-          id={id}
-          text={d.text}
-          editing={editing}
-          onDone={(v) => d.onTextChange?.(id, v)}
-          className="text-[11px] leading-snug text-muted-foreground whitespace-pre-wrap break-words max-h-12 overflow-hidden mt-0.5"
-          placeholder="Anote o que está gostando…"
-        />
+
+      {/* Corpo visual */}
+      <div
+        className="relative flex-1 flex items-center justify-center overflow-hidden cursor-pointer bg-gradient-to-b from-transparent to-black/40"
+        onMouseDown={url ? stopBubble : undefined}
+        onClick={url ? copyLink : undefined}
+        title={url ? "Clique para copiar o link" : undefined}
+      >
+        {thumb ? (
+          <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          <div className="flex flex-col items-center gap-3 px-6 text-center">
+            <div className="relative">
+              <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: "rgba(201,146,42,0.15)" }} />
+              <ImageIcon className="h-10 w-10 relative" strokeWidth={1} style={{ color: "rgba(201,146,42,0.45)" }} />
+            </div>
+            <div>
+              <div className="text-white/80 text-[12px] font-medium" style={{ fontFamily: "'DM Sans', sans-serif" }}>Preview indisponível</div>
+              <div className="text-white/40 text-[10px] leading-relaxed mt-0.5">Clique para copiar o link original</div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Footer */}
+      <div className="p-3 space-y-2 shrink-0">
+        {(domain || author) && (
+          <div className="text-[10px] tracking-tight truncate" style={{ color: "#c9922a", fontFamily: "'DM Sans', sans-serif" }}>
+            {author || domain}
+          </div>
+        )}
+        {title && (
+          <div className="text-[13px] italic text-white/90 leading-snug line-clamp-2 font-serif">
+            {title}
+          </div>
+        )}
+        <div className="pt-2 border-t border-white/5">
+          <EditableText
+            id={id}
+            text={d.text}
+            editing={editing}
+            onDone={(v) => d.onTextChange?.(id, v)}
+            className="text-[11px] italic leading-snug text-white/50 whitespace-pre-wrap break-words max-h-16 overflow-hidden font-serif"
+            placeholder="Anote o que está gostando…"
+          />
+        </div>
+      </div>
+
+      {/* Barra dourada de hover */}
+      <div className="absolute bottom-0 left-0 w-full h-px bg-[#c9922a] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
     </div>
   );
 });
