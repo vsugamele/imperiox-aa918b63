@@ -99,17 +99,35 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
   const d = data as unknown as AnnotationData;
   const editing = d.editingId === id;
   const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
+  const color = d.style?.borderColor || "#c9922a";
+  const bg = d.style?.bgColor || "rgba(201,146,42,0.04)";
+  // Miolo transparente a eventos; só a borda (faixa de 10px) e o label capturam pointer/drag.
+  const edgeBase = "absolute frame-handle pointer-events-auto";
   return (
     <div
       {...hoverProps}
       className="w-full h-full rounded-lg relative"
-      style={{
-        border: `2px dashed ${d.style?.borderColor || "#c9922a"}`,
-        background: d.style?.bgColor || "rgba(201,146,42,0.04)",
-      }}
+      style={{ pointerEvents: "none" }}
     >
+      {/* Fundo + moldura decorativos (não capturam eventos) */}
+      <div
+        className="absolute inset-0 rounded-lg"
+        style={{ border: `2px dashed ${color}`, background: bg, pointerEvents: "none" }}
+      />
       <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
-      <div className="absolute -top-3 left-3 px-2 bg-[#0a0809]">
+
+      {/* Faixas interativas nas 4 bordas (10px) */}
+      <div className={edgeBase} style={{ top: 0, left: 0, right: 0, height: 10, cursor: "move" }} title="Arraste para mover · clique direito para opções" />
+      <div className={edgeBase} style={{ bottom: 0, left: 0, right: 0, height: 10, cursor: "move" }} />
+      <div className={edgeBase} style={{ top: 0, bottom: 0, left: 0, width: 10, cursor: "move" }} />
+      <div className={edgeBase} style={{ top: 0, bottom: 0, right: 0, width: 10, cursor: "move" }} />
+
+      {/* Label superior (também é handle) */}
+      <div
+        className="absolute -top-3 left-3 px-2 bg-[#0a0809] frame-handle pointer-events-auto"
+        style={{ cursor: editing ? "text" : "move" }}
+        title="Arraste para mover · clique direito para opções"
+      >
         <EditableText
           id={id}
           text={d.text}

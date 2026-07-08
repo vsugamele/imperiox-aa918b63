@@ -543,6 +543,7 @@ function InnerMap({ projects }: { projects: any[] }) {
           draggable: true,
           selectable: true,
           selected: previous?.selected || editingAnnotationId === id,
+          ...(a.kind === "frame" ? { dragHandle: ".frame-handle" } : {}),
           data: {
             kind: a.kind,
             text: a.text || "",
