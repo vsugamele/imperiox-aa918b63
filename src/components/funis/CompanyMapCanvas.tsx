@@ -1442,6 +1442,31 @@ function InnerMap({ projects }: { projects: any[] }) {
         </SheetContent>
       </Sheet>
 
+      <Dialog open={!!reelDialog} onOpenChange={(o) => { if (!o) { setReelDialog(null); setReelInput(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Film className="h-4 w-4 text-primary" /> Reels de inspiração</DialogTitle>
+            <DialogDescription>
+              Cole um ou mais links (Instagram, TikTok, YouTube Shorts). Um por linha — vão virar cards no mapa.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reelInput}
+            onChange={(e) => setReelInput(e.target.value)}
+            placeholder={"https://www.instagram.com/reel/...\nhttps://www.tiktok.com/@usuario/video/...\nhttps://youtube.com/shorts/..."}
+            rows={6}
+            className="font-mono text-xs"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setReelDialog(null); setReelInput(""); }}>Cancelar</Button>
+            <Button onClick={() => reelDialog && submitReels(reelDialog.x, reelDialog.y)} disabled={!reelInput.trim()}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {copyDialog && (
         <NodeCopyDialog
           open={!!copyDialog}
