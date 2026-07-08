@@ -532,20 +532,42 @@ function InnerMap({ projects }: { projects: any[] }) {
     });
   }, [annotations, editingAnnotationId, updateAnnotationText]);
 
-  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number) => {
+  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
     const def = ANNOTATION_DEFAULTS[kind];
+    const style = { ...(def.style || {}), ...(extraStyle || {}) };
     const payload = {
       map_id: mapId, kind,
       x: x - def.w / 2, y: y - def.h / 2,
       width: def.w, height: def.h,
-      text: def.text, style: def.style as any, z_index: 0,
+      text: overrideText ?? def.text, style: style as any, z_index: 0,
     };
     const { data, error } = await (supabase.from(annTable) as any).insert(payload).select().single();
     if (error) { toast.error("Erro ao adicionar anotação"); return; }
     setAnnotations(list => [...list, data as MapAnnotation]);
     if ((kind === "note" || kind === "label" || kind === "frame")) setEditingAnnotationId(`${ANN_PREFIX}${data.id}`);
   }, [mapId]);
+
+  const [reelDialog, setReelDialog] = useState<{ x: number; y: number } | null>(null);
+  const [reelInput, setReelInput] = useState("");
+
+  const submitReels = useCallback(async (baseX: number, baseY: number) => {
+    const urls = reelInput.split(/\s+/).map(s => s.trim()).filter(u => /^https?:\/\//i.test(u));
+    if (!urls.length) { toast.error("Cole ao menos um link válido"); return; }
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      const platform = detectReelPlatform(url);
+      const author = extractReelAuthor(url);
+      const thumb = extractReelThumb(url);
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb }, "");
+    }
+    toast.success(`${urls.length} reel(s) adicionado(s)`);
+    setReelInput("");
+    setReelDialog(null);
+  }, [reelInput, addAnnotation]);
+
 
   const deleteAnnotation = useCallback(async (annId: string) => {
     setAnnotations(list => list.filter(a => a.id !== annId));
