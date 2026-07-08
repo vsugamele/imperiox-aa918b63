@@ -59,18 +59,19 @@ export function DecisionQueue() {
         const since = new Date(now - 2 * 3600_000).toISOString();
         const { data } = await supabase
           .from("imphq_vendas")
-          .select("id, lead_id, produto_nome, valor, created_at, status, forma_pagamento, nome")
+          .select("id, lead_id, produto_nome, valor, created_at, status, nome, data")
           .in("status", ["pendente", "pending", "waiting_payment"])
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(6);
         (data || []).forEach((v: any) => {
+          const forma = v?.data?.metodo_pagamento ?? v?.data?.payment_method ?? v?.data?.forma_pagamento ?? "PIX/Boleto";
           out.push({
             key: `hot:${v.id}`,
             icon: Flame,
             tone: "text-amber-400",
             title: `${v.nome || v.produto_nome || "Lead quente"} · ${brl(Number(v.valor || 0))}`,
-            meta: `${(v.forma_pagamento || "PIX/Boleto").toUpperCase()} · ${timeAgo(v.created_at)}`,
+            meta: `${String(forma).toUpperCase()} · ${timeAgo(v.created_at)}`,
             href: v.lead_id ? `/lead/${v.lead_id}` : "/leads",
             weight: 80,
           });
