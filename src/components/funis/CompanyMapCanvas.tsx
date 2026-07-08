@@ -965,7 +965,14 @@ function InnerMap({ projects }: { projects: any[] }) {
           setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
         }}
         onNodeDoubleClick={(_, node) => {
-          if (node.id.startsWith(ANN_PREFIX)) setEditingAnnotationId(node.id);
+          if (node.id.startsWith(ANN_PREFIX)) { setEditingAnnotationId(node.id); return; }
+          const raw = rawNodes.find(r => r.id === node.id);
+          if (raw?.linked_project_id) {
+            navigate(`/projetos/${raw.linked_project_id}`);
+          } else {
+            toast.info("Vincule um projeto no painel para abrir o Hub");
+            if (raw) setSelected({ ...raw, checklist: raw.checklist || [] });
+          }
         }}
         onPaneClick={() => { setCtxMenu(null); setEditingAnnotationId(null); }}
         selectionOnDrag
