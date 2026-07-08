@@ -59,12 +59,12 @@ function InnerCanvas() {
     (async () => {
       const { data: user } = await supabase.auth.getUser();
       const uid = user.user?.id;
-      const { data: existing } = await supabase
-        .from("imphq_studio_workflows")
+      const { data: existing } = await (supabase
+        .from("imphq_studio_workflows") as any)
         .select("id")
-        .eq("user_id", uid as string)
-        .eq("projeto_id" as any, projectId)
-        .eq("produto_idx" as any, productIdx)
+        .eq("user_id", uid)
+        .eq("projeto_id", projectId)
+        .eq("produto_idx", productIdx)
         .maybeSingle();
 
       let wid = existing?.id;
