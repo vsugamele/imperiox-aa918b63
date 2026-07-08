@@ -137,7 +137,7 @@ function InnerCanvas() {
         const n = payload.new as any;
         setNodes(prev => prev.map(x => x.id === n.id ? {
           ...x,
-          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo },
+          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
         } : x));
       })
       .subscribe();
