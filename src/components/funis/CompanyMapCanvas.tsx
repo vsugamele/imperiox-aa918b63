@@ -503,24 +503,30 @@ function InnerMap({ projects }: { projects: any[] }) {
   useEffect(() => {
     setNodes(nds => {
       const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
+      const previousById = new Map(nds.map(n => [n.id, n]));
       const annNodes: Node[] = annotations.map(a => ({
-        id: `${ANN_PREFIX}${a.id}`,
-        type: ANNOTATION_KIND_TO_TYPE[a.kind],
-        position: { x: a.x, y: a.y },
-        width: a.width,
-        height: a.height,
-        style: { width: a.width, height: a.height },
-        zIndex: a.z_index ?? 0,
-        draggable: true,
-        selectable: true,
-        data: {
-          kind: a.kind,
-          text: a.text || "",
-          style: a.style || {},
-          editingId: editingAnnotationId,
-          onTextChange: updateAnnotationText,
-        } as unknown as Record<string, unknown>,
-      }));
+        const id = `${ANN_PREFIX}${a.id}`;
+        const previous = previousById.get(id);
+        return {
+          id,
+          type: ANNOTATION_KIND_TO_TYPE[a.kind],
+          position: { x: a.x, y: a.y },
+          width: a.width,
+          height: a.height,
+          style: { width: a.width, height: a.height },
+          zIndex: a.z_index ?? 0,
+          draggable: true,
+          selectable: true,
+          selected: previous?.selected || editingAnnotationId === id,
+          data: {
+            kind: a.kind,
+            text: a.text || "",
+            style: a.style || {},
+            editingId: editingAnnotationId,
+            onTextChange: updateAnnotationText,
+          } as unknown as Record<string, unknown>,
+        } as Node;
+      });
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
   }, [annotations, editingAnnotationId, updateAnnotationText]);
