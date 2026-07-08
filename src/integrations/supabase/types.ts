@@ -37028,6 +37028,33 @@ export type Database = {
         }
         Relationships: []
       }
+      orion_oracle_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          oracle_key: string
+          rating: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          oracle_key: string
+          rating: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          oracle_key?: string
+          rating?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       orion_oracle_readings: {
         Row: {
           created_at: string
