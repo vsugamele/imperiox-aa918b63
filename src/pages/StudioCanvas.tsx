@@ -289,11 +289,70 @@ function InnerCanvas() {
     setNodes(prev => prev.map(x => x.id === id ? { ...x, data: { ...x.data, ...patch } } : x));
   };
 
-  // wire generate onto nodes' data
+  const duplicateNode = useCallback(async (id: string) => {
+    if (!workflowId) return;
+    const src = rf.getNode(id);
+    if (!src || id === "product-hub") return;
+    const d: any = src.data;
+    const position = { x: (src.position?.x || 0) + 40, y: (src.position?.y || 0) + 40 };
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: d.tipo,
+      titulo: (d.titulo || "") + " (cópia)",
+      config: d.config || {},
+      position,
+      status: "pendente",
+    }).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: data.tipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    toast.success("Bloco duplicado");
+  }, [workflowId, rf, setNodes]);
+
+  const organize = useCallback(async () => {
+    const laid = autoLayout(nodes, edges, "LR");
+    setNodes(laid);
+    // persist
+    for (const n of laid) {
+      if (n.id === "product-hub") continue;
+      await supabase.from("imphq_studio_canvas_nodes").update({ position: n.position }).eq("id", n.id);
+    }
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 50);
+    toast.success("Canvas organizado");
+  }, [nodes, edges, setNodes, rf]);
+
+  // Atalhos: Ctrl/Cmd+D duplica nó selecionado
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        const sel = nodes.find(n => n.selected);
+        if (sel && sel.id !== "product-hub") {
+          e.preventDefault();
+          duplicateNode(sel.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nodes, duplicateNode]);
+
+  const isValidConnection = useCallback((c: Connection | Edge) => {
+    if (!c.source || !c.target) return false;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = (src?.data as any)?.tipo;
+    const tgtTipo = (tgt?.data as any)?.tipo;
+    if (!srcTipo || !tgtTipo) return true;
+    return isValidStudioConnection(srcTipo, tgtTipo);
+  }, [rf]);
+
+  // wire generate + duplicate onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate },
-  })), [nodes]);
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode },
+  })), [nodes, duplicateNode]);
 
   return (
     <div className="flex gap-3 h-[calc(100vh-140px)] p-4">
