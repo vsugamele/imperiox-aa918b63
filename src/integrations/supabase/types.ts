@@ -25015,8 +25015,12 @@ export type Database = {
       }
       imphq_studio_canvas_nodes: {
         Row: {
+          cached_from_hash: string | null
           config: Json
+          config_hash: string | null
+          cost_actual: number | null
           created_at: string
+          duration_ms: number | null
           id: string
           output: Json
           position: Json
@@ -25027,8 +25031,12 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          cached_from_hash?: string | null
           config?: Json
+          config_hash?: string | null
+          cost_actual?: number | null
           created_at?: string
+          duration_ms?: number | null
           id?: string
           output?: Json
           position?: Json
@@ -25039,8 +25047,12 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          cached_from_hash?: string | null
           config?: Json
+          config_hash?: string | null
+          cost_actual?: number | null
           created_at?: string
+          duration_ms?: number | null
           id?: string
           output?: Json
           position?: Json
@@ -25053,6 +25065,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "imphq_studio_canvas_nodes_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_canvas_run_events: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          node_id: string | null
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          meta?: Json | null
+          node_id?: string | null
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          node_id?: string | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_run_events_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_run_events_workflow_id_fkey"
             columns: ["workflow_id"]
             isOneToOne: false
             referencedRelation: "imphq_studio_workflows"
@@ -25126,6 +25183,42 @@ export type Database = {
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_model_costs: {
+        Row: {
+          avg_seconds: number
+          cost_credits: number
+          created_at: string
+          id: string
+          kind: string
+          model: string
+          notes: string | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          avg_seconds?: number
+          cost_credits?: number
+          created_at?: string
+          id?: string
+          kind: string
+          model: string
+          notes?: string | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          avg_seconds?: number
+          cost_credits?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          model?: string
+          notes?: string | null
+          provider?: string
+          updated_at?: string
         }
         Relationships: []
       }
