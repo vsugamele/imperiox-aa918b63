@@ -51,7 +51,7 @@ function EditableText({
         if (e.key === "Enter" && !e.shiftKey && !editing) e.preventDefault();
       }}
       className={className}
-      style={{ outline: "none", cursor: editing ? "text" : "inherit", ...style }}
+      style={{ outline: "none", cursor: editing ? "text" : "inherit", pointerEvents: editing ? "auto" : "none", ...style }}
       data-placeholder={placeholder}
     >
       {local || (!editing && placeholder ? placeholder : "")}
