@@ -878,52 +878,52 @@ function FlowSidebar({
   }
 
   return (
-    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-72 max-h-[calc(100vh-340px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-64 h-[calc(100vh-200px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
       {/* Header com tabs */}
       <div className="flex items-center border-b border-slate-800 bg-slate-950/40 shrink-0">
         <button
           onClick={() => setTab("elementos")}
-          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
             tab === "elementos" ? "text-amber-400 border-b-2 border-amber-500" : "text-slate-500 hover:text-slate-300"
           }`}
         >
-          ✨ Elementos
+          <span className="text-xs mr-1">✨</span>Elementos
         </button>
         <button
           onClick={() => setTab("objetivo")}
-          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
             tab === "objetivo" ? "text-purple-400 border-b-2 border-purple-500" : "text-slate-500 hover:text-slate-300"
           }`}
         >
-          🎯 Objetivo
+          <span className="text-xs mr-1">🎯</span>Objetivo
         </button>
         <button
           onClick={() => setTab("saida")}
-          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2.5 transition-colors ${
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
             tab === "saida" ? "text-rose-400 border-b-2 border-rose-500" : "text-slate-500 hover:text-slate-300"
           }`}
         >
-          🚪 Saída
+          <span className="text-xs mr-1">🚪</span>Saída
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="px-2 py-2.5 text-slate-500 hover:text-amber-400 border-l border-slate-800"
-          title="Recolher"
+          className="px-2 py-2 text-slate-500 hover:text-amber-400 border-l border-slate-800"
+          title="Recolher paleta"
         >
-          ‹
+          <ChevronLeft className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Conteúdo scrollável */}
-      <div className="flex-1 overflow-y-auto p-3 pb-5">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-8">
         {tab === "elementos" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <p className="text-[10px] text-slate-500 leading-snug px-1">
               Clique em um elemento para adicionar ao final do fluxo.
             </p>
-            {PALETTE_GROUPS.map((g) => (
-              <div key={g.group} className="space-y-1.5">
-                <div className="text-[9px] uppercase tracking-widest font-bold text-slate-500 px-1">
+            {PALETTE_GROUPS.map((g, gi) => (
+              <div key={g.group} className={`space-y-1.5 ${gi > 0 ? "border-t border-slate-800/60 pt-3" : ""}`}>
+                <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500 px-1">
                   {g.group}
                 </div>
                 <div className="grid grid-cols-1 gap-1">
@@ -931,7 +931,7 @@ function FlowSidebar({
                     <button
                       key={it.tipo}
                       onClick={() => onAddAcao(it.tipo)}
-                      className="text-left text-[11px] text-slate-200 bg-slate-950/60 hover:bg-amber-500/10 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg px-2.5 py-2 transition-all flex items-center justify-between group"
+                      className="text-left text-[12px] text-slate-200 bg-slate-950/60 hover:bg-amber-500/10 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg px-2.5 py-2.5 transition-all flex items-center justify-between group"
                     >
                       <span className="truncate">{it.label}</span>
                       <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
