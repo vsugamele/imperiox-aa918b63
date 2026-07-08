@@ -62,18 +62,30 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
   const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs);
   const params: Record<string, any> = { ...(cfg.params || {}) };
 
+  // Referências visuais (fotos/vídeos anexados no drawer do bloco)
+  const refUrls: string[] = Array.isArray(cfg.reference_urls) ? cfg.reference_urls : [];
+  const refKinds: string[] = Array.isArray(cfg.reference_kinds) ? cfg.reference_kinds : [];
+  const refImages = refUrls.filter((_, i) => (refKinds[i] || "image") === "image");
+  const refVideos = refUrls.filter((_, i) => refKinds[i] === "video");
+  if (refImages.length) {
+    params.reference_image_urls = refImages;
+    if (!params.image_urls) params.image_urls = refImages;
+  }
+  if (refVideos.length) params.reference_video_urls = refVideos;
+
   const payload: any = {
     kind, provider: cfg.provider || "kie", model: cfg.model, prompt, params, projeto_id: projetoId,
   };
-  if (kind === "video" && upstreamOutputs[0]) payload.image_url = upstreamOutputs[0];
+  if (kind === "video" && (upstreamOutputs[0] || refImages[0])) payload.image_url = upstreamOutputs[0] || refImages[0];
   if (node.tipo === "avatar") {
-    payload.image_url = upstreamOutputs.find(u => /\.(png|jpe?g|webp)/i.test(u)) || upstreamOutputs[0];
+    payload.image_url = upstreamOutputs.find(u => /\.(png|jpe?g|webp)/i.test(u)) || refImages[0] || upstreamOutputs[0];
     const audio = upstreamOutputs.find(u => /\.(mp3|wav|ogg|m4a)/i.test(u));
     if (audio) {
       params.reference_audio_urls = [audio];
       if (params.generate_audio === undefined) params.generate_audio = false;
     }
   }
+  if (kind === "image" && refImages.length && !payload.image_url) payload.image_url = refImages[0];
   if (cfg.voice_id) payload.voice_id = cfg.voice_id;
 
   // Retry até 3x em falhas transitórias

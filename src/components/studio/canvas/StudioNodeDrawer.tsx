@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Trash2, ExternalLink, Copy, Play } from "lucide-react";
+import { Sparkles, Trash2, ExternalLink, Copy, Play, Eraser } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
+import { ReferenceUploader } from "./ReferenceUploader";
 
 interface Props {
   node: any | null;
@@ -44,6 +45,8 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
   const [voice, setVoice] = useState("");
+  const [refUrls, setRefUrls] = useState<string[]>([]);
+  const [refKinds, setRefKinds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -52,6 +55,8 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
       setPrompt(node.data.config?.prompt || node.data.config?.texto || "");
       setModel(node.data.config?.model || "");
       setVoice(node.data.config?.voice_id || "");
+      setRefUrls(node.data.config?.reference_urls || []);
+      setRefKinds(node.data.config?.reference_kinds || []);
     }
   }, [node?.id]);
 
@@ -60,13 +65,25 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   const kind = meta?.kind;
   const output = node.data.output || {};
   const preview = output.url || output.image_url || output.video_url || output.audio_url;
+  const supportsRefs = kind === "image" || kind === "video" || node.data.tipo === "avatar";
 
   const save = async () => {
     setSaving(true);
-    const cfg = { ...(node.data.config || {}), model, prompt, voice_id: voice };
+    const cfg = { ...(node.data.config || {}), model, prompt, voice_id: voice, reference_urls: refUrls, reference_kinds: refKinds };
     if (kind === "prompt") cfg.texto = prompt;
     await onUpdate(node.id, { titulo, config: cfg });
     setSaving(false);
+  };
+
+  const updateRefs = async (urls: string[], kinds: string[]) => {
+    setRefUrls(urls);
+    setRefKinds(kinds);
+    const cfg = { ...(node.data.config || {}), reference_urls: urls, reference_kinds: kinds };
+    await onUpdate(node.id, { config: cfg });
+  };
+
+  const clearOutput = async () => {
+    await onUpdate(node.id, { output: {}, status: "pendente", cost_actual: null, duration_ms: null, config_hash: null } as any);
   };
 
   return (
@@ -115,6 +132,16 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             <div>
               <Label className="text-xs">Voice ID (ElevenLabs)</Label>
               <Input value={voice} onChange={(e) => setVoice(e.target.value)} className="h-8 mt-1 font-mono text-xs" />
+            </div>
+          )}
+
+          {supportsRefs && (
+            <div className="rounded-lg border border-border/60 p-2.5 bg-background/40 space-y-2">
+              <Label className="text-xs">Referências visuais</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Enviadas ao modelo como estilo/composição {node.data.tipo === "avatar" ? "e rosto base" : "de referência"}.
+              </p>
+              <ReferenceUploader urls={refUrls} kinds={refKinds} onChange={updateRefs} />
             </div>
           )}
 
@@ -172,7 +199,17 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
               >
                 <Copy className="h-3 w-3" /> Duplicar
               </button>
-            )}
+          )}
+
+          {preview && (
+            <button
+              onClick={clearOutput}
+              className="w-full text-xs text-amber-400 hover:text-amber-300 flex items-center justify-center gap-1 py-2 border border-amber-500/30 rounded"
+              title="Zera o resultado desta geração para regenerar do zero"
+            >
+              <Eraser className="h-3 w-3" /> Limpar geração
+            </button>
+          )}
             <button
               onClick={() => { onDelete(node.id); onClose(); }}
               className="flex-1 text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center gap-1 py-2 border border-rose-500/30 rounded"
