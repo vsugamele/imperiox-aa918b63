@@ -158,12 +158,27 @@ function InnerCanvas() {
     return data.id;
   };
 
+  const edgeStyleFor = useCallback((sourceId: string) => {
+    const src = rf.getNode(sourceId);
+    const tipo = (src?.data as any)?.tipo || "prompt";
+    const color = KIND_COLORS[tipo] || "hsl(var(--primary))";
+    return { stroke: color, strokeWidth: 2 };
+  }, [rf]);
+
   const onConnect = useCallback(async (c: Connection) => {
     if (!c.source || !c.target) return;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = (src?.data as any)?.tipo;
+    const tgtTipo = (tgt?.data as any)?.tipo;
+    if (srcTipo && tgtTipo && !isValidStudioConnection(srcTipo, tgtTipo)) {
+      toast.error(`Conexão inválida: ${srcTipo} → ${tgtTipo}`);
+      return;
+    }
     const newId = c.source === "product-hub" ? `hub-${c.target}` : await persistEdge(c.source, c.target);
     if (!newId && c.source !== "product-hub") return;
-    setEdges(eds => addEdge({ ...c, id: newId as string, animated: true, style: { stroke: "hsl(var(--primary))", strokeWidth: 2 } }, eds));
-  }, [workflowId, setEdges]);
+    setEdges(eds => addEdge({ ...c, id: newId as string, animated: true, style: edgeStyleFor(c.source!) }, eds));
+  }, [workflowId, setEdges, rf, edgeStyleFor]);
 
   const onEdgesDelete = useCallback(async (removed: Edge[]) => {
     for (const e of removed) {
