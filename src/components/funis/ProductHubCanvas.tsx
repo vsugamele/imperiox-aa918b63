@@ -24,6 +24,7 @@ import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
 import { QuickCreateProductDialog } from "./QuickCreateProductDialog";
+import { QuickCreateProjectDialog } from "./QuickCreateProjectDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
 import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
 import { ChecklistFloatingBox } from "./ChecklistFloatingBox";
@@ -123,6 +124,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickProjectOpen, setQuickProjectOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
@@ -633,9 +635,12 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
       {/* Toolbar */}
       <div data-ui className={cn("absolute top-3 right-3 z-30 flex items-center gap-2 flex-wrap", checklistOpen ? "left-[320px]" : "left-16")}>
 
-        <Select value={projectId} onValueChange={(v) => { setProjectId(v); setProductIdx(0); }}>
-          <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
-          <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+        <Select value={projectId} onValueChange={(v) => { if (v === "__new__") { setQuickProjectOpen(true); return; } setProjectId(v); setProductIdx(0); }}>
+          <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue placeholder="Selecionar projeto" /></SelectTrigger>
+          <SelectContent>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            <SelectItem value="__new__" className="text-primary">+ Novo projeto</SelectItem>
+          </SelectContent>
         </Select>
         {products.length > 0 && (
           <Select value={String(productIdx)} onValueChange={(v) => setProductIdx(Number(v))}>
@@ -1220,6 +1225,23 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         />
       )}
 
+      {!projectId && projects.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-card/80 backdrop-blur border border-border/60 rounded-xl p-6 text-center shadow-xl">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <Package className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-serif text-lg mb-1">Comece pelo projeto</h3>
+            <p className="text-xs text-muted-foreground leading-7 mb-4">
+              Crie seu primeiro projeto — depois você adiciona produtos, funis e checklist.
+            </p>
+            <Button className="w-full gap-2" onClick={() => setQuickProjectOpen(true)}>
+              <Sparkles className="h-4 w-4" /> Criar projeto
+            </Button>
+          </div>
+        </div>
+      )}
+
       {!currentProduct && projectId && (
         <div className="absolute inset-0 flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-card/80 backdrop-blur border border-border/60 rounded-xl p-6 text-center shadow-xl">
@@ -1247,6 +1269,12 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           </div>
         </div>
       )}
+
+      <QuickCreateProjectDialog
+        open={quickProjectOpen}
+        onOpenChange={setQuickProjectOpen}
+        onCreated={async (newId) => { await onProjectsReload?.(); setProjectId(newId); setProductIdx(0); }}
+      />
 
       <QuickCreateProductDialog
         open={quickCreateOpen}
