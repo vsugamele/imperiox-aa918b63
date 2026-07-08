@@ -110,7 +110,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         onDone={(v) => d.onTextChange?.(id, v)}
         className="text-xs leading-snug whitespace-pre-wrap break-words w-full h-full overflow-hidden"
         placeholder="Nota…"
-        interactive={editing}
+        />
       />
     </div>
   );
