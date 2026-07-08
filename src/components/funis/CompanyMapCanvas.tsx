@@ -1096,6 +1096,29 @@ function InnerMap({ projects }: { projects: any[] }) {
                     ))}
                   </>
                 )}
+                {(ann.kind === "note" || ann.kind === "frame" || ann.kind === "arrow") && (() => {
+                  const currentColor = (ann.kind === "note" ? ann.style?.bgColor : ann.style?.borderColor) || "#c9922a";
+                  return (
+                    <>
+                      <div className="border-t border-border/40 my-1" />
+                      <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Cor</div>
+                      <div className="px-3 py-1.5 grid grid-cols-8 gap-1">
+                        {COLOR_PALETTE.map(c => (
+                          <button
+                            key={c}
+                            className={cn(
+                              "w-5 h-5 rounded border transition-all hover:scale-110",
+                              currentColor.toLowerCase() === c.toLowerCase() ? "border-white ring-2 ring-primary" : "border-border/40"
+                            )}
+                            style={{ background: c }}
+                            onClick={() => { changeAnnotationColor(ann.id, c); setCtxMenu(null); }}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="border-t border-border/40 my-1" />
                 <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 text-red-400"
                   onClick={() => { deleteAnnotation(ann.id); setCtxMenu(null); }}>
