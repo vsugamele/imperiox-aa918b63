@@ -135,6 +135,16 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
+          {supportsRefs && (
+            <div className="rounded-lg border border-border/60 p-2.5 bg-background/40 space-y-2">
+              <Label className="text-xs">Referências visuais</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Enviadas ao modelo como estilo/composição {node.data.tipo === "avatar" ? "e rosto base" : "de referência"}.
+              </p>
+              <ReferenceUploader urls={refUrls} kinds={refKinds} onChange={updateRefs} />
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
             {kind !== "publish" && kind !== "prompt" && (
@@ -189,7 +199,17 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
               >
                 <Copy className="h-3 w-3" /> Duplicar
               </button>
-            )}
+          )}
+
+          {preview && (
+            <button
+              onClick={clearOutput}
+              className="w-full text-xs text-amber-400 hover:text-amber-300 flex items-center justify-center gap-1 py-2 border border-amber-500/30 rounded"
+              title="Zera o resultado desta geração para regenerar do zero"
+            >
+              <Eraser className="h-3 w-3" /> Limpar geração
+            </button>
+          )}
             <button
               onClick={() => { onDelete(node.id); onClose(); }}
               className="flex-1 text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center gap-1 py-2 border border-rose-500/30 rounded"
