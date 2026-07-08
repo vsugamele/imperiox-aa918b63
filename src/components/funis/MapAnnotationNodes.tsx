@@ -29,6 +29,7 @@ export interface AnnotationData {
     url?: string;
     platform?: "instagram" | "tiktok" | "youtube" | "other";
     thumb?: string;
+    thumb_proxy?: string;
     author?: string;
     title?: string;
     description?: string;
