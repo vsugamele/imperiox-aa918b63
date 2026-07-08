@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
+import { ExternalLink, Play, Instagram, Youtube, Music2 } from "lucide-react";
 
-export type AnnotationKind = "frame" | "note" | "label" | "arrow";
+export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel";
 
 export interface AnnotationData {
   kind: AnnotationKind;
@@ -12,6 +13,11 @@ export interface AnnotationData {
     fontSize?: number;
     orientation?: "diag-down" | "diag-up" | "horizontal" | "vertical";
     showHead?: boolean;
+    // reel-specific
+    url?: string;
+    platform?: "instagram" | "tiktok" | "youtube" | "other";
+    thumb?: string;
+    author?: string;
   };
   onTextChange?: (id: string, text: string) => void;
   editingId?: string | null;
@@ -183,11 +189,64 @@ export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { w
   );
 });
 
+export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const editing = d.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
+  const url = d.style?.url || "";
+  const platform = d.style?.platform || "other";
+  const thumb = d.style?.thumb;
+  const author = d.style?.author;
+  const PlatformIcon = platform === "instagram" ? Instagram : platform === "youtube" ? Youtube : platform === "tiktok" ? Music2 : Play;
+  const platformColor = platform === "instagram" ? "#e1306c" : platform === "youtube" ? "#ff0033" : platform === "tiktok" ? "#25f4ee" : "#c9922a";
+  return (
+    <div
+      {...hoverProps}
+      className="w-full h-full rounded-lg relative overflow-hidden bg-[#0a0809] border border-border/60 shadow-lg flex flex-col"
+    >
+      <NodeResizer isVisible={resizeVisible} minWidth={160} minHeight={200} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <div className="relative flex-1 bg-gradient-to-br from-black/60 to-black/20 flex items-center justify-center overflow-hidden">
+        {thumb ? (
+          <img src={thumb} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          <PlatformIcon className="h-10 w-10 opacity-40" style={{ color: platformColor }} />
+        )}
+        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1"
+          style={{ background: `${platformColor}25`, color: platformColor, border: `1px solid ${platformColor}55` }}>
+          <PlatformIcon className="h-2.5 w-2.5" /> {platform}
+        </div>
+        {url && (
+          <a
+            href={url} target="_blank" rel="noreferrer"
+            onMouseDown={stopBubble} onClick={stopBubble}
+            className="nodrag nopan absolute top-1.5 right-1.5 p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+            title="Abrir reel"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+      <div className="px-2 py-1.5 bg-[#0a0809] border-t border-border/40">
+        {author && <div className="text-[10px] text-primary/80 font-serif truncate">{author}</div>}
+        <EditableText
+          id={id}
+          text={d.text}
+          editing={editing}
+          onDone={(v) => d.onTextChange?.(id, v)}
+          className="text-[11px] leading-snug text-muted-foreground whitespace-pre-wrap break-words max-h-16 overflow-hidden"
+          placeholder="Anote o que está gostando…"
+        />
+      </div>
+    </div>
+  );
+});
+
 export const annotationNodeTypes = {
   annotation_frame: AnnotationFrameNode,
   annotation_note: AnnotationNoteNode,
   annotation_label: AnnotationLabelNode,
   annotation_arrow: AnnotationArrowNode,
+  annotation_reel: AnnotationReelNode,
 };
 
 export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
@@ -195,6 +254,7 @@ export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
   annotation_note: "note",
   annotation_label: "label",
   annotation_arrow: "arrow",
+  annotation_reel: "reel",
 };
 
 export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
@@ -202,6 +262,7 @@ export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
   note: "annotation_note",
   label: "annotation_label",
   arrow: "annotation_arrow",
+  reel: "annotation_reel",
 };
 
 export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number; text: string; style: AnnotationData["style"] }> = {
@@ -209,4 +270,50 @@ export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number;
   note:  { w: 200, h: 120, text: "Nota…", style: { bgColor: "#c9922a" } },
   label: { w: 260, h: 50,  text: "Título", style: { fontSize: 28 } },
   arrow: { w: 180, h: 120, text: "",       style: { orientation: "diag-down", showHead: true, borderColor: "#c9922a" } },
+  reel:  { w: 220, h: 320, text: "",       style: { platform: "other" } },
 };
+
+// ---------- Reel URL helpers ----------
+export function detectReelPlatform(url: string): "instagram" | "tiktok" | "youtube" | "other" {
+  const u = url.toLowerCase();
+  if (u.includes("instagram.com")) return "instagram";
+  if (u.includes("tiktok.com")) return "tiktok";
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
+  return "other";
+}
+
+export function extractReelAuthor(url: string): string | undefined {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace("www.", "");
+    if (host.includes("instagram.com")) {
+      const m = u.pathname.match(/^\/([^/]+)\//);
+      if (m && !["reel", "reels", "p", "tv"].includes(m[1])) return `@${m[1]}`;
+    }
+    if (host.includes("tiktok.com")) {
+      const m = u.pathname.match(/^\/@([^/]+)/);
+      if (m) return `@${m[1]}`;
+    }
+    if (host.includes("youtube.com")) {
+      const m = u.pathname.match(/^\/@([^/]+)/) || u.pathname.match(/^\/channel\/([^/]+)/);
+      if (m) return `@${m[1]}`;
+    }
+    return host;
+  } catch { return undefined; }
+}
+
+export function extractReelThumb(url: string): string | undefined {
+  try {
+    const u = new URL(url);
+    // YouTube
+    if (u.hostname.includes("youtu")) {
+      let id: string | null = null;
+      if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1).split("/")[0];
+      else if (u.pathname.startsWith("/shorts/")) id = u.pathname.split("/")[2];
+      else id = u.searchParams.get("v");
+      if (id) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    }
+  } catch {}
+  return undefined;
+}
+

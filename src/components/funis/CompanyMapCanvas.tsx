@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -24,7 +25,7 @@ import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
-import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
+import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 
 
@@ -532,20 +533,42 @@ function InnerMap({ projects }: { projects: any[] }) {
     });
   }, [annotations, editingAnnotationId, updateAnnotationText]);
 
-  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number) => {
+  const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
     const def = ANNOTATION_DEFAULTS[kind];
+    const style = { ...(def.style || {}), ...(extraStyle || {}) };
     const payload = {
       map_id: mapId, kind,
       x: x - def.w / 2, y: y - def.h / 2,
       width: def.w, height: def.h,
-      text: def.text, style: def.style as any, z_index: 0,
+      text: overrideText ?? def.text, style: style as any, z_index: 0,
     };
     const { data, error } = await (supabase.from(annTable) as any).insert(payload).select().single();
     if (error) { toast.error("Erro ao adicionar anotação"); return; }
     setAnnotations(list => [...list, data as MapAnnotation]);
     if ((kind === "note" || kind === "label" || kind === "frame")) setEditingAnnotationId(`${ANN_PREFIX}${data.id}`);
   }, [mapId]);
+
+  const [reelDialog, setReelDialog] = useState<{ x: number; y: number } | null>(null);
+  const [reelInput, setReelInput] = useState("");
+
+  const submitReels = useCallback(async (baseX: number, baseY: number) => {
+    const urls = reelInput.split(/\s+/).map(s => s.trim()).filter(u => /^https?:\/\//i.test(u));
+    if (!urls.length) { toast.error("Cole ao menos um link válido"); return; }
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      const platform = detectReelPlatform(url);
+      const author = extractReelAuthor(url);
+      const thumb = extractReelThumb(url);
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb }, "");
+    }
+    toast.success(`${urls.length} reel(s) adicionado(s)`);
+    setReelInput("");
+    setReelDialog(null);
+  }, [reelInput, addAnnotation]);
+
 
   const deleteAnnotation = useCallback(async (annId: string) => {
     setAnnotations(list => list.filter(a => a.id !== annId));
@@ -902,6 +925,13 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
         </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={() => {
+          const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          setReelDialog({ x: c.x, y: c.y });
+        }}>
+          <Film className="h-3 w-3" /> Reel
+        </Button>
+
       </div>
 
       {/* Palette (grouped by category) */}
@@ -1060,6 +1090,11 @@ function InnerMap({ projects }: { projects: any[] }) {
                 onClick={() => { addAnnotation("arrow", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
                 <ArrowUpRight className="h-3.5 w-3.5" /> Seta / linha
               </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 border-t border-border/40 mt-1 pt-2"
+                onClick={() => { setReelDialog({ x: ctxMenu.flowX, y: ctxMenu.flowY }); setCtxMenu(null); }}>
+                <Film className="h-3.5 w-3.5 text-primary" /> Reel de inspiração…
+              </button>
+
             </>
           )}
           {ctxMenu.annotationId && (() => {
@@ -1406,6 +1441,31 @@ function InnerMap({ projects }: { projects: any[] }) {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!reelDialog} onOpenChange={(o) => { if (!o) { setReelDialog(null); setReelInput(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Film className="h-4 w-4 text-primary" /> Reels de inspiração</DialogTitle>
+            <DialogDescription>
+              Cole um ou mais links (Instagram, TikTok, YouTube Shorts). Um por linha — vão virar cards no mapa.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reelInput}
+            onChange={(e) => setReelInput(e.target.value)}
+            placeholder={"https://www.instagram.com/reel/...\nhttps://www.tiktok.com/@usuario/video/...\nhttps://youtube.com/shorts/..."}
+            rows={6}
+            className="font-mono text-xs"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setReelDialog(null); setReelInput(""); }}>Cancelar</Button>
+            <Button onClick={() => reelDialog && submitReels(reelDialog.x, reelDialog.y)} disabled={!reelInput.trim()}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {copyDialog && (
         <NodeCopyDialog
