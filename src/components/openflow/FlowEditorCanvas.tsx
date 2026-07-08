@@ -348,10 +348,28 @@ function acoesToNodesEdges(
     },
   });
 
+  // Resolve unique node ids (protects React Flow from silently dropping duplicates)
+  const seen = new Set<string>(["trigger"]);
+  const resolvedIds: string[] = acoes.map((acao: any, i) => {
+    let candidate = acao.id || `step-${i}`;
+    if (seen.has(candidate)) {
+      const base = candidate;
+      let n = 2;
+      while (seen.has(`${base}__${n}`)) n++;
+      candidate = `${base}__${n}`;
+      if (typeof console !== "undefined") {
+        console.warn(`[OpenFlow] ID duplicado no bloco #${i + 1} (${base}) — renomeado para ${candidate}`);
+      }
+    }
+    seen.add(candidate);
+    return candidate;
+  });
+
   // 2. Add Action Nodes
   acoes.forEach((acao: any, i) => {
-    const id = acao.id || `step-${i}`;
+    const id = resolvedIds[i];
     let label = acao.template || acao.webhook_url || acao.tag || "";
+    
     
     if (acao.tipo === "ia_message") {
       label = `Objetivo: ${acao.template}`;
