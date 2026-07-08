@@ -18,6 +18,8 @@ export interface AnnotationData {
     platform?: "instagram" | "tiktok" | "youtube" | "other";
     thumb?: string;
     author?: string;
+    title?: string;
+    description?: string;
   };
   onTextChange?: (id: string, text: string) => void;
   editingId?: string | null;
