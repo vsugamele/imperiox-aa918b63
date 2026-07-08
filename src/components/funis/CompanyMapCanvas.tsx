@@ -1082,6 +1082,11 @@ function InnerMap({ projects }: { projects: any[] }) {
                 onClick={() => { addAnnotation("arrow", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
                 <ArrowUpRight className="h-3.5 w-3.5" /> Seta / linha
               </button>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 border-t border-border/40 mt-1 pt-2"
+                onClick={() => { setReelDialog({ x: ctxMenu.flowX, y: ctxMenu.flowY }); setCtxMenu(null); }}>
+                <Film className="h-3.5 w-3.5 text-primary" /> Reel de inspiração…
+              </button>
+
             </>
           )}
           {ctxMenu.annotationId && (() => {
