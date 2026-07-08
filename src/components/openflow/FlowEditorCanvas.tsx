@@ -861,16 +861,18 @@ function FlowSidebar({
   const [tab, setTab] = useState<"elementos" | "objetivo" | "saida">("elementos");
 
   if (!open) {
+    const totalItems = PALETTE_GROUPS.reduce((acc, g) => acc + g.items.length, 0);
     return (
       <button
         onClick={() => setOpen(true)}
-        className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-xl px-2 py-3 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-all flex flex-col items-center gap-2"
+        className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-xl px-2 py-4 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-all flex flex-col items-center gap-2"
         title="Abrir paleta de elementos"
       >
         <Sparkles className="h-4 w-4" />
         <span className="text-[9px] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 font-bold">
           Elementos
         </span>
+        <span className="text-[9px] text-slate-500 font-medium">{totalItems}</span>
       </button>
     );
   }
