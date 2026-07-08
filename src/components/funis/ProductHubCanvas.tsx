@@ -124,6 +124,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickProjectOpen, setQuickProjectOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
