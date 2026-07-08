@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2 } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy } from "lucide-react";
+import { toast } from "sonner";
+
+function normalizeReelUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    // Instagram: remove query params (igsh, utm, etc) que causam bloqueio
+    if (u.hostname.includes("instagram.com")) {
+      return `${u.origin}${u.pathname}`;
+    }
+    return url;
+  } catch { return url; }
+}
 
 export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel";
 
