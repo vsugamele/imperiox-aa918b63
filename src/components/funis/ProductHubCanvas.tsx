@@ -1225,6 +1225,23 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         />
       )}
 
+      {!projectId && projects.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-card/80 backdrop-blur border border-border/60 rounded-xl p-6 text-center shadow-xl">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <Package className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-serif text-lg mb-1">Comece pelo projeto</h3>
+            <p className="text-xs text-muted-foreground leading-7 mb-4">
+              Crie seu primeiro projeto — depois você adiciona produtos, funis e checklist.
+            </p>
+            <Button className="w-full gap-2" onClick={() => setQuickProjectOpen(true)}>
+              <Sparkles className="h-4 w-4" /> Criar projeto
+            </Button>
+          </div>
+        </div>
+      )}
+
       {!currentProduct && projectId && (
         <div className="absolute inset-0 flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-card/80 backdrop-blur border border-border/60 rounded-xl p-6 text-center shadow-xl">
@@ -1252,6 +1269,12 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           </div>
         </div>
       )}
+
+      <QuickCreateProjectDialog
+        open={quickProjectOpen}
+        onOpenChange={setQuickProjectOpen}
+        onCreated={async (newId) => { await onProjectsReload?.(); setProjectId(newId); setProductIdx(0); }}
+      />
 
       <QuickCreateProductDialog
         open={quickCreateOpen}
