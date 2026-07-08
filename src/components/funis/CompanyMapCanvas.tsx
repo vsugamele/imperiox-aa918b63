@@ -24,7 +24,7 @@ import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "./NodeCopyDialog";
-import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
+import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 
 
