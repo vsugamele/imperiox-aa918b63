@@ -577,6 +577,14 @@ function InnerMap({ projects }: { projects: any[] }) {
     await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
   }, [annotations]);
 
+  const changeAnnotationColor = useCallback(async (annId: string, color: string) => {
+    const src = annotations.find(a => a.id === annId); if (!src) return;
+    const field = src.kind === "note" ? "bgColor" : "borderColor";
+    const nextStyle = { ...(src.style || {}), [field]: color };
+    setAnnotations(list => list.map(a => a.id === annId ? { ...a, style: nextStyle } : a));
+    await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
+  }, [annotations]);
+
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
     const resizingAnnotationIds = new Set(
