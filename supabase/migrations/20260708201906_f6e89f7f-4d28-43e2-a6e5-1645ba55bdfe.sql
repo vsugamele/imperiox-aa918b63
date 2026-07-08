@@ -1,0 +1,2 @@
+ALTER TABLE public.imphq_company_map_annotations DROP CONSTRAINT IF EXISTS imphq_company_map_annotations_kind_check;
+ALTER TABLE public.imphq_company_map_annotations ADD CONSTRAINT imphq_company_map_annotations_kind_check CHECK (kind IN ('frame','note','label','arrow','reel'));
