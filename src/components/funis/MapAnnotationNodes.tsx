@@ -35,6 +35,7 @@ export interface AnnotationData {
     description?: string;
   };
   onTextChange?: (id: string, text: string) => void;
+  onUploadImage?: (id: string) => void;
   editingId?: string | null;
 }
 
