@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Trash2, ExternalLink } from "lucide-react";
+import { Sparkles, Trash2, ExternalLink, Copy } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   onGenerate: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: any) => Promise<void>;
+  onDuplicate?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
