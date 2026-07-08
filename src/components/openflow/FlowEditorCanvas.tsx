@@ -798,12 +798,30 @@ export function FlowEditorCanvas({
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
+        <Panel position="top-right" className="m-3 pointer-events-auto flex items-center gap-2">
+          <div
+            className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${
+              nodes.length - 1 < acoes.length
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+                : "bg-slate-900/90 border-slate-800 text-slate-300"
+            }`}
+            title={
+              nodes.length - 1 < acoes.length
+                ? "Alguns blocos tinham IDs duplicados. Corrigimos no canvas — duplique/edite novamente para persistir."
+                : "Todos os blocos da lista estão no canvas"
+            }
+          >
+            {nodes.length - 1}/{acoes.length} blocos
+          </div>
+          <FitViewButton />
+        </Panel>
+
         {/* Sidebar de Elementos + Painéis Estratégicos */}
         <Panel position="top-left" className="m-3 pointer-events-auto">
           <FlowSidebar
             flowObjective={flowObjective}
             onUpdateObjective={onUpdateObjective}
-            onAddAcao={(tipo) => onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao])}
+            onAddAcao={(tipo) => onChange([...acoes, { id: crypto.randomUUID(), tipo, template: "", delay_min: 0 } as Acao])}
           />
         </Panel>
       </ReactFlow>
