@@ -24,6 +24,7 @@ import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
 import { QuickCreateProductDialog } from "./QuickCreateProductDialog";
+import { QuickCreateProjectDialog } from "./QuickCreateProjectDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
 import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
 import { ChecklistFloatingBox } from "./ChecklistFloatingBox";
