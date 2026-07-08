@@ -34859,6 +34859,7 @@ export type Database = {
           cusps: Json
           elemental: Json
           id: string
+          is_primary: boolean
           modality: Json
           name: string
           positions: Json
@@ -34875,6 +34876,7 @@ export type Database = {
           cusps?: Json
           elemental?: Json
           id?: string
+          is_primary?: boolean
           modality?: Json
           name: string
           positions?: Json
@@ -34891,6 +34893,7 @@ export type Database = {
           cusps?: Json
           elemental?: Json
           id?: string
+          is_primary?: boolean
           modality?: Json
           name?: string
           positions?: Json
