@@ -88,13 +88,14 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
 
   return (
     <div
-      className={`rounded-2xl p-4 border text-left transition-all relative ${
+      className={`rounded-xl border text-left transition-all relative overflow-hidden ${
         selected
-          ? "border-primary bg-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.3)] scale-[1.03]"
-          : "border-border/60 bg-slate-950/90 hover:border-slate-700 shadow-lg"
+          ? "border-primary shadow-[0_0_20px_rgba(234,179,8,0.35)] scale-[1.02]"
+          : "border-border/40 hover:border-slate-600 shadow-lg"
       }`}
       style={{
         width: 220,
+        background: "#0a0f1c",
       }}
     >
       {/* Input port for sequential flow */}
@@ -102,36 +103,35 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
         <Handle
           type="target"
           position={Position.Top}
-          style={{ background: "#475569", width: 8, height: 8, border: "2px solid #0f172a" }}
+          style={{ background: meta.color, width: 10, height: 10, border: "2px solid #0f172a" }}
         />
       )}
 
-      {/* Node Header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0"
-          style={{ background: `${meta.color}22`, border: `1px solid ${meta.color}44` }}
-        >
-          <span className="text-sm">{meta.emoji}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" style={{ color: meta.color }}>
-            {meta.label}
-          </p>
-          {data.index !== undefined && data.index >= 0 && (
-            <span className="text-[8px] font-mono text-muted-foreground/80 font-bold bg-secondary/80 px-1 py-0.2 rounded">
-              #{data.index + 1}
-            </span>
-          )}
-        </div>
+      {/* Colored Header Banner */}
+      <div
+        className="flex items-center gap-2 px-3 py-2"
+        style={{
+          background: `linear-gradient(135deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+        }}
+      >
+        <span className="text-base leading-none drop-shadow-sm">{meta.emoji}</span>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-white flex-1 truncate drop-shadow-sm">
+          {meta.label}
+        </p>
+        {data.index !== undefined && data.index >= 0 && (
+          <span className="text-[9px] font-mono text-white/90 font-bold bg-black/25 px-1.5 py-0.5 rounded">
+            #{data.index + 1}
+          </span>
+        )}
       </div>
 
-      {/* Node Description/Detail */}
-      {data.label && (
-        <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-2">
-          {data.label}
-        </p>
-      )}
+      {/* Body */}
+      <div className="p-3 space-y-1.5">
+        {data.label && (
+          <p className="text-[11px] text-slate-200 font-medium leading-relaxed line-clamp-2">
+            {data.label}
+          </p>
+        )}
 
       {/* Loop detail */}
       {data.tipo === "loop_steps" && (
@@ -307,6 +307,8 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* Output port for sequential flow */}
       <Handle
