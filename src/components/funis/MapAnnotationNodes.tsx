@@ -219,8 +219,14 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     e.preventDefault();
     if (!url) return;
     const clean = normalizeReelUrl(url);
-    try { (window.top || window).open(clean, "_blank", "noopener,noreferrer"); }
-    catch { window.open(clean, "_blank", "noopener,noreferrer"); }
+    const win = window.open(clean, "_blank", "noopener,noreferrer");
+    if (!win) {
+      // popup bloqueado — copia link como fallback
+      navigator.clipboard?.writeText(clean).then(
+        () => toast.success("Link copiado — cole no navegador"),
+        () => toast.error("Não foi possível abrir nem copiar"),
+      );
+    }
   };
   const copyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -240,17 +246,18 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
       <div
         className="relative flex-1 bg-gradient-to-br from-black/60 to-black/20 flex items-center justify-center overflow-hidden cursor-pointer"
         onMouseDown={url ? stopBubble : undefined}
-        onClick={url ? openReel : undefined}
-        title={url ? "Abrir link original" : undefined}
+        onClick={url ? copyLink : undefined}
+        title={url ? "Clique para copiar o link" : undefined}
       >
         {thumb ? (
           <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <div className="flex flex-col items-center gap-2 px-3 text-center">
             <PlatformIcon className="h-8 w-8 opacity-40" style={{ color: platformColor }} />
-            <span className="text-[10px] text-muted-foreground leading-tight">Preview indisponível<br/>clique para abrir</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">Preview indisponível<br/>clique para copiar link</span>
           </div>
         )}
+
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1"
           style={{ background: `${platformColor}25`, color: platformColor, border: `1px solid ${platformColor}55` }}>
           <PlatformIcon className="h-2.5 w-2.5" /> {platform}
