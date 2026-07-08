@@ -1,26 +1,6 @@
-// Fetches OG/oEmbed preview for a URL. Public endpoint (verify_jwt=false).
-// Always returns 200. On failure: { fallback: true, error }.
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Preview = {
-  title?: string;
-  image?: string;
-  video?: string;
-  site?: string;
-  description?: string;
-  author?: string;
-  fallback?: boolean;
-  error?: string;
-};
-
-const UA_CHROME =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-const UA_FACEBOOK = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+const UA = "Mozilla/5.0 (compatible; WhatsApp/2.23; +https://whatsapp.com)";
 
 function pickMeta(html: string, patterns: RegExp[]): string | undefined {
   for (const re of patterns) {
@@ -30,217 +10,90 @@ function pickMeta(html: string, patterns: RegExp[]): string | undefined {
   return undefined;
 }
 
-function decodeHtml(s: string): string {
+function decodeHtml(s: string) {
   return s
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&#x2F;/g, "/")
-    .replace(/\\u0026/g, "&")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&#x2F;/g, "/");
 }
 
-function metaRegex(prop: string, attr: "property" | "name" = "property"): RegExp {
-  return new RegExp(
-    `<meta[^>]+${attr}=["']${prop}["'][^>]+content=["']([^"']+)["']`,
-    "i",
-  );
-}
-
-async function fetchHtml(url: string, ua = UA_CHROME): Promise<string | null> {
+async function fetchWithTimeout(url: string, ms = 6000, headers: Record<string, string> = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": ua,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,pt;q=0.8",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Dest": "document",
-        "Cache-Control": "no-cache",
-      },
-      redirect: "follow",
-    });
-    if (!r.ok) return null;
-    const buf = await r.arrayBuffer();
-    const slice = buf.slice(0, 512 * 1024);
-    return new TextDecoder("utf-8", { fatal: false }).decode(slice);
-  } catch {
-    return null;
+    return await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8", ...headers }, signal: ctrl.signal, redirect: "follow" });
+  } finally {
+    clearTimeout(t);
   }
 }
 
-async function tryOembed(oembedUrl: string, extraHeaders: Record<string, string> = {}): Promise<Preview | null> {
+async function tryOembed(url: string): Promise<{ thumb?: string; title?: string; author?: string } | null> {
+  const u = url.toLowerCase();
+  let endpoint: string | null = null;
+  if (u.includes("tiktok.com")) endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+  else if (u.includes("youtube.com") || u.includes("youtu.be")) endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+  if (!endpoint) return null;
   try {
-    const r = await fetch(oembedUrl, {
-      headers: { "User-Agent": UA_CHROME, Accept: "application/json", ...extraHeaders },
-    });
+    const r = await fetchWithTimeout(endpoint, 5000);
     if (!r.ok) return null;
     const j = await r.json();
-    return {
-      title: j.title,
-      image: j.thumbnail_url,
-      site: j.provider_name,
-      author: j.author_name,
-    };
-  } catch {
-    return null;
-  }
+    return { thumb: j.thumbnail_url, title: j.title, author: j.author_name ? `@${j.author_name}` : undefined };
+  } catch { return null; }
 }
 
-function parseOg(html: string): Preview {
-  const title =
-    pickMeta(html, [metaRegex("og:title"), metaRegex("twitter:title", "name")]) ||
-    (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim());
-  const image = pickMeta(html, [
-    metaRegex("og:image:secure_url"),
-    metaRegex("og:image"),
-    metaRegex("twitter:image", "name"),
-    metaRegex("twitter:image:src", "name"),
+async function scrapeOg(url: string) {
+  const r = await fetchWithTimeout(url, 6000);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const html = await r.text();
+  const thumb = pickMeta(html, [
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
   ]);
-  const video = pickMeta(html, [
-    metaRegex("og:video:secure_url"),
-    metaRegex("og:video:url"),
-    metaRegex("og:video"),
-    metaRegex("twitter:player:stream", "name"),
+  const title = pickMeta(html, [
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i,
+    /<title[^>]*>([^<]+)<\/title>/i,
   ]);
   const description = pickMeta(html, [
-    metaRegex("og:description"),
-    metaRegex("description", "name"),
-    metaRegex("twitter:description", "name"),
+    /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
   ]);
-  const site = pickMeta(html, [metaRegex("og:site_name")]);
-  return { title, image, video, description, site };
-}
-
-// Extract image from Instagram embedded JSON when og:image is missing
-function extractIgImageFromJson(html: string): string | undefined {
-  const patterns = [
-    /"display_url":"([^"]+)"/,
-    /"thumbnail_src":"([^"]+)"/,
-    /"thumbnail_url":"([^"]+)"/,
-    /"image_versions2":\{"candidates":\[\{"url":"([^"]+)"/,
-  ];
-  for (const re of patterns) {
-    const m = html.match(re);
-    if (m && m[1]) {
-      const url = decodeHtml(m[1]).replace(/\\\//g, "/").replace(/\\u([0-9a-fA-F]{4})/g, (_, c) => String.fromCharCode(parseInt(c, 16)));
-      return url;
-    }
-  }
-  return undefined;
-}
-
-async function resolveInstagram(rawUrl: string): Promise<Preview> {
-  // Attempt 1: Chrome UA
-  let html = await fetchHtml(rawUrl, UA_CHROME);
-  if (html) {
-    const og = parseOg(html);
-    if (og.image || og.video) return og;
-    const igImg = extractIgImageFromJson(html);
-    if (igImg) return { ...og, image: igImg };
-  }
-  // Attempt 2: Facebook crawler UA
-  html = await fetchHtml(rawUrl, UA_FACEBOOK);
-  if (html) {
-    const og = parseOg(html);
-    if (og.image || og.video) return og;
-    const igImg = extractIgImageFromJson(html);
-    if (igImg) return { ...og, image: igImg };
-  }
-  // Attempt 3: Instagram public oEmbed via App-ID
-  try {
-    const r = await fetch(
-      `https://i.instagram.com/api/v1/oembed/?url=${encodeURIComponent(rawUrl)}`,
-      {
-        headers: {
-          "User-Agent": UA_CHROME,
-          "X-IG-App-ID": "936619743392459",
-          Accept: "application/json",
-        },
-      },
-    );
-    if (r.ok) {
-      const j = await r.json();
-      if (j?.thumbnail_url) {
-        return {
-          image: j.thumbnail_url,
-          title: j.title,
-          author: j.author_name,
-          site: "Instagram",
-        };
-      }
-    }
-  } catch { /* ignore */ }
-  return { fallback: true, error: "Instagram bloqueou o preview automático" };
-}
-
-async function resolvePreview(rawUrl: string): Promise<Preview> {
-  let url: URL;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    return { fallback: true, error: "URL inválida" };
-  }
-  const host = url.hostname.replace(/^www\./, "");
-
-  try {
-    if (host.endsWith("youtube.com") || host === "youtu.be") {
-      const p = await tryOembed(
-        `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(rawUrl)}`,
-      );
-      if (p?.image) return p;
-    }
-    if (host.endsWith("vimeo.com")) {
-      const p = await tryOembed(
-        `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(rawUrl)}`,
-      );
-      if (p?.image) return p;
-    }
-    if (host.endsWith("tiktok.com")) {
-      const p = await tryOembed(
-        `https://www.tiktok.com/oembed?url=${encodeURIComponent(rawUrl)}`,
-      );
-      if (p?.image) return p;
-    }
-    if (host.endsWith("instagram.com") || host === "instagr.am") {
-      return await resolveInstagram(rawUrl);
-    }
-  } catch { /* fallthrough */ }
-
-  const html = await fetchHtml(rawUrl);
-  if (!html) return { fallback: true, error: "Não foi possível carregar a página" };
-  const og = parseOg(html);
-  if (!og.image && !og.video && !og.title) {
-    return { fallback: true, error: "Sem metadados no HTML" };
-  }
-  return og;
+  return { thumb, title, description };
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { url } = await req.json().catch(() => ({ url: null }));
-    if (!url || typeof url !== "string") {
-      return new Response(
-        JSON.stringify({ fallback: true, error: "URL obrigatória" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const { url } = req.method === "POST" ? await req.json() : { url: new URL(req.url).searchParams.get("url") };
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return new Response(JSON.stringify({ error: "invalid url" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const preview = await resolvePreview(url);
-    return new Response(JSON.stringify(preview), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-      },
+
+    // 1. oEmbed (TikTok / YouTube)
+    const oe = await tryOembed(url);
+    let thumb = oe?.thumb, title = oe?.title, author = oe?.author, description: string | undefined;
+
+    // 2. og scrape (Instagram e outros / complementa)
+    if (!thumb || !title) {
+      try {
+        const og = await scrapeOg(url);
+        thumb ||= og.thumb;
+        title ||= og.title;
+        description = og.description;
+      } catch (e) {
+        console.log("scrape failed", url, (e as Error).message);
+      }
+    }
+
+    return new Response(JSON.stringify({ thumb, title, description, author }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" },
     });
-  } catch (e) {
-    return new Response(
-      JSON.stringify({ fallback: true, error: String((e as Error)?.message ?? e) }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+  } catch (e: any) {
+    console.error("link-preview error", e?.message);
+    return new Response(JSON.stringify({ error: e?.message || "failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
