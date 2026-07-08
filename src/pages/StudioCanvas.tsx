@@ -377,8 +377,14 @@ function InnerCanvas() {
   // wire generate + duplicate onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode },
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode },
   })), [nodes, duplicateNode]);
+
+  const nodeTitles = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const n of nodes) m[n.id] = (n.data as any)?.titulo || (n.data as any)?.tipo || n.id;
+    return m;
+  }, [nodes]);
 
   return (
     <div className="flex gap-3 h-[calc(100vh-140px)] p-4">
