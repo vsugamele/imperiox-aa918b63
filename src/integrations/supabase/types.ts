@@ -24967,6 +24967,99 @@ export type Database = {
           },
         ]
       }
+      imphq_studio_canvas_edges: {
+        Row: {
+          created_at: string
+          id: string
+          source_id: string
+          target_id: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source_id: string
+          target_id: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source_id?: string
+          target_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_canvas_nodes: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          output: Json
+          position: Json
+          status: string
+          tipo: string
+          titulo: string | null
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          output?: Json
+          position?: Json
+          status?: string
+          tipo: string
+          titulo?: string | null
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          output?: Json
+          position?: Json
+          status?: string
+          tipo?: string
+          titulo?: string | null
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_nodes_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_studio_generations: {
         Row: {
           cost_usd: number | null
@@ -25247,6 +25340,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          produto_idx: number | null
           projeto_id: string | null
           steps: Json
           template_key: string | null
@@ -25257,6 +25351,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          produto_idx?: number | null
           projeto_id?: string | null
           steps?: Json
           template_key?: string | null
@@ -25267,6 +25362,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          produto_idx?: number | null
           projeto_id?: string | null
           steps?: Json
           template_key?: string | null

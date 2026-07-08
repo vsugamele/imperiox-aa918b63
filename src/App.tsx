@@ -52,6 +52,7 @@ const Recuperacao = lazy(() => import("./pages/Recuperacao"));
 const Cohort = lazy(() => import("./pages/Cohort"));
 const Gerenciador = lazy(() => import("./pages/Gerenciador"));
 const Studio = lazy(() => import("./pages/Studio"));
+const StudioCanvas = lazy(() => import("./pages/StudioCanvas"));
 const Swipe = lazy(() => import("./pages/Swipe"));
 const Imperius = lazy(() => import("./pages/Imperius"));
 const Campanhas = lazy(() => import("./pages/Campanhas"));
@@ -180,7 +181,8 @@ const App = () => (
                 <Route path="recuperacao" element={<Recuperacao />} />
                 <Route path="cohort" element={<Cohort />} />
                 <Route path="gerenciador" element={<Gerenciador />} />
-                <Route path="studio" element={<Studio />} />
+                <Route path="studio" element={<StudioCanvas />} />
+                <Route path="studio/legado" element={<Studio />} />
                 <Route path="swipe" element={<Swipe />} />
                 <Route path="imperius" element={<Imperius />} />
                 <Route path="assistente" element={<Assistente />} />
