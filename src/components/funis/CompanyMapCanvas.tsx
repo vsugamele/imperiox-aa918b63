@@ -560,12 +560,14 @@ function InnerMap({ projects }: { projects: any[] }) {
       const platform = detectReelPlatform(url);
       let author = extractReelAuthor(url);
       let thumb = extractReelThumb(url);
+      let thumb_proxy: string | undefined;
       let title: string | undefined;
       let description: string | undefined;
       try {
         const { data } = await supabase.functions.invoke("link-preview", { body: { url } });
         if (data) {
           thumb = data.thumb || thumb;
+          thumb_proxy = data.thumb_proxy;
           author = data.author || author;
           title = data.title;
           description = data.description;
@@ -573,7 +575,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       } catch (e) { console.warn("link-preview falhou", e); }
       const col = i % 4;
       const row = Math.floor(i / 4);
-      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb, title, description }, "");
+      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb, thumb_proxy, title, description }, "");
     }));
     toast.success(`${urls.length} reel(s) adicionado(s)`, { id: "reel-preview" });
     setReelInput("");
