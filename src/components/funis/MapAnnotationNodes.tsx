@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 function normalizeReelUrl(url: string): string {
