@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
@@ -311,6 +312,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const { setCenter, screenToFlowPosition } = useReactFlow();
+  const navigate = useNavigate();
   useEffect(() => {
     localStorage.setItem("funis:palette-collapsed", String(paletteCollapsed));
   }, [paletteCollapsed]);
@@ -943,7 +945,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique = editar texto
+        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique em card com projeto vinculado = abrir Hub
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
@@ -963,7 +965,14 @@ function InnerMap({ projects }: { projects: any[] }) {
           setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
         }}
         onNodeDoubleClick={(_, node) => {
-          if (node.id.startsWith(ANN_PREFIX)) setEditingAnnotationId(node.id);
+          if (node.id.startsWith(ANN_PREFIX)) { setEditingAnnotationId(node.id); return; }
+          const raw = rawNodes.find(r => r.id === node.id);
+          if (raw?.linked_project_id) {
+            navigate(`/projetos/${raw.linked_project_id}`);
+          } else {
+            toast.info("Vincule um projeto no painel para abrir o Hub");
+            if (raw) setSelected({ ...raw, checklist: raw.checklist || [] });
+          }
         }}
         onPaneClick={() => { setCtxMenu(null); setEditingAnnotationId(null); }}
         selectionOnDrag
@@ -1224,14 +1233,22 @@ function InnerMap({ projects }: { projects: any[] }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Projeto</Label>
-                  <Select value={selected.linked_project_id || "none"}
-                    onValueChange={(v) => setSelected({ ...selected, linked_project_id: v === "none" ? null : v })}>
-                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-1">
+                    <Select value={selected.linked_project_id || "none"}
+                      onValueChange={(v) => setSelected({ ...selected, linked_project_id: v === "none" ? null : v })}>
+                      <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {selected.linked_project_id && (
+                      <Button size="icon" variant="outline" title="Abrir Hub"
+                        onClick={() => navigate(`/projetos/${selected.linked_project_id}`)}>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Funil</Label>
