@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Trash2, ExternalLink, Copy } from "lucide-react";
+import { Sparkles, Trash2, ExternalLink, Copy, Play } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: any) => Promise<void>;
   onDuplicate?: (id: string) => void;
+  onRunFrom?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
@@ -38,7 +39,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
@@ -130,6 +131,25 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
               </Button>
             )}
           </div>
+
+          {onRunFrom && (
+            <Button
+              onClick={() => onRunFrom(node.id)}
+              size="sm"
+              variant="outline"
+              className="w-full gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+              title="Executar este nó e todos a jusante"
+            >
+              <Play className="h-3.5 w-3.5" /> Executar deste nó em diante
+            </Button>
+          )}
+
+          {(node.data.duration_ms || node.data.cost_actual) && (
+            <div className="text-[10px] text-muted-foreground flex gap-3">
+              {node.data.duration_ms && <span>⏱ {(node.data.duration_ms / 1000).toFixed(1)}s</span>}
+              {node.data.cost_actual && <span>💎 {node.data.cost_actual} créditos</span>}
+            </div>
+          )}
 
           {preview && (
             <div className="rounded-lg border border-border/60 p-2 bg-background/40">

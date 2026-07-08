@@ -16,6 +16,8 @@ import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
 import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
 import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
 import { autoLayout, isValidStudioConnection, KIND_COLORS } from "@/lib/studioAutoLayout";
+import { StudioRunLogPanel } from "@/components/studio/canvas/StudioRunLogPanel";
+import { StudioCostDialog } from "@/components/studio/canvas/StudioCostDialog";
 
 const nodeTypes = { block: CanvasBlockNode };
 
@@ -31,6 +33,9 @@ function InnerCanvas() {
   const [drawerNode, setDrawerNode] = useState<Node | null>(null);
   const [dragBlock, setDragBlock] = useState<CanvasBlockType | null>(null);
   const [briefing, setBriefing] = useState<any>({});
+  const [costOpen, setCostOpen] = useState(false);
+  const [estimate, setEstimate] = useState<any>(null);
+  const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
   const rf = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +137,7 @@ function InnerCanvas() {
         const n = payload.new as any;
         setNodes(prev => prev.map(x => x.id === n.id ? {
           ...x,
-          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo },
+          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
         } : x));
       })
       .subscribe();
@@ -225,19 +230,40 @@ function InnerCanvas() {
     }
   };
 
-  const runAll = async () => {
+  const openCostDialog = async (startNodeId?: string) => {
+    if (!workflowId) return;
+    setPendingRun({ startNodeId });
+    setEstimate(null);
+    setCostOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("studio-canvas-estimate", {
+        body: { workflow_id: workflowId, start_node_id: startNodeId },
+      });
+      if (error) throw error;
+      setEstimate(data);
+    } catch (e: any) {
+      toast.error("Erro na estimativa: " + (e?.message || "desconhecido"));
+      setCostOpen(false);
+    }
+  };
+
+  const confirmRun = async ({ forceRerun }: { forceRerun: boolean }) => {
     if (!workflowId) return;
     setRunning(true);
     try {
-      const { error } = await supabase.functions.invoke("studio-canvas-run", {
-        body: { workflow_id: workflowId, run_all: true, projeto_id: projectId, produto_idx: productIdx },
-      });
+      const body: any = { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, force_rerun: forceRerun };
+      if (pendingRun?.startNodeId) body.start_node_id = pendingRun.startNodeId;
+      else body.run_all = true;
+      const { error } = await supabase.functions.invoke("studio-canvas-run", { body });
       if (error) throw error;
       toast.success("Pipeline em execução");
     } catch (e: any) {
       toast.error("Erro: " + (e?.message || "desconhecido"));
-    } finally { setRunning(false); }
+    } finally { setRunning(false); setPendingRun(null); }
   };
+
+  const runAll = () => openCostDialog(undefined);
+  const runFromNode = (nodeId: string) => openCostDialog(nodeId);
 
   const plantTemplate = async (key: string) => {
     if (!workflowId) return;
@@ -351,8 +377,14 @@ function InnerCanvas() {
   // wire generate + duplicate onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode },
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode },
   })), [nodes, duplicateNode]);
+
+  const nodeTitles = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const n of nodes) m[n.id] = (n.data as any)?.titulo || (n.data as any)?.tipo || n.id;
+    return m;
+  }, [nodes]);
 
   return (
     <div className="flex gap-3 h-[calc(100vh-140px)] p-4">
@@ -421,6 +453,7 @@ function InnerCanvas() {
             <Controls className="!bg-secondary !border-border" />
             <MiniMap className="!bg-secondary !border-border" nodeColor="#c9922a" maskColor="rgba(0,0,0,0.6)" />
           </ReactFlow>
+          <StudioRunLogPanel workflowId={workflowId} nodeTitles={nodeTitles} />
         </div>
       </div>
 
@@ -431,6 +464,14 @@ function InnerCanvas() {
         onDelete={deleteNode}
         onUpdate={updateNode}
         onDuplicate={duplicateNode}
+        onRunFrom={runFromNode}
+      />
+
+      <StudioCostDialog
+        open={costOpen}
+        onOpenChange={setCostOpen}
+        estimate={estimate}
+        onConfirm={confirmRun}
       />
     </div>
   );

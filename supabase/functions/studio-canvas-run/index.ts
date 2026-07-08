@@ -14,11 +14,24 @@ const KIND_BY_TIPO: Record<string, "image" | "video" | "audio"> = {
 
 function resolvePrompt(text: string, upstreamOutputs: string[]): string {
   if (!text) return text;
-  // {{anterior.output}} → primeiro upstream; suporta também {{upstream.N.output}}
   const first = upstreamOutputs[0] || "";
   return text
     .replace(/\{\{anterior\.output\}\}/g, first)
     .replace(/\{\{upstream\.(\d+)\.output\}\}/g, (_, i) => upstreamOutputs[Number(i)] || "");
+}
+
+async function sha256(obj: any): Promise<string> {
+  const enc = new TextEncoder().encode(JSON.stringify(obj || {}));
+  const h = await crypto.subtle.digest("SHA-256", enc);
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function logEvent(admin: any, workflowId: string, nodeId: string | null, level: string, message: string, meta?: any) {
+  try {
+    await admin.from("imphq_studio_canvas_run_events").insert({
+      workflow_id: workflowId, node_id: nodeId, level, message, meta: meta || null,
+    });
+  } catch (_) { /* ignore */ }
 }
 
 async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
@@ -39,10 +52,9 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
   return { ok: false, error: "timeout" };
 }
 
-async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null) {
+async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string) {
   const kind = KIND_BY_TIPO[node.tipo];
   if (!kind) {
-    // prompt / publish → apenas propaga
     const text = node.config?.texto || node.config?.prompt || "";
     return { ok: true, output_url: resolvePrompt(text, upstreamOutputs), kind: "text" };
   }
@@ -53,7 +65,6 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
   const payload: any = {
     kind, provider: cfg.provider || "kie", model: cfg.model, prompt, params, projeto_id: projetoId,
   };
-  // Referência de imagem/áudio upstream
   if (kind === "video" && upstreamOutputs[0]) payload.image_url = upstreamOutputs[0];
   if (node.tipo === "avatar") {
     payload.image_url = upstreamOutputs.find(u => /\.(png|jpe?g|webp)/i.test(u)) || upstreamOutputs[0];
@@ -65,21 +76,40 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
   }
   if (cfg.voice_id) payload.voice_id = cfg.voice_id;
 
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/studio-generate`, {
-    method: "POST",
-    headers: { Authorization: auth, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const gen = await r.json();
-  if (!gen?.ok || !gen?.id) return { ok: false, error: gen?.error || "falha ao iniciar" };
-
-  let outputUrl: string | undefined = gen.output_url;
-  if (!outputUrl) {
-    const polled = await pollGeneration(admin, gen.id);
-    if (!polled.ok) return { ok: false, error: polled.error };
-    outputUrl = polled.output_url;
+  // Retry até 3x em falhas transitórias
+  let lastErr = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/studio-generate`, {
+        method: "POST",
+        headers: { Authorization: auth, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const gen = await r.json();
+      if (!gen?.ok || !gen?.id) {
+        lastErr = gen?.error || "falha ao iniciar";
+        if (attempt < 3) {
+          await logEvent(admin, workflowId, node.id, "warn", `tentativa ${attempt} falhou, retry em ${attempt * 2}s: ${lastErr}`);
+          await new Promise((r) => setTimeout(r, attempt * 2000));
+          continue;
+        }
+        return { ok: false, error: lastErr };
+      }
+      let outputUrl: string | undefined = gen.output_url;
+      if (!outputUrl) {
+        const polled = await pollGeneration(admin, gen.id);
+        if (!polled.ok) { lastErr = polled.error || "poll failed"; break; }
+        outputUrl = polled.output_url;
+      }
+      return { ok: true, output_url: outputUrl, kind };
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, attempt * 2000));
+      }
+    }
   }
-  return { ok: true, output_url: outputUrl, kind };
+  return { ok: false, error: lastErr || "erro desconhecido" };
 }
 
 Deno.serve(async (req) => {
@@ -96,6 +126,8 @@ Deno.serve(async (req) => {
     const projetoId: string | null = body.projeto_id || null;
     const runAll: boolean = !!body.run_all;
     const singleNodeId: string | undefined = body.node_id;
+    const startNodeId: string | undefined = body.start_node_id;
+    const forceRerun: boolean = !!body.force_rerun;
 
     const [{ data: nodes }, { data: edges }] = await Promise.all([
       admin.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", workflowId),
@@ -105,19 +137,35 @@ Deno.serve(async (req) => {
 
     const byId: Record<string, any> = Object.fromEntries(nodes.map((n: any) => [n.id, n]));
     const incoming: Record<string, string[]> = {};
+    const outgoing: Record<string, string[]> = {};
     for (const e of (edges || [])) {
       (incoming[e.target_id] ||= []).push(e.source_id);
+      (outgoing[e.source_id] ||= []).push(e.target_id);
     }
 
-    // Executa em background
+    // Custos por modelo
+    const { data: costRows } = await admin.from("imphq_studio_model_costs").select("provider,model,cost_credits");
+    const costMap = new Map<string, number>();
+    for (const c of (costRows || [])) costMap.set(`${c.provider}:${c.model}`, Number(c.cost_credits));
+
     (async () => {
       const outputs: Record<string, string> = {};
-      // preencher outputs já concluídos
       for (const n of nodes) if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
 
-      const targetIds = singleNodeId ? [singleNodeId] : nodes.map((n: any) => n.id);
+      // Determinar alvos
+      let targetIds: string[];
+      if (singleNodeId) targetIds = [singleNodeId];
+      else if (startNodeId) {
+        // start_node_id + tudo a jusante
+        const set = new Set<string>();
+        const walk = (id: string) => { if (set.has(id)) return; set.add(id); (outgoing[id] || []).forEach(walk); };
+        walk(startNodeId);
+        targetIds = [...set];
+      } else {
+        targetIds = nodes.map((n: any) => n.id);
+      }
 
-      // Ordem topológica simples
+      // Ordem topológica
       const order: string[] = [];
       const visited = new Set<string>();
       const visit = (id: string) => {
@@ -128,31 +176,57 @@ Deno.serve(async (req) => {
       };
       for (const t of targetIds) visit(t);
 
+      await logEvent(admin, workflowId, null, "info", `Iniciando execução (${order.length} nós na fila)`);
+
       for (const nid of order) {
         const n = byId[nid];
         if (!n) continue;
-        if (!runAll && nid !== singleNodeId && outputs[nid]) continue;
-        if (n.status === "gerado" && outputs[nid] && nid !== singleNodeId) continue;
 
         const ups = (incoming[nid] || []).map(id => outputs[id]).filter(Boolean);
 
-        await admin.from("imphq_studio_canvas_nodes").update({ status: "gerando" }).eq("id", nid);
-        const res = await runNode(admin, auth, n, ups, projetoId);
+        // Cache: se hash da config + hash das entradas bate, reaproveita
+        const configHash = await sha256({ tipo: n.tipo, config: n.config, ups });
+        if (!forceRerun && n.status === "gerado" && n.output?.url && n.config_hash === configHash) {
+          outputs[nid] = n.output.url;
+          await logEvent(admin, workflowId, nid, "info", `cache hit — reaproveitou output`, { hash: configHash.slice(0, 8) });
+          continue;
+        }
+
+        const cfg = n.config || {};
+        const estCost = costMap.get(`${cfg.provider || "kie"}:${cfg.model || ""}`) || 0;
+
+        await admin.from("imphq_studio_canvas_nodes").update({ status: "gerando", config_hash: configHash }).eq("id", nid);
+        await logEvent(admin, workflowId, nid, "info", `▶ ${n.tipo} · ${cfg.model || "—"}${estCost ? ` (~${estCost} créditos)` : ""}`);
+
+        const t0 = Date.now();
+        const res = await runNode(admin, auth, n, ups, projetoId, workflowId);
+        const duration = Date.now() - t0;
+
         if (!res.ok) {
           await admin.from("imphq_studio_canvas_nodes").update({
             status: "erro",
             output: { error: res.error },
+            duration_ms: duration,
           }).eq("id", nid);
-          if (!runAll) return;
+          await logEvent(admin, workflowId, nid, "error", `✗ falhou: ${res.error}`, { duration_ms: duration });
+          if (!runAll && !startNodeId) return;
           continue;
         }
         outputs[nid] = res.output_url || "";
         await admin.from("imphq_studio_canvas_nodes").update({
           status: "gerado",
           output: { url: res.output_url, kind: res.kind },
+          duration_ms: duration,
+          cost_actual: estCost,
         }).eq("id", nid);
+        await logEvent(admin, workflowId, nid, "success", `✓ pronto em ${(duration / 1000).toFixed(1)}s`, { duration_ms: duration, cost: estCost });
       }
-    })().catch((e) => console.error("studio-canvas-run fatal:", e));
+
+      await logEvent(admin, workflowId, null, "success", `Execução concluída`);
+    })().catch(async (e) => {
+      console.error("studio-canvas-run fatal:", e);
+      await logEvent(admin, workflowId, null, "error", `fatal: ${e?.message || e}`);
+    });
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
