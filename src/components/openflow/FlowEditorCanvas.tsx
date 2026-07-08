@@ -543,7 +543,7 @@ function acoesToNodesEdges(
     ) {
       const elseTargetIdx = i + acao.condition_else_jump_steps;
       if (elseTargetIdx < acoes.length) {
-        const elseTargetId = acoes[elseTargetIdx].id || `step-${elseTargetIdx}`;
+        const elseTargetId = resolvedIds[elseTargetIdx];
         let labelText = "Se Não";
         if (stepStats) {
           const src = stepStats[i];
