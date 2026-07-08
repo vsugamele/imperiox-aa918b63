@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Trash2, ExternalLink, Copy } from "lucide-react";
+import { Sparkles, Trash2, ExternalLink, Copy, Play } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: any) => Promise<void>;
   onDuplicate?: (id: string) => void;
+  onRunFrom?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
@@ -38,7 +39,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
