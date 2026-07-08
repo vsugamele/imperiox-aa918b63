@@ -670,13 +670,29 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, [annotations]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes(nds => applyNodeChanges(changes, nds));
+    const normalizedChanges = changes.map((c: any) => {
+      if (c.type !== "dimensions" || !c.dimensions) return c;
+      const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
+      const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
+      const min = isAnn
+        ? ANNOTATION_MIN_SIZE[annotations.find(a => a.id === rawId)?.kind || "frame"]
+        : { w: 1, h: 1 };
+      return {
+        ...c,
+        dimensions: {
+          width: clampDimension(c.dimensions.width, min.w),
+          height: clampDimension(c.dimensions.height, min.h),
+        },
+      };
+    }) as NodeChange[];
+
+    setNodes(nds => applyNodeChanges(normalizedChanges, nds));
     const resizingAnnotationIds = new Set(
-      changes
+      normalizedChanges
         .filter((c: any) => c.type === "dimensions" && c.resizing === true && typeof c.id === "string" && c.id.startsWith(ANN_PREFIX))
         .map((c: any) => c.id.slice(ANN_PREFIX.length))
     );
-    changes.forEach(async (c: any) => {
+    normalizedChanges.forEach(async (c: any) => {
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
@@ -714,12 +730,12 @@ function InnerMap({ projects }: { projects: any[] }) {
       } else if (c.type === "dimensions" && c.dimensions && c.resizing === true && isAnn) {
         pendingAnnotationLayoutRef.current[rawId] = {
           ...pendingAnnotationLayoutRef.current[rawId],
-          width: Math.max(1, c.dimensions.width),
-          height: Math.max(1, c.dimensions.height),
+          width: c.dimensions.width,
+          height: c.dimensions.height,
         };
       }
     });
-  }, []);
+  }, [annotations]);
 
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
     setSelectedIds(sel.map(n => n.id));
