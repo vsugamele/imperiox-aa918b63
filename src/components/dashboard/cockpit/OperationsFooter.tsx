@@ -15,7 +15,7 @@ export function OperationsFooter() {
       const [msgsRes, activeConvRes, tasksRes] = await Promise.all([
         (supabase as any)
           .from("imphq_wa_messages")
-          .select("from_ai, direction")
+          .select("sent_by, role, direction")
           .eq("direction", "out")
           .gte("created_at", since24),
         (supabase as any)
@@ -31,7 +31,7 @@ export function OperationsFooter() {
 
       const msgs = (msgsRes.data || []) as any[];
       const total = msgs.length;
-      const aiCount = msgs.filter((m: any) => m.from_ai).length;
+      const aiCount = msgs.filter((m: any) => m.sent_by === "ai" || m.role === "assistant").length;
       const aiShare = total > 0 ? (aiCount / total) * 100 : 0;
 
       return {
