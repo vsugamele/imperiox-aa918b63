@@ -45,8 +45,9 @@ function InnerCanvas() {
   useEffect(() => {
     if (!projectId) return;
     (async () => {
-      const { data } = await supabase.from("imphq_projects").select("briefing").eq("id", projectId).maybeSingle();
-      const b = data?.briefing;
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+      const raw: any = (data as any)?.data;
+      const b = raw?.briefing ?? raw;
       setBriefing(typeof b === "string" ? (() => { try { return JSON.parse(b); } catch { return {}; } })() : (b || {}));
     })();
   }, [projectId]);
