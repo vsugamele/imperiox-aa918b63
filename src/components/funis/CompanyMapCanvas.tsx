@@ -1233,14 +1233,22 @@ function InnerMap({ projects }: { projects: any[] }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Projeto</Label>
-                  <Select value={selected.linked_project_id || "none"}
-                    onValueChange={(v) => setSelected({ ...selected, linked_project_id: v === "none" ? null : v })}>
-                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-1">
+                    <Select value={selected.linked_project_id || "none"}
+                      onValueChange={(v) => setSelected({ ...selected, linked_project_id: v === "none" ? null : v })}>
+                      <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {selected.linked_project_id && (
+                      <Button size="icon" variant="outline" title="Abrir Hub"
+                        onClick={() => navigate(`/projetos/${selected.linked_project_id}`)}>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Funil</Label>
