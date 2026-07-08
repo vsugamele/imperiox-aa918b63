@@ -587,7 +587,7 @@ function acoesToNodesEdges(
             id: `e-ai-route-${id}-${rIdx}`,
             source: id,
             sourceHandle: `route-${rIdx}`,
-            target: `step-${jumpTarget}`,
+            target: resolvedIds[jumpTarget],
             label,
             style: { stroke: "#a855f7", strokeWidth: 2, strokeDasharray: "4,4" },
             labelStyle: { fill: "#a855f7", fontSize: 9, fontWeight: "bold" },
