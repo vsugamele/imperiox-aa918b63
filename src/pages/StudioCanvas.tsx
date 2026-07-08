@@ -9,12 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Sparkles, Clapperboard } from "lucide-react";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { StudioBlockLibrary } from "@/components/studio/canvas/StudioBlockLibrary";
 import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
 import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
 import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
+import { autoLayout, isValidStudioConnection, KIND_COLORS } from "@/lib/studioAutoLayout";
 
 const nodeTypes = { block: CanvasBlockNode };
 
