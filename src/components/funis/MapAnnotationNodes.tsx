@@ -96,7 +96,13 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         color: "#080607",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
+      <NodeResizer
+        isVisible={selected}
+        minWidth={100}
+        minHeight={60}
+        lineClassName="!border-primary !border-2"
+        handleClassName="!w-4 !h-4 !rounded-sm !bg-primary !border-2 !border-background !shadow-md"
+      />
       <EditableText
         id={id}
         text={d.text}
@@ -104,6 +110,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         onDone={(v) => d.onTextChange?.(id, v)}
         className="text-xs leading-snug whitespace-pre-wrap break-words w-full h-full overflow-hidden"
         placeholder="Nota…"
+        interactive={editing}
       />
     </div>
   );
