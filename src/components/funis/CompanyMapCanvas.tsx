@@ -945,7 +945,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
-        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique = editar texto
+        Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique em card com projeto vinculado = abrir Hub
       </div>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
