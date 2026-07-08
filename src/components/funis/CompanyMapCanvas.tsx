@@ -504,7 +504,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     setNodes(nds => {
       const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
       const previousById = new Map(nds.map(n => [n.id, n]));
-      const annNodes: Node[] = annotations.map(a => ({
+      const annNodes: Node[] = annotations.map(a => {
         const id = `${ANN_PREFIX}${a.id}`;
         const previous = previousById.get(id);
         return {
