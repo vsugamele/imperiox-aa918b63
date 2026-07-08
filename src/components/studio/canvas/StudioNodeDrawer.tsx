@@ -132,6 +132,25 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             )}
           </div>
 
+          {onRunFrom && (
+            <Button
+              onClick={() => onRunFrom(node.id)}
+              size="sm"
+              variant="outline"
+              className="w-full gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+              title="Executar este nó e todos a jusante"
+            >
+              <Play className="h-3.5 w-3.5" /> Executar deste nó em diante
+            </Button>
+          )}
+
+          {(node.data.duration_ms || node.data.cost_actual) && (
+            <div className="text-[10px] text-muted-foreground flex gap-3">
+              {node.data.duration_ms && <span>⏱ {(node.data.duration_ms / 1000).toFixed(1)}s</span>}
+              {node.data.cost_actual && <span>💎 {node.data.cost_actual} créditos</span>}
+            </div>
+          )}
+
           {preview && (
             <div className="rounded-lg border border-border/60 p-2 bg-background/40">
               <Label className="text-xs">Preview</Label>
