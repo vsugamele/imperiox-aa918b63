@@ -2,7 +2,7 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { KIND_COLORS } from "@/lib/studioAutoLayout";
-import { Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Sparkles, X } from "lucide-react";
 
 export function CanvasBlockNode({ data, selected }: NodeProps) {
   const d = data as any;
@@ -28,9 +28,11 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
     );
   }
 
+  const refCount = (d.config?.reference_urls || []).length;
+
   return (
     <div className={cn(
-      "rounded-lg border-2 p-2.5 min-w-[180px] max-w-[220px] bg-[#0a0608]/95 backdrop-blur transition",
+      "group/node relative rounded-lg border-2 p-2.5 min-w-[180px] max-w-[220px] bg-[#0a0608]/95 backdrop-blur transition",
       meta?.color || "border-border/60 bg-background/60",
       selected && "ring-2 ring-primary shadow-lg shadow-primary/20",
       status === "gerando" && "animate-pulse ring-2 ring-blue-400/60 shadow-lg shadow-blue-400/30",
@@ -38,6 +40,16 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
     )}>
       <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />
       <Handle type="source" position={Position.Right} style={{ background: kindColor, width: 10, height: 10 }} />
+
+      <button
+        onClick={(e) => { e.stopPropagation(); d.onDelete?.(d.id); }}
+        className="absolute -top-2 -right-2 z-10 opacity-0 group-hover/node:opacity-100 transition bg-rose-500 hover:bg-rose-600 text-white rounded-full p-0.5 shadow-lg"
+        title="Remover bloco"
+      >
+        <X className="h-3 w-3" />
+      </button>
+
+
 
 
       <div className="flex items-center gap-1.5 mb-1">
@@ -61,6 +73,9 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
       <div className="text-[10px] text-muted-foreground truncate">
         {d.config?.model || d.config?.prompt?.slice(0, 40) || meta?.desc}
       </div>
+      {refCount > 0 && (
+        <div className="text-[9px] text-primary/80 mt-0.5">🖼 {refCount} ref{refCount > 1 ? "s" : ""}</div>
+      )}
 
       <div className="flex items-center justify-between mt-1.5">
         <span className={cn(
