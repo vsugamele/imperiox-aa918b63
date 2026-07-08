@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
+import { ExternalLink, Play, Instagram, Youtube, Music2 } from "lucide-react";
 
-export type AnnotationKind = "frame" | "note" | "label" | "arrow";
+export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel";
 
 export interface AnnotationData {
   kind: AnnotationKind;
@@ -12,6 +13,11 @@ export interface AnnotationData {
     fontSize?: number;
     orientation?: "diag-down" | "diag-up" | "horizontal" | "vertical";
     showHead?: boolean;
+    // reel-specific
+    url?: string;
+    platform?: "instagram" | "tiktok" | "youtube" | "other";
+    thumb?: string;
+    author?: string;
   };
   onTextChange?: (id: string, text: string) => void;
   editingId?: string | null;
