@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2 } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy } from "lucide-react";
+import { toast } from "sonner";
+
+function normalizeReelUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    // Instagram: remove query params (igsh, utm, etc) que causam bloqueio
+    if (u.hostname.includes("instagram.com")) {
+      return `${u.origin}${u.pathname}`;
+    }
+    return url;
+  } catch { return url; }
+}
 
 export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel";
 
@@ -206,9 +218,18 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     e.stopPropagation();
     e.preventDefault();
     if (!url) return;
-    // Escapa do iframe do preview quando possível
-    try { (window.top || window).open(url, "_blank", "noopener,noreferrer"); }
-    catch { window.open(url, "_blank", "noopener,noreferrer"); }
+    const clean = normalizeReelUrl(url);
+    try { (window.top || window).open(clean, "_blank", "noopener,noreferrer"); }
+    catch { window.open(clean, "_blank", "noopener,noreferrer"); }
+  };
+  const copyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(normalizeReelUrl(url));
+      toast.success("Link copiado");
+    } catch { toast.error("Falha ao copiar"); }
   };
   return (
     <div
@@ -225,22 +246,36 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
         {thumb ? (
           <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <PlatformIcon className="h-10 w-10 opacity-40" style={{ color: platformColor }} />
+          <div className="flex flex-col items-center gap-2 px-3 text-center">
+            <PlatformIcon className="h-8 w-8 opacity-40" style={{ color: platformColor }} />
+            <span className="text-[10px] text-muted-foreground leading-tight">Preview indisponível<br/>clique para abrir</span>
+          </div>
         )}
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1"
           style={{ background: `${platformColor}25`, color: platformColor, border: `1px solid ${platformColor}55` }}>
           <PlatformIcon className="h-2.5 w-2.5" /> {platform}
         </div>
         {url && (
-          <button
-            type="button"
-            onMouseDown={stopBubble}
-            onClick={openReel}
-            className="nodrag nopan absolute top-1.5 right-1.5 p-1 rounded bg-black/50 hover:bg-black/80 text-white"
-            title="Abrir reel"
-          >
-            <ExternalLink className="h-3 w-3" />
-          </button>
+          <div className="absolute top-1.5 right-1.5 flex gap-1">
+            <button
+              type="button"
+              onMouseDown={stopBubble}
+              onClick={copyLink}
+              className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+              title="Copiar link"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={stopBubble}
+              onClick={openReel}
+              className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+              title="Abrir reel"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          </div>
         )}
       </div>
       <div className="px-2 py-1.5 bg-[#0a0809] border-t border-border/40">
