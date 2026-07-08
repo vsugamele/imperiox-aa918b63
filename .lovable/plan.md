@@ -1,35 +1,16 @@
-## Novo tipo de feedback: "➕ Complementar"
+## Fix: não consigo redimensionar o frame "Grupo"
 
-Adiciona um 4º chip no dialog de correção do WhatsApp: a IA aprende que a resposta original **estava boa** mas faltou complemento — sem invalidá-la.
+**Causa:** o wrapper do `AnnotationFrameNode` tem `pointerEvents: "none"` (para deixar o miolo transparente a cliques). O `NodeResizer` do React Flow renderiza as alças como filhos desse wrapper, então elas herdam `pointer-events: none` e não capturam mouse — por isso as alças aparecem mas não arrastam.
 
-### Backend
+**Correção mínima em `src/components/funis/MapAnnotationNodes.tsx`:**
 
-**`supabase/functions/wa-feedback-learn/index.ts`**
-- Aceitar `correction_type: "complement"` no body.
-- Nova rota quando `feedback === "bad"` (semanticamente "boa mas incompleta") + `correction_type === "complement"`:
-  1. Buscar pergunta do lead + resposta original da IA (já temos a lógica).
-  2. Gravar par P/R na `imphq_wa_knowledge`:
-     - `pergunta`: pergunta do lead
-     - `resposta`: `${resposta_original}\n\n${complemento_operador}`
-     - `source: "feedback:complement:wa"`
-  3. Chamar LLM (`gemini-2.5-flash-lite`) para extrair uma **regra genérica** a partir do exemplo (ex: "sempre confirmar detalhes de curso com a equipe antes de responder").
-  4. Gravar essa regra em `imphq_wa_project_rules` com `rule_type: "behavior"`, `source_message_id`, `embedding`.
-  5. Logar em `imphq_ai_actions` com título `➕ Complemento aprendido (P/R + regra)`.
+Adicionar `!pointer-events-auto` nas classes dos handles/linhas do resizer para forçá-los interativos independente do parent:
 
-### Frontend
+```ts
+const resizerLineClassName = "nodrag nopan !pointer-events-auto !border-primary/70 !border-2 !z-50";
+const resizerHandleClassName = "nodrag nopan !pointer-events-auto !w-5 !h-5 !rounded-sm !bg-primary !border-2 !border-background !shadow-lg !z-50";
+```
 
-**`src/components/whatsapp/[dialog de correção].tsx`** (o componente que tem os chips Auto/Resposta melhor/Regra/Produto indisponível — vou localizar por grep no build mode)
-- Adicionar chip `➕ Complementar` com ícone Plus.
-- Placeholder do textarea muda para: *"O que faltou dizer? Ex: 'poderia acrescentar que só tem dentro da JP Hair Education'"*.
-- Envia `correction_type: "complement"` para a edge function.
-- Toast de sucesso: "Complemento gravado — P/R + regra criadas ✓"
+Isso é seguro: as outras notas (note, label, arrow, reel) usam wrappers com `pointer-events` normal, então nada muda para elas — só destrava o resizer do frame.
 
-### Tipo na tabela
-
-`imphq_wa_messages.feedback_correction_type` já aceita texto livre — só adicionamos o novo valor `"complement"`. Sem migração necessária.
-
-### Não muda
-
-- Fluxo `answer` / `rule` / `unavailable` / `auto` existentes.
-- A/B testing de regras.
-- Nenhuma outra edge function.
+**Fora de escopo:** os erros `<rect> width/height negative` do console vêm do NodeResizer ao medir nodes recém-criados sem dimensões — some sozinho após o primeiro layout e não é o que impede o resize.
