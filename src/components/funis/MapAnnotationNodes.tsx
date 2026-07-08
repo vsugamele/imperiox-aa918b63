@@ -100,19 +100,18 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
   const editing = d.editingId === id;
   const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   const color = d.style?.borderColor || "#c9922a";
-  const bg = d.style?.bgColor || "rgba(201,146,42,0.04)";
-  // Miolo transparente a eventos; só a borda (faixa de 10px) e o label capturam pointer/drag.
+  const bg = d.style?.bgColor || "transparent";
   const edgeBase = "absolute frame-handle pointer-events-auto";
   return (
     <div
       {...hoverProps}
-      className="w-full h-full rounded-lg relative"
+      className="w-full h-full rounded-2xl relative"
       style={{ pointerEvents: "none" }}
     >
-      {/* Fundo + moldura decorativos (não capturam eventos) */}
+      {/* Moldura tracejada + ring interno (decorativos, sem eventos) */}
       <div
-        className="absolute inset-0 rounded-lg"
-        style={{ border: `2px dashed ${color}`, background: bg, pointerEvents: "none" }}
+        className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5"
+        style={{ border: `1px dashed ${color}66`, background: bg, pointerEvents: "none" }}
       />
       <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
 
@@ -122,20 +121,23 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
       <div className={edgeBase} style={{ top: 0, bottom: 0, left: 0, width: 10, cursor: "move" }} />
       <div className={edgeBase} style={{ top: 0, bottom: 0, right: 0, width: 10, cursor: "move" }} />
 
-      {/* Label superior (também é handle) */}
+      {/* Label editorial com diamantes */}
       <div
-        className="absolute -top-3 left-3 px-2 bg-[#0a0809] frame-handle pointer-events-auto"
+        className="absolute -top-4 left-8 px-4 py-1 bg-[#080607] frame-handle pointer-events-auto flex items-center gap-2"
         style={{ cursor: editing ? "text" : "move" }}
         title="Arraste para mover · clique direito para opções"
       >
+        <span className="block w-1 h-1 rotate-45" style={{ background: color, pointerEvents: "none" }} />
         <EditableText
           id={id}
           text={d.text}
           editing={editing}
           onDone={(v) => d.onTextChange?.(id, v)}
-          className="text-xs font-serif text-primary/90 min-w-[40px]"
+          className="text-[11px] font-medium uppercase min-w-[40px]"
+          style={{ color, letterSpacing: "0.2em", fontFamily: "'DM Sans', sans-serif" }}
           placeholder="Grupo"
         />
+        <span className="block w-1 h-1 rotate-45" style={{ background: color, pointerEvents: "none" }} />
       </div>
     </div>
   );
