@@ -110,10 +110,12 @@ function InnerCanvas() {
           },
         })),
       ];
-      const flowEdges: Edge[] = ((edgeRows || []) as any[]).map(e => ({
-        id: e.id, source: e.source_id, target: e.target_id, animated: true,
-        style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
-      }));
+      const nodeTipoMap = new Map<string, string>();
+      ((nodeRows || []) as any[]).forEach(n => nodeTipoMap.set(n.id, n.tipo));
+      const flowEdges: Edge[] = ((edgeRows || []) as any[]).map(e => {
+        const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+        return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+      });
 
       setNodes(flowNodes);
       setEdges(flowEdges);
