@@ -214,6 +214,26 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
   const title = d.style?.title;
   const PlatformIcon = platform === "instagram" ? Instagram : platform === "youtube" ? Youtube : platform === "tiktok" ? Music2 : Play;
   const platformColor = platform === "instagram" ? "#e1306c" : platform === "youtube" ? "#ff0033" : platform === "tiktok" ? "#25f4ee" : "#c9922a";
+  const writeClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {}
+    // fallback iframe/permissions-policy
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch { return false; }
+  };
   const openReel = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -221,10 +241,8 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     const clean = normalizeReelUrl(url);
     const win = window.open(clean, "_blank", "noopener,noreferrer");
     if (!win) {
-      // popup bloqueado — copia link como fallback
-      navigator.clipboard?.writeText(clean).then(
-        () => toast.success("Link copiado — cole no navegador"),
-        () => toast.error("Não foi possível abrir nem copiar"),
+      writeClipboard(clean).then((ok) =>
+        ok ? toast.success("Link copiado — cole no navegador") : toast.error("Não foi possível abrir nem copiar"),
       );
     }
   };
@@ -232,11 +250,11 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     e.stopPropagation();
     e.preventDefault();
     if (!url) return;
-    try {
-      await navigator.clipboard.writeText(normalizeReelUrl(url));
-      toast.success("Link copiado");
-    } catch { toast.error("Falha ao copiar"); }
+    const ok = await writeClipboard(normalizeReelUrl(url));
+    if (ok) toast.success("Link copiado");
+    else toast.error("Falha ao copiar");
   };
+
   return (
     <div
       {...hoverProps}
