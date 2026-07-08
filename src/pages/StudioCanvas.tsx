@@ -453,6 +453,7 @@ function InnerCanvas() {
             <Controls className="!bg-secondary !border-border" />
             <MiniMap className="!bg-secondary !border-border" nodeColor="#c9922a" maskColor="rgba(0,0,0,0.6)" />
           </ReactFlow>
+          <StudioRunLogPanel workflowId={workflowId} nodeTitles={nodeTitles} />
         </div>
       </div>
 
@@ -463,6 +464,14 @@ function InnerCanvas() {
         onDelete={deleteNode}
         onUpdate={updateNode}
         onDuplicate={duplicateNode}
+        onRunFrom={runFromNode}
+      />
+
+      <StudioCostDialog
+        open={costOpen}
+        onOpenChange={setCostOpen}
+        estimate={estimate}
+        onConfirm={confirmRun}
       />
     </div>
   );
