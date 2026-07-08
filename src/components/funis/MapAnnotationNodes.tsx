@@ -19,6 +19,20 @@ export interface AnnotationData {
 
 const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
+const resizerLineClassName = "nodrag nopan !border-primary/70 !border-2 !z-50";
+const resizerHandleClassName = "nodrag nopan !w-5 !h-5 !rounded-sm !bg-primary !border-2 !border-background !shadow-lg !z-50";
+
+function useResizeVisibility(selected?: boolean, editing = false) {
+  const [hovered, setHovered] = useState(false);
+  return {
+    resizeVisible: !!selected || editing || hovered,
+    hoverProps: {
+      onMouseEnter: () => setHovered(true),
+      onMouseLeave: () => setHovered(false),
+    },
+  };
+}
+
 function EditableText({
   id, text, className, style, editing, onDone, placeholder,
 }: {
@@ -62,15 +76,17 @@ function EditableText({
 export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
   const d = data as unknown as AnnotationData;
   const editing = d.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   return (
     <div
+      {...hoverProps}
       className="w-full h-full rounded-lg relative"
       style={{
         border: `2px dashed ${d.style?.borderColor || "#c9922a"}`,
         background: d.style?.bgColor || "rgba(201,146,42,0.04)",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={120} minHeight={80} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
+      <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
       <div className="absolute -top-3 left-3 px-2 bg-[#0a0809]">
         <EditableText
           id={id}
@@ -88,8 +104,10 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
 export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
   const d = data as unknown as AnnotationData;
   const editing = d.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   return (
     <div
+      {...hoverProps}
       className="w-full h-full rounded-md shadow-lg p-3 relative"
       style={{
         background: d.style?.bgColor || "#c9922a",
@@ -97,11 +115,11 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
       }}
     >
       <NodeResizer
-        isVisible={selected}
+        isVisible={resizeVisible}
         minWidth={100}
         minHeight={60}
-        lineClassName="!border-primary !border-2"
-        handleClassName="!w-4 !h-4 !rounded-sm !bg-primary !border-2 !border-background !shadow-md"
+        lineClassName={resizerLineClassName}
+        handleClassName={resizerHandleClassName}
       />
       <EditableText
         id={id}
@@ -119,9 +137,10 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
 export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
   const d = data as unknown as AnnotationData;
   const editing = d.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   return (
-    <div className="w-full h-full relative flex items-center">
-      <NodeResizer isVisible={selected} minWidth={80} minHeight={30} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
+    <div {...hoverProps} className="w-full h-full relative flex items-center">
+      <NodeResizer isVisible={resizeVisible} minWidth={80} minHeight={30} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
       <EditableText
         id={id}
         text={d.text}
@@ -137,6 +156,7 @@ export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
 
 export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { width?: number; height?: number }) => {
   const d = data as unknown as AnnotationData;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected);
   const orient = d.style?.orientation || "diag-down";
   const showHead = d.style?.showHead !== false;
   const color = d.style?.borderColor || "#c9922a";
@@ -147,8 +167,8 @@ export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { w
   if (orient === "vertical") { x1 = 50; y1 = 5; x2 = 50; y2 = 95; }
   const headId = `ah-${id}`;
   return (
-    <div className="w-full h-full relative">
-      <NodeResizer isVisible={selected} minWidth={40} minHeight={20} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
+    <div {...hoverProps} className="w-full h-full relative">
+      <NodeResizer isVisible={resizeVisible} minWidth={40} minHeight={20} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
         {showHead && (
           <defs>

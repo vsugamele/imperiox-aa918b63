@@ -376,6 +376,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   useEffect(() => { waConvCountsRef.current = waConvCounts; }, [waConvCounts]);
 
   const loadMapRef = useRef<((id: string) => Promise<void>) | null>(null);
+  const pendingAnnotationLayoutRef = useRef<Record<string, Partial<Pick<MapAnnotation, "x" | "y" | "width" | "height">>>>({});
 
   // single-node quick actions (stable — read from refs)
   const duplicateNode = useCallback(async (nodeId: string) => {
@@ -503,24 +504,30 @@ function InnerMap({ projects }: { projects: any[] }) {
   useEffect(() => {
     setNodes(nds => {
       const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
-      const annNodes: Node[] = annotations.map(a => ({
-        id: `${ANN_PREFIX}${a.id}`,
-        type: ANNOTATION_KIND_TO_TYPE[a.kind],
-        position: { x: a.x, y: a.y },
-        width: a.width,
-        height: a.height,
-        style: { width: a.width, height: a.height },
-        zIndex: a.z_index ?? 0,
-        draggable: true,
-        selectable: true,
-        data: {
-          kind: a.kind,
-          text: a.text || "",
-          style: a.style || {},
-          editingId: editingAnnotationId,
-          onTextChange: updateAnnotationText,
-        } as unknown as Record<string, unknown>,
-      }));
+      const previousById = new Map(nds.map(n => [n.id, n]));
+      const annNodes: Node[] = annotations.map(a => {
+        const id = `${ANN_PREFIX}${a.id}`;
+        const previous = previousById.get(id);
+        return {
+          id,
+          type: ANNOTATION_KIND_TO_TYPE[a.kind],
+          position: { x: a.x, y: a.y },
+          width: a.width,
+          height: a.height,
+          style: { width: a.width, height: a.height },
+          zIndex: a.z_index ?? 0,
+          draggable: true,
+          selectable: true,
+          selected: previous?.selected || editingAnnotationId === id,
+          data: {
+            kind: a.kind,
+            text: a.text || "",
+            style: a.style || {},
+            editingId: editingAnnotationId,
+            onTextChange: updateAnnotationText,
+          } as unknown as Record<string, unknown>,
+        } as Node;
+      });
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
   }, [annotations, editingAnnotationId, updateAnnotationText]);
@@ -572,6 +579,11 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
+    const resizingAnnotationIds = new Set(
+      changes
+        .filter((c: any) => c.type === "dimensions" && c.resizing === true && typeof c.id === "string" && c.id.startsWith(ANN_PREFIX))
+        .map((c: any) => c.id.slice(ANN_PREFIX.length))
+    );
     changes.forEach(async (c: any) => {
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
@@ -582,18 +594,33 @@ function InnerMap({ projects }: { projects: any[] }) {
         } else {
           await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
         }
+      } else if (c.type === "position" && isAnn && c.position && resizingAnnotationIds.has(rawId)) {
+        pendingAnnotationLayoutRef.current[rawId] = {
+          ...pendingAnnotationLayoutRef.current[rawId],
+          x: c.position.x,
+          y: c.position.y,
+        };
       }
       if (c.type === "dimensions" && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
         const { width, height } = c.dimensions;
         if (width && height) {
           if (isAnn) {
-            setAnnotations(list => list.map(a => a.id === rawId ? { ...a, width, height } : a));
-            await supabase.from(annTable).update({ width, height }).eq("id", rawId);
+            const pending = pendingAnnotationLayoutRef.current[rawId] || {};
+            const patch = { ...pending, width, height };
+            delete pendingAnnotationLayoutRef.current[rawId];
+            setAnnotations(list => list.map(a => a.id === rawId ? { ...a, ...patch } : a));
+            await supabase.from(annTable).update(patch).eq("id", rawId);
           } else {
             setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
             await (supabase.from("imphq_company_map_nodes") as any).update({ width, height }).eq("id", c.id);
           }
         }
+      } else if (c.type === "dimensions" && c.dimensions && c.resizing === true && isAnn) {
+        pendingAnnotationLayoutRef.current[rawId] = {
+          ...pendingAnnotationLayoutRef.current[rawId],
+          width: c.dimensions.width,
+          height: c.dimensions.height,
+        };
       }
     });
   }, []);
