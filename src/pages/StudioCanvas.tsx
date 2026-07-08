@@ -430,6 +430,7 @@ function InnerCanvas() {
         onGenerate={(id) => { generate(id); }}
         onDelete={deleteNode}
         onUpdate={updateNode}
+        onDuplicate={duplicateNode}
       />
     </div>
   );
