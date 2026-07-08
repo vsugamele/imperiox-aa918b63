@@ -230,19 +230,40 @@ function InnerCanvas() {
     }
   };
 
-  const runAll = async () => {
+  const openCostDialog = async (startNodeId?: string) => {
+    if (!workflowId) return;
+    setPendingRun({ startNodeId });
+    setEstimate(null);
+    setCostOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("studio-canvas-estimate", {
+        body: { workflow_id: workflowId, start_node_id: startNodeId },
+      });
+      if (error) throw error;
+      setEstimate(data);
+    } catch (e: any) {
+      toast.error("Erro na estimativa: " + (e?.message || "desconhecido"));
+      setCostOpen(false);
+    }
+  };
+
+  const confirmRun = async ({ forceRerun }: { forceRerun: boolean }) => {
     if (!workflowId) return;
     setRunning(true);
     try {
-      const { error } = await supabase.functions.invoke("studio-canvas-run", {
-        body: { workflow_id: workflowId, run_all: true, projeto_id: projectId, produto_idx: productIdx },
-      });
+      const body: any = { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, force_rerun: forceRerun };
+      if (pendingRun?.startNodeId) body.start_node_id = pendingRun.startNodeId;
+      else body.run_all = true;
+      const { error } = await supabase.functions.invoke("studio-canvas-run", { body });
       if (error) throw error;
       toast.success("Pipeline em execução");
     } catch (e: any) {
       toast.error("Erro: " + (e?.message || "desconhecido"));
-    } finally { setRunning(false); }
+    } finally { setRunning(false); setPendingRun(null); }
   };
+
+  const runAll = () => openCostDialog(undefined);
+  const runFromNode = (nodeId: string) => openCostDialog(nodeId);
 
   const plantTemplate = async (key: string) => {
     if (!workflowId) return;
