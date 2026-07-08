@@ -374,10 +374,10 @@ function InnerCanvas() {
     return isValidStudioConnection(srcTipo, tgtTipo);
   }, [rf]);
 
-  // wire generate + duplicate onto nodes' data
+  // wire generate + duplicate + delete onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode },
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode },
   })), [nodes, duplicateNode]);
 
   const nodeTitles = useMemo(() => {
