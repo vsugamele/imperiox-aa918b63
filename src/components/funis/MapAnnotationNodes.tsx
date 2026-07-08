@@ -51,7 +51,7 @@ function EditableText({
         if (e.key === "Enter" && !e.shiftKey && !editing) e.preventDefault();
       }}
       className={className}
-      style={{ outline: "none", cursor: editing ? "text" : "inherit", ...style }}
+      style={{ outline: "none", cursor: editing ? "text" : "inherit", pointerEvents: editing ? "auto" : "none", ...style }}
       data-placeholder={placeholder}
     >
       {local || (!editing && placeholder ? placeholder : "")}
@@ -96,7 +96,13 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         color: "#080607",
       }}
     >
-      <NodeResizer isVisible={selected} minWidth={100} minHeight={60} lineClassName="!border-primary/70 !border-2" handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background" />
+      <NodeResizer
+        isVisible={selected}
+        minWidth={100}
+        minHeight={60}
+        lineClassName="!border-primary !border-2"
+        handleClassName="!w-4 !h-4 !rounded-sm !bg-primary !border-2 !border-background !shadow-md"
+      />
       <EditableText
         id={id}
         text={d.text}
@@ -105,6 +111,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         className="text-xs leading-snug whitespace-pre-wrap break-words w-full h-full overflow-hidden"
         placeholder="Nota…"
       />
+
     </div>
   );
 });
