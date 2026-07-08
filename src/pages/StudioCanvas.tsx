@@ -16,6 +16,8 @@ import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
 import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
 import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
 import { autoLayout, isValidStudioConnection, KIND_COLORS } from "@/lib/studioAutoLayout";
+import { StudioRunLogPanel } from "@/components/studio/canvas/StudioRunLogPanel";
+import { StudioCostDialog } from "@/components/studio/canvas/StudioCostDialog";
 
 const nodeTypes = { block: CanvasBlockNode };
 
