@@ -501,6 +501,29 @@ function InnerMap({ projects }: { projects: any[] }) {
     await supabase.from(annTable).update({ text }).eq("id", annId);
   }, []);
 
+  const updateAnnotationStyle = useCallback(async (id: string, patch: Partial<NonNullable<AnnotationData["style"]>>) => {
+    const annId = id.startsWith(ANN_PREFIX) ? id.slice(ANN_PREFIX.length) : id;
+    let next: AnnotationData["style"] | undefined;
+    setAnnotations(list => list.map(a => {
+      if (a.id !== annId) return a;
+      next = { ...(a.style || {}), ...patch };
+      return { ...a, style: next };
+    }));
+    if (next) await supabase.from(annTable).update({ style: next }).eq("id", annId);
+  }, []);
+
+  const uploadReelImage = useCallback(async (id: string) => {
+    if (!mapId) return;
+    const file = await pickImageFile();
+    if (!file) return;
+    toast.loading("Enviando imagem...", { id: "reel-img" });
+    const url = await uploadMapImage(mapId, file);
+    if (!url) { toast.dismiss("reel-img"); return; }
+    await updateAnnotationStyle(id, { thumb: url, thumb_proxy: undefined });
+    toast.success("Imagem adicionada", { id: "reel-img" });
+  }, [mapId, updateAnnotationStyle]);
+
+
   // Merge annotations into React Flow nodes whenever they (or edit state) change.
   useEffect(() => {
     setNodes(nds => {
@@ -526,12 +549,13 @@ function InnerMap({ projects }: { projects: any[] }) {
             style: a.style || {},
             editingId: editingAnnotationId,
             onTextChange: updateAnnotationText,
+            onUploadImage: a.kind === "reel" ? uploadReelImage : undefined,
           } as unknown as Record<string, unknown>,
         } as Node;
       });
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
-  }, [annotations, editingAnnotationId, updateAnnotationText]);
+  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage]);
 
   const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;

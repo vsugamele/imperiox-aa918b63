@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 function normalizeReelUrl(url: string): string {
@@ -35,6 +35,7 @@ export interface AnnotationData {
     description?: string;
   };
   onTextChange?: (id: string, text: string) => void;
+  onUploadImage?: (id: string) => void;
   editingId?: string | null;
 }
 
@@ -281,28 +282,41 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
           style={{ background: `${platformColor}25`, color: platformColor, border: `1px solid ${platformColor}55` }}>
           <PlatformIcon className="h-2.5 w-2.5" /> {platform}
         </div>
-        {url && (
-          <div className="absolute top-1.5 right-1.5 flex gap-1">
+        <div className="absolute top-1.5 right-1.5 flex gap-1">
+          {d.onUploadImage && (
             <button
               type="button"
               onMouseDown={stopBubble}
-              onClick={copyLink}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); d.onUploadImage?.(id); }}
               className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
-              title="Copiar link"
+              title="Enviar imagem"
             >
-              <Copy className="h-3 w-3" />
+              <ImagePlus className="h-3 w-3" />
             </button>
-            <button
-              type="button"
-              onMouseDown={stopBubble}
-              onClick={openReel}
-              className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
-              title="Abrir reel"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </button>
-          </div>
-        )}
+          )}
+          {url && (
+            <>
+              <button
+                type="button"
+                onMouseDown={stopBubble}
+                onClick={copyLink}
+                className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+                title="Copiar link"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onMouseDown={stopBubble}
+                onClick={openReel}
+                className="nodrag nopan p-1 rounded bg-black/50 hover:bg-black/80 text-white"
+                title="Abrir reel"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <div className="px-2 py-1.5 bg-[#0a0809] border-t border-border/40">
         {author && <div className="text-[10px] text-primary/80 font-serif truncate">{author}</div>}
