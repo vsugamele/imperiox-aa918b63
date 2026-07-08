@@ -555,16 +555,27 @@ function InnerMap({ projects }: { projects: any[] }) {
   const submitReels = useCallback(async (baseX: number, baseY: number) => {
     const urls = reelInput.split(/\s+/).map(s => s.trim()).filter(u => /^https?:\/\//i.test(u));
     if (!urls.length) { toast.error("Cole ao menos um link válido"); return; }
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
+    toast.loading(`Buscando preview de ${urls.length} link(s)...`, { id: "reel-preview" });
+    await Promise.all(urls.map(async (url, i) => {
       const platform = detectReelPlatform(url);
-      const author = extractReelAuthor(url);
-      const thumb = extractReelThumb(url);
+      let author = extractReelAuthor(url);
+      let thumb = extractReelThumb(url);
+      let title: string | undefined;
+      let description: string | undefined;
+      try {
+        const { data } = await supabase.functions.invoke("link-preview", { body: { url } });
+        if (data) {
+          thumb = data.thumb || thumb;
+          author = data.author || author;
+          title = data.title;
+          description = data.description;
+        }
+      } catch (e) { console.warn("link-preview falhou", e); }
       const col = i % 4;
       const row = Math.floor(i / 4);
-      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb }, "");
-    }
-    toast.success(`${urls.length} reel(s) adicionado(s)`);
+      await addAnnotation("reel", baseX + col * 240, baseY + row * 340, { url, platform, author, thumb, title, description }, "");
+    }));
+    toast.success(`${urls.length} reel(s) adicionado(s)`, { id: "reel-preview" });
     setReelInput("");
     setReelDialog(null);
   }, [reelInput, addAnnotation]);

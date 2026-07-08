@@ -18,6 +18,8 @@ export interface AnnotationData {
     platform?: "instagram" | "tiktok" | "youtube" | "other";
     thumb?: string;
     author?: string;
+    title?: string;
+    description?: string;
   };
   onTextChange?: (id: string, text: string) => void;
   editingId?: string | null;
@@ -197,17 +199,31 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
   const platform = d.style?.platform || "other";
   const thumb = d.style?.thumb;
   const author = d.style?.author;
+  const title = d.style?.title;
   const PlatformIcon = platform === "instagram" ? Instagram : platform === "youtube" ? Youtube : platform === "tiktok" ? Music2 : Play;
   const platformColor = platform === "instagram" ? "#e1306c" : platform === "youtube" ? "#ff0033" : platform === "tiktok" ? "#25f4ee" : "#c9922a";
+  const openReel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!url) return;
+    // Escapa do iframe do preview quando possível
+    try { (window.top || window).open(url, "_blank", "noopener,noreferrer"); }
+    catch { window.open(url, "_blank", "noopener,noreferrer"); }
+  };
   return (
     <div
       {...hoverProps}
       className="w-full h-full rounded-lg relative overflow-hidden bg-[#0a0809] border border-border/60 shadow-lg flex flex-col"
     >
       <NodeResizer isVisible={resizeVisible} minWidth={160} minHeight={200} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
-      <div className="relative flex-1 bg-gradient-to-br from-black/60 to-black/20 flex items-center justify-center overflow-hidden">
+      <div
+        className="relative flex-1 bg-gradient-to-br from-black/60 to-black/20 flex items-center justify-center overflow-hidden cursor-pointer"
+        onMouseDown={url ? stopBubble : undefined}
+        onClick={url ? openReel : undefined}
+        title={url ? "Abrir link original" : undefined}
+      >
         {thumb ? (
-          <img src={thumb} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <PlatformIcon className="h-10 w-10 opacity-40" style={{ color: platformColor }} />
         )}
@@ -216,24 +232,26 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
           <PlatformIcon className="h-2.5 w-2.5" /> {platform}
         </div>
         {url && (
-          <a
-            href={url} target="_blank" rel="noreferrer"
-            onMouseDown={stopBubble} onClick={stopBubble}
+          <button
+            type="button"
+            onMouseDown={stopBubble}
+            onClick={openReel}
             className="nodrag nopan absolute top-1.5 right-1.5 p-1 rounded bg-black/50 hover:bg-black/80 text-white"
             title="Abrir reel"
           >
             <ExternalLink className="h-3 w-3" />
-          </a>
+          </button>
         )}
       </div>
       <div className="px-2 py-1.5 bg-[#0a0809] border-t border-border/40">
         {author && <div className="text-[10px] text-primary/80 font-serif truncate">{author}</div>}
+        {title && <div className="text-[11px] text-foreground font-medium leading-tight line-clamp-2 mt-0.5">{title}</div>}
         <EditableText
           id={id}
           text={d.text}
           editing={editing}
           onDone={(v) => d.onTextChange?.(id, v)}
-          className="text-[11px] leading-snug text-muted-foreground whitespace-pre-wrap break-words max-h-16 overflow-hidden"
+          className="text-[11px] leading-snug text-muted-foreground whitespace-pre-wrap break-words max-h-12 overflow-hidden mt-0.5"
           placeholder="Anote o que está gostando…"
         />
       </div>
