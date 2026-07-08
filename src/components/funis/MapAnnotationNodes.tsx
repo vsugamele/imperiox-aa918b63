@@ -210,7 +210,7 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
   const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   const url = d.style?.url || "";
   const platform = d.style?.platform || "other";
-  const thumb = d.style?.thumb;
+  const thumb = d.style?.thumb_proxy || d.style?.thumb;
   const author = d.style?.author;
   const title = d.style?.title;
   const PlatformIcon = platform === "instagram" ? Instagram : platform === "youtube" ? Youtube : platform === "tiktok" ? Music2 : Play;
