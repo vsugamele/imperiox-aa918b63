@@ -52,6 +52,7 @@ const Recuperacao = lazy(() => import("./pages/Recuperacao"));
 const Cohort = lazy(() => import("./pages/Cohort"));
 const Gerenciador = lazy(() => import("./pages/Gerenciador"));
 const Studio = lazy(() => import("./pages/Studio"));
+const StudioCanvas = lazy(() => import("./pages/StudioCanvas"));
 const Swipe = lazy(() => import("./pages/Swipe"));
 const Imperius = lazy(() => import("./pages/Imperius"));
 const Campanhas = lazy(() => import("./pages/Campanhas"));
