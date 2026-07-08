@@ -42,7 +42,8 @@ import {
   Octagon,
   LogOut,
   CheckCircle2,
-  Plus
+  Plus,
+  ChevronLeft,
 } from "lucide-react";
 import type { Acao } from "./FlowEditor";
 
