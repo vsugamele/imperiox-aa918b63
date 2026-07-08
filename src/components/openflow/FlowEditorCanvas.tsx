@@ -492,7 +492,7 @@ function acoesToNodesEdges(
       const jumpVal = acao.condition_jump_steps || acao.jump_steps || acao.else_skip || 1;
       const jumpTargetIdx = i + jumpVal;
       if (jumpTargetIdx < acoes.length) {
-        const jumpTargetId = acoes[jumpTargetIdx].id || `step-${jumpTargetIdx}`;
+        const jumpTargetId = resolvedIds[jumpTargetIdx];
         const isAb = acao.tipo === "ab_split";
         const isSem = acao.tipo === "semantic_router";
         const isBh = acao.tipo === "business_hours_split";
