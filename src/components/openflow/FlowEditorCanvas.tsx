@@ -413,7 +413,7 @@ function acoesToNodesEdges(
 
     // ── SEQUENTIAL CONNECTIONS ──
     // Determine the source node for the sequential connection
-    let sourceId = i === 0 ? "trigger" : (acoes[i - 1].id || `step-${i - 1}`);
+    let sourceId = i === 0 ? "trigger" : resolvedIds[i - 1];
     
     // If the action has an explicit next_id, we'll use that for the connection
     // But for now we still support the legacy sequential flow by default if no explicit connection exists
