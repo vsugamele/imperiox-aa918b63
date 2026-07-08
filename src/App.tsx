@@ -181,7 +181,8 @@ const App = () => (
                 <Route path="recuperacao" element={<Recuperacao />} />
                 <Route path="cohort" element={<Cohort />} />
                 <Route path="gerenciador" element={<Gerenciador />} />
-                <Route path="studio" element={<Studio />} />
+                <Route path="studio" element={<StudioCanvas />} />
+                <Route path="studio/legado" element={<Studio />} />
                 <Route path="swipe" element={<Swipe />} />
                 <Route path="imperius" element={<Imperius />} />
                 <Route path="assistente" element={<Assistente />} />
