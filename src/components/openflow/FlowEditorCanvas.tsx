@@ -348,10 +348,28 @@ function acoesToNodesEdges(
     },
   });
 
+  // Resolve unique node ids (protects React Flow from silently dropping duplicates)
+  const seen = new Set<string>(["trigger"]);
+  const resolvedIds: string[] = acoes.map((acao: any, i) => {
+    let candidate = acao.id || `step-${i}`;
+    if (seen.has(candidate)) {
+      const base = candidate;
+      let n = 2;
+      while (seen.has(`${base}__${n}`)) n++;
+      candidate = `${base}__${n}`;
+      if (typeof console !== "undefined") {
+        console.warn(`[OpenFlow] ID duplicado no bloco #${i + 1} (${base}) — renomeado para ${candidate}`);
+      }
+    }
+    seen.add(candidate);
+    return candidate;
+  });
+
   // 2. Add Action Nodes
   acoes.forEach((acao: any, i) => {
-    const id = acao.id || `step-${i}`;
+    const id = resolvedIds[i];
     let label = acao.template || acao.webhook_url || acao.tag || "";
+    
     
     if (acao.tipo === "ia_message") {
       label = `Objetivo: ${acao.template}`;
@@ -395,7 +413,7 @@ function acoesToNodesEdges(
 
     // ── SEQUENTIAL CONNECTIONS ──
     // Determine the source node for the sequential connection
-    let sourceId = i === 0 ? "trigger" : (acoes[i - 1].id || `step-${i - 1}`);
+    let sourceId = i === 0 ? "trigger" : resolvedIds[i - 1];
     
     // If the action has an explicit next_id, we'll use that for the connection
     // But for now we still support the legacy sequential flow by default if no explicit connection exists
@@ -474,7 +492,7 @@ function acoesToNodesEdges(
       const jumpVal = acao.condition_jump_steps || acao.jump_steps || acao.else_skip || 1;
       const jumpTargetIdx = i + jumpVal;
       if (jumpTargetIdx < acoes.length) {
-        const jumpTargetId = acoes[jumpTargetIdx].id || `step-${jumpTargetIdx}`;
+        const jumpTargetId = resolvedIds[jumpTargetIdx];
         const isAb = acao.tipo === "ab_split";
         const isSem = acao.tipo === "semantic_router";
         const isBh = acao.tipo === "business_hours_split";
@@ -525,7 +543,7 @@ function acoesToNodesEdges(
     ) {
       const elseTargetIdx = i + acao.condition_else_jump_steps;
       if (elseTargetIdx < acoes.length) {
-        const elseTargetId = acoes[elseTargetIdx].id || `step-${elseTargetIdx}`;
+        const elseTargetId = resolvedIds[elseTargetIdx];
         let labelText = "Se Não";
         if (stepStats) {
           const src = stepStats[i];
@@ -569,7 +587,7 @@ function acoesToNodesEdges(
             id: `e-ai-route-${id}-${rIdx}`,
             source: id,
             sourceHandle: `route-${rIdx}`,
-            target: `step-${jumpTarget}`,
+            target: resolvedIds[jumpTarget],
             label,
             style: { stroke: "#a855f7", strokeWidth: 2, strokeDasharray: "4,4" },
             labelStyle: { fill: "#a855f7", fontSize: 9, fontWeight: "bold" },
@@ -596,7 +614,7 @@ function acoesToNodesEdges(
       edges.push({
         id: `e-loop-${id}`,
         source: id,
-        target: targetIdx === 0 ? "trigger" : `step-${targetIdx}`,
+        target: targetIdx === 0 ? "trigger" : resolvedIds[targetIdx] ?? `step-${targetIdx}`,
         label,
         style: { stroke: "#eab308", strokeWidth: 2, strokeDasharray: "4,4" },
         labelStyle: { fill: "#eab308", fontSize: 8, fontWeight: "bold" },
@@ -780,16 +798,49 @@ export function FlowEditorCanvas({
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
+        <Panel position="top-right" className="m-3 pointer-events-auto flex items-center gap-2">
+          <div
+            className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${
+              nodes.length - 1 < acoes.length
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+                : "bg-slate-900/90 border-slate-800 text-slate-300"
+            }`}
+            title={
+              nodes.length - 1 < acoes.length
+                ? "Alguns blocos tinham IDs duplicados. Corrigimos no canvas — duplique/edite novamente para persistir."
+                : "Todos os blocos da lista estão no canvas"
+            }
+          >
+            {nodes.length - 1}/{acoes.length} blocos
+          </div>
+          <FitViewButton />
+        </Panel>
+
         {/* Sidebar de Elementos + Painéis Estratégicos */}
         <Panel position="top-left" className="m-3 pointer-events-auto">
           <FlowSidebar
             flowObjective={flowObjective}
             onUpdateObjective={onUpdateObjective}
-            onAddAcao={(tipo) => onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao])}
+            onAddAcao={(tipo) => onChange([...acoes, { id: crypto.randomUUID(), tipo, template: "", delay_min: 0 } as Acao])}
           />
         </Panel>
       </ReactFlow>
     </div>
+  );
+}
+
+// Botão que recentraliza a viewport nos nós atuais
+function FitViewButton() {
+  const rf = useReactFlow();
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      className="h-7 text-[10px] bg-slate-900/90 border border-slate-800 hover:bg-slate-800"
+      onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}
+    >
+      Ajustar à tela
+    </Button>
   );
 }
 

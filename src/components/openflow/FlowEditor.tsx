@@ -679,10 +679,14 @@ export function FlowEditor({
 
   const duplicateAcao = (idx: number) => {
     const original = acoes[idx];
-    const cloned: Acao = JSON.parse(JSON.stringify(original));
+    const cloned: any = JSON.parse(JSON.stringify(original));
+    cloned.id = crypto.randomUUID();
+    delete cloned.next_id;
+    delete cloned.true_next_id;
+    delete cloned.false_next_id;
     if (cloned.position_x !== undefined) cloned.position_x += 40;
     if (cloned.position_y !== undefined) cloned.position_y += 40;
-    
+
     const updated = [...acoes];
     updated.splice(idx + 1, 0, cloned);
     onChange(updated);
@@ -1479,7 +1483,11 @@ export function FlowEditor({
                     title="Duplicar etapa"
                     onClick={() => {
                       const updated = [...acoes];
-                      const clone = JSON.parse(JSON.stringify(acoes[selectedIdx]));
+                      const clone: any = JSON.parse(JSON.stringify(acoes[selectedIdx]));
+                      clone.id = crypto.randomUUID();
+                      delete clone.next_id;
+                      delete clone.true_next_id;
+                      delete clone.false_next_id;
                       delete clone.position_x;
                       delete clone.position_y;
                       updated.splice(selectedIdx + 1, 0, clone);
