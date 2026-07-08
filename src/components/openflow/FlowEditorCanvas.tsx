@@ -308,6 +308,8 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
         </div>
       )}
 
+      </div>
+
       {/* Output port for sequential flow */}
       <Handle
         type="source"
