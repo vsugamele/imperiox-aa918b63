@@ -35104,6 +35104,93 @@ export type Database = {
           },
         ]
       }
+      orion_cosmic_habits: {
+        Row: {
+          best_streak: number
+          checkins: Json
+          completed: boolean
+          created_at: string
+          duration_days: number
+          element: string | null
+          emoji: string | null
+          habit_key: string
+          id: string
+          last_checkin: string | null
+          streak: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_streak?: number
+          checkins?: Json
+          completed?: boolean
+          created_at?: string
+          duration_days?: number
+          element?: string | null
+          emoji?: string | null
+          habit_key: string
+          id?: string
+          last_checkin?: string | null
+          streak?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_streak?: number
+          checkins?: Json
+          completed?: boolean
+          created_at?: string
+          duration_days?: number
+          element?: string | null
+          emoji?: string | null
+          habit_key?: string
+          id?: string
+          last_checkin?: string | null
+          streak?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orion_crm_exports: {
         Row: {
           created_at: string
