@@ -23,6 +23,7 @@ import { ASSET_PACKAGES } from "./assetPackages";
 import { ProductImageMenu } from "./ProductImageMenu";
 import { FlowGeneratorDialog } from "./FlowGeneratorDialog";
 import { ImportProductDialog } from "./ImportProductDialog";
+import { QuickCreateProductDialog } from "./QuickCreateProductDialog";
 import { EcosystemDrawer } from "./EcosystemDrawer";
 import { ProductChecklistDrawer } from "./ProductChecklistDrawer";
 import { ChecklistFloatingBox } from "./ChecklistFloatingBox";
@@ -121,6 +122,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
   const [flowGenOpen, setFlowGenOpen] = useState(false);
   const [autopilotOpen, setAutopilotOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [ecosystemOpen, setEcosystemOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [flowGenPreset, setFlowGenPreset] = useState<{ objetivo?: string; canal?: string; tom?: string; title?: string } | null>(null);
@@ -1218,11 +1220,41 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         />
       )}
 
-      {!currentProduct && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-sm text-muted-foreground">Adicione produtos no Briefing deste projeto.</p>
+      {!currentProduct && projectId && (
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-card/80 backdrop-blur border border-border/60 rounded-xl p-6 text-center shadow-xl">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <Package className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-serif text-lg mb-1">Nenhum produto ainda</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              O produto é a base do Hub, dos funis e do checklist. Comece criando um agora.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button className="w-full gap-2" onClick={() => setQuickCreateOpen(true)}>
+                <Sparkles className="h-4 w-4" /> Criar produto rápido
+              </Button>
+              <Button variant="outline" className="w-full gap-2" onClick={() => setImportOpen(true)}>
+                <Download className="h-4 w-4" /> Importar de uma página
+              </Button>
+              <a
+                href={`/projetos/${projectId}?tab=briefing`}
+                className="text-[11px] text-muted-foreground hover:text-primary mt-1"
+              >
+                ou abrir Briefing completo →
+              </a>
+            </div>
+          </div>
         </div>
       )}
+
+      <QuickCreateProductDialog
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        projectId={projectId}
+        onCreated={async () => { await onProjectsReload?.(); setProductIdx(0); }}
+      />
+
 
       <AssetDetailDrawer
         open={!!drawerAsset}
