@@ -43,6 +43,12 @@ const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
 const resizerLineClassName = "nodrag nopan !pointer-events-auto !border-primary/70 !border-2 !z-50";
 const resizerHandleClassName = "nodrag nopan !pointer-events-auto !w-5 !h-5 !rounded-sm !bg-primary !border-2 !border-background !shadow-lg !z-50";
+const shouldResizePositive = (_event: unknown, params: { width: number; height: number }) => (
+  Number.isFinite(params.width) &&
+  Number.isFinite(params.height) &&
+  params.width > 0 &&
+  params.height > 0
+);
 
 function useResizeVisibility(selected?: boolean, editing = false) {
   const [hovered, setHovered] = useState(false);
@@ -113,7 +119,7 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
         className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5"
         style={{ border: `1px dashed ${color}66`, background: bg, pointerEvents: "none" }}
       />
-      <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} shouldResize={shouldResizePositive} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
 
       {/* Faixas interativas nas 4 bordas (10px) */}
       <div className={edgeBase} style={{ top: 0, left: 0, right: 0, height: 10, cursor: "move" }} title="Arraste para mover · clique direito para opções" />
@@ -160,6 +166,7 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         isVisible={resizeVisible}
         minWidth={100}
         minHeight={60}
+        shouldResize={shouldResizePositive}
         lineClassName={resizerLineClassName}
         handleClassName={resizerHandleClassName}
       />
@@ -182,7 +189,7 @@ export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
   const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
   return (
     <div {...hoverProps} className="w-full h-full relative flex items-center">
-      <NodeResizer isVisible={resizeVisible} minWidth={80} minHeight={30} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <NodeResizer isVisible={resizeVisible} minWidth={80} minHeight={30} shouldResize={shouldResizePositive} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
       <EditableText
         id={id}
         text={d.text}
@@ -210,7 +217,7 @@ export const AnnotationArrowNode = memo(({ id, data, selected }: NodeProps & { w
   const headId = `ah-${id}`;
   return (
     <div {...hoverProps} className="w-full h-full relative">
-      <NodeResizer isVisible={resizeVisible} minWidth={40} minHeight={20} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <NodeResizer isVisible={resizeVisible} minWidth={40} minHeight={20} shouldResize={shouldResizePositive} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
         {showHead && (
           <defs>
@@ -291,7 +298,7 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
       {...hoverProps}
       className="group w-full h-full rounded-xl relative overflow-hidden bg-[#0a0809] border border-white/10 shadow-2xl flex flex-col transition-colors duration-500 hover:border-[#c9922a]/40"
     >
-      <NodeResizer isVisible={resizeVisible} minWidth={160} minHeight={200} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <NodeResizer isVisible={resizeVisible} minWidth={160} minHeight={200} shouldResize={shouldResizePositive} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
 
       {/* Header editorial */}
       <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-b border-white/5 shrink-0">
