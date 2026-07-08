@@ -41,8 +41,8 @@ export interface AnnotationData {
 
 const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
-const resizerLineClassName = "nodrag nopan !border-primary/70 !border-2 !z-50";
-const resizerHandleClassName = "nodrag nopan !w-5 !h-5 !rounded-sm !bg-primary !border-2 !border-background !shadow-lg !z-50";
+const resizerLineClassName = "nodrag nopan !pointer-events-auto !border-primary/70 !border-2 !z-50";
+const resizerHandleClassName = "nodrag nopan !pointer-events-auto !w-5 !h-5 !rounded-sm !bg-primary !border-2 !border-background !shadow-lg !z-50";
 
 function useResizeVisibility(selected?: boolean, editing = false) {
   const [hovered, setHovered] = useState(false);
