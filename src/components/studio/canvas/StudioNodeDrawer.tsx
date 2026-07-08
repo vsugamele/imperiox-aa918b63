@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Trash2, ExternalLink } from "lucide-react";
+import { Sparkles, Trash2, ExternalLink, Copy } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   onGenerate: (id: string) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: any) => Promise<void>;
+  onDuplicate?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
@@ -37,7 +38,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
@@ -142,12 +143,23 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
-          <button
-            onClick={() => { onDelete(node.id); onClose(); }}
-            className="w-full text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center gap-1 py-2 border border-rose-500/30 rounded"
-          >
-            <Trash2 className="h-3 w-3" /> Remover bloco
-          </button>
+          <div className="flex gap-2">
+            {onDuplicate && (
+              <button
+                onClick={() => { onDuplicate(node.id); onClose(); }}
+                className="flex-1 text-xs text-muted-foreground hover:text-primary flex items-center justify-center gap-1 py-2 border border-border/60 rounded"
+                title="Duplicar (Ctrl+D)"
+              >
+                <Copy className="h-3 w-3" /> Duplicar
+              </button>
+            )}
+            <button
+              onClick={() => { onDelete(node.id); onClose(); }}
+              className="flex-1 text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center gap-1 py-2 border border-rose-500/30 rounded"
+            >
+              <Trash2 className="h-3 w-3" /> Remover
+            </button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

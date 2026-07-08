@@ -1,6 +1,7 @@
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { CANVAS_BLOCKS } from "./blockTypes";
+import { KIND_COLORS } from "@/lib/studioAutoLayout";
 import { Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 
 export function CanvasBlockNode({ data, selected }: NodeProps) {
@@ -11,13 +12,15 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
   const output = d.output || {};
   const preview = output.url || output.image_url || output.video_url || output.audio_url;
 
+  const kindColor = KIND_COLORS[d.tipo] || "#c9922a";
+
   if (isProduct) {
     return (
       <div className={cn(
         "rounded-xl border-2 border-primary bg-gradient-to-br from-primary/20 to-primary/5 px-4 py-3 min-w-[200px] text-center shadow-lg shadow-primary/20",
         selected && "ring-2 ring-primary"
       )}>
-        <Handle type="source" position={Position.Right} className="!bg-primary !w-2.5 !h-2.5" />
+        <Handle type="source" position={Position.Right} style={{ background: kindColor, width: 10, height: 10 }} />
         <div className="text-2xl mb-1">🎯</div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">Produto</div>
         <div className="font-display text-base font-bold text-primary">{d.titulo || "Sem produto"}</div>
@@ -29,10 +32,13 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
     <div className={cn(
       "rounded-lg border-2 p-2.5 min-w-[180px] max-w-[220px] bg-[#0a0608]/95 backdrop-blur transition",
       meta?.color || "border-border/60 bg-background/60",
-      selected && "ring-2 ring-primary shadow-lg shadow-primary/20"
+      selected && "ring-2 ring-primary shadow-lg shadow-primary/20",
+      status === "gerando" && "animate-pulse ring-2 ring-blue-400/60 shadow-lg shadow-blue-400/30",
+      status === "erro" && "ring-1 ring-rose-500/60",
     )}>
-      <Handle type="target" position={Position.Left} className="!bg-primary !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Right} className="!bg-primary !w-2.5 !h-2.5" />
+      <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />
+      <Handle type="source" position={Position.Right} style={{ background: kindColor, width: 10, height: 10 }} />
+
 
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-base">{meta?.icon}</span>

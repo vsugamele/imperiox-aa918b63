@@ -9,12 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Sparkles, Clapperboard } from "lucide-react";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { StudioBlockLibrary } from "@/components/studio/canvas/StudioBlockLibrary";
 import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
 import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
 import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
+import { autoLayout, isValidStudioConnection, KIND_COLORS } from "@/lib/studioAutoLayout";
 
 const nodeTypes = { block: CanvasBlockNode };
 
@@ -109,10 +110,12 @@ function InnerCanvas() {
           },
         })),
       ];
-      const flowEdges: Edge[] = ((edgeRows || []) as any[]).map(e => ({
-        id: e.id, source: e.source_id, target: e.target_id, animated: true,
-        style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
-      }));
+      const nodeTipoMap = new Map<string, string>();
+      ((nodeRows || []) as any[]).forEach(n => nodeTipoMap.set(n.id, n.tipo));
+      const flowEdges: Edge[] = ((edgeRows || []) as any[]).map(e => {
+        const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+        return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+      });
 
       setNodes(flowNodes);
       setEdges(flowEdges);
@@ -157,12 +160,27 @@ function InnerCanvas() {
     return data.id;
   };
 
+  const edgeStyleFor = useCallback((sourceId: string) => {
+    const src = rf.getNode(sourceId);
+    const tipo = (src?.data as any)?.tipo || "prompt";
+    const color = KIND_COLORS[tipo] || "hsl(var(--primary))";
+    return { stroke: color, strokeWidth: 2 };
+  }, [rf]);
+
   const onConnect = useCallback(async (c: Connection) => {
     if (!c.source || !c.target) return;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = (src?.data as any)?.tipo;
+    const tgtTipo = (tgt?.data as any)?.tipo;
+    if (srcTipo && tgtTipo && !isValidStudioConnection(srcTipo, tgtTipo)) {
+      toast.error(`Conexão inválida: ${srcTipo} → ${tgtTipo}`);
+      return;
+    }
     const newId = c.source === "product-hub" ? `hub-${c.target}` : await persistEdge(c.source, c.target);
     if (!newId && c.source !== "product-hub") return;
-    setEdges(eds => addEdge({ ...c, id: newId as string, animated: true, style: { stroke: "hsl(var(--primary))", strokeWidth: 2 } }, eds));
-  }, [workflowId, setEdges]);
+    setEdges(eds => addEdge({ ...c, id: newId as string, animated: true, style: edgeStyleFor(c.source!) }, eds));
+  }, [workflowId, setEdges, rf, edgeStyleFor]);
 
   const onEdgesDelete = useCallback(async (removed: Edge[]) => {
     for (const e of removed) {
@@ -249,7 +267,11 @@ function InnerCanvas() {
       const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
         workflow_id: workflowId, source_id: src, target_id: tgt,
       }).select("id").single();
-      if (data) newEdges.push({ id: data.id, source: src, target: tgt, animated: true, style: { stroke: "hsl(var(--primary))", strokeWidth: 2 } });
+      if (data) {
+        const srcTipo = created.find(c => c.id === src)?.tipo || "prompt";
+        const color = KIND_COLORS[srcTipo] || "hsl(var(--primary))";
+        newEdges.push({ id: data.id, source: src, target: tgt, animated: true, style: { stroke: color, strokeWidth: 2 } });
+      }
     }
     setNodes(prev => [...prev, ...newNodes]);
     setEdges(prev => [...prev, ...newEdges]);
@@ -267,11 +289,70 @@ function InnerCanvas() {
     setNodes(prev => prev.map(x => x.id === id ? { ...x, data: { ...x.data, ...patch } } : x));
   };
 
-  // wire generate onto nodes' data
+  const duplicateNode = useCallback(async (id: string) => {
+    if (!workflowId) return;
+    const src = rf.getNode(id);
+    if (!src || id === "product-hub") return;
+    const d: any = src.data;
+    const position = { x: (src.position?.x || 0) + 40, y: (src.position?.y || 0) + 40 };
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: d.tipo,
+      titulo: (d.titulo || "") + " (cópia)",
+      config: d.config || {},
+      position,
+      status: "pendente",
+    }).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: data.tipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    toast.success("Bloco duplicado");
+  }, [workflowId, rf, setNodes]);
+
+  const organize = useCallback(async () => {
+    const laid = autoLayout(nodes, edges, "LR");
+    setNodes(laid);
+    // persist
+    for (const n of laid) {
+      if (n.id === "product-hub") continue;
+      await supabase.from("imphq_studio_canvas_nodes").update({ position: n.position }).eq("id", n.id);
+    }
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 50);
+    toast.success("Canvas organizado");
+  }, [nodes, edges, setNodes, rf]);
+
+  // Atalhos: Ctrl/Cmd+D duplica nó selecionado
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        const sel = nodes.find(n => n.selected);
+        if (sel && sel.id !== "product-hub") {
+          e.preventDefault();
+          duplicateNode(sel.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nodes, duplicateNode]);
+
+  const isValidConnection = useCallback((c: Connection | Edge) => {
+    if (!c.source || !c.target) return false;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = (src?.data as any)?.tipo;
+    const tgtTipo = (tgt?.data as any)?.tipo;
+    if (!srcTipo || !tgtTipo) return true;
+    return isValidStudioConnection(srcTipo, tgtTipo);
+  }, [rf]);
+
+  // wire generate + duplicate onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate },
-  })), [nodes]);
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode },
+  })), [nodes, duplicateNode]);
 
   return (
     <div className="flex gap-3 h-[calc(100vh-140px)] p-4">
@@ -301,6 +382,9 @@ function InnerCanvas() {
             </Select>
           )}
           <div className="flex-1" />
+          <Button size="sm" variant="outline" onClick={organize} disabled={!workflowId || nodes.length < 2} className="h-8 text-xs gap-1.5" title="Reorganizar layout (dagre)">
+            <LayoutGrid className="h-3.5 w-3.5" /> Organizar
+          </Button>
           <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
@@ -327,7 +411,9 @@ function InnerCanvas() {
             onConnect={onConnect}
             onEdgesDelete={onEdgesDelete}
             onNodeClick={(_, n) => n.id !== "product-hub" && setDrawerNode(n)}
+            isValidConnection={isValidConnection}
             nodeTypes={nodeTypes}
+            deleteKeyCode={["Backspace", "Delete"]}
             fitView
             proOptions={{ hideAttribution: true }}
           >
@@ -344,6 +430,7 @@ function InnerCanvas() {
         onGenerate={(id) => { generate(id); }}
         onDelete={deleteNode}
         onUpdate={updateNode}
+        onDuplicate={duplicateNode}
       />
     </div>
   );
