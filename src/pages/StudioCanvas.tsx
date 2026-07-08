@@ -267,7 +267,11 @@ function InnerCanvas() {
       const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
         workflow_id: workflowId, source_id: src, target_id: tgt,
       }).select("id").single();
-      if (data) newEdges.push({ id: data.id, source: src, target: tgt, animated: true, style: { stroke: "hsl(var(--primary))", strokeWidth: 2 } });
+      if (data) {
+        const srcTipo = created.find(c => c.id === src)?.tipo || "prompt";
+        const color = KIND_COLORS[srcTipo] || "hsl(var(--primary))";
+        newEdges.push({ id: data.id, source: src, target: tgt, animated: true, style: { stroke: color, strokeWidth: 2 } });
+      }
     }
     setNodes(prev => [...prev, ...newNodes]);
     setEdges(prev => [...prev, ...newEdges]);
