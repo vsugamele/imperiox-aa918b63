@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FlowEditorCanvas } from "./FlowEditorCanvas";
+import { FlowLivePreview } from "./FlowLivePreview";
 import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
@@ -281,6 +282,13 @@ export function FlowEditor({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [livePreviewOpen, setLivePreviewOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:livePreviewOpen") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:livePreviewOpen", livePreviewOpen ? "1" : "0");
+  }, [livePreviewOpen]);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("openflow:inspectorCollapsed") === "1";
@@ -876,6 +884,16 @@ export function FlowEditor({
         >
           <MessageCircle className="h-3.5 w-3.5" />
           Simulador WhatsApp
+        </Button>
+        <Button
+          variant={livePreviewOpen ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setLivePreviewOpen((v) => !v)}
+          title="Preview ao vivo (bolhas de WhatsApp)"
+          className={`h-7 text-[10px] font-bold gap-1 rounded-lg ${livePreviewOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Preview ao vivo
         </Button>
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
         <Button
@@ -1488,6 +1506,11 @@ export function FlowEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── LIVE WHATSAPP PREVIEW ── */}
+      {livePreviewOpen && activeTab === "editor" && (
+        <FlowLivePreview acoes={acoes} triggerTipo={triggerTipo} onClose={() => setLivePreviewOpen(false)} />
       )}
 
       {/* ── RIGHT PROPERTIES DRAWER ── */}
