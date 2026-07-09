@@ -1168,6 +1168,8 @@ function InnerMap({ projects }: { projects: any[] }) {
           nds.forEach((n) => {
             if (n.id.startsWith(ANN_PREFIX)) {
               deleteAnnotation(n.id.slice(ANN_PREFIX.length));
+            } else {
+              deleteNodeById(n.id);
             }
           });
         }}
