@@ -1856,6 +1856,93 @@ export function FlowEditor({
                   </div>
                 )}
 
+                {/* quick_reply Fields */}
+                {acao.tipo === "quick_reply" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3">
+                      <p className="text-[10px] text-teal-300/90 leading-relaxed">
+                        🔘 <strong>Pergunta com Opções:</strong> envia a pergunta + opções numeradas no WhatsApp, aguarda a resposta do lead e salva a escolha em <code>{"{{"}{acao.capture_variable || "QUICK_CHOICE"}{"}}"}</code>. Aceita número ("1") ou texto contendo o label.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pergunta</Label>
+                      <Textarea
+                        value={acao.question || ""}
+                        onChange={e => updateAcao(selectedIdx, "question", e.target.value)}
+                        placeholder="Ex: Qual sua maior dificuldade hoje?"
+                        className="min-h-[60px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar escolha em</Label>
+                      <Input
+                        value={acao.capture_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "capture_variable", e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                        placeholder="QUICK_CHOICE"
+                        className="h-9 text-xs bg-background/50 border-border/80 font-mono uppercase"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Opções (até 9)</Label>
+                      {(Array.isArray(acao.options) ? acao.options : []).map((opt: any, oi: number) => (
+                        <div key={oi} className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground w-4">{oi + 1}.</span>
+                          <Input
+                            value={typeof opt === "string" ? opt : (opt?.label || "")}
+                            onChange={e => {
+                              const next = [...(acao.options || [])].map((o: any) => typeof o === "string" ? { label: o } : { ...o });
+                              next[oi] = { ...(next[oi] || {}), label: e.target.value };
+                              updateAcao(selectedIdx, "options", next);
+                            }}
+                            placeholder={`Opção ${oi + 1}`}
+                            className="h-8 text-xs bg-background/50 border-border/80 flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const next = [...(acao.options || [])];
+                              next.splice(oi, 1);
+                              updateAcao(selectedIdx, "options", next);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs border-dashed"
+                        disabled={(acao.options?.length || 0) >= 9}
+                        onClick={() => {
+                          const next = [...(acao.options || []), { label: "" }];
+                          updateAcao(selectedIdx, "options", next);
+                        }}
+                      >
+                        + Adicionar opção
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Timeout (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={acao.timeout_min ?? 1440}
+                        onChange={e => updateAcao(selectedIdx, "timeout_min", Math.max(1, parseInt(e.target.value) || 1440))}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                  </div>
+                )}
+
+
+
                 {/* generate_image Fields */}
                 {acao.tipo === "generate_image" && (
                   <div className="space-y-3">
