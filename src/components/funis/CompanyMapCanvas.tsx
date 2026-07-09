@@ -276,7 +276,17 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
   );
 }
 
-const nodeTypes = { mapnode: MapNodeCard, ...annotationNodeTypes };
+const nodeTypes = Object.freeze({
+  mapnode: MapNodeCard,
+  annotation_frame: annotationNodeTypes.annotation_frame,
+  annotation_note: annotationNodeTypes.annotation_note,
+  annotation_label: annotationNodeTypes.annotation_label,
+  annotation_arrow: annotationNodeTypes.annotation_arrow,
+  annotation_reel: annotationNodeTypes.annotation_reel,
+}) as any;
+
+// MiniMap node color resolver - stable ref
+const miniMapNodeColor = (n: any) => n?.data?.color || "#c9922a";
 
 interface MapAnnotation {
   id: string; map_id: string; kind: AnnotationKind;
@@ -1132,7 +1142,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       >
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
-        <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
+        <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />
       </ReactFlow>
 
       {/* Strategic gaps floating panel */}
