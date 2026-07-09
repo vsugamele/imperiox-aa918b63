@@ -1,7 +1,33 @@
 import { useEffect, useRef, useState, memo } from "react";
-import { NodeResizer, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon } from "lucide-react";
+import { NodeResizer, Handle, Position, type NodeProps } from "@xyflow/react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone } from "lucide-react";
 import { toast } from "sonner";
+
+// Small connection handles (source+target overlaid) shown on hover/selected — same visual on all four sides.
+function AnnotationHandles({ visible, color = "#c9922a" }: { visible: boolean; color?: string }) {
+  const base: React.CSSProperties = {
+    width: 10, height: 10, background: color, border: "2px solid #080607",
+    borderRadius: 999, opacity: visible ? 1 : 0, transition: "opacity 120ms",
+    pointerEvents: visible ? "auto" : "none",
+  };
+  const sides: { pos: Position; style: React.CSSProperties }[] = [
+    { pos: Position.Top, style: {} },
+    { pos: Position.Right, style: {} },
+    { pos: Position.Bottom, style: {} },
+    { pos: Position.Left, style: {} },
+  ];
+  return (
+    <>
+      {sides.map(s => (
+        <div key={`w-${s.pos}`} style={{ position: "absolute" }}>
+          <Handle id={`${s.pos}-t`} type="target" position={s.pos} style={base} />
+          <Handle id={`${s.pos}-s`} type="source" position={s.pos} style={base} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 
 function normalizeReelUrl(url: string): string {
   try {
