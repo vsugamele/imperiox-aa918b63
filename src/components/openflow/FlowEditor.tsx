@@ -91,6 +91,9 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string 
   assinatura_renovada: { label: "Assinatura Renovada", icon: "🔄", group: "Retenção" },
   trial_iniciado: { label: "Trial Iniciado", icon: "🆓", group: "Retenção" },
   tag_adicionada: { label: "Tag Adicionada", icon: "🏷️", group: "Lead" },
+  whatsapp_mensagem_recebida: { label: "Mensagem recebida no WhatsApp", icon: "💬", group: "WhatsApp" },
+  whatsapp_palavra_chave: { label: "Palavra-chave no WhatsApp", icon: "🔑", group: "WhatsApp" },
+  whatsapp_primeira_mensagem: { label: "Primeira mensagem do lead (WA)", icon: "🆕", group: "WhatsApp" },
 };
 
 const DYNAMIC_VARS = [
@@ -278,6 +281,13 @@ export function FlowEditor({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:inspectorCollapsed") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:inspectorCollapsed", inspectorCollapsed ? "1" : "0");
+  }, [inspectorCollapsed]);
 
   const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
 
@@ -1490,8 +1500,38 @@ export function FlowEditor({
           const isAbSplit = acao.tipo === "ab_split";
           const showPreview = previewIdx === selectedIdx;
 
+          if (inspectorCollapsed) {
+            return (
+              <div className="absolute top-0 right-0 h-full w-11 border-l border-border bg-slate-900/95 backdrop-blur-md z-30 flex flex-col items-center py-3 gap-3 shadow-2xl animate-slide-in">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Expandir propriedades"
+                  onClick={() => setInspectorCollapsed(false)}
+                  className="h-7 w-7 text-primary hover:bg-primary/10 rounded-full"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+                <div className="text-[10px] font-bold text-primary [writing-mode:vertical-rl] rotate-180 uppercase tracking-widest">
+                  #{selectedIdx + 1} · {acao.tipo}
+                </div>
+                <div className="flex-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Fechar"
+                  onClick={() => setSelectedIdx(null)}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-full"
+                >
+                  <Plus className="h-4 w-4 rotate-45" />
+                </Button>
+              </div>
+            );
+          }
+
           return (
             <div className="absolute top-0 right-0 w-80 h-full border-l border-border bg-slate-900/95 backdrop-blur-md z-30 flex flex-col shadow-2xl animate-slide-in select-text">
+
               
               {/* Drawer Header */}
               <div className="p-4 border-b border-border bg-card/50 flex items-center justify-between shrink-0">
@@ -1524,6 +1564,15 @@ export function FlowEditor({
                     className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
                   >
                     <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Minimizar painel"
+                    onClick={() => setInspectorCollapsed(true)}
+                    className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
