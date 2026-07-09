@@ -152,7 +152,16 @@ export default function LeadsSidebar({
             <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mt-4 mb-1 px-2 flex items-center justify-between">
               <span>Top tags</span>
               {tagFilter !== "all" && onTagFilter && (
-                <button onClick={() => onTagFilter("all")} className="text-gold hover:text-gold-light normal-case tracking-normal" title="Limpar filtro">limpar</button>
+                <span className="flex items-center gap-2">
+                  <Link
+                    to={`/leads/campanha/${encodeURIComponent(tagFilter)}${projectFilter && projectFilter !== "all" ? `?project=${projectFilter}` : ""}`}
+                    className="text-gold hover:text-gold-light normal-case tracking-normal flex items-center gap-0.5"
+                    title="Ver respostas da campanha"
+                  >
+                    ver campanha <ExternalLink className="h-2.5 w-2.5" />
+                  </Link>
+                  <button onClick={() => onTagFilter("all")} className="text-gold hover:text-gold-light normal-case tracking-normal" title="Limpar filtro">limpar</button>
+                </span>
               )}
             </p>
             {topTags.slice(0, 20).map(({ tag, count }) => {
