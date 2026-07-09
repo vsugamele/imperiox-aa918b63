@@ -138,6 +138,19 @@ export function useLeadTimeline(lead: AnyLead | null, automations: any[]) {
           });
         });
       }));
+      promises.push(supabase.from("imphq_lead_tag_history" as any).select("*").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(200).then(({ data }) => {
+        (data || []).forEach((t: any) => {
+          const added = t.action === "added";
+          events.push({
+            id: `tag_${t.id}`,
+            type: added ? "TagAdded" : "TagRemoved",
+            timestamp: t.created_at,
+            title: `🏷️ Tag ${added ? "adicionada" : "removida"}: ${t.tag}`,
+            subtitle: t.source ? `Origem: ${t.source}` : undefined,
+            details: { tag: t.tag, action: t.action, source: t.source, project_id: t.project_id },
+          });
+        });
+      }));
       await Promise.all(promises);
       if (cancelled) return;
       const unique = new Map(events.map(e => [e.id, e]));
