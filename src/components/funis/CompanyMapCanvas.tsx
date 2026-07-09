@@ -326,6 +326,7 @@ interface WaProvider {
 }
 
 function InnerMap({ projects }: { projects: any[] }) {
+  const annotationsRef = useRef<MapAnnotation[]>([]);
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -340,7 +341,14 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
-  const [annotations, setAnnotations] = useState<MapAnnotation[]>([]);
+  const [annotations, _setAnnotations] = useState<MapAnnotation[]>([]);
+  const setAnnotations = useCallback((updater: React.SetStateAction<MapAnnotation[]>) => {
+    _setAnnotations(prev => {
+      const next = typeof updater === "function" ? (updater as (p: MapAnnotation[]) => MapAnnotation[])(prev) : updater;
+      annotationsRef.current = next;
+      return next;
+    });
+  }, []);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
@@ -680,12 +688,16 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, [annotations]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const currAnns = annotationsRef.current;
+    const currRaws = rawNodesRef.current;
+    const nearlyEq = (a?: number, b?: number) => a != null && b != null && Math.abs(a - b) < 0.5;
+
     const normalizedChanges = changes.map((c: any) => {
       if (c.type !== "dimensions" || !c.dimensions) return c;
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       const min = isAnn
-        ? ANNOTATION_MIN_SIZE[annotations.find(a => a.id === rawId)?.kind || "frame"]
+        ? ANNOTATION_MIN_SIZE[currAnns.find(a => a.id === rawId)?.kind || "frame"]
         : { w: 1, h: 1 };
       return {
         ...c,
@@ -707,9 +719,14 @@ function InnerMap({ projects }: { projects: any[] }) {
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
         if (isAnn) {
+          const cur = currAnns.find(a => a.id === rawId);
+          if (nearlyEq(cur?.x, c.position.x) && nearlyEq(cur?.y, c.position.y)) return;
           setAnnotations(list => list.map(a => a.id === rawId ? { ...a, x: c.position.x, y: c.position.y } : a));
           await supabase.from(annTable).update({ x: c.position.x, y: c.position.y }).eq("id", rawId);
         } else {
+          const cur = currRaws.find(r => r.id === c.id);
+          const pos = (cur as any)?.position;
+          if (pos && nearlyEq(pos.x, c.position.x) && nearlyEq(pos.y, c.position.y)) return;
           await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
         }
       } else if (c.type === "position" && isAnn && c.position && resizingAnnotationIds.has(rawId)) {
@@ -721,18 +738,25 @@ function InnerMap({ projects }: { projects: any[] }) {
       }
       if (c.type === "dimensions" && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
         const min = isAnn
-          ? ANNOTATION_MIN_SIZE[annotations.find(a => a.id === rawId)?.kind || "frame"]
+          ? ANNOTATION_MIN_SIZE[currAnns.find(a => a.id === rawId)?.kind || "frame"]
           : { w: 1, h: 1 };
         const width = clampDimension(c.dimensions.width, min.w);
         const height = clampDimension(c.dimensions.height, min.h);
         if (width && height) {
           if (isAnn) {
             const pending = pendingAnnotationLayoutRef.current[rawId] || {};
+            const cur = currAnns.find(a => a.id === rawId);
             const patch = { ...pending, width, height };
             delete pendingAnnotationLayoutRef.current[rawId];
+            // Skip no-op writes (initial measurement etc.)
+            const dimsSame = nearlyEq(cur?.width, width) && nearlyEq(cur?.height, height);
+            const posSame = pending.x == null || (nearlyEq(cur?.x, pending.x) && nearlyEq(cur?.y, pending.y));
+            if (dimsSame && posSame) return;
             setAnnotations(list => list.map(a => a.id === rawId ? { ...a, ...patch } : a));
             await supabase.from(annTable).update(patch).eq("id", rawId);
           } else {
+            const cur = currRaws.find(r => r.id === c.id) as any;
+            if (nearlyEq(cur?.width, width) && nearlyEq(cur?.height, height)) return;
             setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
             await (supabase.from("imphq_company_map_nodes") as any).update({ width, height }).eq("id", c.id);
           }
@@ -745,7 +769,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         };
       }
     });
-  }, [annotations]);
+  }, []);
 
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
     setSelectedIds(sel.map(n => n.id));
@@ -1137,7 +1161,18 @@ function InnerMap({ projects }: { projects: any[] }) {
         multiSelectionKeyCode={["Meta", "Control"]}
         nodesDraggable
         selectNodesOnDrag={false}
-        deleteKeyCode={null}
+        deleteKeyCode={editingAnnotationId ? null : ["Delete", "Backspace"]}
+        snapToGrid
+        snapGrid={[10, 10]}
+        onNodesDelete={(nds) => {
+          nds.forEach((n) => {
+            if (n.id.startsWith(ANN_PREFIX)) {
+              deleteAnnotation(n.id.slice(ANN_PREFIX.length));
+            } else {
+              deleteNodeById(n.id);
+            }
+          });
+        }}
         fitView proOptions={{ hideAttribution: true }}
       >
         <Background color="#1f1d1e" gap={20} />
