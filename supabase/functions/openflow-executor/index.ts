@@ -1570,7 +1570,7 @@ Deno.serve(async (req) => {
                   tag,
                   action: "added",
                   source: "openflow",
-                  metadata: { automacao_id: auto.id, automacao_nome: auto.nome, step_index: i },
+
                 });
                 stepResult.status = "tag_added";
                 stepResult.tag = tag;
@@ -1606,7 +1606,7 @@ Deno.serve(async (req) => {
                   tag,
                   action: "removed",
                   source: "openflow",
-                  metadata: { automacao_id: auto.id, automacao_nome: auto.nome, step_index: i },
+
                 });
                 stepResult.status = "tag_removed";
                 stepResult.tag = tag;
