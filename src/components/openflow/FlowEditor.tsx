@@ -91,6 +91,9 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string 
   assinatura_renovada: { label: "Assinatura Renovada", icon: "🔄", group: "Retenção" },
   trial_iniciado: { label: "Trial Iniciado", icon: "🆓", group: "Retenção" },
   tag_adicionada: { label: "Tag Adicionada", icon: "🏷️", group: "Lead" },
+  whatsapp_mensagem_recebida: { label: "Mensagem recebida no WhatsApp", icon: "💬", group: "WhatsApp" },
+  whatsapp_palavra_chave: { label: "Palavra-chave no WhatsApp", icon: "🔑", group: "WhatsApp" },
+  whatsapp_primeira_mensagem: { label: "Primeira mensagem do lead (WA)", icon: "🆕", group: "WhatsApp" },
 };
 
 const DYNAMIC_VARS = [
