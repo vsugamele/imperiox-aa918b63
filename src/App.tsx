@@ -28,6 +28,8 @@ const MarketIntel = lazy(() => import("./pages/MarketIntel"));
 const Mentes = lazy(() => import("./pages/Mentes"));
 const Funis = lazy(() => import("./pages/Funis"));
 const OpenFlow = lazy(() => import("./pages/OpenFlow"));
+const AgentesIA = lazy(() => import("./pages/AgentesIA"));
+const AgenteEditor = lazy(() => import("./pages/AgenteEditor"));
 const Docs = lazy(() => import("./pages/Docs"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
@@ -148,6 +150,8 @@ const App = () => (
                 <Route path="funis" element={<Funis />} />
                 <Route path="funis/simulador" element={<FunilSimulador />} />
                 <Route path="openflow" element={<OpenFlow />} />
+                <Route path="openflow/agentes" element={<AgentesIA />} />
+                <Route path="openflow/agentes/:id" element={<AgenteEditor />} />
                 <Route path="docs" element={<Docs />} />
                 {/* Unified Inbox */}
                 <Route path="inbox" element={<Inbox />} />

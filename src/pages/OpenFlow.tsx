@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -88,6 +88,7 @@ const renderTriggerOptions = () => TRIGGER_GROUPS.map(g => (
 ));
 
 export default function OpenFlow() {
+  const navigate = useNavigate();
   const [automacoes, setAutomacoes] = useState<Automacao[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -278,7 +279,13 @@ export default function OpenFlow() {
 
   return (
     <div className="container mx-auto p-4 lg:p-8 space-y-8 animate-in fade-in duration-500">
-      <PageHeader title="OpenFlow" subtitle="Editor visual de réguas de recuperação e automação" icon={Zap} />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="OpenFlow" subtitle="Editor visual de réguas de recuperação e automação" icon={Zap} />
+        <Button onClick={() => navigate("/openflow/agentes")} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
+          <Bot className="h-4 w-4 mr-2" /> Agentes IA
+        </Button>
+      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-slate-900/50 border-white/5"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Execuções</p><p className="text-2xl font-bold">{kpis.total}</p></CardContent></Card>
@@ -387,13 +394,45 @@ export default function OpenFlow() {
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="max-w-2xl bg-slate-950 border-white/10">
-          <DialogHeader><DialogTitle>Criar Novo Fluxo</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Nome do Fluxo</Label><Input placeholder="Ex: Carrinho Abandonado - Projeto X" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Projeto</Label><Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-2"><Label>Gatilho (Trigger)</Label><Select value={form.trigger_tipo} onValueChange={v => setForm({ ...form, trigger_tipo: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{renderTriggerOptions()}</SelectContent></Select></div>
+        <DialogContent className="max-w-3xl bg-slate-950 border-white/10">
+          <DialogHeader><DialogTitle className="font-display text-2xl">Criar novo fluxo</DialogTitle></DialogHeader>
+          <div className="space-y-5 py-2 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground">Título do fluxo *</Label>
+              <Input placeholder="Ex: Carrinho Abandonado — Projeto X" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} className="h-11 bg-secondary/40 border-white/10" />
+              <p className="text-[11px] text-muted-foreground">O nome deve conter no mínimo 4 caracteres.</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground">Projeto</Label>
+              <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>
+                <SelectTrigger className="h-11 bg-secondary/40 border-white/10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-3">
+              <Label className="text-xs uppercase text-muted-foreground">Gatilho *</Label>
+              {TRIGGER_GROUPS.map(g => (
+                <div key={g} className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">{g}</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {TRIGGERS.filter(t => t.group === g).map(t => {
+                      const active = form.trigger_tipo === t.value;
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => setForm({ ...form, trigger_tipo: t.value })}
+                          title={t.label}
+                          className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1 p-2 transition-all ${active ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(201,146,42,0.25)]" : "border-white/5 bg-secondary/30 hover:border-primary/30 hover:bg-secondary/50"}`}
+                        >
+                          <span className="text-2xl leading-none">{t.icon}</span>
+                          <span className={`text-[9px] leading-tight text-center line-clamp-2 ${active ? "text-primary font-semibold" : "text-muted-foreground"}`}>{t.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             {templates.length > 0 && (
               <div className="border-t border-white/5 pt-4 space-y-2">
@@ -402,7 +441,7 @@ export default function OpenFlow() {
               </div>
             )}
           </div>
-          <DialogFooter><Button onClick={() => createAutomacao()} className="w-full bg-amber-500 text-black font-bold">Criar Vazio</Button></DialogFooter>
+          <DialogFooter><Button onClick={() => createAutomacao()} className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 h-11">Criar Fluxo</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
