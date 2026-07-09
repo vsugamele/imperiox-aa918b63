@@ -878,6 +878,16 @@ export function FlowEditor({
           <MessageCircle className="h-3.5 w-3.5" />
           Simulador WhatsApp
         </Button>
+        <Button
+          variant={livePreviewOpen ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setLivePreviewOpen((v) => !v)}
+          title="Preview ao vivo (bolhas de WhatsApp)"
+          className={`h-7 text-[10px] font-bold gap-1 rounded-lg ${livePreviewOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Preview ao vivo
+        </Button>
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
         <Button
           variant="ghost"
