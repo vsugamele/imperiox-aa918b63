@@ -1087,6 +1087,83 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Tipo aplicado");
   };
 
+  // ============ Alignment & distribution ============
+  type SelBounds = { id: string; isAnn: boolean; x: number; y: number; w: number; h: number };
+  const collectSelectedBounds = useCallback((): SelBounds[] => {
+    const out: SelBounds[] = [];
+    for (const id of selectedIds) {
+      if (id.startsWith(ANN_PREFIX)) {
+        const rid = id.slice(ANN_PREFIX.length);
+        const a = annotationsRef.current.find(x => x.id === rid);
+        if (a) out.push({ id, isAnn: true, x: a.x, y: a.y, w: a.width, h: a.height });
+      } else {
+        const r: any = rawNodesRef.current.find(x => x.id === id);
+        if (r) out.push({ id, isAnn: false, x: r.position?.x || 0, y: r.position?.y || 0, w: r.width || 220, h: r.height || 100 });
+      }
+    }
+    return out;
+  }, [selectedIds]);
+
+  const applyBulkPositions = useCallback(async (updates: { id: string; isAnn: boolean; x: number; y: number }[]) => {
+    // Local state
+    setAnnotations(list => list.map(a => {
+      const u = updates.find(u => u.isAnn && u.id === `${ANN_PREFIX}${a.id}`);
+      return u ? { ...a, x: u.x, y: u.y } : a;
+    }));
+    setRawNodes(list => list.map((r: any) => {
+      const u = updates.find(u => !u.isAnn && u.id === r.id);
+      return u ? { ...r, position: { x: u.x, y: u.y } } : r;
+    }));
+    setNodes(nds => nds.map(n => {
+      const u = updates.find(u => u.id === n.id);
+      return u ? { ...n, position: { x: u.x, y: u.y } } : n;
+    }));
+    // Persist
+    await Promise.all(updates.map(u =>
+      u.isAnn
+        ? supabase.from(annTable).update({ x: u.x, y: u.y }).eq("id", u.id.slice(ANN_PREFIX.length))
+        : supabase.from("imphq_company_map_nodes").update({ position: { x: u.x, y: u.y } }).eq("id", u.id)
+    ));
+  }, [setAnnotations]);
+
+  const alignSelected = useCallback((mode: "left" | "cx" | "right" | "top" | "cy" | "bottom") => {
+    const items = collectSelectedBounds();
+    if (items.length < 2) return;
+    let target: number;
+    const updates = items.map(it => {
+      let nx = it.x, ny = it.y;
+      switch (mode) {
+        case "left":   target = Math.min(...items.map(i => i.x));                     nx = target; break;
+        case "cx":     target = items.reduce((s, i) => s + i.x + i.w / 2, 0) / items.length; nx = target - it.w / 2; break;
+        case "right":  target = Math.max(...items.map(i => i.x + i.w));               nx = target - it.w; break;
+        case "top":    target = Math.min(...items.map(i => i.y));                     ny = target; break;
+        case "cy":     target = items.reduce((s, i) => s + i.y + i.h / 2, 0) / items.length; ny = target - it.h / 2; break;
+        case "bottom": target = Math.max(...items.map(i => i.y + i.h));               ny = target - it.h; break;
+      }
+      return { id: it.id, isAnn: it.isAnn, x: Math.round(nx), y: Math.round(ny) };
+    });
+    applyBulkPositions(updates);
+  }, [collectSelectedBounds, applyBulkPositions]);
+
+  const distributeSelected = useCallback((axis: "h" | "v") => {
+    const items = collectSelectedBounds();
+    if (items.length < 3) { toast.info("Selecione 3+ para distribuir"); return; }
+    const sorted = [...items].sort((a, b) => axis === "h" ? (a.x + a.w / 2) - (b.x + b.w / 2) : (a.y + a.h / 2) - (b.y + b.h / 2));
+    const first = sorted[0], last = sorted[sorted.length - 1];
+    const startC = axis === "h" ? first.x + first.w / 2 : first.y + first.h / 2;
+    const endC   = axis === "h" ? last.x + last.w / 2 : last.y + last.h / 2;
+    const step = (endC - startC) / (sorted.length - 1);
+    const updates = sorted.map((it, i) => {
+      const c = startC + step * i;
+      return axis === "h"
+        ? { id: it.id, isAnn: it.isAnn, x: Math.round(c - it.w / 2), y: it.y }
+        : { id: it.id, isAnn: it.isAnn, x: it.x, y: Math.round(c - it.h / 2) };
+    });
+    applyBulkPositions(updates);
+  }, [collectSelectedBounds, applyBulkPositions]);
+
+
+
   // ============ Aggregated checklist ============
   const aggregatedChecklist = useMemo(() => {
     const rows: { nodeId: string; nodeLabel: string; nodeColor: string; nodeKind: string; item: ChecklistItem; position: { x: number; y: number } }[] = [];
