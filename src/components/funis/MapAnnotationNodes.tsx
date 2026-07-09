@@ -205,9 +205,10 @@ export const AnnotationNoteNode = memo(({ id, data, selected }: NodeProps) => {
         className="text-xs leading-snug whitespace-pre-wrap break-words w-full h-full overflow-hidden"
         placeholder="Nota…"
       />
-
+      <AnnotationHandles visible={resizeVisible} color="#080607" />
     </div>
   );
+
 });
 
 export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
