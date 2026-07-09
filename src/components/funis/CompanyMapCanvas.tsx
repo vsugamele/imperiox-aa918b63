@@ -326,6 +326,7 @@ interface WaProvider {
 }
 
 function InnerMap({ projects }: { projects: any[] }) {
+  const annotationsRef = useRef<MapAnnotation[]>([]);
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
   const [nodes, setNodes] = useState<Node[]>([]);
