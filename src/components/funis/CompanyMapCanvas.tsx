@@ -411,7 +411,6 @@ function InnerMap({ projects }: { projects: any[] }) {
   const projectsRef = useRef<any[]>(projects);
   const waProvidersRef = useRef<WaProvider[]>([]);
   const waConvCountsRef = useRef<Record<string, number>>({});
-  const annotationsRef = useRef<MapAnnotation[]>([]);
   useEffect(() => { rawNodesRef.current = rawNodes; }, [rawNodes]);
   useEffect(() => { projectsRef.current = projects; }, [projects]);
   useEffect(() => { waProvidersRef.current = waProviders; }, [waProviders]);
