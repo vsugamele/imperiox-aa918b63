@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FlowEditorCanvas } from "./FlowEditorCanvas";
+import { FlowLivePreview } from "./FlowLivePreview";
 import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
