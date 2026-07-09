@@ -639,7 +639,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
-  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage]);
+  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage, generateAnnotation]);
 
   const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
