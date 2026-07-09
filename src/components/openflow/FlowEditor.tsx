@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight, Bot, Users
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,8 @@ const ACAO_TIPOS = [
   { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
+  { value: "ai_agent", label: "Agente IA (Autônomo)", icon: Bot, emoji: "🧠", color: "border-primary/40 bg-primary/5 hover:border-primary" },
+  { value: "distribuir_atendentes", label: "Divisão de Atendentes", icon: Users, emoji: "👥", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -220,6 +222,14 @@ export interface Acao {
   image_style?: string;
   image_ratio?: "1:1" | "9:16" | "16:9";
   send_after?: boolean;
+  // ai_agent
+  ai_agent_id?: string;
+  ai_agent_pass_context?: boolean;
+  ai_agent_save_variable?: string;
+  // distribuir_atendentes
+  distrib_strategy?: "round_robin" | "random" | "least_busy";
+  distrib_operators?: string; // csv com IDs ou nomes
+  distrib_save_variable?: string;
 }
 
 export interface WaProvider {
