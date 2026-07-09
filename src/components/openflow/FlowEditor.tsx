@@ -2654,7 +2654,9 @@ export function FlowEditor({
                         Atendente ou operador que receberá a notificação no painel de controle. Use "todos" para alertar toda a equipe.
                       </p>
                     </div>
+                  </div>
                 )}
+
 
                 {/* ai_agent fields */}
                 {acao.tipo === "ai_agent" && (
