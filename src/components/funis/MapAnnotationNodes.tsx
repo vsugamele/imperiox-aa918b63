@@ -430,7 +430,126 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Barra dourada de hover */}
       <div className="absolute bottom-0 left-0 w-full h-px bg-[#c9922a] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <AnnotationHandles visible={resizeVisible} color="#c9922a" />
     </div>
+  );
+});
+
+// -------- Generator nodes (Script / Copy / Ad Asset) --------
+function GeneratorShell({
+  id, data, selected,
+  icon: Icon, kindLabel, accent, minH = 160,
+  children,
+}: {
+  id: string; data: AnnotationData; selected?: boolean;
+  icon: any; kindLabel: string; accent: string; minH?: number;
+  children: React.ReactNode;
+}) {
+  const editing = data.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
+  const generating = !!data.style?.generating;
+  return (
+    <div
+      {...hoverProps}
+      className="w-full h-full rounded-xl relative overflow-hidden bg-[#0a0809] border border-white/10 shadow-2xl flex flex-col transition-colors duration-300 hover:border-[#c9922a]/40"
+    >
+      <NodeResizer isVisible={resizeVisible} minWidth={200} minHeight={minH} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-1 rounded-md shrink-0" style={{ background: `${accent}22`, color: accent }}>
+            <Icon className="h-3 w-3" />
+          </div>
+          <span className="text-[9px] font-semibold text-white/50 uppercase truncate" style={{ letterSpacing: "0.2em", fontFamily: "'DM Sans', sans-serif" }}>
+            {kindLabel}
+          </span>
+        </div>
+        {data.onGenerate && (
+          <button
+            type="button"
+            onMouseDown={stopBubble}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!generating) data.onGenerate?.(id, data.kind); }}
+            className="nodrag nopan p-1 rounded text-white/40 hover:text-[#c9922a] transition-colors"
+            title="Gerar com IA"
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-hidden p-3 space-y-2 text-white/85 text-[12px] leading-snug">
+        {children}
+      </div>
+      <AnnotationHandles visible={resizeVisible} color={accent} />
+    </div>
+  );
+}
+
+export const AnnotationScriptNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const editing = d.editingId === id;
+  return (
+    <GeneratorShell id={id} data={d} selected={selected} icon={FileText} kindLabel="Script" accent="#ec4899" minH={200}>
+      <EditableText id={id} text={d.style?.heading || ""} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, `#${v}\n${d.text || ""}`)}
+        className="text-[13px] font-medium text-white/90 font-serif" placeholder="Título do roteiro" />
+      <EditableText id={id} text={d.text} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, v)}
+        className="text-[11px] whitespace-pre-wrap break-words text-white/70 overflow-auto max-h-full nowheel"
+        placeholder="Escreva ou gere o roteiro (hook, desenvolvimento, CTA)…" />
+    </GeneratorShell>
+  );
+});
+
+export const AnnotationCopyNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const editing = d.editingId === id;
+  return (
+    <GeneratorShell id={id} data={d} selected={selected} icon={MessageSquare} kindLabel="Copy" accent="#f97316" minH={160}>
+      <EditableText id={id} text={d.style?.heading || ""} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, v)}
+        className="text-[13px] font-semibold text-white/90 font-serif" placeholder="Headline" />
+      <EditableText id={id} text={d.text} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, v)}
+        className="text-[11px] whitespace-pre-wrap break-words text-white/70 overflow-auto max-h-full nowheel"
+        placeholder="Copy do anúncio, lead ou CTA…" />
+    </GeneratorShell>
+  );
+});
+
+export const AnnotationAdAssetNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const editing = d.editingId === id;
+  const thumb = d.style?.thumb;
+  return (
+    <GeneratorShell id={id} data={d} selected={selected} icon={Megaphone} kindLabel="Ativo de anúncio" accent="#eab308" minH={220}>
+      <EditableText id={id} text={d.style?.heading || ""} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, v)}
+        className="text-[13px] font-semibold text-white/90 font-serif" placeholder="Nome do ativo" />
+      {thumb && (
+        <img src={thumb} alt="" className="w-full rounded border border-white/10 object-cover max-h-32" />
+      )}
+      {d.onUploadImage && !thumb && (
+        <button
+          type="button"
+          onMouseDown={stopBubble}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); d.onUploadImage?.(id); }}
+          className="nodrag nopan text-[10px] text-white/50 hover:text-[#c9922a] underline"
+        >
+          Enviar imagem
+        </button>
+      )}
+      <EditableText id={id} text={d.text} editing={editing}
+        onDone={(v) => d.onTextChange?.(id, v)}
+        className="text-[11px] whitespace-pre-wrap break-words text-white/70 overflow-auto max-h-full nowheel"
+        placeholder="Descrição / briefing do ativo…" />
+      {d.style?.link && (
+        <a href={d.style.link} target="_blank" rel="noreferrer"
+          onClick={stopBubble}
+          className="nodrag inline-flex items-center gap-1 text-[10px] text-[#c9922a] hover:underline truncate">
+          <ExternalLink className="h-2.5 w-2.5" /> {d.style.link.replace(/^https?:\/\//, "").slice(0, 40)}
+        </a>
+      )}
+    </GeneratorShell>
   );
 });
 
@@ -440,6 +559,9 @@ export const annotationNodeTypes = {
   annotation_label: AnnotationLabelNode,
   annotation_arrow: AnnotationArrowNode,
   annotation_reel: AnnotationReelNode,
+  annotation_script: AnnotationScriptNode,
+  annotation_copy: AnnotationCopyNode,
+  annotation_ad_asset: AnnotationAdAssetNode,
 };
 
 export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
@@ -448,6 +570,9 @@ export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
   annotation_label: "label",
   annotation_arrow: "arrow",
   annotation_reel: "reel",
+  annotation_script: "script",
+  annotation_copy: "copy",
+  annotation_ad_asset: "ad_asset",
 };
 
 export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
@@ -456,6 +581,9 @@ export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
   label: "annotation_label",
   arrow: "annotation_arrow",
   reel: "annotation_reel",
+  script: "annotation_script",
+  copy: "annotation_copy",
+  ad_asset: "annotation_ad_asset",
 };
 
 export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number; text: string; style: AnnotationData["style"] }> = {
@@ -464,7 +592,11 @@ export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number;
   label: { w: 260, h: 50,  text: "Título", style: { fontSize: 28 } },
   arrow: { w: 180, h: 120, text: "",       style: { orientation: "diag-down", showHead: true, borderColor: "#c9922a" } },
   reel:  { w: 220, h: 320, text: "",       style: { platform: "other" } },
+  script: { w: 280, h: 240, text: "", style: { heading: "" } },
+  copy:   { w: 260, h: 180, text: "", style: { heading: "" } },
+  ad_asset: { w: 260, h: 260, text: "", style: { heading: "" } },
 };
+
 
 // ---------- Reel URL helpers ----------
 export function detectReelPlatform(url: string): "instagram" | "tiktok" | "youtube" | "other" {
