@@ -286,6 +286,28 @@ interface MapAnnotation {
 const ANN_PREFIX = "ann-";
 const annTable = "imphq_company_map_annotations" as any;
 
+const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
+  frame: { w: 120, h: 80 },
+  note: { w: 100, h: 60 },
+  label: { w: 80, h: 30 },
+  arrow: { w: 40, h: 20 },
+  reel: { w: 160, h: 200 },
+};
+
+function clampDimension(value: unknown, min: number) {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.max(min, Math.round(n)) : min;
+}
+
+function clampAnnotationLayout<T extends { kind: AnnotationKind; width: number; height: number }>(annotation: T): T {
+  const min = ANNOTATION_MIN_SIZE[annotation.kind] || { w: 1, h: 1 };
+  return {
+    ...annotation,
+    width: clampDimension(annotation.width, min.w),
+    height: clampDimension(annotation.height, min.h),
+  };
+}
+
 interface WaProvider {
   id: string; project_id: string; provider: string;
   display_name?: string | null; instance_name?: string | null;
@@ -423,7 +445,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list = (nds || []) as any as MapNode[];
     setRawNodes(list);
-    setAnnotations(((anns || []) as any) as MapAnnotation[]);
+    setAnnotations((((anns || []) as any) as MapAnnotation[]).map(clampAnnotationLayout));
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
     setNodes(nds2 => {
@@ -529,7 +551,8 @@ function InnerMap({ projects }: { projects: any[] }) {
     setNodes(nds => {
       const base = nds.filter(n => !n.id.startsWith(ANN_PREFIX));
       const previousById = new Map(nds.map(n => [n.id, n]));
-      const annNodes: Node[] = annotations.map(a => {
+      const annNodes: Node[] = annotations.map(raw => {
+        const a = clampAnnotationLayout(raw);
         const id = `${ANN_PREFIX}${a.id}`;
         const previous = previousById.get(id);
         return {
@@ -618,7 +641,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (!src || !mapId) return;
     const { data, error } = await (supabase.from(annTable) as any).insert({
       map_id: mapId, kind: src.kind, x: src.x + 30, y: src.y + 30,
-      width: src.width, height: src.height, text: src.text, style: src.style as any, z_index: src.z_index,
+      width: clampAnnotationLayout(src).width, height: clampAnnotationLayout(src).height, text: src.text, style: src.style as any, z_index: src.z_index,
     }).select().single();
     if (error) { toast.error("Erro"); return; }
     setAnnotations(list => [...list, data as MapAnnotation]);
@@ -647,13 +670,29 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, [annotations]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes(nds => applyNodeChanges(changes, nds));
+    const normalizedChanges = changes.map((c: any) => {
+      if (c.type !== "dimensions" || !c.dimensions) return c;
+      const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
+      const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
+      const min = isAnn
+        ? ANNOTATION_MIN_SIZE[annotations.find(a => a.id === rawId)?.kind || "frame"]
+        : { w: 1, h: 1 };
+      return {
+        ...c,
+        dimensions: {
+          width: clampDimension(c.dimensions.width, min.w),
+          height: clampDimension(c.dimensions.height, min.h),
+        },
+      };
+    }) as NodeChange[];
+
+    setNodes(nds => applyNodeChanges(normalizedChanges, nds));
     const resizingAnnotationIds = new Set(
-      changes
+      normalizedChanges
         .filter((c: any) => c.type === "dimensions" && c.resizing === true && typeof c.id === "string" && c.id.startsWith(ANN_PREFIX))
         .map((c: any) => c.id.slice(ANN_PREFIX.length))
     );
-    changes.forEach(async (c: any) => {
+    normalizedChanges.forEach(async (c: any) => {
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
@@ -671,7 +710,11 @@ function InnerMap({ projects }: { projects: any[] }) {
         };
       }
       if (c.type === "dimensions" && c.dimensions && (c.resizing === false || c.resizing === undefined)) {
-        const { width, height } = c.dimensions;
+        const min = isAnn
+          ? ANNOTATION_MIN_SIZE[annotations.find(a => a.id === rawId)?.kind || "frame"]
+          : { w: 1, h: 1 };
+        const width = clampDimension(c.dimensions.width, min.w);
+        const height = clampDimension(c.dimensions.height, min.h);
         if (width && height) {
           if (isAnn) {
             const pending = pendingAnnotationLayoutRef.current[rawId] || {};
@@ -692,7 +735,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         };
       }
     });
-  }, []);
+  }, [annotations]);
 
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
     setSelectedIds(sel.map(n => n.id));
