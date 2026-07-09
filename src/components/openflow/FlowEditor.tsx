@@ -282,6 +282,13 @@ export function FlowEditor({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [livePreviewOpen, setLivePreviewOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:livePreviewOpen") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:livePreviewOpen", livePreviewOpen ? "1" : "0");
+  }, [livePreviewOpen]);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("openflow:inspectorCollapsed") === "1";
