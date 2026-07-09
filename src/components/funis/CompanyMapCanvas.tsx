@@ -1142,7 +1142,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       >
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
-        <MiniMap className="!bg-card !border-border" nodeColor={(n: any) => n.data?.color || "#c9922a"} />
+        <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />
       </ReactFlow>
 
       {/* Strategic gaps floating panel */}
