@@ -41,7 +41,7 @@ export interface AnnotationData {
 
 const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
-const resizerLineClassName = "!pointer-events-auto !border-white/80 !border-2 !z-50";
+const resizerLineClassName = "!pointer-events-none !border-white/80 !border-2 !z-50";
 const resizerHandleClassName = "!pointer-events-auto !w-3.5 !h-3.5 !rounded-sm !bg-white !border-2 !border-[#080607] !shadow-lg !z-50";
 
 function useResizeVisibility(selected?: boolean, editing = false) {
