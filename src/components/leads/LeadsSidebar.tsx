@@ -1,7 +1,8 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Zap, ExternalLink } from "lucide-react";
 
 interface Props {
   projects: any[];
