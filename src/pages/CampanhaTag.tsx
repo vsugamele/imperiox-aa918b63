@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, MessageCircle, FileText, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, MessageCircle, FileText, ShoppingBag, HelpCircle } from "lucide-react";
 import { formatDistanceToNow, parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type QA = { question: string; answer: string; created_at: string };
 
 type Row = {
   lead_id: string;
@@ -17,14 +19,19 @@ type Row = {
   email: string | null;
   project_id: string | null;
   tagAddedAt: string | null;
-  lastResponse: { question: string; answer: string; created_at: string } | null;
-  responsesCount: number;
+  lastOptin: QA | null;
+  optinCount: number;
+  quizResponses: QA[];
   lastInbound: { content: string; created_at: string } | null;
   inboundCount: number;
   conversationStatus: string | null;
   assignedTo: string | null;
   vendas: Array<{ produto_nome: string | null; valor: number | null; data_venda: string | null }>;
 };
+
+// Detecta perguntas de opt-in básicas (nome, email, telefone, cpf)
+const OPTIN_RX = /^(nome|name|full\s*name|e-?mail|email|telefone|whats?app|cel|celular|fone|phone|cpf|documento)\b/i;
+const isOptin = (q: string) => !!q && OPTIN_RX.test(q.trim());
 
 export default function CampanhaTag() {
   const { tag } = useParams<{ tag: string }>();
@@ -36,14 +43,22 @@ export default function CampanhaTag() {
   const [rows, setRows] = useState<Row[]>([]);
   const [projectName, setProjectName] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "responded_wa" | "responded_form" | "buyers">("all");
+  const [filter, setFilter] = useState<"all" | "responded_wa" | "responded_form" | "responded_quiz" | "buyers">("all");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     (async () => {
       if (!tag) return;
       setLoading(true);
 
-      // 1. Universo: leads que entraram na tag
       let tagQ = supabase
         .from("imphq_lead_tag_history")
         .select("lead_id, project_id, created_at")
@@ -54,14 +69,12 @@ export default function CampanhaTag() {
 
       const { data: history } = await tagQ;
 
-      // Dedupe por lead_id (primeira ocorrência = mais recente devido ao order desc; queremos a primeira vez que entrou → menor data)
       const firstEntry = new Map<string, string>();
       (history || []).forEach((h: any) => {
         const prev = firstEntry.get(h.lead_id);
         if (!prev || new Date(h.created_at) < new Date(prev)) firstEntry.set(h.lead_id, h.created_at);
       });
 
-      // Fallback: leads que têm a tag no array mas não entraram via history
       let leadsWithTagQ = supabase.from("imphq_leads").select("id, project_id, tags").contains("tags", [tag]);
       if (projectId !== "all") leadsWithTagQ = leadsWithTagQ.eq("project_id", projectId);
       const { data: leadsWithTag } = await leadsWithTagQ;
@@ -76,7 +89,6 @@ export default function CampanhaTag() {
         return;
       }
 
-      // 2. Dados básicos dos leads (chunk se necessário — Supabase in() aguenta grande volume)
       const [{ data: leads }, { data: responses }, { data: convs }, { data: vendas }, projectRow] = await Promise.all([
         supabase.from("imphq_leads").select("id, nome, phone, email, project_id").in("id", leadIds) as PromiseLike<any>,
         supabase.from("imphq_lead_responses").select("lead_id, question, answer, created_at").in("lead_id", leadIds).order("created_at", { ascending: false }) as PromiseLike<any>,
@@ -92,7 +104,6 @@ export default function CampanhaTag() {
         ? await supabase.from("imphq_wa_messages").select("conversation_id, content, created_at, direction").in("conversation_id", convIds).eq("direction", "inbound").order("created_at", { ascending: false })
         : { data: [] as any };
 
-      // Index
       const leadIdx = new Map((leads || []).map((l: any) => [l.id, l]));
       const respByLead = new Map<string, any[]>();
       (responses || []).forEach((r: any) => {
@@ -118,6 +129,8 @@ export default function CampanhaTag() {
       const out: Row[] = leadIds.map((lid) => {
         const l: any = leadIdx.get(lid) || { id: lid, nome: null, phone: null, email: null };
         const resp = respByLead.get(lid) || [];
+        const optin = resp.filter((r: any) => isOptin(r.question));
+        const quiz = resp.filter((r: any) => !isOptin(r.question));
         const conv = convByLead.get(lid);
         const inbound = conv ? (msgsByConv.get(conv.id) || []) : [];
         return {
@@ -127,8 +140,9 @@ export default function CampanhaTag() {
           email: l.email,
           project_id: l.project_id,
           tagAddedAt: firstEntry.get(lid) || null,
-          lastResponse: resp[0] ? { question: resp[0].question, answer: resp[0].answer, created_at: resp[0].created_at } : null,
-          responsesCount: resp.length,
+          lastOptin: optin[0] ? { question: optin[0].question, answer: optin[0].answer, created_at: optin[0].created_at } : null,
+          optinCount: optin.length,
+          quizResponses: quiz.map((q: any) => ({ question: q.question, answer: q.answer, created_at: q.created_at })),
           lastInbound: inbound[0] ? { content: inbound[0].content, created_at: inbound[0].created_at } : null,
           inboundCount: inbound.length,
           conversationStatus: conv?.status || null,
@@ -137,7 +151,6 @@ export default function CampanhaTag() {
         };
       });
 
-      // Ordena por entrada na tag desc
       out.sort((a, b) => (b.tagAddedAt || "").localeCompare(a.tagAddedAt || ""));
       setRows(out);
       setLoading(false);
@@ -147,7 +160,8 @@ export default function CampanhaTag() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (filter === "responded_wa" && r.inboundCount === 0) return false;
-      if (filter === "responded_form" && r.responsesCount === 0) return false;
+      if (filter === "responded_form" && r.optinCount === 0) return false;
+      if (filter === "responded_quiz" && r.quizResponses.length === 0) return false;
       if (filter === "buyers" && r.vendas.length === 0) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -159,21 +173,42 @@ export default function CampanhaTag() {
 
   const kpis = useMemo(() => ({
     total: rows.length,
-    respondeuForm: rows.filter((r) => r.responsesCount > 0).length,
+    preencheuForm: rows.filter((r) => r.optinCount > 0).length,
+    respondeuQuiz: rows.filter((r) => r.quizResponses.length > 0).length,
     respondeuWa: rows.filter((r) => r.inboundCount > 0).length,
     compradores: rows.filter((r) => r.vendas.length > 0).length,
   }), [rows]);
 
-  const taxa = kpis.total > 0 ? Math.round(((kpis.respondeuWa + kpis.respondeuForm) / kpis.total) * 100) : 0;
+  // Agregado de respostas de pesquisa: pergunta -> resposta -> count
+  const quizAggregate = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    rows.forEach((r) => {
+      r.quizResponses.forEach((q) => {
+        const qKey = q.question.trim();
+        if (!map.has(qKey)) map.set(qKey, new Map());
+        const answers = map.get(qKey)!;
+        const aKey = (q.answer || "").trim() || "(vazio)";
+        answers.set(aKey, (answers.get(aKey) || 0) + 1);
+      });
+    });
+    return Array.from(map.entries()).map(([question, answers]) => ({
+      question,
+      total: Array.from(answers.values()).reduce((a, b) => a + b, 0),
+      answers: Array.from(answers.entries()).sort((a, b) => b[1] - a[1]),
+    })).sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  const [showAggregate, setShowAggregate] = useState(true);
 
   const exportCsv = () => {
-    const header = ["Lead", "Telefone", "Email", "Entrou na tag", "Última resposta form", "Última mensagem WA", "Status conversa", "Comprou", "Produtos"];
+    const header = ["Lead", "Telefone", "Email", "Entrou na tag", "Última resposta form", "Respostas pesquisa", "Última mensagem WA", "Status conversa", "Comprou", "Produtos"];
     const lines = filtered.map((r) => [
       r.nome || "",
       r.phone || "",
       r.email || "",
       r.tagAddedAt ? format(parseISO(r.tagAddedAt), "yyyy-MM-dd HH:mm") : "",
-      r.lastResponse ? `${r.lastResponse.question}: ${r.lastResponse.answer}` : "",
+      r.lastOptin ? `${r.lastOptin.question}: ${r.lastOptin.answer}` : "",
+      r.quizResponses.map((q) => `${q.question}: ${q.answer}`).join(" | "),
       r.lastInbound?.content || "",
       r.conversationStatus || "",
       r.vendas.length > 0 ? "sim" : "não",
@@ -207,11 +242,42 @@ export default function CampanhaTag() {
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="p-4"><div className="text-xs text-muted-foreground">Total de leads</div><div className="text-2xl font-cormorant">{kpis.total}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Responderam form</div><div className="text-2xl font-cormorant">{kpis.respondeuForm}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Responderam WhatsApp</div><div className="text-2xl font-cormorant">{kpis.respondeuWa}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Preencheu form</div><div className="text-2xl font-cormorant">{kpis.preencheuForm}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground flex items-center gap-1"><HelpCircle className="h-3 w-3" />Respondeu pesquisa</div><div className="text-2xl font-cormorant text-gold">{kpis.respondeuQuiz}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Respondeu WhatsApp</div><div className="text-2xl font-cormorant">{kpis.respondeuWa}</div></Card>
         <Card className="p-4"><div className="text-xs text-muted-foreground">Compradores</div><div className="text-2xl font-cormorant text-gold">{kpis.compradores}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Taxa de resposta</div><div className="text-2xl font-cormorant">{taxa}%</div></Card>
       </div>
+
+      {quizAggregate.length > 0 && (
+        <Card className="p-4">
+          <button className="flex items-center gap-2 text-sm font-medium w-full text-left" onClick={() => setShowAggregate((v) => !v)}>
+            {showAggregate ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <HelpCircle className="h-4 w-4 text-gold" />
+            Resultado da pesquisa ({quizAggregate.length} {quizAggregate.length === 1 ? "pergunta" : "perguntas"})
+          </button>
+          {showAggregate && (
+            <div className="mt-4 space-y-4">
+              {quizAggregate.map((q) => (
+                <div key={q.question}>
+                  <div className="text-xs text-muted-foreground mb-2">{q.question} <span className="text-foreground/60">· {q.total} respostas</span></div>
+                  <div className="flex flex-wrap gap-2">
+                    {q.answers.slice(0, 10).map(([answer, count]) => {
+                      const pct = Math.round((count / q.total) * 100);
+                      return (
+                        <Badge key={answer} variant="outline" className="text-xs">
+                          <span className="text-foreground">{answer}</span>
+                          <span className="ml-2 text-gold">{count} · {pct}%</span>
+                        </Badge>
+                      );
+                    })}
+                    {q.answers.length > 10 && <span className="text-[10px] text-muted-foreground self-center">+{q.answers.length - 10} outras</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Input placeholder="Buscar nome, telefone ou email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
@@ -220,7 +286,8 @@ export default function CampanhaTag() {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="responded_wa">Só quem respondeu no WA</SelectItem>
-            <SelectItem value="responded_form">Só quem respondeu form</SelectItem>
+            <SelectItem value="responded_form">Só quem preencheu form</SelectItem>
+            <SelectItem value="responded_quiz">Só quem respondeu pesquisa</SelectItem>
             <SelectItem value="buyers">Só compradores</SelectItem>
           </SelectContent>
         </Select>
@@ -234,54 +301,83 @@ export default function CampanhaTag() {
               <tr>
                 <th className="text-left p-3">Lead</th>
                 <th className="text-left p-3">Entrou</th>
-                <th className="text-left p-3"><FileText className="h-3 w-3 inline mr-1" />Última resposta form</th>
+                <th className="text-left p-3"><FileText className="h-3 w-3 inline mr-1" />Form (opt-in)</th>
+                <th className="text-left p-3"><HelpCircle className="h-3 w-3 inline mr-1" />Pesquisa / Quiz</th>
                 <th className="text-left p-3"><MessageCircle className="h-3 w-3 inline mr-1" />Última msg WA</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3"><ShoppingBag className="h-3 w-3 inline mr-1" />Comprou</th>
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Carregando…</td></tr>}
-              {!loading && filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Nenhum lead encontrado.</td></tr>}
-              {filtered.map((r) => (
-                <tr key={r.lead_id} className="border-t border-border/40 hover:bg-secondary/20">
-                  <td className="p-3">
-                    <Link to={`/leads/${r.lead_id}`} className="text-foreground hover:text-gold font-medium">{r.nome || "(sem nome)"}</Link>
-                    <div className="text-xs text-muted-foreground">{r.phone || r.email || "—"}</div>
-                  </td>
-                  <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {r.tagAddedAt ? formatDistanceToNow(parseISO(r.tagAddedAt), { addSuffix: true, locale: ptBR }) : "—"}
-                  </td>
-                  <td className="p-3 max-w-xs">
-                    {r.lastResponse ? (
-                      <div>
-                        <div className="text-xs text-muted-foreground truncate">{r.lastResponse.question}</div>
-                        <div className="text-foreground truncate">{r.lastResponse.answer}</div>
-                        {r.responsesCount > 1 && <div className="text-[10px] text-gold">+{r.responsesCount - 1} respostas</div>}
-                      </div>
-                    ) : <span className="text-muted-foreground/50">—</span>}
-                  </td>
-                  <td className="p-3 max-w-xs">
-                    {r.lastInbound ? (
-                      <div>
-                        <div className="text-foreground truncate">{r.lastInbound.content}</div>
-                        <div className="text-[10px] text-muted-foreground">{formatDistanceToNow(parseISO(r.lastInbound.created_at), { addSuffix: true, locale: ptBR })}{r.inboundCount > 1 ? ` · +${r.inboundCount - 1}` : ""}</div>
-                      </div>
-                    ) : <span className="text-muted-foreground/50">—</span>}
-                  </td>
-                  <td className="p-3 text-xs">
-                    {r.conversationStatus ? <Badge variant="outline" className="text-xs">{r.conversationStatus}</Badge> : <span className="text-muted-foreground/50">—</span>}
-                    {r.assignedTo && <div className="text-[10px] text-muted-foreground mt-1">{r.assignedTo}</div>}
-                  </td>
-                  <td className="p-3">
-                    {r.vendas.length > 0 ? (
-                      <Badge className="bg-gold/20 text-gold border-gold/30">
-                        {r.vendas.map((v) => v.produto_nome).filter(Boolean).join(", ") || "sim"}
-                      </Badge>
-                    ) : <span className="text-muted-foreground/50">—</span>}
-                  </td>
-                </tr>
-              ))}
+              {loading && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Carregando…</td></tr>}
+              {!loading && filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Nenhum lead encontrado.</td></tr>}
+              {filtered.map((r) => {
+                const isExpanded = expanded.has(r.lead_id);
+                const quizFirst = r.quizResponses[0];
+                return (
+                  <tr key={r.lead_id} className="border-t border-border/40 hover:bg-secondary/20 align-top">
+                    <td className="p-3">
+                      <Link to={`/leads/${r.lead_id}`} className="text-foreground hover:text-gold font-medium">{r.nome || "(sem nome)"}</Link>
+                      <div className="text-xs text-muted-foreground">{r.phone || r.email || "—"}</div>
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
+                      {r.tagAddedAt ? formatDistanceToNow(parseISO(r.tagAddedAt), { addSuffix: true, locale: ptBR }) : "—"}
+                    </td>
+                    <td className="p-3 max-w-xs">
+                      {r.lastOptin ? (
+                        <div>
+                          <div className="text-xs text-muted-foreground truncate">{r.lastOptin.question}</div>
+                          <div className="text-foreground truncate">{r.lastOptin.answer}</div>
+                          {r.optinCount > 1 && <div className="text-[10px] text-gold">+{r.optinCount - 1} campos</div>}
+                        </div>
+                      ) : <span className="text-muted-foreground/50">—</span>}
+                    </td>
+                    <td className="p-3 max-w-sm">
+                      {quizFirst ? (
+                        <div>
+                          <div className="text-xs text-muted-foreground truncate">{quizFirst.question}</div>
+                          <div className="text-foreground truncate font-medium">{quizFirst.answer}</div>
+                          {r.quizResponses.length > 1 && (
+                            <button onClick={() => toggleExpand(r.lead_id)} className="text-[10px] text-gold hover:underline mt-1 flex items-center gap-0.5">
+                              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                              {isExpanded ? "recolher" : `+${r.quizResponses.length - 1} respostas`}
+                            </button>
+                          )}
+                          {isExpanded && (
+                            <div className="mt-2 space-y-2 border-l-2 border-gold/30 pl-2">
+                              {r.quizResponses.slice(1).map((q, i) => (
+                                <div key={i}>
+                                  <div className="text-[10px] text-muted-foreground">{q.question}</div>
+                                  <div className="text-xs text-foreground">{q.answer}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : <span className="text-muted-foreground/50">—</span>}
+                    </td>
+                    <td className="p-3 max-w-xs">
+                      {r.lastInbound ? (
+                        <div>
+                          <div className="text-foreground truncate">{r.lastInbound.content}</div>
+                          <div className="text-[10px] text-muted-foreground">{formatDistanceToNow(parseISO(r.lastInbound.created_at), { addSuffix: true, locale: ptBR })}{r.inboundCount > 1 ? ` · +${r.inboundCount - 1}` : ""}</div>
+                        </div>
+                      ) : <span className="text-muted-foreground/50">—</span>}
+                    </td>
+                    <td className="p-3 text-xs">
+                      {r.conversationStatus ? <Badge variant="outline" className="text-xs">{r.conversationStatus}</Badge> : <span className="text-muted-foreground/50">—</span>}
+                      {r.assignedTo && <div className="text-[10px] text-muted-foreground mt-1">{r.assignedTo}</div>}
+                    </td>
+                    <td className="p-3">
+                      {r.vendas.length > 0 ? (
+                        <Badge className="bg-gold/20 text-gold border-gold/30">
+                          {r.vendas.map((v) => v.produto_nome).filter(Boolean).join(", ") || "sim"}
+                        </Badge>
+                      ) : <span className="text-muted-foreground/50">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
