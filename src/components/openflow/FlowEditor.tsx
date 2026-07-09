@@ -222,6 +222,9 @@ export interface Acao {
   // input_capture
   capture_variable?: string;
   ai_extract_prompt?: string;
+  // quick_reply
+  question?: string;
+  options?: Array<{ label: string; value?: string; skip_n?: number } | string>;
   // generate_image
   image_prompt?: string;
   image_style?: string;
