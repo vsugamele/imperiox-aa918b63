@@ -302,7 +302,11 @@ const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   label: { w: 80, h: 30 },
   arrow: { w: 40, h: 20 },
   reel: { w: 160, h: 200 },
+  script: { w: 200, h: 160 },
+  copy: { w: 200, h: 120 },
+  ad_asset: { w: 200, h: 200 },
 };
+
 
 function clampDimension(value: unknown, min: number) {
   const n = typeof value === "number" ? value : Number(value);
