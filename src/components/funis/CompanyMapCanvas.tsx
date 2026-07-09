@@ -283,7 +283,11 @@ const nodeTypes = Object.freeze({
   annotation_label: annotationNodeTypes.annotation_label,
   annotation_arrow: annotationNodeTypes.annotation_arrow,
   annotation_reel: annotationNodeTypes.annotation_reel,
+  annotation_script: annotationNodeTypes.annotation_script,
+  annotation_copy: annotationNodeTypes.annotation_copy,
+  annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
 }) as any;
+
 
 // MiniMap node color resolver - stable ref
 const miniMapNodeColor = (n: any) => n?.data?.color || "#c9922a";
