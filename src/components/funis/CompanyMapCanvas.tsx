@@ -1212,7 +1212,28 @@ function InnerMap({ projects }: { projects: any[] }) {
                 })}
               </div>
             ))}
+            {/* Gerador (IA) — anotações que geram conteúdo */}
+            <div className="space-y-0.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">Gerador (IA)</p>
+              {([
+                { kind: "script" as AnnotationKind, label: "Script / Roteiro", color: "#ec4899", Icon: FileText },
+                { kind: "copy" as AnnotationKind, label: "Copy de anúncio", color: "#f97316", Icon: MessageSquare },
+                { kind: "ad_asset" as AnnotationKind, label: "Ativo de anúncio", color: "#eab308", Icon: Megaphone },
+              ]).map(({ kind, label, color, Icon }) => (
+                <Button key={kind} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
+                  onClick={() => {
+                    const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+                    addAnnotation(kind, c.x, c.y);
+                  }}>
+                  <div className="p-0.5 rounded" style={{ background: `${color}30`, color }}>
+                    <Icon className="h-3 w-3" />
+                  </div>
+                  <span className="truncate">{label}</span>
+                </Button>
+              ))}
+            </div>
           </>
+
         ) : (
           <Plus className="h-4 w-4 text-muted-foreground" />
         )}
