@@ -2760,6 +2760,185 @@ Instruções Adicionais:
             }
           }
 
+          else if (step.tipo === "ai_agent") {
+            // Agente IA autônomo: invoca LLM com identidade/instruções do agente e envia via WhatsApp.
+            const agentId = step.ai_agent_id;
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (!agentId) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Agente IA não selecionado";
+            } else if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              const { data: agent } = await supabase
+                .from("imphq_ai_agents")
+                .select("id, nome, identidade, diretrizes, objetivo, instrucoes, restricoes, base_conhecimento, qa_pairs")
+                .eq("id", agentId)
+                .maybeSingle();
+
+              if (!agent) {
+                stepResult.status = "error";
+                stepResult.reason = `Agente ${agentId} não encontrado`;
+                stepsFailed++;
+              } else {
+                const passCtx = step.ai_agent_pass_context !== false;
+                const ctxLines = passCtx ? [
+                  `Nome do lead: ${lead_data?.nome || leadDb?.name || "Lead"}`,
+                  `Telefone: ${phone}`,
+                  `Produto: ${lead_data?.produto || leadDb?.produto || "-"}`,
+                  leadDb?.lead_memory ? `Memória: ${JSON.stringify(leadDb.lead_memory).slice(0, 500)}` : "",
+                ].filter(Boolean).join("\n") : "";
+
+                const qa = Array.isArray(agent.qa_pairs) && agent.qa_pairs.length
+                  ? `\n\nExemplos Q&A:\n${agent.qa_pairs.slice(0, 10).map((q: any) => `P: ${q.pergunta || q.q}\nR: ${q.resposta || q.a}`).join("\n\n")}`
+                  : "";
+
+                const systemPrompt = [
+                  agent.identidade ? `# Identidade\n${agent.identidade}` : "",
+                  agent.diretrizes ? `# Diretrizes\n${agent.diretrizes}` : "",
+                  agent.objetivo ? `# Objetivo\n${agent.objetivo}` : "",
+                  agent.instrucoes ? `# Instruções\n${agent.instrucoes}` : "",
+                  agent.restricoes ? `# Restrições\n${agent.restricoes}` : "",
+                  agent.base_conhecimento ? `# Base de Conhecimento\n${String(agent.base_conhecimento).slice(0, 3000)}` : "",
+                  qa,
+                  ctxLines ? `# Contexto do Lead\n${ctxLines}` : "",
+                  "Responda em português, tom natural de WhatsApp, curto (2-4 linhas). Sem aspas."
+                ].filter(Boolean).join("\n\n");
+
+                const OR_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                let agentMsg = "";
+                if (OR_KEY) {
+                  try {
+                    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${OR_KEY}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        model: "google/gemini-2.5-flash",
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: step.mensagem || "Inicie a conversa cumprindo o objetivo." },
+                        ],
+                        max_tokens: 300,
+                        temperature: 0.7,
+                      }),
+                    });
+                    if (orRes.ok) {
+                      const d = await orRes.json();
+                      agentMsg = (d?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
+                    }
+                  } catch (e: any) {
+                    console.warn(`[ai_agent] LLM falhou: ${e?.message}`);
+                  }
+                }
+                if (!agentMsg) agentMsg = replaceVariables(step.mensagem || "Olá!", lead_data, leadDb);
+
+                // Salva em variável opcional
+                if (step.ai_agent_save_variable && lead_data?.lead_id) {
+                  const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                  const current = (ld as any)?.lead_memory || {};
+                  const updated = { ...current, [step.ai_agent_save_variable]: agentMsg };
+                  await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                  if (leadDb) leadDb.lead_memory = updated;
+                }
+
+                // Descobre provider
+                let providerId = step.provider_id || auto.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers").select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+
+                if (providerId) {
+                  const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                    body: JSON.stringify({ provider_id: providerId, phone: normalizeBRPhone(phone), project_id, content: agentMsg }),
+                  });
+                  const waData = await waRes.json();
+                  stepResult.status = waData.success ? "sent" : "error";
+                  stepResult.agent_id = agentId;
+                  stepResult.agent_nome = agent.nome;
+                  stepResult.message_preview = agentMsg.substring(0, 120);
+                  if (waData.success) messagesSent++;
+                  else stepsFailed++;
+                } else {
+                  stepResult.status = "error";
+                  stepResult.reason = "Nenhum provider WhatsApp ativo";
+                  stepsFailed++;
+                }
+              }
+            }
+          }
+
+          else if (step.tipo === "distribuir_atendentes") {
+            // Distribuição round-robin/random/least_busy entre operadores.
+            const strategy = step.distrib_strategy || "round_robin";
+            const raw = String(step.distrib_operators || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+
+            let operators: Array<{ id: string; nome: string }> = [];
+            if (raw.length) {
+              const { data: tm } = await supabase
+                .from("imphq_team_members")
+                .select("id, nome")
+                .or(raw.map(v => `id.eq.${v},nome.ilike.%${v}%`).join(","));
+              operators = tm || raw.map(v => ({ id: v, nome: v }));
+            } else if (project_id) {
+              const { data: tm } = await supabase.from("imphq_team_members").select("id, nome").eq("project_id", project_id);
+              operators = tm || [];
+            }
+
+            if (!operators.length) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Nenhum operador disponível";
+            } else {
+              let chosen = operators[0];
+              if (strategy === "random") {
+                chosen = operators[Math.floor(Math.random() * operators.length)];
+              } else if (strategy === "least_busy") {
+                const counts = await Promise.all(operators.map(async (op) => {
+                  const { count } = await supabase
+                    .from("imphq_wa_conversations")
+                    .select("id", { count: "exact", head: true })
+                    .eq("assigned_to", op.id)
+                    .in("status", ["aberta", "em_atendimento"]);
+                  return { op, n: count || 0 };
+                }));
+                counts.sort((a, b) => a.n - b.n);
+                chosen = counts[0].op;
+              } else {
+                // round_robin: usa hash simples do lead_id para consistência
+                const key = String(lead_data?.lead_id || lead_data?.phone || "0");
+                let h = 0;
+                for (let k = 0; k < key.length; k++) h = (h * 31 + key.charCodeAt(k)) >>> 0;
+                chosen = operators[h % operators.length];
+              }
+
+              // Atribui na conversa
+              const phone = lead_data?.phone || lead_data?.telefone;
+              if (phone && project_id) {
+                await supabase
+                  .from("imphq_wa_conversations")
+                  .update({ assigned_to: chosen.id, updated_at: new Date().toISOString() })
+                  .eq("project_id", project_id)
+                  .in("phone", getBrazilianPhoneVariants(phone));
+              }
+
+              // Salva variável
+              if (step.distrib_save_variable && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = (ld as any)?.lead_memory || {};
+                const updated = { ...current, [step.distrib_save_variable]: { id: chosen.id, nome: chosen.nome } };
+                await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+
+              stepResult.status = "completed";
+              stepResult.strategy = strategy;
+              stepResult.assigned_to = { id: chosen.id, nome: chosen.nome };
+            }
+          }
+
           else {
             stepResult.status = "unknown_type";
             stepResult.reason = `Tipo "${step.tipo}" não reconhecido`;
