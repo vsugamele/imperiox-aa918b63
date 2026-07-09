@@ -1342,8 +1342,23 @@ function InnerMap({ projects }: { projects: any[] }) {
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-red-400" onClick={bulkDelete}>
             <Trash2 className="h-3 w-3" /> Excluir
           </Button>
+          <div className="w-px h-5 bg-border/40" />
+          {/* Alignment */}
+          <div className="flex items-center gap-0.5">
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar à esquerda" onClick={() => alignSelected("left")}><AlignStartVertical className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Centralizar horizontal" onClick={() => alignSelected("cx")}><AlignCenterVertical className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar à direita" onClick={() => alignSelected("right")}><AlignEndVertical className="h-3.5 w-3.5" /></Button>
+            <div className="w-px h-4 bg-border/40 mx-0.5" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar ao topo" onClick={() => alignSelected("top")}><AlignLeft className="h-3.5 w-3.5 rotate-90" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Centralizar vertical" onClick={() => alignSelected("cy")}><AlignCenter className="h-3.5 w-3.5 rotate-90" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar ao fim" onClick={() => alignSelected("bottom")}><AlignRight className="h-3.5 w-3.5 rotate-90" /></Button>
+            <div className="w-px h-4 bg-border/40 mx-0.5" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Distribuir horizontal" onClick={() => distributeSelected("h")}><AlignHorizontalDistributeCenter className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Distribuir vertical" onClick={() => distributeSelected("v")}><AlignVerticalDistributeCenter className="h-3.5 w-3.5" /></Button>
+          </div>
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => { setSelectedIds([]); setNodes(nds => nds.map(n => n.selected ? { ...n, selected: false } : n)); }}>
             <X className="h-3 w-3" />
+
           </Button>
         </div>
       )}
