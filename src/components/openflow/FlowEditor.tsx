@@ -286,6 +286,8 @@ export function FlowEditor({
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
+  const [aiAgents, setAiAgents] = useState<{ id: string; nome: string; avatar?: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -305,6 +307,20 @@ export function FlowEditor({
     };
     fetchSkills();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = supabase.from("imphq_ai_agents" as any).select("id, nome, avatar").eq("status", "ativo").order("nome");
+        const { data } = projectId ? await q.eq("projeto_id", projectId) : await q;
+        setAiAgents((data || []) as any);
+      } catch (e) { console.warn("agents load", e); }
+      try {
+        const { data } = await supabase.from("imphq_team_members" as any).select("id, nome").order("nome");
+        setTeamMembers((data || []) as any);
+      } catch (e) { console.warn("team load", e); }
+    })();
+  }, [projectId]);
 
   useEffect(() => {
     if (!automacaoId) {
