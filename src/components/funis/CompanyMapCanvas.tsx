@@ -4,8 +4,9 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges,
   type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
-  Handle, Position, useReactFlow, NodeResizer,
+  Handle, Position, useReactFlow, NodeResizer, ViewportPortal,
 } from "@xyflow/react";
+
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
@@ -283,7 +284,11 @@ const nodeTypes = Object.freeze({
   annotation_label: annotationNodeTypes.annotation_label,
   annotation_arrow: annotationNodeTypes.annotation_arrow,
   annotation_reel: annotationNodeTypes.annotation_reel,
+  annotation_script: annotationNodeTypes.annotation_script,
+  annotation_copy: annotationNodeTypes.annotation_copy,
+  annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
 }) as any;
+
 
 // MiniMap node color resolver - stable ref
 const miniMapNodeColor = (n: any) => n?.data?.color || "#c9922a";
@@ -302,7 +307,11 @@ const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   label: { w: 80, h: 30 },
   arrow: { w: 40, h: 20 },
   reel: { w: 160, h: 200 },
+  script: { w: 200, h: 160 },
+  copy: { w: 200, h: 120 },
+  ad_asset: { w: 200, h: 200 },
 };
+
 
 function clampDimension(value: unknown, min: number) {
   const n = typeof value === "number" ? value : Number(value);
@@ -338,6 +347,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
   const [waConvCounts, setWaConvCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [guides, setGuides] = useState<{ v: { x: number; y1: number; y2: number }[]; h: { y: number; x1: number; x2: number }[] }>({ v: [], h: [] });
+
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
@@ -564,6 +575,37 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, [mapId, updateAnnotationStyle]);
 
 
+  // AI generator for script/copy/ad_asset nodes
+  const generateAnnotation = useCallback(async (annNodeId: string, kind: AnnotationKind) => {
+    const rawId = annNodeId.startsWith(ANN_PREFIX) ? annNodeId.slice(ANN_PREFIX.length) : annNodeId;
+    const src = annotationsRef.current.find(a => a.id === rawId);
+    if (!src) return;
+    // set generating flag
+    setAnnotations(list => list.map(a => a.id === rawId ? { ...a, style: { ...(a.style || {}), generating: true } } : a));
+    try {
+      const promptByKind: Record<string, string> = {
+        script: `Escreva um roteiro curto (Hook + Desenvolvimento + CTA) em pt-BR sobre: "${src.style?.heading || src.text || "produto"}". Máximo 8 linhas, tom estratégico Imperius.`,
+        copy: `Escreva uma copy publicitária curta em pt-BR (headline + 2-3 linhas + CTA) sobre: "${src.style?.heading || src.text || "produto"}". Direto, cortante, sem clichê.`,
+        ad_asset: `Descreva um briefing de ativo de anúncio (visual, ângulo, mensagem-chave, formato) em pt-BR para: "${src.style?.heading || src.text || "produto"}". Máx 6 linhas.`,
+      };
+      const prompt = promptByKind[kind] || promptByKind.copy;
+      const { data, error } = await supabase.functions.invoke("chat-with-ai", {
+        body: { messages: [{ role: "user", content: prompt }] },
+      });
+      if (error) throw error;
+      const content = (data as any)?.choices?.[0]?.message?.content || (data as any)?.content || "";
+      if (!content) throw new Error("Sem resposta");
+      const nextText = String(content).trim();
+      setAnnotations(list => list.map(a => a.id === rawId ? { ...a, text: nextText, style: { ...(a.style || {}), generating: false } } : a));
+      await supabase.from(annTable).update({ text: nextText, style: { ...(src.style || {}), generating: false } as any }).eq("id", rawId);
+      toast.success("Gerado");
+    } catch (e: any) {
+      setAnnotations(list => list.map(a => a.id === rawId ? { ...a, style: { ...(a.style || {}), generating: false } } : a));
+      toast.error(e?.message || "Erro ao gerar");
+    }
+  }, []);
+
+
   // Merge annotations into React Flow nodes whenever they (or edit state) change.
   useEffect(() => {
     setNodes(nds => {
@@ -573,6 +615,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         const a = clampAnnotationLayout(raw);
         const id = `${ANN_PREFIX}${a.id}`;
         const previous = previousById.get(id);
+        const isGenerator = a.kind === "script" || a.kind === "copy" || a.kind === "ad_asset";
         return {
           id,
           type: ANNOTATION_KIND_TO_TYPE[a.kind],
@@ -591,13 +634,15 @@ function InnerMap({ projects }: { projects: any[] }) {
             style: a.style || {},
             editingId: editingAnnotationId,
             onTextChange: updateAnnotationText,
-            onUploadImage: a.kind === "reel" ? uploadReelImage : undefined,
+            onUploadImage: (a.kind === "reel" || a.kind === "ad_asset") ? uploadReelImage : undefined,
+            onGenerate: isGenerator ? generateAnnotation : undefined,
           } as unknown as Record<string, unknown>,
         } as Node;
       });
+
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
-  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage]);
+  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage, generateAnnotation]);
 
   const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
@@ -691,6 +736,87 @@ function InnerMap({ projects }: { projects: any[] }) {
     const currAnns = annotationsRef.current;
     const currRaws = rawNodesRef.current;
     const nearlyEq = (a?: number, b?: number) => a != null && b != null && Math.abs(a - b) < 0.5;
+
+    // ---- Magnetic snap while dragging ----
+    const SNAP_TOL = 6;
+    const draggingChanges = changes.filter((c: any) => c.type === "position" && c.dragging && c.position && typeof c.id === "string") as any[];
+    if (draggingChanges.length) {
+      // Build bounds for other nodes (not currently dragging)
+      const draggingIds = new Set(draggingChanges.map((c: any) => c.id));
+      const others: { id: string; x: number; y: number; w: number; h: number }[] = [];
+      // annotations
+      for (const a of currAnns) {
+        const nid = `${ANN_PREFIX}${a.id}`;
+        if (draggingIds.has(nid)) continue;
+        others.push({ id: nid, x: a.x, y: a.y, w: a.width, h: a.height });
+      }
+      // raw map nodes (use width/height if set, otherwise default)
+      for (const r of currRaws as any[]) {
+        if (draggingIds.has(r.id)) continue;
+        const w = r.width || 220, h = r.height || 100;
+        others.push({ id: r.id, x: r.position?.x || 0, y: r.position?.y || 0, w, h });
+      }
+      const activeGuides = { v: [] as { x: number; y1: number; y2: number }[], h: [] as { y: number; x1: number; x2: number }[] };
+      for (const c of draggingChanges) {
+        // moving node size
+        const isAnn = c.id.startsWith(ANN_PREFIX);
+        const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
+        const src: any = isAnn
+          ? currAnns.find(a => a.id === rawId)
+          : currRaws.find(r => r.id === rawId);
+        if (!src) continue;
+        const w = isAnn ? src.width : (src.width || 220);
+        const h = isAnn ? src.height : (src.height || 100);
+        let x = c.position.x, y = c.position.y;
+        // Candidate lines for moving
+        const mCands = [
+          { key: "l", v: x }, { key: "c", v: x + w / 2 }, { key: "r", v: x + w },
+        ];
+        const mHCands = [
+          { key: "t", v: y }, { key: "m", v: y + h / 2 }, { key: "b", v: y + h },
+        ];
+        let bestDx: { dx: number; line: number } | null = null;
+        let bestDy: { dy: number; line: number } | null = null;
+        for (const o of others) {
+          const oXs = [o.x, o.x + o.w / 2, o.x + o.w];
+          const oYs = [o.y, o.y + o.h / 2, o.y + o.h];
+          for (const mc of mCands) {
+            for (const ox of oXs) {
+              const d = ox - mc.v;
+              if (Math.abs(d) <= SNAP_TOL && (!bestDx || Math.abs(d) < Math.abs(bestDx.dx))) bestDx = { dx: d, line: ox };
+            }
+          }
+          for (const mh of mHCands) {
+            for (const oy of oYs) {
+              const d = oy - mh.v;
+              if (Math.abs(d) <= SNAP_TOL && (!bestDy || Math.abs(d) < Math.abs(bestDy.dy))) bestDy = { dy: d, line: oy };
+            }
+          }
+        }
+        if (bestDx) { x += bestDx.dx; c.position.x = x; }
+        if (bestDy) { y += bestDy.dy; c.position.y = y; }
+        // Build guide extents (union of moving node + closest other span)
+        if (bestDx) {
+          const relevant = others.filter(o => [o.x, o.x + o.w / 2, o.x + o.w].some(v => Math.abs(v - bestDx!.line) < 0.5));
+          const y1 = Math.min(y, ...relevant.map(o => o.y));
+          const y2 = Math.max(y + h, ...relevant.map(o => o.y + o.h));
+          activeGuides.v.push({ x: bestDx.line, y1, y2 });
+        }
+        if (bestDy) {
+          const relevant = others.filter(o => [o.y, o.y + o.h / 2, o.y + o.h].some(v => Math.abs(v - bestDy!.line) < 0.5));
+          const x1 = Math.min(x, ...relevant.map(o => o.x));
+          const x2 = Math.max(x + w, ...relevant.map(o => o.x + o.w));
+          activeGuides.h.push({ y: bestDy.line, x1, x2 });
+        }
+      }
+      setGuides(activeGuides);
+    }
+    // Clear guides on drop
+    if (changes.some((c: any) => c.type === "position" && c.dragging === false)) {
+      setGuides({ v: [], h: [] });
+    }
+
+
 
     const normalizedChanges = changes.map((c: any) => {
       if (c.type !== "dimensions" || !c.dimensions) return c;
@@ -961,6 +1087,83 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Tipo aplicado");
   };
 
+  // ============ Alignment & distribution ============
+  type SelBounds = { id: string; isAnn: boolean; x: number; y: number; w: number; h: number };
+  const collectSelectedBounds = useCallback((): SelBounds[] => {
+    const out: SelBounds[] = [];
+    for (const id of selectedIds) {
+      if (id.startsWith(ANN_PREFIX)) {
+        const rid = id.slice(ANN_PREFIX.length);
+        const a = annotationsRef.current.find(x => x.id === rid);
+        if (a) out.push({ id, isAnn: true, x: a.x, y: a.y, w: a.width, h: a.height });
+      } else {
+        const r: any = rawNodesRef.current.find(x => x.id === id);
+        if (r) out.push({ id, isAnn: false, x: r.position?.x || 0, y: r.position?.y || 0, w: r.width || 220, h: r.height || 100 });
+      }
+    }
+    return out;
+  }, [selectedIds]);
+
+  const applyBulkPositions = useCallback(async (updates: { id: string; isAnn: boolean; x: number; y: number }[]) => {
+    // Local state
+    setAnnotations(list => list.map(a => {
+      const u = updates.find(u => u.isAnn && u.id === `${ANN_PREFIX}${a.id}`);
+      return u ? { ...a, x: u.x, y: u.y } : a;
+    }));
+    setRawNodes(list => list.map((r: any) => {
+      const u = updates.find(u => !u.isAnn && u.id === r.id);
+      return u ? { ...r, position: { x: u.x, y: u.y } } : r;
+    }));
+    setNodes(nds => nds.map(n => {
+      const u = updates.find(u => u.id === n.id);
+      return u ? { ...n, position: { x: u.x, y: u.y } } : n;
+    }));
+    // Persist
+    await Promise.all(updates.map(u =>
+      u.isAnn
+        ? supabase.from(annTable).update({ x: u.x, y: u.y }).eq("id", u.id.slice(ANN_PREFIX.length))
+        : supabase.from("imphq_company_map_nodes").update({ position: { x: u.x, y: u.y } }).eq("id", u.id)
+    ));
+  }, [setAnnotations]);
+
+  const alignSelected = useCallback((mode: "left" | "cx" | "right" | "top" | "cy" | "bottom") => {
+    const items = collectSelectedBounds();
+    if (items.length < 2) return;
+    let target: number;
+    const updates = items.map(it => {
+      let nx = it.x, ny = it.y;
+      switch (mode) {
+        case "left":   target = Math.min(...items.map(i => i.x));                     nx = target; break;
+        case "cx":     target = items.reduce((s, i) => s + i.x + i.w / 2, 0) / items.length; nx = target - it.w / 2; break;
+        case "right":  target = Math.max(...items.map(i => i.x + i.w));               nx = target - it.w; break;
+        case "top":    target = Math.min(...items.map(i => i.y));                     ny = target; break;
+        case "cy":     target = items.reduce((s, i) => s + i.y + i.h / 2, 0) / items.length; ny = target - it.h / 2; break;
+        case "bottom": target = Math.max(...items.map(i => i.y + i.h));               ny = target - it.h; break;
+      }
+      return { id: it.id, isAnn: it.isAnn, x: Math.round(nx), y: Math.round(ny) };
+    });
+    applyBulkPositions(updates);
+  }, [collectSelectedBounds, applyBulkPositions]);
+
+  const distributeSelected = useCallback((axis: "h" | "v") => {
+    const items = collectSelectedBounds();
+    if (items.length < 3) { toast.info("Selecione 3+ para distribuir"); return; }
+    const sorted = [...items].sort((a, b) => axis === "h" ? (a.x + a.w / 2) - (b.x + b.w / 2) : (a.y + a.h / 2) - (b.y + b.h / 2));
+    const first = sorted[0], last = sorted[sorted.length - 1];
+    const startC = axis === "h" ? first.x + first.w / 2 : first.y + first.h / 2;
+    const endC   = axis === "h" ? last.x + last.w / 2 : last.y + last.h / 2;
+    const step = (endC - startC) / (sorted.length - 1);
+    const updates = sorted.map((it, i) => {
+      const c = startC + step * i;
+      return axis === "h"
+        ? { id: it.id, isAnn: it.isAnn, x: Math.round(c - it.w / 2), y: it.y }
+        : { id: it.id, isAnn: it.isAnn, x: it.x, y: Math.round(c - it.h / 2) };
+    });
+    applyBulkPositions(updates);
+  }, [collectSelectedBounds, applyBulkPositions]);
+
+
+
   // ============ Aggregated checklist ============
   const aggregatedChecklist = useMemo(() => {
     const rows: { nodeId: string; nodeLabel: string; nodeColor: string; nodeKind: string; item: ChecklistItem; position: { x: number; y: number } }[] = [];
@@ -1086,7 +1289,28 @@ function InnerMap({ projects }: { projects: any[] }) {
                 })}
               </div>
             ))}
+            {/* Gerador (IA) — anotações que geram conteúdo */}
+            <div className="space-y-0.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">Gerador (IA)</p>
+              {([
+                { kind: "script" as AnnotationKind, label: "Script / Roteiro", color: "#ec4899", Icon: FileText },
+                { kind: "copy" as AnnotationKind, label: "Copy de anúncio", color: "#f97316", Icon: MessageSquare },
+                { kind: "ad_asset" as AnnotationKind, label: "Ativo de anúncio", color: "#eab308", Icon: Megaphone },
+              ]).map(({ kind, label, color, Icon }) => (
+                <Button key={kind} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
+                  onClick={() => {
+                    const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+                    addAnnotation(kind, c.x, c.y);
+                  }}>
+                  <div className="p-0.5 rounded" style={{ background: `${color}30`, color }}>
+                    <Icon className="h-3 w-3" />
+                  </div>
+                  <span className="truncate">{label}</span>
+                </Button>
+              ))}
+            </div>
           </>
+
         ) : (
           <Plus className="h-4 w-4 text-muted-foreground" />
         )}
@@ -1118,8 +1342,23 @@ function InnerMap({ projects }: { projects: any[] }) {
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-red-400" onClick={bulkDelete}>
             <Trash2 className="h-3 w-3" /> Excluir
           </Button>
+          <div className="w-px h-5 bg-border/40" />
+          {/* Alignment */}
+          <div className="flex items-center gap-0.5">
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar à esquerda" onClick={() => alignSelected("left")}><AlignStartVertical className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Centralizar horizontal" onClick={() => alignSelected("cx")}><AlignCenterVertical className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar à direita" onClick={() => alignSelected("right")}><AlignEndVertical className="h-3.5 w-3.5" /></Button>
+            <div className="w-px h-4 bg-border/40 mx-0.5" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar ao topo" onClick={() => alignSelected("top")}><AlignLeft className="h-3.5 w-3.5 rotate-90" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Centralizar vertical" onClick={() => alignSelected("cy")}><AlignCenter className="h-3.5 w-3.5 rotate-90" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Alinhar ao fim" onClick={() => alignSelected("bottom")}><AlignRight className="h-3.5 w-3.5 rotate-90" /></Button>
+            <div className="w-px h-4 bg-border/40 mx-0.5" />
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Distribuir horizontal" onClick={() => distributeSelected("h")}><AlignHorizontalDistributeCenter className="h-3.5 w-3.5" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" title="Distribuir vertical" onClick={() => distributeSelected("v")}><AlignVerticalDistributeCenter className="h-3.5 w-3.5" /></Button>
+          </div>
           <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => { setSelectedIds([]); setNodes(nds => nds.map(n => n.selected ? { ...n, selected: false } : n)); }}>
             <X className="h-3 w-3" />
+
           </Button>
         </div>
       )}
@@ -1178,7 +1417,22 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
         <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />
+        {(guides.v.length > 0 || guides.h.length > 0) && (
+          <ViewportPortal>
+            <svg style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
+              {guides.v.map((g, i) => (
+                <line key={`v-${i}`} x1={g.x} x2={g.x} y1={g.y1 - 40} y2={g.y2 + 40}
+                  stroke="#c9922a" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
+              ))}
+              {guides.h.map((g, i) => (
+                <line key={`h-${i}`} x1={g.x1 - 40} x2={g.x2 + 40} y1={g.y} y2={g.y}
+                  stroke="#c9922a" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
+              ))}
+            </svg>
+          </ViewportPortal>
+        )}
       </ReactFlow>
+
 
       {/* Strategic gaps floating panel */}
       <div className="absolute bottom-3 right-3 z-10 hidden md:block">
