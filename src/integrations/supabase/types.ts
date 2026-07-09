@@ -17983,6 +17983,66 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ai_agents: {
+        Row: {
+          ativo: boolean
+          avatar_url: string | null
+          base_conhecimento: string | null
+          created_at: string
+          created_by: string | null
+          diretrizes: string | null
+          files: Json
+          id: string
+          identidade: string | null
+          instrucoes_atendimento: string | null
+          nome: string
+          objetivo: string | null
+          project_id: string | null
+          qa_pairs: Json
+          restricoes: string | null
+          updated_at: string
+          voice_config: Json
+        }
+        Insert: {
+          ativo?: boolean
+          avatar_url?: string | null
+          base_conhecimento?: string | null
+          created_at?: string
+          created_by?: string | null
+          diretrizes?: string | null
+          files?: Json
+          id?: string
+          identidade?: string | null
+          instrucoes_atendimento?: string | null
+          nome: string
+          objetivo?: string | null
+          project_id?: string | null
+          qa_pairs?: Json
+          restricoes?: string | null
+          updated_at?: string
+          voice_config?: Json
+        }
+        Update: {
+          ativo?: boolean
+          avatar_url?: string | null
+          base_conhecimento?: string | null
+          created_at?: string
+          created_by?: string | null
+          diretrizes?: string | null
+          files?: Json
+          id?: string
+          identidade?: string | null
+          instrucoes_atendimento?: string | null
+          nome?: string
+          objetivo?: string | null
+          project_id?: string | null
+          qa_pairs?: Json
+          restricoes?: string | null
+          updated_at?: string
+          voice_config?: Json
+        }
+        Relationships: []
+      }
       imphq_ai_chats: {
         Row: {
           created_at: string | null
