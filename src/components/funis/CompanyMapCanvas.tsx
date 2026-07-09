@@ -817,8 +817,6 @@ function InnerMap({ projects }: { projects: any[] }) {
     }
 
 
-    const currRaws = rawNodesRef.current;
-    const nearlyEq = (a?: number, b?: number) => a != null && b != null && Math.abs(a - b) < 0.5;
 
     const normalizedChanges = changes.map((c: any) => {
       if (c.type !== "dimensions" || !c.dimensions) return c;
