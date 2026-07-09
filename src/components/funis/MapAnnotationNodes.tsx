@@ -40,7 +40,7 @@ function normalizeReelUrl(url: string): string {
   } catch { return url; }
 }
 
-export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel";
+export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel" | "script" | "copy" | "ad_asset";
 
 export interface AnnotationData {
   kind: AnnotationKind;
@@ -59,11 +59,18 @@ export interface AnnotationData {
     author?: string;
     title?: string;
     description?: string;
+    // generator-specific
+    heading?: string;
+    subheading?: string;
+    link?: string;
+    generating?: boolean;
   };
   onTextChange?: (id: string, text: string) => void;
   onUploadImage?: (id: string) => void;
+  onGenerate?: (id: string, kind: AnnotationKind) => void;
   editingId?: string | null;
 }
+
 
 const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
