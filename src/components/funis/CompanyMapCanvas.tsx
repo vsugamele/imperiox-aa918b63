@@ -340,7 +340,14 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
-  const [annotations, setAnnotations] = useState<MapAnnotation[]>([]);
+  const [annotations, _setAnnotations] = useState<MapAnnotation[]>([]);
+  const setAnnotations = useCallback((updater: React.SetStateAction<MapAnnotation[]>) => {
+    _setAnnotations(prev => {
+      const next = typeof updater === "function" ? (updater as (p: MapAnnotation[]) => MapAnnotation[])(prev) : updater;
+      annotationsRef.current = next;
+      return next;
+    });
+  }, []);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
