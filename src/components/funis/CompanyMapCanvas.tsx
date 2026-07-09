@@ -1161,7 +1161,16 @@ function InnerMap({ projects }: { projects: any[] }) {
         multiSelectionKeyCode={["Meta", "Control"]}
         nodesDraggable
         selectNodesOnDrag={false}
-        deleteKeyCode={null}
+        deleteKeyCode={editingAnnotationId ? null : ["Delete", "Backspace"]}
+        snapToGrid
+        snapGrid={[10, 10]}
+        onNodesDelete={(nds) => {
+          nds.forEach((n) => {
+            if (n.id.startsWith(ANN_PREFIX)) {
+              deleteAnnotation(n.id.slice(ANN_PREFIX.length));
+            }
+          });
+        }}
         fitView proOptions={{ hideAttribution: true }}
       >
         <Background color="#1f1d1e" gap={20} />
