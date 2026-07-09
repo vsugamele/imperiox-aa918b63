@@ -35,7 +35,13 @@ function bubbleFromAcao(a: any): { role: "bot" | "system"; kind: string; text: s
     return { role: "system", kind: "tag", text: `🏷 ${t === "adicionar_tag" ? "+ tag " : "- tag "}${cfg.tag || cfg.nome || ""}`, icon: Tag };
   }
   if (t === "webhook_call") return { role: "system", kind: "webhook", text: `🔗 webhook → ${cfg.url || "?"}`, icon: Zap };
-  if (t === "wait_reply" || t === "input_capture") return { role: "system", kind: "wait", text: `👂 aguardando resposta${cfg.variable ? ` → {{${cfg.variable}}}` : ""}` };
+  if (t === "wait_reply" || t === "input_capture") return { role: "system", kind: "wait", text: `👂 aguardando resposta${cfg.variable ? ` → {{${cfg.variable}}}` : cfg.capture_variable ? ` → {{${cfg.capture_variable}}}` : ""}` };
+  if (t === "quick_reply") {
+    const opts: any[] = Array.isArray(cfg.options) ? cfg.options : [];
+    const list = opts.map((o, idx) => `${idx + 1}) ${typeof o === "string" ? o : (o?.label || "")}`).join("\n");
+    const q = cfg.question || cfg.mensagem || "Escolha uma opção:";
+    return { role: "bot", kind: "quick", text: `${q}\n\n${list || "(sem opções)"}` };
+  }
   return null;
 }
 

@@ -905,6 +905,119 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── quick_reply: envia pergunta + opções numeradas, aguarda resposta e salva escolha ──
+          else if (step.tipo === "quick_reply") {
+            const timeoutMin = Number(step.timeout_min || 1440);
+            const convId = lead_data?.conversation_id || lead_data?.conversationId;
+            const varName = String(step.capture_variable || "QUICK_CHOICE").trim();
+            const rawOptions: any[] = Array.isArray(step.options) ? step.options : [];
+            const options = rawOptions
+              .map((o: any) => (typeof o === "string" ? { label: o } : o))
+              .filter((o: any) => o && String(o.label || "").trim())
+              .slice(0, 9);
+
+            const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
+              && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
+
+            if (isResumedByReply) {
+              const rawReply = String(lead_data?.reply_content || "").trim();
+              const norm = rawReply.toLowerCase();
+              // Match por número (1, 2, 3…) ou por texto (contém label)
+              let chosenIdx = -1;
+              const numMatch = norm.match(/^\s*(\d+)/);
+              if (numMatch) {
+                const n = parseInt(numMatch[1], 10) - 1;
+                if (n >= 0 && n < options.length) chosenIdx = n;
+              }
+              if (chosenIdx < 0) {
+                chosenIdx = options.findIndex((o: any) =>
+                  norm.includes(String(o.label || "").toLowerCase().trim())
+                );
+              }
+              const chosen = chosenIdx >= 0 ? options[chosenIdx] : null;
+              const finalValue = chosen ? String(chosen.value ?? chosen.label) : rawReply;
+
+              // Salva na memória do lead
+              if (varName && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = (ld as any)?.lead_memory || {};
+                const updated = { ...current, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 };
+                await supabase.from("imphq_leads")
+                  .update({ lead_memory: updated, updated_at: new Date().toISOString() })
+                  .eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+              if (varName && convId) {
+                const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
+                const cur = (conv as any)?.variables || {};
+                await supabase.from("imphq_wa_conversations")
+                  .update({ variables: { ...cur, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 } })
+                  .eq("id", convId);
+              }
+
+              // Skip opcional: cada opção pode definir skip_n para pular X ações se escolhida
+              if (chosen && typeof chosen.skip_n === "number" && chosen.skip_n > 0) {
+                i += chosen.skip_n;
+              }
+
+              stepResult.status = "completed";
+              stepResult.capture_variable = varName;
+              stepResult.captured_value = finalValue.slice(0, 200);
+              stepResult.chosen_index = chosenIdx + 1;
+              stepResult.reason = chosen
+                ? `Escolha: ${chosenIdx + 1}) ${chosen.label}`
+                : `Resposta não bateu com nenhuma opção: "${rawReply.slice(0, 60)}"`;
+            } else {
+              // Primeira passagem: envia a pergunta + opções e pausa
+              const phone = lead_data?.phone || lead_data?.telefone;
+              const question = replaceVariables(String(step.question || step.template || "Escolha uma opção:"), lead_data, leadDb);
+              const listTxt = options.map((o: any, idx: number) => `${idx + 1}) ${o.label}`).join("\n");
+              const fullMsg = `${question}\n\n${listTxt}`.trim();
+
+              if (phone && options.length > 0) {
+                let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers")
+                    .select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+                await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    content: fullMsg,
+                    project_id,
+                  }),
+                }).catch(e => console.warn("[quick_reply] envio falhou:", e?.message));
+                messagesSent++;
+              }
+
+              const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  next_run_at: timeoutAt.toISOString(),
+                  step_results: [...stepResults, {
+                    ...stepResult,
+                    status: "waiting_reply",
+                    waiting_for: "reply",
+                    capture_variable: varName,
+                    options_sent: options.map((o: any) => o.label),
+                    conversation_id: convId || null,
+                    timeout_at: timeoutAt.toISOString(),
+                    notes: `Aguardando escolha entre ${options.length} opções em {{${varName}}}.`,
+                  }],
+                })
+                .eq("id", executionId);
+              console.log(`[openflow-executor] quick_reply aguardando escolha em {{${varName}}} (exec=${executionId}, ${options.length} opções)`);
+              status = "waiting";
+              break;
+            }
+          }
+
           // ── generate_image: gera imagem inline via flow-image-worker, opcionalmente envia no WhatsApp ──
           else if (step.tipo === "generate_image") {
             const promptTpl = String(step.image_prompt || step.template || "").trim();
