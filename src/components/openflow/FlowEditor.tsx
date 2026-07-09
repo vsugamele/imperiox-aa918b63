@@ -281,6 +281,13 @@ export function FlowEditor({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:inspectorCollapsed") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:inspectorCollapsed", inspectorCollapsed ? "1" : "0");
+  }, [inspectorCollapsed]);
 
   const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
 
