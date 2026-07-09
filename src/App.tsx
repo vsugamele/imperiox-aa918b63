@@ -141,6 +141,7 @@ const App = () => (
                 <Route path="chat" element={<Chat />} />
                 <Route path="leads" element={<Leads />} />
                 <Route path="leads/:id" element={<Lead360 />} />
+                <Route path="leads/campanha/:tag" element={<CampanhaTag />} />
                 <Route path="copy-engine" element={<CopyEngine />} />
                 <Route path="copy-lab" element={<CopyLab />} />
                 <Route path="campanhas" element={<Campanhas />} />
