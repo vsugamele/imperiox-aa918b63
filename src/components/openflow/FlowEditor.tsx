@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight, Bot, Users
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,8 @@ const ACAO_TIPOS = [
   { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
+  { value: "ai_agent", label: "Agente IA (Autônomo)", icon: Bot, emoji: "🧠", color: "border-primary/40 bg-primary/5 hover:border-primary" },
+  { value: "distribuir_atendentes", label: "Divisão de Atendentes", icon: Users, emoji: "👥", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -220,6 +222,14 @@ export interface Acao {
   image_style?: string;
   image_ratio?: "1:1" | "9:16" | "16:9";
   send_after?: boolean;
+  // ai_agent
+  ai_agent_id?: string;
+  ai_agent_pass_context?: boolean;
+  ai_agent_save_variable?: string;
+  // distribuir_atendentes
+  distrib_strategy?: "round_robin" | "random" | "least_busy";
+  distrib_operators?: string; // csv com IDs ou nomes
+  distrib_save_variable?: string;
 }
 
 export interface WaProvider {
@@ -276,6 +286,8 @@ export function FlowEditor({
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
+  const [aiAgents, setAiAgents] = useState<{ id: string; nome: string; avatar?: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -295,6 +307,20 @@ export function FlowEditor({
     };
     fetchSkills();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = supabase.from("imphq_ai_agents" as any).select("id, nome, avatar").eq("status", "ativo").order("nome");
+        const { data } = projectId ? await q.eq("projeto_id", projectId) : await q;
+        setAiAgents((data || []) as any);
+      } catch (e) { console.warn("agents load", e); }
+      try {
+        const { data } = await supabase.from("imphq_team_members" as any).select("id, nome").order("nome");
+        setTeamMembers((data || []) as any);
+      } catch (e) { console.warn("team load", e); }
+    })();
+  }, [projectId]);
 
   useEffect(() => {
     if (!automacaoId) {
@@ -2630,6 +2656,81 @@ export function FlowEditor({
                     </div>
                   </div>
                 )}
+
+
+                {/* ai_agent fields */}
+                {acao.tipo === "ai_agent" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Agente IA</Label>
+                      <Select value={acao.ai_agent_id || ""} onValueChange={v => updateAcao(selectedIdx, "ai_agent_id", v)}>
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                          <SelectValue placeholder={aiAgents.length ? "Escolha um agente…" : "Nenhum agente ativo — crie em /openflow/agentes"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {aiAgents.map(a => (
+                            <SelectItem key={a.id} value={a.id}>{a.avatar || "🤖"} {a.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        🧠 O agente assume a conversa com sua identidade, diretrizes, Q&A e base de conhecimento configuradas. Ideal para atendimento autônomo prolongado.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={!!acao.ai_agent_pass_context} onCheckedChange={v => updateAcao(selectedIdx, "ai_agent_pass_context", v)} />
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground cursor-pointer">Passar contexto do fluxo (variáveis + últimas msgs)</Label>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar resposta em (variável)</Label>
+                      <Input
+                        value={acao.ai_agent_save_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "ai_agent_save_variable", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder="Ex: agent_resposta (opcional)"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* distribuir_atendentes fields */}
+                {acao.tipo === "distribuir_atendentes" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Estratégia de Distribuição</Label>
+                      <Select value={acao.distrib_strategy || "round_robin"} onValueChange={v => updateAcao(selectedIdx, "distrib_strategy", v as any)}>
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="round_robin">🔁 Round-Robin (revezamento)</SelectItem>
+                          <SelectItem value="random">🎲 Aleatório</SelectItem>
+                          <SelectItem value="least_busy">📉 Menos ocupado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Atendentes Elegíveis</Label>
+                      <Input
+                        value={acao.distrib_operators || ""}
+                        onChange={e => updateAcao(selectedIdx, "distrib_operators", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder={teamMembers.length ? teamMembers.slice(0, 3).map(t => t.nome).join(", ") : "Ex: Carina, João, Maria"}
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👥 Nomes separados por vírgula. Deixe vazio para distribuir entre TODA a equipe cadastrada em Empresa &gt; Equipe.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar atendente escolhido em (variável)</Label>
+                      <Input
+                        value={acao.distrib_save_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "distrib_save_variable", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder="Ex: atendente (padrão)"
+                      />
+                    </div>
+                  </div>
+                )}
+
 
                 {/* abrir_conversa fields */}
                 {acao.tipo === "abrir_conversa" && (
