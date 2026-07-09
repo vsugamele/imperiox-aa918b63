@@ -347,6 +347,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
   const [waConvCounts, setWaConvCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [guides, setGuides] = useState<{ v: { x: number; y1: number; y2: number }[]; h: { y: number; x1: number; x2: number }[] }>({ v: [], h: [] });
+
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
