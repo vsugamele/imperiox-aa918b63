@@ -737,6 +737,89 @@ function InnerMap({ projects }: { projects: any[] }) {
     const currRaws = rawNodesRef.current;
     const nearlyEq = (a?: number, b?: number) => a != null && b != null && Math.abs(a - b) < 0.5;
 
+    // ---- Magnetic snap while dragging ----
+    const SNAP_TOL = 6;
+    const draggingChanges = changes.filter((c: any) => c.type === "position" && c.dragging && c.position && typeof c.id === "string") as any[];
+    if (draggingChanges.length) {
+      // Build bounds for other nodes (not currently dragging)
+      const draggingIds = new Set(draggingChanges.map((c: any) => c.id));
+      const others: { id: string; x: number; y: number; w: number; h: number }[] = [];
+      // annotations
+      for (const a of currAnns) {
+        const nid = `${ANN_PREFIX}${a.id}`;
+        if (draggingIds.has(nid)) continue;
+        others.push({ id: nid, x: a.x, y: a.y, w: a.width, h: a.height });
+      }
+      // raw map nodes (use width/height if set, otherwise default)
+      for (const r of currRaws as any[]) {
+        if (draggingIds.has(r.id)) continue;
+        const w = r.width || 220, h = r.height || 100;
+        others.push({ id: r.id, x: r.position?.x || 0, y: r.position?.y || 0, w, h });
+      }
+      const activeGuides = { v: [] as { x: number; y1: number; y2: number }[], h: [] as { y: number; x1: number; x2: number }[] };
+      for (const c of draggingChanges) {
+        // moving node size
+        const isAnn = c.id.startsWith(ANN_PREFIX);
+        const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
+        const src: any = isAnn
+          ? currAnns.find(a => a.id === rawId)
+          : currRaws.find(r => r.id === rawId);
+        if (!src) continue;
+        const w = isAnn ? src.width : (src.width || 220);
+        const h = isAnn ? src.height : (src.height || 100);
+        let x = c.position.x, y = c.position.y;
+        // Candidate lines for moving
+        const mCands = [
+          { key: "l", v: x }, { key: "c", v: x + w / 2 }, { key: "r", v: x + w },
+        ];
+        const mHCands = [
+          { key: "t", v: y }, { key: "m", v: y + h / 2 }, { key: "b", v: y + h },
+        ];
+        let bestDx: { dx: number; line: number } | null = null;
+        let bestDy: { dy: number; line: number } | null = null;
+        for (const o of others) {
+          const oXs = [o.x, o.x + o.w / 2, o.x + o.w];
+          const oYs = [o.y, o.y + o.h / 2, o.y + o.h];
+          for (const mc of mCands) {
+            for (const ox of oXs) {
+              const d = ox - mc.v;
+              if (Math.abs(d) <= SNAP_TOL && (!bestDx || Math.abs(d) < Math.abs(bestDx.dx))) bestDx = { dx: d, line: ox };
+            }
+          }
+          for (const mh of mHCands) {
+            for (const oy of oYs) {
+              const d = oy - mh.v;
+              if (Math.abs(d) <= SNAP_TOL && (!bestDy || Math.abs(d) < Math.abs(bestDy.dy))) bestDy = { dy: d, line: oy };
+            }
+          }
+        }
+        if (bestDx) { x += bestDx.dx; c.position.x = x; }
+        if (bestDy) { y += bestDy.dy; c.position.y = y; }
+        // Build guide extents (union of moving node + closest other span)
+        if (bestDx) {
+          const relevant = others.filter(o => [o.x, o.x + o.w / 2, o.x + o.w].some(v => Math.abs(v - bestDx!.line) < 0.5));
+          const y1 = Math.min(y, ...relevant.map(o => o.y));
+          const y2 = Math.max(y + h, ...relevant.map(o => o.y + o.h));
+          activeGuides.v.push({ x: bestDx.line, y1, y2 });
+        }
+        if (bestDy) {
+          const relevant = others.filter(o => [o.y, o.y + o.h / 2, o.y + o.h].some(v => Math.abs(v - bestDy!.line) < 0.5));
+          const x1 = Math.min(x, ...relevant.map(o => o.x));
+          const x2 = Math.max(x + w, ...relevant.map(o => o.x + o.w));
+          activeGuides.h.push({ y: bestDy.line, x1, x2 });
+        }
+      }
+      setGuides(activeGuides);
+    }
+    // Clear guides on drop
+    if (changes.some((c: any) => c.type === "position" && c.dragging === false)) {
+      setGuides({ v: [], h: [] });
+    }
+
+
+    const currRaws = rawNodesRef.current;
+    const nearlyEq = (a?: number, b?: number) => a != null && b != null && Math.abs(a - b) < 0.5;
+
     const normalizedChanges = changes.map((c: any) => {
       if (c.type !== "dimensions" || !c.dimensions) return c;
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
