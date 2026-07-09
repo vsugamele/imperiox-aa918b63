@@ -417,6 +417,31 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
           }).catch((e: any) => console.warn("[webhook] learn invoke skip:", e?.message));
         }
       } else {
+        // Dispara automações OpenFlow com gatilho WhatsApp (fire-and-forget)
+        try {
+          const isFirst = (conv.message_count || 0) === 0;
+          const triggers = ["whatsapp_mensagem_recebida", "whatsapp_palavra_chave"];
+          if (isFirst) triggers.push("whatsapp_primeira_mensagem");
+          for (const tt of triggers) {
+            supabase.functions.invoke("openflow-executor", {
+              body: {
+                trigger_tipo: tt,
+                project_id: projectId,
+                lead_data: {
+                  phone,
+                  nome: pushName || conv.contact_name || null,
+                  message_content: content,
+                  mensagem_recebida: content,
+                  conversation_id: conv.id,
+                  provider_id: providerId,
+                },
+              },
+            }).catch((e: any) => console.warn(`[webhook] openflow ${tt} skip:`, e?.message));
+          }
+        } catch (e: any) {
+          console.warn("[webhook] openflow trigger error:", e?.message);
+        }
+
         await runWhatsAppAutoresponder(
           deps,
           conv,
