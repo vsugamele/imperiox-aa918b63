@@ -28,6 +28,8 @@ const MarketIntel = lazy(() => import("./pages/MarketIntel"));
 const Mentes = lazy(() => import("./pages/Mentes"));
 const Funis = lazy(() => import("./pages/Funis"));
 const OpenFlow = lazy(() => import("./pages/OpenFlow"));
+const AgentesIA = lazy(() => import("./pages/AgentesIA"));
+const AgenteEditor = lazy(() => import("./pages/AgenteEditor"));
 const Docs = lazy(() => import("./pages/Docs"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InstagramPage = lazy(() => import("./pages/InstagramPage"));
