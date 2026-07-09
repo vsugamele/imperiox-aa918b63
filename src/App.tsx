@@ -22,6 +22,7 @@ const KanbanPage = lazy(() => import("./pages/KanbanPage"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Leads = lazy(() => import("./pages/Leads"));
+const CampanhaTag = lazy(() => import("./pages/CampanhaTag"));
 const Lead360 = lazy(() => import("./pages/Lead360"));
 const Financas = lazy(() => import("./pages/Financas"));
 const MarketIntel = lazy(() => import("./pages/MarketIntel"));
