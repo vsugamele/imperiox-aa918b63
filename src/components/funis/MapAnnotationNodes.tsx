@@ -116,10 +116,10 @@ export const AnnotationFrameNode = memo(({ id, data, selected }: NodeProps) => {
       <NodeResizer isVisible={resizeVisible} minWidth={120} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
 
       {/* Faixas interativas nas 4 bordas (10px) */}
-      <div className={edgeBase} style={{ top: 0, left: 0, right: 0, height: 10, cursor: "move" }} title="Arraste para mover · clique direito para opções" />
-      <div className={edgeBase} style={{ bottom: 0, left: 0, right: 0, height: 10, cursor: "move" }} />
-      <div className={edgeBase} style={{ top: 0, bottom: 0, left: 0, width: 10, cursor: "move" }} />
-      <div className={edgeBase} style={{ top: 0, bottom: 0, right: 0, width: 10, cursor: "move" }} />
+      <div className={edgeBase} style={{ top: 0, left: 0, right: 0, height: 16, cursor: "move" }} title="Arraste para mover · clique direito para opções" />
+      <div className={edgeBase} style={{ bottom: 0, left: 0, right: 0, height: 16, cursor: "move" }} />
+      <div className={edgeBase} style={{ top: 0, bottom: 0, left: 0, width: 16, cursor: "move" }} />
+      <div className={edgeBase} style={{ top: 0, bottom: 0, right: 0, width: 16, cursor: "move" }} />
 
       {/* Label editorial com diamantes */}
       <div
