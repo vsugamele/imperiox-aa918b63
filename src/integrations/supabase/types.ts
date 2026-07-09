@@ -18394,6 +18394,7 @@ export type Database = {
           stalled_operator: string | null
           stats_cache: Json | null
           tag_filtro: string | null
+          trigger_config: Json | null
           trigger_tipo: string
           updated_at: string | null
         }
@@ -18424,6 +18425,7 @@ export type Database = {
           stalled_operator?: string | null
           stats_cache?: Json | null
           tag_filtro?: string | null
+          trigger_config?: Json | null
           trigger_tipo: string
           updated_at?: string | null
         }
@@ -18454,6 +18456,7 @@ export type Database = {
           stalled_operator?: string | null
           stats_cache?: Json | null
           tag_filtro?: string | null
+          trigger_config?: Json | null
           trigger_tipo?: string
           updated_at?: string | null
         }

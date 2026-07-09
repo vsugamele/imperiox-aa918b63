@@ -253,6 +253,28 @@ Deno.serve(async (req) => {
         const hasTag = leadTags.some((t: string) => t.toLowerCase() === a.tag_filtro.toLowerCase());
         if (!hasTag) return false;
       }
+      // WhatsApp trigger: filter by keywords / regex configured in trigger_config
+      if (String(trigger_tipo || "").startsWith("whatsapp_")) {
+        const cfg = a.trigger_config || {};
+        const msg = String(lead_data?.message_content || lead_data?.mensagem_recebida || "").toLowerCase().trim();
+        const keywords: string[] = Array.isArray(cfg.keywords) ? cfg.keywords : [];
+        const matchMode = cfg.match_mode || "any"; // any | all | exact | regex
+        if (keywords.length > 0) {
+          if (!msg) return false;
+          const kws = keywords.map((k) => String(k).toLowerCase().trim()).filter(Boolean);
+          let ok = false;
+          if (matchMode === "regex") {
+            ok = kws.some((k) => { try { return new RegExp(k, "i").test(msg); } catch { return false; } });
+          } else if (matchMode === "exact") {
+            ok = kws.includes(msg);
+          } else if (matchMode === "all") {
+            ok = kws.every((k) => msg.includes(k));
+          } else {
+            ok = kws.some((k) => msg.includes(k));
+          }
+          if (!ok) return false;
+        }
+      }
       return true;
     }).sort((a: any, b: any) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
