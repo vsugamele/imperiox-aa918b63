@@ -1508,6 +1508,11 @@ export function FlowEditor({
         </div>
       )}
 
+      {/* ── LIVE WHATSAPP PREVIEW ── */}
+      {livePreviewOpen && activeTab === "editor" && (
+        <FlowLivePreview acoes={acoes} triggerTipo={triggerTipo} onClose={() => setLivePreviewOpen(false)} />
+      )}
+
       {/* ── RIGHT PROPERTIES DRAWER ── */}
       {selectedIdx !== null && selectedIdx < acoes.length && (
         (() => {
