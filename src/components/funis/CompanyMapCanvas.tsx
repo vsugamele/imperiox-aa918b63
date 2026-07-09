@@ -1304,7 +1304,22 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
         <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />
+        {(guides.v.length > 0 || guides.h.length > 0) && (
+          <ViewportPortal>
+            <svg style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
+              {guides.v.map((g, i) => (
+                <line key={`v-${i}`} x1={g.x} x2={g.x} y1={g.y1 - 40} y2={g.y2 + 40}
+                  stroke="#c9922a" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
+              ))}
+              {guides.h.map((g, i) => (
+                <line key={`h-${i}`} x1={g.x1 - 40} x2={g.x2 + 40} y1={g.y} y2={g.y}
+                  stroke="#c9922a" strokeWidth={1} strokeDasharray="4 3" opacity={0.9} />
+              ))}
+            </svg>
+          </ViewportPortal>
+        )}
       </ReactFlow>
+
 
       {/* Strategic gaps floating panel */}
       <div className="absolute bottom-3 right-3 z-10 hidden md:block">
