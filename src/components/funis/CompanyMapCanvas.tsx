@@ -572,6 +572,37 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, [mapId, updateAnnotationStyle]);
 
 
+  // AI generator for script/copy/ad_asset nodes
+  const generateAnnotation = useCallback(async (annNodeId: string, kind: AnnotationKind) => {
+    const rawId = annNodeId.startsWith(ANN_PREFIX) ? annNodeId.slice(ANN_PREFIX.length) : annNodeId;
+    const src = annotationsRef.current.find(a => a.id === rawId);
+    if (!src) return;
+    // set generating flag
+    setAnnotations(list => list.map(a => a.id === rawId ? { ...a, style: { ...(a.style || {}), generating: true } } : a));
+    try {
+      const promptByKind: Record<string, string> = {
+        script: `Escreva um roteiro curto (Hook + Desenvolvimento + CTA) em pt-BR sobre: "${src.style?.heading || src.text || "produto"}". Máximo 8 linhas, tom estratégico Imperius.`,
+        copy: `Escreva uma copy publicitária curta em pt-BR (headline + 2-3 linhas + CTA) sobre: "${src.style?.heading || src.text || "produto"}". Direto, cortante, sem clichê.`,
+        ad_asset: `Descreva um briefing de ativo de anúncio (visual, ângulo, mensagem-chave, formato) em pt-BR para: "${src.style?.heading || src.text || "produto"}". Máx 6 linhas.`,
+      };
+      const prompt = promptByKind[kind] || promptByKind.copy;
+      const { data, error } = await supabase.functions.invoke("chat-with-ai", {
+        body: { messages: [{ role: "user", content: prompt }] },
+      });
+      if (error) throw error;
+      const content = (data as any)?.choices?.[0]?.message?.content || (data as any)?.content || "";
+      if (!content) throw new Error("Sem resposta");
+      const nextText = String(content).trim();
+      setAnnotations(list => list.map(a => a.id === rawId ? { ...a, text: nextText, style: { ...(a.style || {}), generating: false } } : a));
+      await supabase.from(annTable).update({ text: nextText, style: { ...(src.style || {}), generating: false } as any }).eq("id", rawId);
+      toast.success("Gerado");
+    } catch (e: any) {
+      setAnnotations(list => list.map(a => a.id === rawId ? { ...a, style: { ...(a.style || {}), generating: false } } : a));
+      toast.error(e?.message || "Erro ao gerar");
+    }
+  }, []);
+
+
   // Merge annotations into React Flow nodes whenever they (or edit state) change.
   useEffect(() => {
     setNodes(nds => {
@@ -581,6 +612,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         const a = clampAnnotationLayout(raw);
         const id = `${ANN_PREFIX}${a.id}`;
         const previous = previousById.get(id);
+        const isGenerator = a.kind === "script" || a.kind === "copy" || a.kind === "ad_asset";
         return {
           id,
           type: ANNOTATION_KIND_TO_TYPE[a.kind],
@@ -599,10 +631,12 @@ function InnerMap({ projects }: { projects: any[] }) {
             style: a.style || {},
             editingId: editingAnnotationId,
             onTextChange: updateAnnotationText,
-            onUploadImage: a.kind === "reel" ? uploadReelImage : undefined,
+            onUploadImage: (a.kind === "reel" || a.kind === "ad_asset") ? uploadReelImage : undefined,
+            onGenerate: isGenerator ? generateAnnotation : undefined,
           } as unknown as Record<string, unknown>,
         } as Node;
       });
+
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
   }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage]);
