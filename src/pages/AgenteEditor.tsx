@@ -183,11 +183,11 @@ export default function AgenteEditor() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-2">
                 {([
-                  { k: "stability", label: "Estabilidade", range: "0.0 - 1.0", help: "Consistência entre gerações", max: 1, step: 0.05 },
-                  { k: "similarity", label: "Similaridade", range: "0.0 - 1.0", help: "Fidelidade à voz original", max: 1, step: 0.05 },
-                  { k: "style", label: "Sotaque", range: "0.0 - 1.0", help: "Estilo e expressividade", max: 1, step: 0.05 },
+                  { k: "stability", label: "Estabilidade", range: "0.0 - 1.0", help: "Consistência entre gerações", min: 0, max: 1, step: 0.05 },
+                  { k: "similarity", label: "Similaridade", range: "0.0 - 1.0", help: "Fidelidade à voz original", min: 0, max: 1, step: 0.05 },
+                  { k: "style", label: "Sotaque", range: "0.0 - 1.0", help: "Estilo e expressividade", min: 0, max: 1, step: 0.05 },
                   { k: "speed", label: "Velocidade", range: "0.7 - 1.2", help: "Velocidade de fala", min: 0.7, max: 1.2, step: 0.05 },
-                ] as const).map(({ k, label, range, help, min = 0, max, step }) => (
+                ] as Array<{ k: keyof AgentRow["voice_config"]; label: string; range: string; help: string; min: number; max: number; step: number }>).map(({ k, label, range, help, min, max, step }) => (
                   <div key={k} className="space-y-2">
                     <div>
                       <Label className="text-sm font-semibold">{label} <span className="text-[10px] text-muted-foreground font-normal">({range})</span></Label>
@@ -195,7 +195,7 @@ export default function AgenteEditor() {
                     <Slider
                       value={[(agent.voice_config as any)[k]]}
                       min={min} max={max} step={step}
-                      onValueChange={v => updVoice(k as any, v[0])}
+                      onValueChange={v => updVoice(k, v[0])}
                     />
                     <p className="text-[10px] text-muted-foreground leading-4">{help}</p>
                   </div>
