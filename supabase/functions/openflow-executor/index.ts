@@ -1564,6 +1564,14 @@ Deno.serve(async (req) => {
                   .update({ tags: newTags })
                   .eq("id", lead_data.lead_id);
                 leadTags = newTags;
+                await supabase.from("imphq_lead_tag_history").insert({
+                  lead_id: lead_data.lead_id,
+                  project_id: project_id || null,
+                  tag,
+                  action: "added",
+                  source: "openflow",
+
+                });
                 stepResult.status = "tag_added";
                 stepResult.tag = tag;
               } else {
@@ -1592,6 +1600,14 @@ Deno.serve(async (req) => {
                   .update({ tags: newTags })
                   .eq("id", lead_data.lead_id);
                 leadTags = newTags;
+                await supabase.from("imphq_lead_tag_history").insert({
+                  lead_id: lead_data.lead_id,
+                  project_id: project_id || null,
+                  tag,
+                  action: "removed",
+                  source: "openflow",
+
+                });
                 stepResult.status = "tag_removed";
                 stepResult.tag = tag;
               } else {
