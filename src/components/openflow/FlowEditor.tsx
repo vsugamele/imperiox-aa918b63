@@ -1568,6 +1568,15 @@ export function FlowEditor({
                   <Button
                     variant="ghost"
                     size="icon"
+                    title="Minimizar painel"
+                    onClick={() => setInspectorCollapsed(true)}
+                    className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     title="Excluir etapa"
                     onClick={() => {
                       const updated = acoes.filter((_, i) => i !== selectedIdx);
