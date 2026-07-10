@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload } from "lucide-react";
+import { ReferenciasPicker } from "./ReferenciasPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
@@ -66,6 +67,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ctxRefUrl, setCtxRefUrl] = useState("");
   const [ctxLoading, setCtxLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [refPickerMode, setRefPickerMode] = useState<null | "image_url" | "context">(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -385,9 +387,14 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       rows={4}
                     />
                   </div>
-                  <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5" variant="outline">
-                    <ImagePlus className="h-3.5 w-3.5" /> Gerar do prompt cru
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5 flex-1" variant="outline">
+                      <ImagePlus className="h-3.5 w-3.5" /> Gerar do prompt cru
+                    </Button>
+                    <Button size="sm" onClick={() => setRefPickerMode("image_url")} className="gap-1.5 flex-1" variant="outline">
+                      <Library className="h-3.5 w-3.5" /> Da biblioteca
+                    </Button>
+                  </div>
 
                   <div className="mt-4 rounded-md border border-pink-500/30 bg-pink-500/5 p-3 space-y-2">
                     <p className="text-xs font-semibold text-pink-200 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Gerar com contexto do funil</p>
@@ -409,7 +416,21 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     </div>
                     <div>
                       <Label className="text-[10px]">Imagem de referência (opcional)</Label>
-                      <Input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRef(f); }} className="text-xs h-8" />
+                      <div className="flex gap-2 mt-1">
+                        <label className="flex-1 cursor-pointer">
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRef(f); }} />
+                          <div className="h-8 flex items-center justify-center gap-1.5 text-xs border border-border/60 rounded-md hover:border-pink-500/60 hover:bg-pink-500/5">
+                            <Upload className="h-3 w-3" /> Upload
+                          </div>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setRefPickerMode("context")}
+                          className="flex-1 h-8 flex items-center justify-center gap-1.5 text-xs border border-border/60 rounded-md hover:border-pink-500/60 hover:bg-pink-500/5"
+                        >
+                          <Library className="h-3 w-3" /> Da biblioteca
+                        </button>
+                      </div>
                       {ctxRefUrl && <p className="text-[10px] text-emerald-300 mt-1 truncate">✓ {ctxRefUrl.split("/").pop()}</p>}
                     </div>
                     <Button size="sm" onClick={() => genWithContext(editing.blockId)} disabled={ctxLoading} className="w-full gap-1.5 bg-pink-600 hover:bg-pink-700">
@@ -458,6 +479,20 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         onClose={() => setGalleryOpen(false)}
         blueprintId={blueprintId}
         blueprint={blueprint}
+      />
+
+      <ReferenciasPicker
+        open={!!refPickerMode}
+        onClose={() => setRefPickerMode(null)}
+        onSelect={(url) => {
+          if (refPickerMode === "image_url" && editing) {
+            updateBlock(editing.nodeId, editing.blockId, { image_url: url });
+            toast.success("Imagem da biblioteca aplicada");
+          } else if (refPickerMode === "context") {
+            setCtxRefUrl(url);
+            toast.success("Referência anexada");
+          }
+        }}
       />
     </div>
   );
