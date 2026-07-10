@@ -17858,6 +17858,53 @@ export type Database = {
           },
         ]
       }
+      imphq_agent_knowledge: {
+        Row: {
+          agent_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          source_name: string
+          source_path: string | null
+          source_type: string
+        }
+        Insert: {
+          agent_id: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_name: string
+          source_path?: string | null
+          source_type?: string
+        }
+        Update: {
+          agent_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_name?: string
+          source_path?: string | null
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_agent_knowledge_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ai_action_outcomes: {
         Row: {
           action_id: string
@@ -52377,6 +52424,20 @@ export type Database = {
       mark_wa_conversation_read: {
         Args: { _conversation_id: string }
         Returns: undefined
+      }
+      match_agent_knowledge: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_agent_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_name: string
+        }[]
       }
       match_documents: {
         Args: {
