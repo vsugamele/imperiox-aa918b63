@@ -276,6 +276,7 @@ Deno.serve(async (req) => {
               const sttData = await sttRes.json();
               const transcribed = (sttData.text || "").trim();
               message = transcribed || message;
+              audioTranscription = transcribed || null;
               console.log(`[wa-ai-reply] ElevenLabs Scribe transcribed: "${message}"`);
 
               // Update the latest incoming audio message's transcript in DB
