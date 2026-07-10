@@ -296,10 +296,19 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
 
           {blueprint.nodes.map(n => (
             <div key={n.id} data-node
-              className="absolute rounded-lg bg-[#0e0a0c] border border-border/60 shadow-xl cursor-move select-none"
+              className={`absolute rounded-lg bg-[#0e0a0c] border shadow-xl cursor-move select-none transition-colors ${connectingFrom && connectingFrom !== n.id ? "border-sky-400/70 ring-2 ring-sky-400/30" : "border-border/60"}`}
               style={{ left: n.x, top: n.y, width: NODE_W }}
               onMouseDown={(e) => startNodeDrag(e, n)}
+              onMouseUp={(e) => { if (connectingFrom && connectingFrom !== n.id) { e.stopPropagation(); finishConnection(n.id); } }}
             >
+              {/* handle direito: puxar conexão */}
+              <div
+                title="Puxar conexão para outro node"
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setConnectingFrom(n.id); const rect = canvasRef.current?.getBoundingClientRect(); if (rect) setGhostPos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom }); }}
+                className="absolute -right-2 top-[26px] h-4 w-4 rounded-full bg-pink-500 hover:bg-pink-400 border-2 border-[#0e0a0c] cursor-crosshair z-10 flex items-center justify-center"
+              >
+                <Link2 className="h-2 w-2 text-white" />
+              </div>
               <NodeStatsBadge stat={nodeStats[n.id]} />
               <div className="px-3 py-2 border-b border-border/40 text-xs font-semibold text-pink-200 flex items-center justify-between gap-1" style={{ height: HEADER_H }}>
                 <span className="truncate">{n.title}</span>
