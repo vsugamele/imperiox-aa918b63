@@ -230,6 +230,28 @@ Deno.serve(async (req) => {
     let audioTranscription: string | null = null; // Track transcription for metadata
 
     if (isAudio && body.media_url) {
+      // Reutiliza transcript já persistido por wa-audio-transcribe (evita duplo custo)
+      try {
+        const { data: existingMsg } = await supabase
+          .from("imphq_wa_messages")
+          .select("id, transcript")
+          .eq("conversation_id", conversation_id)
+          .eq("direction", "incoming")
+          .eq("message_type", "audio")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existingMsg?.transcript) {
+          message = existingMsg.transcript;
+          audioTranscription = existingMsg.transcript;
+          console.log(`[wa-ai-reply] Transcript reutilizado do DB: "${message.slice(0, 80)}"`);
+        }
+      } catch (e: any) {
+        console.warn("[wa-ai-reply] transcript reuse skip:", e?.message);
+      }
+    }
+
+    if (isAudio && body.media_url && !audioTranscription) {
       console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via ElevenLabs Scribe v2...`);
       const elevenSttKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
       if (elevenSttKey) {
@@ -254,6 +276,7 @@ Deno.serve(async (req) => {
               const sttData = await sttRes.json();
               const transcribed = (sttData.text || "").trim();
               message = transcribed || message;
+              audioTranscription = transcribed || null;
               console.log(`[wa-ai-reply] ElevenLabs Scribe transcribed: "${message}"`);
 
               // Update the latest incoming audio message's transcript in DB

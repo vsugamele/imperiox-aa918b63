@@ -417,6 +417,20 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
           }).catch((e: any) => console.warn("[webhook] learn invoke skip:", e?.message));
         }
       } else {
+        // Transcrição de áudio inbound — independente do autoresponder
+        if (messageType === "audio" && mediaUrl && savedMsg?.id) {
+          supabase.functions.invoke("wa-audio-transcribe", {
+            body: {
+              message_id: savedMsg.id,
+              media_url: mediaUrl,
+              project_id: projectId,
+              conversation_id: conv.id,
+              phone,
+            },
+          }).catch((e: any) => console.warn("[webhook] wa-audio-transcribe skip:", e?.message));
+        }
+
+
         // Dispara automações OpenFlow com gatilho WhatsApp (fire-and-forget)
         try {
           const isFirst = (conv.message_count || 0) === 0;
