@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye } from "lucide-react";
 import { ReferenciasPicker } from "./ReferenciasPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -68,6 +68,9 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ctxLoading, setCtxLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [refPickerMode, setRefPickerMode] = useState<null | "image_url" | "context">(null);
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  const [refineLoading, setRefineLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -165,6 +168,36 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         nodes: blueprint.nodes.map(n => n.id === dragNodeId ? { ...n, x: Math.round(x), y: Math.round(y) } : n),
       });
     }
+    if (connectingFrom) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setGhostPos({
+        x: (e.clientX - rect.left - pan.x) / zoom,
+        y: (e.clientY - rect.top - pan.y) / zoom,
+      });
+    }
+  };
+  const finishConnection = async (targetNodeId: string) => {
+    if (!blueprint || !connectingFrom || connectingFrom === targetNodeId) {
+      setConnectingFrom(null); setGhostPos(null); return;
+    }
+    // evita duplicado
+    if (blueprint.edges.some(e => e.from === connectingFrom && e.to === targetNodeId)) {
+      toast.info("Conexão já existe");
+      setConnectingFrom(null); setGhostPos(null); return;
+    }
+    const next: FlowBlueprint = {
+      ...blueprint,
+      edges: [...blueprint.edges, { id: crypto.randomUUID(), from: connectingFrom, to: targetNodeId }],
+    };
+    await persist(next);
+    toast.success("Conectado");
+    setConnectingFrom(null); setGhostPos(null);
+  };
+  const deleteEdge = async (edgeId: string) => {
+    if (!blueprint) return;
+    const next = { ...blueprint, edges: blueprint.edges.filter(e => e.id !== edgeId) };
+    await persist(next);
   };
   const onMouseUp = async () => {
     setPanning(null);
@@ -172,6 +205,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       await supabase.from("imphq_flow_blueprints").update({ blueprint: blueprint as any }).eq("id", blueprintId);
     }
     setDragNodeId(null);
+    // se soltou fora de um node, cancela a conexão
+    if (connectingFrom) { setConnectingFrom(null); setGhostPos(null); }
   };
 
   const startNodeDrag = (e: React.MouseEvent, n: FlowNode) => {
@@ -190,6 +225,44 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     const n = blueprint.nodes.find(x => x.id === editing.nodeId);
     return n?.blocks.find(b => b.id === editing.blockId) || null;
   }, [editing, blueprint]);
+
+  // URLs de imagem de nodes que apontam PARA o node atualmente em edição
+  const upstreamImageUrls = useMemo(() => {
+    if (!editing || !blueprint) return [] as string[];
+    const incoming = blueprint.edges.filter(e => e.to === editing.nodeId).map(e => e.from);
+    const urls: string[] = [];
+    incoming.forEach(nid => {
+      const n = blueprint.nodes.find(x => x.id === nid);
+      n?.blocks.forEach(b => { if (b.type === "image" && b.image_url) urls.push(b.image_url); });
+    });
+    return urls;
+  }, [editing, blueprint]);
+
+  const refineWithImages = async () => {
+    if (!editing || upstreamImageUrls.length === 0) return;
+    setRefineLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("flow-block-refine", {
+        body: {
+          blueprint_id: blueprintId,
+          node_id: editing.nodeId,
+          block_id: editing.blockId,
+          image_urls: upstreamImageUrls.slice(0, 6),
+        },
+      });
+      if (error) throw error;
+      if (data?.text) {
+        await updateBlock(editing.nodeId, editing.blockId, { text: data.text });
+        toast.success("Bloco reescrito com base na imagem");
+      } else {
+        toast.error(data?.error || "Falha ao reescrever");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Erro");
+    } finally {
+      setRefineLoading(false);
+    }
+  };
 
   if (!blueprint) return <div className="p-6 text-sm text-muted-foreground">Carregando…</div>;
 
@@ -223,7 +296,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         onMouseLeave={onMouseUp}
       >
         <div className="absolute origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, width: 6000, height: 4000 }}>
-          <svg className="absolute inset-0 pointer-events-none" width="6000" height="4000">
+          <svg className="absolute inset-0" width="6000" height="4000" style={{ pointerEvents: "none" }}>
             {blueprint.edges.map(e => {
               const from = blueprint.nodes.find(n => n.id === e.from);
               const to = blueprint.nodes.find(n => n.id === e.to);
@@ -231,23 +304,49 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
               const sx = from.x + NODE_W, sy = from.y + 60;
               const tx = to.x, ty = to.y + 60;
               const mx = (sx + tx) / 2;
+              const midX = (sx + tx) / 2;
+              const midY = (sy + ty) / 2;
               return (
                 <g key={e.id}>
                   <path d={`M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`}
                     stroke="rgb(236 72 153 / 0.5)" strokeWidth="2" fill="none" />
                   <circle cx={sx} cy={sy} r="3" fill="rgb(236 72 153)" />
                   <circle cx={tx} cy={ty} r="3" fill="rgb(236 72 153)" />
+                  <g style={{ pointerEvents: "auto", cursor: "pointer" }} onClick={() => deleteEdge(e.id)}>
+                    <circle cx={midX} cy={midY} r="10" fill="rgb(15 10 12)" stroke="rgb(236 72 153 / 0.6)" strokeWidth="1" />
+                    <text x={midX} y={midY + 4} textAnchor="middle" fill="rgb(236 72 153)" fontSize="12" fontWeight="bold">×</text>
+                  </g>
                 </g>
               );
             })}
+            {connectingFrom && ghostPos && (() => {
+              const from = blueprint.nodes.find(n => n.id === connectingFrom);
+              if (!from) return null;
+              const sx = from.x + NODE_W, sy = from.y + 60;
+              const tx = ghostPos.x, ty = ghostPos.y;
+              const mx = (sx + tx) / 2;
+              return (
+                <path d={`M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`}
+                  stroke="rgb(56 189 248 / 0.9)" strokeWidth="2" strokeDasharray="6 4" fill="none" />
+              );
+            })()}
           </svg>
 
           {blueprint.nodes.map(n => (
             <div key={n.id} data-node
-              className="absolute rounded-lg bg-[#0e0a0c] border border-border/60 shadow-xl cursor-move select-none"
+              className={`absolute rounded-lg bg-[#0e0a0c] border shadow-xl cursor-move select-none transition-colors ${connectingFrom && connectingFrom !== n.id ? "border-sky-400/70 ring-2 ring-sky-400/30" : "border-border/60"}`}
               style={{ left: n.x, top: n.y, width: NODE_W }}
               onMouseDown={(e) => startNodeDrag(e, n)}
+              onMouseUp={(e) => { if (connectingFrom && connectingFrom !== n.id) { e.stopPropagation(); finishConnection(n.id); } }}
             >
+              {/* handle direito: puxar conexão */}
+              <div
+                title="Puxar conexão para outro node"
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setConnectingFrom(n.id); const rect = canvasRef.current?.getBoundingClientRect(); if (rect) setGhostPos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom }); }}
+                className="absolute -right-2 top-[26px] h-4 w-4 rounded-full bg-pink-500 hover:bg-pink-400 border-2 border-[#0e0a0c] cursor-crosshair z-10 flex items-center justify-center"
+              >
+                <Link2 className="h-2 w-2 text-white" />
+              </div>
               <NodeStatsBadge stat={nodeStats[n.id]} />
               <div className="px-3 py-2 border-b border-border/40 text-xs font-semibold text-pink-200 flex items-center justify-between gap-1" style={{ height: HEADER_H }}>
                 <span className="truncate">{n.title}</span>
@@ -361,6 +460,22 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     onChange={(e) => updateBlock(editing.nodeId, editing.blockId, { text: e.target.value })}
                     rows={6}
                   />
+                  {upstreamImageUrls.length > 0 && (
+                    <div className="mt-2 rounded-md border border-sky-500/30 bg-sky-500/5 p-2 space-y-2">
+                      <p className="text-[11px] text-sky-200 flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> {upstreamImageUrls.length} imagem(ns) conectada(s) a este node
+                      </p>
+                      <div className="flex gap-1 flex-wrap">
+                        {upstreamImageUrls.slice(0, 4).map((u, i) => (
+                          <img key={i} src={u} alt="" className="h-10 w-10 object-cover rounded border border-sky-500/40" />
+                        ))}
+                      </div>
+                      <Button size="sm" onClick={refineWithImages} disabled={refineLoading} className="w-full gap-1.5 bg-sky-600 hover:bg-sky-700">
+                        {refineLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        Reescrever analisando a imagem
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
               {editingBlock.type === "input_choice" && (
