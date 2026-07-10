@@ -292,22 +292,40 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
       )}
 
       {/* Stats Overlay Panel */}
-      {data.stats && data.stats.reached > 0 && (
-        <div className="mt-3 pt-2 border-t border-slate-800/80 grid grid-cols-3 gap-1 text-center select-none">
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Entraram</span>
-            <span className="text-xs font-mono font-extrabold text-blue-400">{data.stats.reached}</span>
+      {data.stats && data.stats.reached > 0 && (() => {
+        const s = data.stats as { reached: number; completed: number; waiting: number; failed: number };
+        const dropPct = s.reached > 0 ? Math.round(((s.reached - s.completed) / s.reached) * 100) : 0;
+        const dropTone =
+          dropPct >= 50 ? "text-rose-300" : dropPct >= 25 ? "text-amber-300" : "text-emerald-300";
+        return (
+          <div className="mt-3 pt-2 border-t border-slate-800/80 space-y-1 select-none">
+            <div className="grid grid-cols-4 gap-1 text-center">
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Entr.</span>
+                <span className="text-[11px] font-mono font-extrabold text-blue-400">{s.reached}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">OK</span>
+                <span className="text-[11px] font-mono font-extrabold text-emerald-400">{s.completed}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Wait</span>
+                <span className="text-[11px] font-mono font-extrabold text-amber-400">{s.waiting}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Err</span>
+                <span className={`text-[11px] font-mono font-extrabold ${s.failed > 0 ? "text-rose-400" : "text-slate-600"}`}>{s.failed}</span>
+              </div>
+            </div>
+            {s.reached >= 3 && (
+              <div className={`text-[9px] font-mono font-bold text-center ${dropTone}`}>
+                queda {dropPct}%
+              </div>
+            )}
           </div>
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Avançaram</span>
-            <span className="text-xs font-mono font-extrabold text-emerald-400">{data.stats.completed}</span>
-          </div>
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Aguardando</span>
-            <span className="text-xs font-mono font-extrabold text-amber-400">{data.stats.waiting}</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
+
 
       </div>
 

@@ -24,7 +24,9 @@ import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
 import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
-import { Undo2, Redo2 } from "lucide-react";
+import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
+import { LivePanel } from "./flow-editor/LivePanel";
+import { Undo2, Redo2, Radio } from "lucide-react";
 
 
 const CONDICAO_TIPOS = [
@@ -303,8 +305,12 @@ export function FlowEditor({
 
   const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
 
-  const [stepStats, setStepStats] = useState<Record<number, { reached: number; completed: number; waiting: number; failed: number }>>({});
-  const [loadingStats, setLoadingStats] = useState(false);
+  const { stats: stepStats, executions: liveExecutions, summary: liveSummary, loading: loadingStats } = useFlowNodeStats({
+    automacaoId,
+    totalSteps: acoes.length,
+    enabled: !!automacaoId,
+  });
+  const [livePanelOpen, setLivePanelOpen] = useState(false);
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
@@ -344,67 +350,9 @@ export function FlowEditor({
     })();
   }, [projectId]);
 
-  useEffect(() => {
-    if (!automacaoId) {
-      setStepStats({});
-      return;
-    }
+  // Step stats agora vêm de useFlowNodeStats (com Realtime)
 
-    const fetchStats = async () => {
-      setLoadingStats(true);
-      try {
-        const { data, error } = await supabase
-          .from("imphq_flow_executions")
-          .select("step_results")
-          .eq("automacao_id", automacaoId);
 
-        if (error) throw error;
-
-        const tempStats: Record<number, { reached: number; completed: number; waiting: number; failed: number }> = {};
-        
-        // Initialize stats for each action
-        acoes.forEach((_, idx) => {
-          tempStats[idx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-        });
-
-        (data || []).forEach((exec: any) => {
-          const results = exec.step_results || [];
-          if (!Array.isArray(results)) return;
-
-          results.forEach((stepRes: any) => {
-            const stepIdx = typeof stepRes.step === "number" ? stepRes.step : parseInt(stepRes.step);
-            if (isNaN(stepIdx) || stepIdx < 0 || stepIdx >= acoes.length) return;
-
-            if (!tempStats[stepIdx]) {
-              tempStats[stepIdx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-            }
-
-            tempStats[stepIdx].reached++;
-
-            const isCompleted = stepRes.status === "completed" || stepRes.status === "sent" || stepRes.status === "success" || stepRes.status === "guided_ai_completed";
-            const isWaiting = stepRes.status === "waiting" || stepRes.status === "running" || stepRes.status === "waiting_for_lead_response" || stepRes.status === "delayed_for_condition";
-            const isFailed = stepRes.status === "error" || stepRes.status === "failed";
-
-            if (isCompleted) {
-              tempStats[stepIdx].completed++;
-            } else if (isWaiting) {
-              tempStats[stepIdx].waiting++;
-            } else if (isFailed) {
-              tempStats[stepIdx].failed++;
-            }
-          });
-        });
-
-        setStepStats(tempStats);
-      } catch (err) {
-        console.error("Error fetching automation step stats:", err);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-
-    fetchStats();
-  }, [automacaoId, acoes.length]);
 
   useEffect(() => {
     // Ensure all actions have a unique ID for graph branching
@@ -899,6 +847,28 @@ export function FlowEditor({
           <MessageCircle className="h-3.5 w-3.5" />
           Preview ao vivo
         </Button>
+        {automacaoId && (
+          <Button
+            variant={livePanelOpen ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setLivePanelOpen(v => !v)}
+            title="Painel Ao Vivo — execuções em tempo real"
+            className={`h-7 text-[10px] font-bold gap-1 rounded-lg relative ${livePanelOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Radio className={`h-3.5 w-3.5 ${liveSummary.running + liveSummary.waiting > 0 ? "animate-pulse text-emerald-400" : ""}`} />
+            Ao Vivo
+            {(liveSummary.running + liveSummary.waiting) > 0 && (
+              <span className="ml-1 rounded-full bg-emerald-500/30 text-emerald-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.running + liveSummary.waiting}
+              </span>
+            )}
+            {liveSummary.failed > 0 && (
+              <span className="ml-1 rounded-full bg-rose-500/30 text-rose-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.failed}
+              </span>
+            )}
+          </Button>
+        )}
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
         <Button
           variant="ghost"
@@ -1516,6 +1486,20 @@ export function FlowEditor({
       {livePreviewOpen && activeTab === "editor" && (
         <FlowLivePreview acoes={acoes} triggerTipo={triggerTipo} onClose={() => setLivePreviewOpen(false)} />
       )}
+
+      {/* ── LIVE OBSERVABILITY PANEL ── */}
+      {automacaoId && (
+        <LivePanel
+          open={livePanelOpen}
+          onOpenChange={setLivePanelOpen}
+          executions={liveExecutions}
+          summary={liveSummary}
+          acoes={acoes}
+          loading={loadingStats}
+          onFocusStep={(idx) => setSelectedIdx(idx)}
+        />
+      )}
+
 
       {/* ── RIGHT PROPERTIES DRAWER ── */}
       {selectedIdx !== null && selectedIdx < acoes.length && (
