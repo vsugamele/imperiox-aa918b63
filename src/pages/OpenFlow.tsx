@@ -470,26 +470,48 @@ export default function OpenFlow() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
+      <Dialog open={!!editing} onOpenChange={v => { if (!v) closeEditor(); }}>
         <DialogContent className="max-w-[99vw] w-[99vw] h-[97vh] p-0 overflow-hidden bg-slate-950 border-white/10 flex flex-col">
           <DialogHeader className="px-6 py-4 border-b border-white/5 bg-slate-900/50 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeEditor}
+                  aria-label="Voltar"
+                  className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
+                >
+                  <LogOut className="h-4 w-4 rotate-180 text-slate-300" />
+                </Button>
                 <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center"><Zap className="h-5 w-5 text-primary" /></div>
                 {editing && (
                   <div>
                     <DialogTitle className="text-xl font-bold text-slate-100">{editing.nome || "Editar Fluxo"}</DialogTitle>
-                    <p className="text-xs text-muted-foreground font-mono">ID: {editing.id.slice(0, 8)}... | Projeto: {projects.find(p => p.id === editing.project_id)?.name || "Nenhum"}</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {triggerMeta(editing.trigger_tipo).icon} {triggerMeta(editing.trigger_tipo).label}
+                      {" · "}{projects.find(p => p.id === editing.project_id)?.name || "Todos os projetos"}
+                      {editing.produto ? ` · ${editing.produto}` : ""}
+                    </p>
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setEditing(null)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">Cancelar</Button>
-                {editing && <Button variant="outline" onClick={() => setShowHistory(true)} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10"><History className="h-3.5 w-3.5 mr-1.5" /> Histórico</Button>}
-                {editing && <Button onClick={() => saveAutomacao(editing)} className="h-9 px-6 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]"><Save className="h-4 w-4 mr-2" /> Salvar Automação</Button>}
+                <SaveIndicator
+                  status={autoSave.status}
+                  error={autoSave.error}
+                  lastSavedAt={autoSave.lastSavedAt}
+                  onRetry={() => autoSave.forceSave()}
+                />
+                {editing && <Button variant="outline" onClick={() => setEditing({ ...editing, ativo: !editing.ativo })} className="h-9 px-3 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">
+                  {editing.ativo ? <><Pause className="h-3.5 w-3.5 mr-1.5" /> Pausar</> : <><Play className="h-3.5 w-3.5 mr-1.5" /> Retomar</>}
+                </Button>}
+                {editing && <Button variant="outline" onClick={() => setShowHistory(true)} className="h-9 px-3 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10"><History className="h-3.5 w-3.5 mr-1.5" /> Histórico</Button>}
+                <Button variant="outline" onClick={closeEditor} className="h-9 px-4 text-xs font-semibold bg-white/5 border-white/10 hover:bg-white/10">Fechar</Button>
               </div>
             </div>
           </DialogHeader>
+
 
           {editing && (
             <div className="flex-1 overflow-y-auto">
