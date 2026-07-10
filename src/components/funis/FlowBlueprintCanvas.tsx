@@ -226,6 +226,44 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     return n?.blocks.find(b => b.id === editing.blockId) || null;
   }, [editing, blueprint]);
 
+  // URLs de imagem de nodes que apontam PARA o node atualmente em edição
+  const upstreamImageUrls = useMemo(() => {
+    if (!editing || !blueprint) return [] as string[];
+    const incoming = blueprint.edges.filter(e => e.to === editing.nodeId).map(e => e.from);
+    const urls: string[] = [];
+    incoming.forEach(nid => {
+      const n = blueprint.nodes.find(x => x.id === nid);
+      n?.blocks.forEach(b => { if (b.type === "image" && b.image_url) urls.push(b.image_url); });
+    });
+    return urls;
+  }, [editing, blueprint]);
+
+  const refineWithImages = async () => {
+    if (!editing || upstreamImageUrls.length === 0) return;
+    setRefineLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("flow-block-refine", {
+        body: {
+          blueprint_id: blueprintId,
+          node_id: editing.nodeId,
+          block_id: editing.blockId,
+          image_urls: upstreamImageUrls.slice(0, 6),
+        },
+      });
+      if (error) throw error;
+      if (data?.text) {
+        await updateBlock(editing.nodeId, editing.blockId, { text: data.text });
+        toast.success("Bloco reescrito com base na imagem");
+      } else {
+        toast.error(data?.error || "Falha ao reescrever");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Erro");
+    } finally {
+      setRefineLoading(false);
+    }
+  };
+
   if (!blueprint) return <div className="p-6 text-sm text-muted-foreground">Carregando…</div>;
 
   return (
