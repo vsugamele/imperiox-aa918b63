@@ -847,6 +847,28 @@ export function FlowEditor({
           <MessageCircle className="h-3.5 w-3.5" />
           Preview ao vivo
         </Button>
+        {automacaoId && (
+          <Button
+            variant={livePanelOpen ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setLivePanelOpen(v => !v)}
+            title="Painel Ao Vivo — execuções em tempo real"
+            className={`h-7 text-[10px] font-bold gap-1 rounded-lg relative ${livePanelOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Radio className={`h-3.5 w-3.5 ${liveSummary.running + liveSummary.waiting > 0 ? "animate-pulse text-emerald-400" : ""}`} />
+            Ao Vivo
+            {(liveSummary.running + liveSummary.waiting) > 0 && (
+              <span className="ml-1 rounded-full bg-emerald-500/30 text-emerald-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.running + liveSummary.waiting}
+              </span>
+            )}
+            {liveSummary.failed > 0 && (
+              <span className="ml-1 rounded-full bg-rose-500/30 text-rose-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.failed}
+              </span>
+            )}
+          </Button>
+        )}
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
         <Button
           variant="ghost"
