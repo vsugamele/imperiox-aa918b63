@@ -168,6 +168,36 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         nodes: blueprint.nodes.map(n => n.id === dragNodeId ? { ...n, x: Math.round(x), y: Math.round(y) } : n),
       });
     }
+    if (connectingFrom) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setGhostPos({
+        x: (e.clientX - rect.left - pan.x) / zoom,
+        y: (e.clientY - rect.top - pan.y) / zoom,
+      });
+    }
+  };
+  const finishConnection = async (targetNodeId: string) => {
+    if (!blueprint || !connectingFrom || connectingFrom === targetNodeId) {
+      setConnectingFrom(null); setGhostPos(null); return;
+    }
+    // evita duplicado
+    if (blueprint.edges.some(e => e.from === connectingFrom && e.to === targetNodeId)) {
+      toast.info("Conexão já existe");
+      setConnectingFrom(null); setGhostPos(null); return;
+    }
+    const next: FlowBlueprint = {
+      ...blueprint,
+      edges: [...blueprint.edges, { id: crypto.randomUUID(), from: connectingFrom, to: targetNodeId }],
+    };
+    await persist(next);
+    toast.success("Conectado");
+    setConnectingFrom(null); setGhostPos(null);
+  };
+  const deleteEdge = async (edgeId: string) => {
+    if (!blueprint) return;
+    const next = { ...blueprint, edges: blueprint.edges.filter(e => e.id !== edgeId) };
+    await persist(next);
   };
   const onMouseUp = async () => {
     setPanning(null);
@@ -175,6 +205,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       await supabase.from("imphq_flow_blueprints").update({ blueprint: blueprint as any }).eq("id", blueprintId);
     }
     setDragNodeId(null);
+    // se soltou fora de um node, cancela a conexão
+    if (connectingFrom) { setConnectingFrom(null); setGhostPos(null); }
   };
 
   const startNodeDrag = (e: React.MouseEvent, n: FlowNode) => {
