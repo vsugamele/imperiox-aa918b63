@@ -26,7 +26,7 @@ interface AgentRow {
   base_conhecimento: string;
   voice_config: { voice: string; stability: number; similarity: number; style: number; speed: number };
   qa_pairs: { q: string; a: string }[];
-  files: { name: string; url: string }[];
+  files: any[];
 }
 
 const VOICES = ["Samuel", "Laila", "João", "Maria", "Carlos", "Ana"];
