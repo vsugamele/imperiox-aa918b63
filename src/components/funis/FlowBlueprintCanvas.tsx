@@ -416,7 +416,21 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     </div>
                     <div>
                       <Label className="text-[10px]">Imagem de referência (opcional)</Label>
-                      <Input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRef(f); }} className="text-xs h-8" />
+                      <div className="flex gap-2 mt-1">
+                        <label className="flex-1 cursor-pointer">
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRef(f); }} />
+                          <div className="h-8 flex items-center justify-center gap-1.5 text-xs border border-border/60 rounded-md hover:border-pink-500/60 hover:bg-pink-500/5">
+                            <Upload className="h-3 w-3" /> Upload
+                          </div>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setRefPickerMode("context")}
+                          className="flex-1 h-8 flex items-center justify-center gap-1.5 text-xs border border-border/60 rounded-md hover:border-pink-500/60 hover:bg-pink-500/5"
+                        >
+                          <Library className="h-3 w-3" /> Da biblioteca
+                        </button>
+                      </div>
                       {ctxRefUrl && <p className="text-[10px] text-emerald-300 mt-1 truncate">✓ {ctxRefUrl.split("/").pop()}</p>}
                     </div>
                     <Button size="sm" onClick={() => genWithContext(editing.blockId)} disabled={ctxLoading} className="w-full gap-1.5 bg-pink-600 hover:bg-pink-700">
