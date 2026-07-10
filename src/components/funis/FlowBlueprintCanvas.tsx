@@ -387,9 +387,14 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       rows={4}
                     />
                   </div>
-                  <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5" variant="outline">
-                    <ImagePlus className="h-3.5 w-3.5" /> Gerar do prompt cru
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => regenImage(editing.nodeId, editingBlock)} className="gap-1.5 flex-1" variant="outline">
+                      <ImagePlus className="h-3.5 w-3.5" /> Gerar do prompt cru
+                    </Button>
+                    <Button size="sm" onClick={() => setRefPickerMode("image_url")} className="gap-1.5 flex-1" variant="outline">
+                      <Library className="h-3.5 w-3.5" /> Da biblioteca
+                    </Button>
+                  </div>
 
                   <div className="mt-4 rounded-md border border-pink-500/30 bg-pink-500/5 p-3 space-y-2">
                     <p className="text-xs font-semibold text-pink-200 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Gerar com contexto do funil</p>
