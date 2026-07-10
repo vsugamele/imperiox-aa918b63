@@ -293,14 +293,7 @@ export default function AgenteEditor() {
 
           {/* ARQUIVOS */}
           <TabsContent value="arquivos" className="space-y-4 pt-8">
-            <h3 className="font-display text-lg font-semibold">Arquivos de Conhecimento</h3>
-            <p className="text-sm text-muted-foreground">
-              Faça upload de PDFs, docs ou tabelas — em breve com parsing automático e busca semântica (RAG).
-            </p>
-            <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center bg-secondary/20">
-              <FolderOpen className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">Ingest de arquivos chega na próxima fatia.</p>
-            </div>
+            <ArquivosTab agentId={agent.id} files={agent.files || []} onChange={(f) => upd("files", f)} />
           </TabsContent>
         </Tabs>
       </div>
