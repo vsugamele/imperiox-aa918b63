@@ -2945,6 +2945,34 @@ Instruções Adicionais:
                   ? `\n\nExemplos Q&A:\n${agent.qa_pairs.slice(0, 10).map((q: any) => `P: ${q.pergunta || q.q}\nR: ${q.resposta || q.a}`).join("\n\n")}`
                   : "";
 
+                // RAG: busca trechos relevantes na base de conhecimento do agente
+                let ragContext = "";
+                try {
+                  const LK = Deno.env.get("LOVABLE_API_KEY");
+                  const query = (step.mensagem || agent.objetivo || agent.identidade || "").slice(0, 500);
+                  if (LK && query) {
+                    const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${LK}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ model: "openai/text-embedding-3-small", input: query, dimensions: 768 }),
+                    });
+                    if (embRes.ok) {
+                      const ej = await embRes.json();
+                      const qEmb = ej?.data?.[0]?.embedding;
+                      if (qEmb) {
+                        const { data: matches } = await supabase.rpc("match_agent_knowledge", {
+                          p_agent_id: agentId, query_embedding: qEmb as any, match_count: 4, min_similarity: 0.45,
+                        });
+                        if (Array.isArray(matches) && matches.length) {
+                          ragContext = `\n\n# Trechos relevantes da base\n${matches.map((m: any, i: number) => `[${i + 1}] (${m.source_name}) ${String(m.content).slice(0, 500)}`).join("\n\n")}`;
+                        }
+                      }
+                    }
+                  }
+                } catch (e: any) {
+                  console.warn(`[ai_agent] RAG falhou: ${e?.message}`);
+                }
+
                 const systemPrompt = [
                   agent.identidade ? `# Identidade\n${agent.identidade}` : "",
                   agent.diretrizes ? `# Diretrizes\n${agent.diretrizes}` : "",
@@ -2952,6 +2980,7 @@ Instruções Adicionais:
                   agent.instrucoes ? `# Instruções\n${agent.instrucoes}` : "",
                   agent.restricoes ? `# Restrições\n${agent.restricoes}` : "",
                   agent.base_conhecimento ? `# Base de Conhecimento\n${String(agent.base_conhecimento).slice(0, 3000)}` : "",
+                  ragContext,
                   qa,
                   ctxLines ? `# Contexto do Lead\n${ctxLines}` : "",
                   "Responda em português, tom natural de WhatsApp, curto (2-4 linhas). Sem aspas."
