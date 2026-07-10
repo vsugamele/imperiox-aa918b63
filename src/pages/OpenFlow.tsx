@@ -238,6 +238,20 @@ export default function OpenFlow() {
     onSave: async (v) => { if (v) await saveAutomacao(v, { silent: true }); },
   });
 
+  // Reset autosave baseline when opening a different flow
+  useEffect(() => {
+    if (editing) autoSave.resetBaseline(editing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id]);
+
+  const closeEditor = async () => {
+    try { await autoSave.forceSave(); } catch {}
+    setEditing(null);
+    load();
+  };
+
+
+
   const handleGenerateAI = async () => {
     if (!editing) return;
     setIsGeneratingAI(true);
