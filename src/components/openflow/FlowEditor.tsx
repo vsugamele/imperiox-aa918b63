@@ -350,67 +350,9 @@ export function FlowEditor({
     })();
   }, [projectId]);
 
-  useEffect(() => {
-    if (!automacaoId) {
-      setStepStats({});
-      return;
-    }
+  // Step stats agora vêm de useFlowNodeStats (com Realtime)
 
-    const fetchStats = async () => {
-      setLoadingStats(true);
-      try {
-        const { data, error } = await supabase
-          .from("imphq_flow_executions")
-          .select("step_results")
-          .eq("automacao_id", automacaoId);
 
-        if (error) throw error;
-
-        const tempStats: Record<number, { reached: number; completed: number; waiting: number; failed: number }> = {};
-        
-        // Initialize stats for each action
-        acoes.forEach((_, idx) => {
-          tempStats[idx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-        });
-
-        (data || []).forEach((exec: any) => {
-          const results = exec.step_results || [];
-          if (!Array.isArray(results)) return;
-
-          results.forEach((stepRes: any) => {
-            const stepIdx = typeof stepRes.step === "number" ? stepRes.step : parseInt(stepRes.step);
-            if (isNaN(stepIdx) || stepIdx < 0 || stepIdx >= acoes.length) return;
-
-            if (!tempStats[stepIdx]) {
-              tempStats[stepIdx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-            }
-
-            tempStats[stepIdx].reached++;
-
-            const isCompleted = stepRes.status === "completed" || stepRes.status === "sent" || stepRes.status === "success" || stepRes.status === "guided_ai_completed";
-            const isWaiting = stepRes.status === "waiting" || stepRes.status === "running" || stepRes.status === "waiting_for_lead_response" || stepRes.status === "delayed_for_condition";
-            const isFailed = stepRes.status === "error" || stepRes.status === "failed";
-
-            if (isCompleted) {
-              tempStats[stepIdx].completed++;
-            } else if (isWaiting) {
-              tempStats[stepIdx].waiting++;
-            } else if (isFailed) {
-              tempStats[stepIdx].failed++;
-            }
-          });
-        });
-
-        setStepStats(tempStats);
-      } catch (err) {
-        console.error("Error fetching automation step stats:", err);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-
-    fetchStats();
-  }, [automacaoId, acoes.length]);
 
   useEffect(() => {
     // Ensure all actions have a unique ID for graph branching
