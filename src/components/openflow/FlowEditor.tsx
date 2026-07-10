@@ -305,8 +305,12 @@ export function FlowEditor({
 
   const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
 
-  const [stepStats, setStepStats] = useState<Record<number, { reached: number; completed: number; waiting: number; failed: number }>>({});
-  const [loadingStats, setLoadingStats] = useState(false);
+  const { stats: stepStats, executions: liveExecutions, summary: liveSummary, loading: loadingStats } = useFlowNodeStats({
+    automacaoId,
+    totalSteps: acoes.length,
+    enabled: !!automacaoId,
+  });
+  const [livePanelOpen, setLivePanelOpen] = useState(false);
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
