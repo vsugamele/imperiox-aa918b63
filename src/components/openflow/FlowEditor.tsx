@@ -1487,6 +1487,20 @@ export function FlowEditor({
         <FlowLivePreview acoes={acoes} triggerTipo={triggerTipo} onClose={() => setLivePreviewOpen(false)} />
       )}
 
+      {/* ── LIVE OBSERVABILITY PANEL ── */}
+      {automacaoId && (
+        <LivePanel
+          open={livePanelOpen}
+          onOpenChange={setLivePanelOpen}
+          executions={liveExecutions}
+          summary={liveSummary}
+          acoes={acoes}
+          loading={loadingStats}
+          onFocusStep={(idx) => setSelectedIdx(idx)}
+        />
+      )}
+
+
       {/* ── RIGHT PROPERTIES DRAWER ── */}
       {selectedIdx !== null && selectedIdx < acoes.length && (
         (() => {
