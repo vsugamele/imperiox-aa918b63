@@ -460,6 +460,22 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     onChange={(e) => updateBlock(editing.nodeId, editing.blockId, { text: e.target.value })}
                     rows={6}
                   />
+                  {upstreamImageUrls.length > 0 && (
+                    <div className="mt-2 rounded-md border border-sky-500/30 bg-sky-500/5 p-2 space-y-2">
+                      <p className="text-[11px] text-sky-200 flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> {upstreamImageUrls.length} imagem(ns) conectada(s) a este node
+                      </p>
+                      <div className="flex gap-1 flex-wrap">
+                        {upstreamImageUrls.slice(0, 4).map((u, i) => (
+                          <img key={i} src={u} alt="" className="h-10 w-10 object-cover rounded border border-sky-500/40" />
+                        ))}
+                      </div>
+                      <Button size="sm" onClick={refineWithImages} disabled={refineLoading} className="w-full gap-1.5 bg-sky-600 hover:bg-sky-700">
+                        {refineLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        Reescrever analisando a imagem
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
               {editingBlock.type === "input_choice" && (
