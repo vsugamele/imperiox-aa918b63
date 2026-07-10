@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Sparkles, Loader2, User, ListChecks, BookOpen, MessagesSquare, FolderOpen, Trash2, Plus, Volume2 } from "lucide-react";
 import { toast } from "sonner";
+import ArquivosTab from "./agent-editor/ArquivosTab";
 
 interface AgentRow {
   id: string;
