@@ -480,6 +480,20 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         blueprintId={blueprintId}
         blueprint={blueprint}
       />
+
+      <ReferenciasPicker
+        open={!!refPickerMode}
+        onClose={() => setRefPickerMode(null)}
+        onSelect={(url) => {
+          if (refPickerMode === "image_url" && editing) {
+            updateBlock(editing.nodeId, editing.blockId, { image_url: url });
+            toast.success("Imagem da biblioteca aplicada");
+          } else if (refPickerMode === "context") {
+            setCtxRefUrl(url);
+            toast.success("Referência anexada");
+          }
+        }}
+      />
     </div>
   );
 }
