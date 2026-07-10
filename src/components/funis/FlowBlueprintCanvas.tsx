@@ -67,6 +67,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ctxRefUrl, setCtxRefUrl] = useState("");
   const [ctxLoading, setCtxLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [refPickerMode, setRefPickerMode] = useState<null | "image_url" | "context">(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
