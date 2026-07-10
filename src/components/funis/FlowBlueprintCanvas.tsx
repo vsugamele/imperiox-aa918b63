@@ -258,7 +258,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         onMouseLeave={onMouseUp}
       >
         <div className="absolute origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, width: 6000, height: 4000 }}>
-          <svg className="absolute inset-0 pointer-events-none" width="6000" height="4000">
+          <svg className="absolute inset-0" width="6000" height="4000" style={{ pointerEvents: "none" }}>
             {blueprint.edges.map(e => {
               const from = blueprint.nodes.find(n => n.id === e.from);
               const to = blueprint.nodes.find(n => n.id === e.to);
@@ -266,15 +266,32 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
               const sx = from.x + NODE_W, sy = from.y + 60;
               const tx = to.x, ty = to.y + 60;
               const mx = (sx + tx) / 2;
+              const midX = (sx + tx) / 2;
+              const midY = (sy + ty) / 2;
               return (
                 <g key={e.id}>
                   <path d={`M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`}
                     stroke="rgb(236 72 153 / 0.5)" strokeWidth="2" fill="none" />
                   <circle cx={sx} cy={sy} r="3" fill="rgb(236 72 153)" />
                   <circle cx={tx} cy={ty} r="3" fill="rgb(236 72 153)" />
+                  <g style={{ pointerEvents: "auto", cursor: "pointer" }} onClick={() => deleteEdge(e.id)}>
+                    <circle cx={midX} cy={midY} r="10" fill="rgb(15 10 12)" stroke="rgb(236 72 153 / 0.6)" strokeWidth="1" />
+                    <text x={midX} y={midY + 4} textAnchor="middle" fill="rgb(236 72 153)" fontSize="12" fontWeight="bold">×</text>
+                  </g>
                 </g>
               );
             })}
+            {connectingFrom && ghostPos && (() => {
+              const from = blueprint.nodes.find(n => n.id === connectingFrom);
+              if (!from) return null;
+              const sx = from.x + NODE_W, sy = from.y + 60;
+              const tx = ghostPos.x, ty = ghostPos.y;
+              const mx = (sx + tx) / 2;
+              return (
+                <path d={`M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`}
+                  stroke="rgb(56 189 248 / 0.9)" strokeWidth="2" strokeDasharray="6 4" fill="none" />
+              );
+            })()}
           </svg>
 
           {blueprint.nodes.map(n => (
