@@ -24,7 +24,9 @@ import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
 import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
-import { Undo2, Redo2 } from "lucide-react";
+import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
+import { LivePanel } from "./flow-editor/LivePanel";
+import { Undo2, Redo2, Radio } from "lucide-react";
 
 
 const CONDICAO_TIPOS = [
