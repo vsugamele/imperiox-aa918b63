@@ -213,7 +213,7 @@ export default function OpenFlow() {
     if (data && preset?.acoes?.length) setEditing(data as any);
   };
 
-  const saveAutomacao = async (a: Automacao) => {
+  const saveAutomacao = async (a: Automacao, opts?: { silent?: boolean }) => {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: a.acoes as any, ativo: a.ativo,
       produto: a.produto, project_id: a.project_id, quiet_start: a.quiet_start, quiet_end: a.quiet_end,
@@ -225,9 +225,18 @@ export default function OpenFlow() {
       flow_objective: a.flow_objective,
       prioridade: a.prioridade ?? 5, exclusivo: !!a.exclusivo,
     } as any).eq("id", a.id);
-    if (error) toast.error(error.message);
-    else { toast.success("Salvo!"); setEditing(null); load(); }
+    if (error) {
+      if (!opts?.silent) toast.error(error.message);
+      throw new Error(error.message);
+    }
+    if (!opts?.silent) { toast.success("Salvo!"); setEditing(null); load(); }
   };
+
+  const autoSave = useAutoSave<Automacao | null>({
+    value: editing,
+    enabled: !!editing,
+    onSave: async (v) => { if (v) await saveAutomacao(v, { silent: true }); },
+  });
 
   const handleGenerateAI = async () => {
     if (!editing) return;
