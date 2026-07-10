@@ -785,15 +785,31 @@ export function FlowEditorCanvas({
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#334155" />
-        <Controls style={{ background: "#0f172a", border: "1px solid #334155", color: "#fff" }} />
+        <Controls
+          position="bottom-left"
+          showInteractive={false}
+          className="!bg-slate-900/85 !border !border-white/10 !rounded-xl !shadow-lg backdrop-blur-md overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-white/5 [&>button]:!text-slate-200 [&>button:hover]:!bg-white/10"
+        />
         <MiniMap
-          style={{ background: "#090d16", border: "1px solid #1e293b" }}
+          position="bottom-right"
+          pannable
+          zoomable
+          style={{
+            background: "#0b0a10",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            width: 200,
+            height: 120,
+            boxShadow: "0 10px 30px -10px rgba(0,0,0,0.6)",
+          }}
           nodeColor={(n) => {
             const meta = NODE_META[(n.data as any)?.tipo] || NODE_META.default;
             return meta.color;
           }}
-          maskColor="rgba(15, 23, 42, 0.6)"
+          nodeStrokeWidth={2}
+          maskColor="rgba(8, 6, 7, 0.75)"
         />
+
         <Panel
           position="bottom-left"
           className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg pointer-events-none"
