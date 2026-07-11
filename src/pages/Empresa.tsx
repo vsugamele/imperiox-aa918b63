@@ -20,6 +20,8 @@ interface ContaEmpresa {
   nome: string;
   tipo: string;
   valor?: string;
+  foto_url?: string | null;
+  mapa_node_id?: string | null;
   extra?: {
     senha?: string;
     telefone?: string;
@@ -32,6 +34,9 @@ interface ContaEmpresa {
     ativo?: string;
   };
 }
+
+interface MapNode { id: string; label: string; }
+
 
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
 const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
