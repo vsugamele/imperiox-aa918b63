@@ -129,6 +129,8 @@ export interface Acao {
   false_next_id?: string;
   else_action?: string;
   else_skip?: number;
+  // aguardar: data/hora específica (ISO). Se preenchido, ignora delay_min.
+  wait_until?: string;
   // branch_by_awareness
   awareness_min?: number;
   awareness_max?: number;
