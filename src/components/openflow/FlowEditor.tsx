@@ -27,7 +27,7 @@ import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
 import { LivePanel } from "./flow-editor/LivePanel";
-import { Undo2, Redo2, Radio } from "lucide-react";
+import { Undo2, Redo2, Radio, Shield } from "lucide-react";
 
 
 const CONDICAO_TIPOS = [
@@ -288,6 +288,7 @@ export function FlowEditor({
   const [zoom, setZoom] = useState<number>(1);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [guardrailsOpen, setGuardrailsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [livePreviewOpen, setLivePreviewOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -1512,6 +1513,9 @@ export function FlowEditor({
           onFocusStep={(idx) => setSelectedIdx(idx)}
         />
       )}
+
+      <GuardrailsPanel automacaoId={guardrailsOpen ? (automacaoId || null) : null} onClose={() => setGuardrailsOpen(false)} />
+
 
 
       {/* ── RIGHT PROPERTIES DRAWER ── */}
