@@ -238,34 +238,43 @@ Este fluxo recebe leads vindos diretamente do anúncio para o WhatsApp. Sua miss
 Use tipos: whatsapp, audio, ia_message, wait_reply, aguardar, qualify_lead, notify_operator, stop_on_event, adicionar_tag.
 ` : "";
 
-    const systemPrompt = `Você é um copywriter brasileiro especialista em automações de marketing digital e sequências multicanal (email, WhatsApp, Telegram, áudio, IA conversacional).
-Seu objetivo: criar uma sequência de ${num_etapas} ações para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}".
-${produtoFoco}${acquisitionGuidance}${projectContext ? `\nContexto do projeto:\n${projectContext}` : ""}
+    // ── Briefing estratégico do usuário (novo) ──
+    const briefingBlock = briefing ? `
+## BRIEFING ESTRATÉGICO DO USUÁRIO (prioridade máxima)
+- Objetivo do fluxo: ${briefing.objetivo || "não informado"}
+- Temperatura do lead: ${briefing.temperatura || "não informado"}
+- Tamanho desejado do funil: ${briefing.tamanho || "padrão (6-9 etapas)"}
+- Ativos disponíveis: ${(briefing.ativos || []).join(", ") || "—"}
+- Objeções principais a derrubar: ${(briefing.objecoes || []).join(", ") || "—"}
+- Tom de voz: ${(briefing.tom || []).join(", ") || "consultivo"}
+${briefing.observacoes ? `- Observações extras: ${briefing.observacoes}` : ""}
+
+👉 Use TODOS esses campos como restrição dura. Adapte a sequência e o número de etapas ao tamanho pedido. Aborde EXPLICITAMENTE cada objeção listada em pelo menos uma etapa.
+` : "";
+
+    const numEtapasReal = briefing?.tamanho === "enxuto" ? 4 : briefing?.tamanho === "longo" ? 12 : briefing?.tamanho === "padrao" ? 7 : num_etapas;
+
+    const systemPrompt = `Você é um estrategista de copy e funis de resposta direta (escola Hormozi + Sobral + Hopkins), atuando como o Imperius no ImperioHQ.
+Seu objetivo: criar uma sequência de ${numEtapasReal} ações para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}", diagnosticando o contexto ANTES de gerar.
+${produtoFoco}${acquisitionGuidance}${briefingBlock}${projectContext ? `\nContexto do projeto:\n${projectContext}` : ""}
 ${skillsContext}
 REGRAS:
-- Use linguagem conversacional e persuasiva em português brasileiro
-- Cada ação deve ter um propósito claro
-- Intercale canais quando fizer sentido (whatsapp + audio + ia_message)
-- Inclua delays realistas (use "aguardar" entre toques)
-- Para IA conversacional use tipo "ia_message" e descreva no template o COMPORTAMENTO esperado (não a mensagem literal)
-- Variáveis: {{nome}}, {{produto}}, {{link}}, {{telefone}}, {{print_resultado}}, {{depoimento_cliente}}
-- Retorne EXATAMENTE o JSON solicitado, sem markdown
+- Antes das ações, produza um DIAGNÓSTICO curto (3-5 linhas) explicando: (a) o que você detectou no contexto/KPIs/avatar, (b) qual estratégia escolheu e por quê, (c) qual objeção do briefing é atacada em cada bloco.
+- Sugira 2-3 pontos de A/B test (etapa + hipótese testada).
+- Cada ação deve ter propósito claro. Intercale canais (whatsapp + audio + ia_message).
+- Inclua delays realistas (use "aguardar" entre toques).
+- Para IA conversacional use "ia_message" descrevendo COMPORTAMENTO, não mensagem literal.
+- Variáveis: {{nome}}, {{produto}}, {{link}}, {{telefone}}, {{print_resultado}}, {{depoimento_cliente}}.
+- Retorne EXATAMENTE via tool_call.
 
-ESTILO DE ESCRITA (REGRAS SUGAMELE — OBRIGATÓRIO em todo template de mensagem):
-A copy deve soar como CONVERSA REAL, não artigo, não texto de IA.
-- Conectivos entre ideias (E, Mas, Só que aí, Então, E olha, Agora, Porque daí). Proibida frase telegráfica ("Comprou. Aprendeu. Tentou.") — sempre fluir.
-- Artigo antes de todo substantivo.
-- Reticências (…) para ritmo de fala em reflexão/suspense.
-- Especificidade extrema: números, prazos, valores, exemplos concretos. Proibido "bons resultados", "muita gente". Forte: "R$ 12.300 em 14 dias com R$ 480 de tráfego".
-- Imagens mentais em vez de rótulos abstratos.
-- Sem dicotomia simplista, sem travessão (—), sem adjetivo vazio (incrível, transformador, revolucionário, profundo).
-- Coloquial natural ("tá", "pra", "na prática", "de tudo que é jeito") sem vulgaridade.
-- CTA conversacional, nunca interrupção. Errado: "Compre agora". Certo: "se isso fizer sentido pra você, dá uma olhada aqui embaixo".
-- Pergunta de engajamento curta quando couber ("faz sentido?", "sabe o que acontece?") — não em toda mensagem.
-- Em mensagens curtas de WhatsApp, mantenha o tom Sugamele mesmo em 2-3 frases.`;
+ESTILO SUGAMELE (obrigatório em templates de mensagem):
+- Conversa real, conectivos (E, Mas, Só que aí, Então), reticências para ritmo.
+- Especificidade extrema: números, prazos, valores.
+- Sem travessão, sem adjetivo vazio (incrível, transformador).
+- Coloquial ("tá", "pra") sem vulgaridade.
+- CTA conversacional, nunca interrupção.`;
 
-    const userPrompt = `Gere uma sequência de ${num_etapas} ações para o trigger "${trigger_tipo}".
-Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_response?, questioning_strategy?, timeout_min?, tag?, stop_event_type? }.`;
+    const userPrompt = `Gere ${numEtapasReal} ações para "${trigger_tipo}" seguindo o briefing. Retorne diagnostico + acoes + ab_suggestions via tool_call.`;
 
     const makeH = (key: string, or: boolean): Record<string, string> => {
       const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
@@ -279,10 +288,11 @@ Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_respons
           type: "function",
           function: {
             name: "generate_flow",
-            description: "Generate automation flow actions",
+            description: "Generate automation flow with diagnostic and A/B suggestions",
             parameters: {
               type: "object",
               properties: {
+                diagnostico: { type: "string", description: "3-5 linhas explicando contexto detectado, estratégia escolhida, e como cada objeção é atacada." },
                 acoes: { type: "array", items: { type: "object", properties: {
                   tipo: { type: "string", enum: ["email", "whatsapp", "telegram", "aguardar", "audio", "ia_message", "wait_reply", "qualify_lead", "notify_operator", "stop_on_event", "adicionar_tag"] },
                   template: { type: "string" },
@@ -293,9 +303,15 @@ Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_respons
                   timeout_min: { type: "number" },
                   tag: { type: "string" },
                   stop_event_type: { type: "string" },
+                  proposito: { type: "string", description: "Frase curta explicando o papel desta ação no funil." },
                 }, required: ["tipo", "template", "delay_min"], additionalProperties: false } },
+                ab_suggestions: { type: "array", items: { type: "object", properties: {
+                  etapa_index: { type: "number" },
+                  hipotese: { type: "string" },
+                  variante: { type: "string" },
+                }, required: ["etapa_index", "hipotese"], additionalProperties: false } },
               },
-              required: ["acoes"], additionalProperties: false,
+              required: ["diagnostico", "acoes"], additionalProperties: false,
             },
           },
         }],
@@ -304,7 +320,6 @@ Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_respons
 
     let response = await fetchAI(`${aiBaseUrl}/chat/completions`, { method: "POST", headers: makeH(aiApiKey, !isLovableModel), body: flowPayload });
 
-    // Fallback: if Lovable gateway returns 402, retry via OpenRouter
     if (isLovableModel && response.status === 402) {
       const orKey = Deno.env.get("OPENROUTER_API_KEY");
       if (orKey) {
@@ -316,9 +331,9 @@ Retorne JSON array com { tipo, template, delay_min, ia_vision?, ia_voice_respons
     if (!response.ok) return handleAIError(response);
     const result = await response.json();
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    let acoes: any[] = [];
-    if (toolCall?.function?.arguments) acoes = JSON.parse(toolCall.function.arguments).acoes || [];
-    return new Response(JSON.stringify({ acoes }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let parsed: any = { acoes: [], diagnostico: "", ab_suggestions: [] };
+    if (toolCall?.function?.arguments) parsed = { ...parsed, ...JSON.parse(toolCall.function.arguments) };
+    return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("openflow-ai error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
