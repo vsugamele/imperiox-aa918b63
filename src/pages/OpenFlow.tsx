@@ -54,9 +54,12 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   { value: "assinatura_cancelada", label: "Assinatura Cancelada", icon: "💔", color: "border-l-pink-500", group: "Retenção" },
   { value: "assinatura_renovada", label: "Assinatura Renovada", icon: "🔄", color: "border-l-teal-500", group: "Retenção" },
   { value: "trial_iniciado", label: "Trial Iniciado", icon: "🆓", color: "border-l-cyan-500", group: "Retenção" },
+  { value: "whatsapp_mensagem_recebida", label: "Qualquer mensagem no WhatsApp", icon: "💬", color: "border-l-green-500", group: "WhatsApp" },
+  { value: "whatsapp_palavra_chave", label: "Palavra-chave no WhatsApp", icon: "🔑", color: "border-l-green-600", group: "WhatsApp" },
 ];
 
-const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção"];
+const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp"];
+
 
 interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
