@@ -380,7 +380,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                 <TableRow key={c.id}>
                   {tipo === "email" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
+
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
