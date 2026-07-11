@@ -1308,7 +1308,9 @@ export function FlowEditor({
                         ) : isAguardar ? (
                           <div className="flex justify-center select-none my-1">
                             <span className="text-[9px] bg-slate-900/60 text-slate-400 border border-border px-3 py-1 rounded-lg">
-                              ⏱️ Ação de Espera de {acao.delay_min} minutos
+                              {acao.wait_until
+                                ? `📅 Aguardar até ${new Date(acao.wait_until).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                                : `⏱️ Ação de Espera de ${acao.delay_min} minutos`}
                             </span>
                           </div>
                         ) : isCondicao ? (
