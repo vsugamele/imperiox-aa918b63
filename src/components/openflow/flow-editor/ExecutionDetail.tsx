@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, XCircle, Loader2, User, Phone, Zap, PlayCircle, StopCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Loader2, User, Phone, Zap, PlayCircle, StopCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { LiveExecution } from "./useFlowNodeStats";
 import type { Acao } from "../FlowEditor";
@@ -72,6 +72,20 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
       onClose();
     } catch (e: any) {
       toast.error(e?.message || "Falha ao cancelar");
+    } finally { setActing(false); }
+  };
+
+  const replayFrom = async (fromStep: number) => {
+    if (!exec) return;
+    setActing(true);
+    try {
+      const { error } = await supabase.functions.invoke("flow-execution-replay", {
+        body: { execution_id: exec.id, from_step: fromStep },
+      });
+      if (error) throw error;
+      toast.success(`Replay a partir do step #${fromStep}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no replay");
     } finally { setActing(false); }
   };
 
@@ -148,6 +162,11 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
                       </div>
                       {sr.detail && <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{typeof sr.detail === "string" ? sr.detail : JSON.stringify(sr.detail).slice(0, 200)}</p>}
                       {sr.error && <p className="text-[10px] text-rose-300 mt-1 leading-snug">{String(sr.error).slice(0, 200)}</p>}
+                      <div className="flex justify-end mt-1.5">
+                        <Button size="sm" variant="ghost" disabled={acting} onClick={() => replayFrom(idx)} className="h-6 text-[10px] gap-1 text-muted-foreground hover:text-slate-100">
+                          <RotateCcw className="h-3 w-3" /> Replay daqui
+                        </Button>
+                      </div>
                     </li>
                   );
                 })}

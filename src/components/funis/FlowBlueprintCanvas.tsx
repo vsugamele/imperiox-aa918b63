@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye, Zap } from "lucide-react";
 import { ReferenciasPicker } from "./ReferenciasPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -282,6 +282,18 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         </div>
         <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setGalleryOpen(true)}>
           <Images className="h-3.5 w-3.5" /> Imagens
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={async () => {
+          const t = toast.loading("Materializando automação...");
+          try {
+            const { data, error } = await supabase.functions.invoke("flow-materialize", { body: { blueprint_id: blueprintId } });
+            if (error) throw error;
+            toast.success(`Automação criada com ${data?.steps} steps`, { id: t });
+          } catch (e: any) {
+            toast.error(e?.message || "Falha ao materializar", { id: t });
+          }
+        }}>
+          <Zap className="h-3.5 w-3.5" /> Materializar
         </Button>
         <Button size="sm" variant="outline" className="h-8" onClick={onClose}><X className="h-4 w-4" /></Button>
       </div>

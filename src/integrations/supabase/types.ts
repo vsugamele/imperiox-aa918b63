@@ -18418,6 +18418,10 @@ export type Database = {
           acoes: Json | null
           ativo: boolean | null
           campanha_id: string | null
+          circuit_breaker_error_pct: number | null
+          circuit_breaker_paused_at: string | null
+          circuit_breaker_reason: string | null
+          circuit_breaker_window_min: number | null
           created_at: string | null
           dedupe_hours: number | null
           exclusivo: boolean
@@ -18430,6 +18434,7 @@ export type Database = {
           follow_up_template: string | null
           id: string
           link_checkout: string | null
+          linked_blueprint_id: string | null
           nome: string
           prioridade: number
           produto: string | null
@@ -18437,6 +18442,7 @@ export type Database = {
           provider_id: string | null
           quiet_end: number | null
           quiet_start: number | null
+          rate_limit_per_lead_24h: number | null
           stalled_hours: number | null
           stalled_operator: string | null
           stats_cache: Json | null
@@ -18449,6 +18455,10 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          circuit_breaker_error_pct?: number | null
+          circuit_breaker_paused_at?: string | null
+          circuit_breaker_reason?: string | null
+          circuit_breaker_window_min?: number | null
           created_at?: string | null
           dedupe_hours?: number | null
           exclusivo?: boolean
@@ -18461,6 +18471,7 @@ export type Database = {
           follow_up_template?: string | null
           id: string
           link_checkout?: string | null
+          linked_blueprint_id?: string | null
           nome: string
           prioridade?: number
           produto?: string | null
@@ -18468,6 +18479,7 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          rate_limit_per_lead_24h?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
           stats_cache?: Json | null
@@ -18480,6 +18492,10 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          circuit_breaker_error_pct?: number | null
+          circuit_breaker_paused_at?: string | null
+          circuit_breaker_reason?: string | null
+          circuit_breaker_window_min?: number | null
           created_at?: string | null
           dedupe_hours?: number | null
           exclusivo?: boolean
@@ -18492,6 +18508,7 @@ export type Database = {
           follow_up_template?: string | null
           id?: string
           link_checkout?: string | null
+          linked_blueprint_id?: string | null
           nome?: string
           prioridade?: number
           produto?: string | null
@@ -18499,6 +18516,7 @@ export type Database = {
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          rate_limit_per_lead_24h?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
           stats_cache?: Json | null
@@ -18508,6 +18526,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_automacoes_linked_blueprint_id_fkey"
+            columns: ["linked_blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_automacoes_project_id_fkey"
             columns: ["project_id"]
@@ -20529,6 +20554,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          linked_automacao_id: string | null
           objetivo: string | null
           produto_id: string | null
           produto_nome: string | null
@@ -20544,6 +20570,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          linked_automacao_id?: string | null
           objetivo?: string | null
           produto_id?: string | null
           produto_nome?: string | null
@@ -20559,6 +20586,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          linked_automacao_id?: string | null
           objetivo?: string | null
           produto_id?: string | null
           produto_nome?: string | null

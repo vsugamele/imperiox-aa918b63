@@ -22,11 +22,12 @@ import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { GuardrailsPanel } from "./GuardrailsPanel";
 import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
 import { LivePanel } from "./flow-editor/LivePanel";
-import { Undo2, Redo2, Radio } from "lucide-react";
+import { Undo2, Redo2, Radio, Shield } from "lucide-react";
 
 
 const CONDICAO_TIPOS = [
@@ -287,6 +288,7 @@ export function FlowEditor({
   const [zoom, setZoom] = useState<number>(1);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [guardrailsOpen, setGuardrailsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [livePreviewOpen, setLivePreviewOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -867,6 +869,18 @@ export function FlowEditor({
                 {liveSummary.failed}
               </span>
             )}
+          </Button>
+        )}
+        {automacaoId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGuardrailsOpen(true)}
+            title="Guardrails: rate limit, quiet hours, circuit breaker"
+            className="h-7 text-[10px] font-bold gap-1 rounded-lg text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Guardrails
           </Button>
         )}
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
@@ -1499,6 +1513,9 @@ export function FlowEditor({
           onFocusStep={(idx) => setSelectedIdx(idx)}
         />
       )}
+
+      <GuardrailsPanel automacaoId={guardrailsOpen ? (automacaoId || null) : null} onClose={() => setGuardrailsOpen(false)} />
+
 
 
       {/* ── RIGHT PROPERTIES DRAWER ── */}
