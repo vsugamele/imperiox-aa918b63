@@ -284,11 +284,21 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
               <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0">{iconByTipo}</span>
+                    {c.foto_url ? (
+                      <img src={c.foto_url} alt={title} className="h-10 w-10 rounded-md object-cover shrink-0 border border-border" />
+                    ) : (
+                      <span className="text-base shrink-0">{iconByTipo}</span>
+                    )}
                     <span className="text-sm font-medium truncate" title={title}>{title}</span>
                   </div>
                   <Badge variant="outline" className={`text-[9px] shrink-0 ${statusClass}`}>{statusText}</Badge>
                 </div>
+                {c.mapa_node_id && nodeLabel(c.mapa_node_id) && (
+                  <Link to={`/funis?view=mapa&node=${c.mapa_node_id}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline w-fit">
+                    <MapIcon className="h-3 w-3" /> {nodeLabel(c.mapa_node_id)}
+                  </Link>
+                )}
+
 
                 <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/50 pt-2">
                   {tipo === "email" && (
