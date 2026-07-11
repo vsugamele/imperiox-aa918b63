@@ -1081,9 +1081,11 @@ export function FlowEditor({
                               🔀 A: {acao.rota_a_porcentagem ?? 50}% / B: {100 - (acao.rota_a_porcentagem ?? 50)}% (pular {acao.jump_steps ?? 1})
                             </Badge>
                           )}
-                          {isAguardar && acao.delay_min > 0 && (
+                          {isAguardar && (acao.wait_until || acao.delay_min > 0) && (
                             <Badge variant="secondary" className="text-[8px] bg-amber-500/10 text-amber-400 border-amber-500/20">
-                              Aguardar {acao.delay_min} min
+                              {acao.wait_until
+                                ? `📅 até ${new Date(acao.wait_until).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                                : `Aguardar ${acao.delay_min} min`}
                             </Badge>
                           )}
                           {(acao.tipo === "adicionar_tag" || acao.tipo === "remover_tag") && acao.tag && (
