@@ -1268,7 +1268,8 @@ export function FlowEditor({
                     const isCondicao = acao.tipo === "condicao";
                     const isWaitEvent = acao.tipo === "wait_event" || acao.tipo === "wait_until_event";
                     const isAbSplit = acao.tipo === "ab_split";
-                    accumDelay += acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0);
+                    const hasWaitUntil = isAguardar && !!acao.wait_until;
+                    if (!hasWaitUntil) accumDelay += acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0);
 
                     const isDragging = draggedIdx === idx;
                     const isDragOver = dragOverIdx === idx;
