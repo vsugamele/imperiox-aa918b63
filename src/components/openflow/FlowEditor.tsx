@@ -1685,20 +1685,73 @@ export function FlowEditor({
 
                 {/* Delay Selector */}
                 {!isWaitEvent && !isAbSplit && acao.tipo !== "wait_reply" && (
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      {isAguardar ? "Tempo de Espera (minutos)" : isCondicao ? "Verificar após (minutos)" : "Atraso no Envio (minutos)"}
-                    </Label>
-                    <Input
-                      type="number"
-                      value={isCondicao ? (acao.condicao_tempo_min || 0) : acao.delay_min}
-                      onChange={e => {
-                        const val = parseInt(e.target.value) || 0;
-                        if (isCondicao) updateAcao(selectedIdx, "condicao_tempo_min", val);
-                        else updateAcao(selectedIdx, "delay_min", val);
-                      }}
-                      className="h-9 text-xs bg-background/50 border-border/80"
-                    />
+                  <div className="space-y-2">
+                    {isAguardar && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Modo de Espera</Label>
+                        <Select
+                          value={acao.wait_until ? "absolute" : "relative"}
+                          onValueChange={(v) => {
+                            if (v === "relative") updateAcao(selectedIdx, "wait_until", undefined as any);
+                            else {
+                              // default: agora + 1h, arredondado
+                              const d = new Date(Date.now() + 60 * 60 * 1000);
+                              d.setSeconds(0, 0);
+                              updateAcao(selectedIdx, "wait_until", d.toISOString());
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="relative">⏱️ Relativo (minutos)</SelectItem>
+                            <SelectItem value="absolute">📅 Data e hora específica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {isAguardar && acao.wait_until ? (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Aguardar até</Label>
+                        <Input
+                          type="datetime-local"
+                          value={(() => {
+                            const d = new Date(acao.wait_until);
+                            if (isNaN(d.getTime())) return "";
+                            const pad = (n: number) => String(n).padStart(2, "0");
+                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                          })()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const iso = new Date(val).toISOString();
+                            updateAcao(selectedIdx, "wait_until", iso);
+                          }}
+                          className="h-9 text-xs bg-background/50 border-border/80"
+                        />
+                        <p className="text-[9px] text-muted-foreground/70 leading-relaxed mt-1">
+                          O fluxo pausará até a data/hora escolhida (fuso do navegador). Se a data já passou, avança imediatamente.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                          {isAguardar ? "Tempo de Espera (minutos)" : isCondicao ? "Verificar após (minutos)" : "Atraso no Envio (minutos)"}
+                        </Label>
+                        <Input
+                          type="number"
+                          value={isCondicao ? (acao.condicao_tempo_min || 0) : acao.delay_min}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            if (isCondicao) updateAcao(selectedIdx, "condicao_tempo_min", val);
+                            else updateAcao(selectedIdx, "delay_min", val);
+                          }}
+                          className="h-9 text-xs bg-background/50 border-border/80"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
