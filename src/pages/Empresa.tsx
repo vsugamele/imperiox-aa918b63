@@ -400,7 +400,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                     </>
                   ) : tipo === "youtube" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {c.extra?.channel_url ? (
                           <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px] block">
