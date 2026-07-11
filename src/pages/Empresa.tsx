@@ -230,6 +230,90 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
           <p className="text-3xl mb-2">{iconByTipo}</p>
           <p className="text-sm">Nenhum {labelByTipo.toLowerCase()} cadastrado ainda</p>
         </div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {contas.map((c) => {
+            const statusText = tipo === "youtube" ? (c.extra?.ativo || "Inativo") : (c.extra?.status_aquecimento || "Inativo");
+            const statusClass = tipo === "youtube"
+              ? (c.extra?.ativo === "Ativo" || c.extra?.ativo === "Monetizado" ? "border-emerald-500/30 text-emerald-400" : c.extra?.ativo === "Inativo" ? "border-red-500/30 text-red-400" : "")
+              : (statusText === "Pronto" ? "border-emerald-500/30 text-emerald-400" : statusText === "Aquecendo" ? "border-amber-500/30 text-amber-400" : statusText === "Banido" ? "border-red-500/30 text-red-400" : "");
+            const title = tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}`;
+            return (
+              <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">{iconByTipo}</span>
+                    <span className="text-sm font-medium truncate" title={title}>{title}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] shrink-0 ${statusClass}`}>{statusText}</Badge>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/50 pt-2">
+                  {tipo === "email" && (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="opacity-70">Senha</span>
+                        <span className="flex items-center gap-1 text-foreground/80 font-mono">
+                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                          {c.extra?.senha && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
+                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Em uso</span><span className="text-foreground/80 truncate">{c.valor || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Telefone</span><span className="text-foreground/80">{c.extra?.telefone || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Data compra</span><span className="text-foreground/80">{c.extra?.data_compra || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Perfil IG</span><span className="text-foreground/80 truncate">{c.extra?.perfil_instagram || "—"}</span></div>
+                    </>
+                  )}
+
+                  {tipo === "youtube" && (
+                    <>
+                      <div className="flex justify-between gap-2">
+                        <span className="opacity-70">Canal</span>
+                        {c.extra?.channel_url ? (
+                          <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[60%]">{c.extra.channel_url}</a>
+                        ) : <span className="text-foreground/80">—</span>}
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Inscritos</span><span className="text-foreground/80">{c.extra?.seguidores || "—"}</span></div>
+                      {c.extra?.bio && <p className="text-foreground/70 line-clamp-2 pt-1">{c.extra.bio}</p>}
+                    </>
+                  )}
+
+                  {(tipo === "instagram" || tipo === "tiktok") && (
+                    <>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Usuário</span><span className="text-foreground/80 truncate">{c.valor || "—"}</span></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="opacity-70">Senha</span>
+                        <span className="flex items-center gap-1 text-foreground/80 font-mono">
+                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                          {c.extra?.senha && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
+                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Seguidores</span><span className="text-foreground/80">{c.extra?.seguidores || "—"}</span></div>
+                      {c.extra?.bio && <p className="text-foreground/70 line-clamp-2 pt-1">{c.extra.bio}</p>}
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => openEdit(c)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="rounded-lg border border-border overflow-auto">
           <Table>
