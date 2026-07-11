@@ -31,6 +31,8 @@ import { FlowMediaLibrary } from "@/components/openflow/FlowMediaLibrary";
 import { useAutoSave } from "@/components/openflow/flow-editor/useAutoSave";
 import { SaveIndicator } from "@/components/openflow/flow-editor/SaveIndicator";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
+import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
+import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -119,6 +121,7 @@ export default function OpenFlow() {
   const [customTagModeNew, setCustomTagModeNew] = useState(false);
   const [health, setHealth] = useState<Map<string, { execucoes: number; sucessos: number; falhas: number; taxa_sucesso: number }>>(new Map());
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showX1Wizard, setShowX1Wizard] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes, cRes] = await Promise.all([
@@ -347,7 +350,12 @@ export default function OpenFlow() {
                 <SelectContent><SelectItem value="__all__">Todos os Projetos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <Button onClick={() => setShowNew(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-bold"><Plus className="h-4 w-4 mr-2" /> Novo Fluxo</Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowX1Wizard(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
+                <Bot className="h-4 w-4 mr-2" /> Novo Fluxo X1
+              </Button>
+              <Button onClick={() => setShowNew(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-bold"><Plus className="h-4 w-4 mr-2" /> Novo Fluxo</Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -600,6 +608,10 @@ export default function OpenFlow() {
                   </div>
                 )}
 
+                {editing.trigger_tipo?.startsWith("whatsapp_") && (
+                  <X1Checklist acoes={editing.acoes} />
+                )}
+
                 <FlowEditor 
                   triggerTipo={editing.trigger_tipo} 
                   acoes={editing.acoes} 
@@ -683,6 +695,17 @@ export default function OpenFlow() {
             ...(snap.flow_objective !== undefined ? { flow_objective: snap.flow_objective } : {}),
           });
           load();
+        }}
+      />
+
+      <X1BuilderWizard
+        open={showX1Wizard}
+        onOpenChange={setShowX1Wizard}
+        projects={projects}
+        onCreated={async (id) => {
+          await load();
+          const { data } = await supabase.from("imphq_automacoes").select("*").eq("id", id).maybeSingle();
+          if (data) setEditing({ ...(data as any), acoes: (data as any).acoes || [] });
         }}
       />
     </div>
