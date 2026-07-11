@@ -229,7 +229,9 @@ export default function OpenFlow() {
       exit_trigger_tipo: a.exit_trigger_tipo, exit_cascade: a.exit_cascade,
       flow_objective: a.flow_objective,
       prioridade: a.prioridade ?? 5, exclusivo: !!a.exclusivo,
+      trigger_config: a.trigger_config ?? null,
     } as any).eq("id", a.id);
+
     if (error) {
       if (!opts?.silent) toast.error(error.message);
       throw new Error(error.message);
