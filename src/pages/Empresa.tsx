@@ -519,7 +519,43 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                 </div>
               </>
             )}
+
+            {/* Foto e Vínculo com Mapa (comum a todos) */}
+            <div className="pt-3 border-t border-border/50 space-y-3">
+              <div>
+                <Label>Foto do card</Label>
+                <div className="flex items-center gap-3 mt-1">
+                  {form.foto_url ? (
+                    <div className="relative">
+                      <img src={form.foto_url} alt="preview" className="h-14 w-14 rounded-md object-cover border border-border" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setForm({ ...form, foto_url: "" })}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-14 w-14 rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
+                  )}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-2 rounded-md border border-border hover:bg-secondary/50 ${uploading ? "opacity-50" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" /> {uploading ? "Enviando..." : form.foto_url ? "Trocar" : "Enviar foto"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <Label>Vincular a nó do Mapa Mental</Label>
+                <Select value={form.mapa_node_id || "__none__"} onValueChange={v => setForm({ ...form, mapa_node_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {mapNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
             <Button onClick={save}>{editingConta ? "Atualizar" : "Salvar"}</Button>
