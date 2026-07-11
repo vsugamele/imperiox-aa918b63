@@ -566,3 +566,21 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
     </div>
   );
 }
+
+function NameCell({ conta, title, nodeLabel }: { conta: ContaEmpresa; title: string; nodeLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {conta.foto_url && (
+        <img src={conta.foto_url} alt={title} className="h-6 w-6 rounded object-cover border border-border shrink-0" />
+      )}
+      <div className="flex flex-col min-w-0">
+        <span className="truncate">{title}</span>
+        {conta.mapa_node_id && nodeLabel && (
+          <Link to={`/funis?view=mapa&node=${conta.mapa_node_id}`} className="inline-flex items-center gap-1 text-[9px] text-primary hover:underline w-fit">
+            <MapIcon className="h-2.5 w-2.5" /> {nodeLabel}
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
