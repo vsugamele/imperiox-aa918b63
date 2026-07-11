@@ -719,24 +719,44 @@ Deno.serve(async (req) => {
             .eq("id", executionId);
 
           if (step.tipo === "delay" || step.tipo === "espera") {
-            const delayMin = step.delay_min || 1;
-            // For delays > 5 min, schedule for later and stop
-            if (delayMin > 5) {
-              const nextRun = new Date(Date.now() + delayMin * 60000);
-              await supabase.from("imphq_flow_executions")
-                .update({
-                  status: "waiting",
-                  current_step: i + 1,
-                  next_run_at: nextRun.toISOString(),
-                  step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString() }],
-                })
-                .eq("id", executionId);
-              status = "waiting";
-              break;
+            // Modo "data absoluta": wait_until (ISO). Ignora delay_min.
+            if (step.wait_until) {
+              const targetMs = new Date(step.wait_until).getTime();
+              if (!isNaN(targetMs) && targetMs - Date.now() > 0) {
+                const nextRun = new Date(targetMs);
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i + 1,
+                    next_run_at: nextRun.toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString(), mode: "absolute" }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+              // data já passou: avança imediatamente
+              stepResult.status = "completed";
+            } else {
+              const delayMin = step.delay_min || 1;
+              // For delays > 5 min, schedule for later and stop
+              if (delayMin > 5) {
+                const nextRun = new Date(Date.now() + delayMin * 60000);
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i + 1,
+                    next_run_at: nextRun.toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString() }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+              // Short delays: wait inline
+              await delay(Math.min(delayMin * 60000, 5 * 60000));
+              stepResult.status = "completed";
             }
-            // Short delays: wait inline
-            await delay(Math.min(delayMin * 60000, 5 * 60000));
-            stepResult.status = "completed";
           }
 
           else if (step.tipo === "wait_event" || step.tipo === "wait_until_event") {
