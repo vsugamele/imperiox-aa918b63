@@ -20434,7 +20434,9 @@ export type Database = {
         Row: {
           created_at: string | null
           extra: Json | null
+          foto_url: string | null
           id: string
+          mapa_node_id: string | null
           nome: string
           tipo: string
           updated_at: string | null
@@ -20443,7 +20445,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           extra?: Json | null
+          foto_url?: string | null
           id?: string
+          mapa_node_id?: string | null
           nome: string
           tipo?: string
           updated_at?: string | null
@@ -20452,7 +20456,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           extra?: Json | null
+          foto_url?: string | null
           id?: string
+          mapa_node_id?: string | null
           nome?: string
           tipo?: string
           updated_at?: string | null
