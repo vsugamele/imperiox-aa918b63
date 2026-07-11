@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day, extra_urls, briefing_extra } = body;
+    const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day, extra_urls, briefing_extra, briefing } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
     // ── Mentes IA Personality Lookup ──
