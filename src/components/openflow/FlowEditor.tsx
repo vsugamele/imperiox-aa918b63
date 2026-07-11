@@ -1292,7 +1292,9 @@ export function FlowEditor({
                         {/* Time Offset Indicator tag */}
                         <div className="flex justify-center my-1">
                           <span className="text-[8px] bg-slate-900/90 text-amber-400 border border-amber-500/10 px-2 py-0.5 rounded-full font-mono font-bold tracking-wider shadow">
-                            ⏱️ +{acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0)}min (Acumulado: {accumDelay}min)
+                            {hasWaitUntil
+                              ? `📅 ${new Date(acao.wait_until!).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                              : `⏱️ +${acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0)}min (Acumulado: ${accumDelay}min)`}
                           </span>
                         </div>
 
