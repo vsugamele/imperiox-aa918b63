@@ -30,6 +30,8 @@ import { VersionHistoryDrawer } from "@/components/openflow/VersionHistoryDrawer
 import { FlowMediaLibrary } from "@/components/openflow/FlowMediaLibrary";
 import { useAutoSave } from "@/components/openflow/flow-editor/useAutoSave";
 import { SaveIndicator } from "@/components/openflow/flow-editor/SaveIndicator";
+import { EditableTagList } from "@/components/projeto/EditableTagList";
+
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
   { value: "lead_novo", label: "Novo Lead", icon: "👤", color: "border-l-blue-500", group: "Lead" },
