@@ -33,6 +33,7 @@ import { SaveIndicator } from "@/components/openflow/flow-editor/SaveIndicator";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
+import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
