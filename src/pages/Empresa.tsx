@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,16 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon } from "lucide-react";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { toast } from "sonner";
+
 
 interface ContaEmpresa {
   id: string;
   nome: string;
   tipo: string;
   valor?: string;
+  foto_url?: string | null;
+  mapa_node_id?: string | null;
   extra?: {
     senha?: string;
     telefone?: string;
@@ -31,11 +35,15 @@ interface ContaEmpresa {
   };
 }
 
+interface MapNode { id: string; label: string; }
+
+
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
 const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
+  const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
@@ -43,7 +51,12 @@ export default function Empresa() {
     setContas((data || []) as ContaEmpresa[]);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadNodes = async () => {
+    const { data } = await supabase.from("imphq_company_map_nodes").select("id, label").order("label");
+    setMapNodes((data || []) as MapNode[]);
+  };
+
+  useEffect(() => { load(); loadNodes(); }, []);
 
   const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
@@ -70,22 +83,22 @@ export default function Empresa() {
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable contas={filterByType("email")} tipo="email"
+          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes}
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="instagram">
-          <AccountTable contas={filterByType("instagram")} tipo="instagram"
+          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
-          <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="youtube">
-          <AccountTable contas={filterByType("youtube")} tipo="youtube"
+          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes}
             columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
@@ -100,12 +113,14 @@ export default function Empresa() {
   );
 }
 
-function AccountTable({ contas, tipo, columns, onRefresh }: {
+function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
   contas: ContaEmpresa[];
   tipo: string;
   columns: string[];
   onRefresh: () => void;
+  mapNodes: MapNode[];
 }) {
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
@@ -121,8 +136,10 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
+    foto_url: "" as string, mapa_node_id: "" as string,
   };
   const [form, setForm] = useState(emptyForm);
+  const [uploading, setUploading] = useState(false);
 
   const openAdd = () => {
     setEditingConta(null);
@@ -145,6 +162,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
       bio: conta.extra?.bio || "",
       channel_url: conta.extra?.channel_url || "",
       ativo: conta.extra?.ativo || "Ativo",
+      foto_url: conta.foto_url || "",
+      mapa_node_id: conta.mapa_node_id || "",
     });
     setShowFormPassword(false);
     setShowDialog(true);
@@ -154,12 +173,32 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `empresa/${tipo}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("company-map-images").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("company-map-images").getPublicUrl(path);
+      setForm(f => ({ ...f, foto_url: data.publicUrl }));
+      toast.success("Foto carregada");
+    } catch (e: any) {
+      toast.error("Erro no upload: " + e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const save = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const payload = {
       nome: form.nome,
       tipo,
       valor: form.valor || null,
+      foto_url: form.foto_url || null,
+      mapa_node_id: form.mapa_node_id || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -193,6 +232,9 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     toast.success("Conta removida");
     onRefresh();
   };
+
+  const nodeLabel = (id?: string | null) => mapNodes.find(n => n.id === id)?.label;
+
 
   const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : tipo === "tiktok" ? "TikTok" : "YouTube";
   const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : tipo === "tiktok" ? "🎵" : "📺";
@@ -242,11 +284,21 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
               <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0">{iconByTipo}</span>
+                    {c.foto_url ? (
+                      <img src={c.foto_url} alt={title} className="h-10 w-10 rounded-md object-cover shrink-0 border border-border" />
+                    ) : (
+                      <span className="text-base shrink-0">{iconByTipo}</span>
+                    )}
                     <span className="text-sm font-medium truncate" title={title}>{title}</span>
                   </div>
                   <Badge variant="outline" className={`text-[9px] shrink-0 ${statusClass}`}>{statusText}</Badge>
                 </div>
+                {c.mapa_node_id && nodeLabel(c.mapa_node_id) && (
+                  <Link to={`/funis?view=mapa&node=${c.mapa_node_id}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline w-fit">
+                    <MapIcon className="h-3 w-3" /> {nodeLabel(c.mapa_node_id)}
+                  </Link>
+                )}
+
 
                 <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/50 pt-2">
                   {tipo === "email" && (
@@ -328,7 +380,8 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                 <TableRow key={c.id}>
                   {tipo === "email" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
+
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
@@ -347,7 +400,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                     </>
                   ) : tipo === "youtube" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {c.extra?.channel_url ? (
                           <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px] block">
@@ -365,7 +418,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                     </>
                   ) : (
                     <>
-                      <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={`@${c.nome}`} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
@@ -467,13 +520,67 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                 </div>
               </>
             )}
+
+            {/* Foto e Vínculo com Mapa (comum a todos) */}
+            <div className="pt-3 border-t border-border/50 space-y-3">
+              <div>
+                <Label>Foto do card</Label>
+                <div className="flex items-center gap-3 mt-1">
+                  {form.foto_url ? (
+                    <div className="relative">
+                      <img src={form.foto_url} alt="preview" className="h-14 w-14 rounded-md object-cover border border-border" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setForm({ ...form, foto_url: "" })}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-14 w-14 rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
+                  )}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-2 rounded-md border border-border hover:bg-secondary/50 ${uploading ? "opacity-50" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" /> {uploading ? "Enviando..." : form.foto_url ? "Trocar" : "Enviar foto"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <Label>Vincular a nó do Mapa Mental</Label>
+                <Select value={form.mapa_node_id || "__none__"} onValueChange={v => setForm({ ...form, mapa_node_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {mapNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
             <Button onClick={save}>{editingConta ? "Atualizar" : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function NameCell({ conta, title, nodeLabel }: { conta: ContaEmpresa; title: string; nodeLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {conta.foto_url && (
+        <img src={conta.foto_url} alt={title} className="h-6 w-6 rounded object-cover border border-border shrink-0" />
+      )}
+      <div className="flex flex-col min-w-0">
+        <span className="truncate">{title}</span>
+        {conta.mapa_node_id && nodeLabel && (
+          <Link to={`/funis?view=mapa&node=${conta.mapa_node_id}`} className="inline-flex items-center gap-1 text-[9px] text-primary hover:underline w-fit">
+            <MapIcon className="h-2.5 w-2.5" /> {nodeLabel}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
