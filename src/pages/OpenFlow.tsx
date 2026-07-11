@@ -32,6 +32,7 @@ import { useAutoSave } from "@/components/openflow/flow-editor/useAutoSave";
 import { SaveIndicator } from "@/components/openflow/flow-editor/SaveIndicator";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
+import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -605,6 +606,10 @@ export default function OpenFlow() {
                       Enter para adicionar cada palavra. Sem diferença entre maiúsculas/minúsculas. Deixe vazio para disparar em toda mensagem recebida.
                     </p>
                   </div>
+                )}
+
+                {editing.trigger_tipo?.startsWith("whatsapp_") && (
+                  <X1Checklist acoes={editing.acoes} />
                 )}
 
                 <FlowEditor 
