@@ -22,6 +22,7 @@ import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
+import { GuardrailsPanel } from "./GuardrailsPanel";
 import { MediaPicker } from "./MediaPicker";
 import { ABVariantStats } from "./flow-editor/ABVariantStats";
 import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
@@ -867,6 +868,18 @@ export function FlowEditor({
                 {liveSummary.failed}
               </span>
             )}
+          </Button>
+        )}
+        {automacaoId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGuardrailsOpen(true)}
+            title="Guardrails: rate limit, quiet hours, circuit breaker"
+            className="h-7 text-[10px] font-bold gap-1 rounded-lg text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Guardrails
           </Button>
         )}
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
