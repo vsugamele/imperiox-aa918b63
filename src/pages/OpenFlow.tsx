@@ -79,7 +79,9 @@ interface Automacao {
   flow_objective?: string | null;
   prioridade?: number | null;
   exclusivo?: boolean | null;
+  trigger_config?: { keywords?: string[]; match_mode?: "any" | "all" | "exact" | "regex" } | null;
 }
+
 
 const triggerMeta = (t: string) => TRIGGERS.find(tr => tr.value === t) || { label: t, icon: "⚡", color: "border-l-primary" };
 
