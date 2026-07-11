@@ -110,6 +110,12 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const viewKey = `empresa-view-${tipo}`;
+  const [view, setView] = useState<"list" | "grid">(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem(viewKey) as "list" | "grid") || "list";
+  });
+  useEffect(() => { try { localStorage.setItem(viewKey, view); } catch {} }, [view, viewKey]);
 
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
