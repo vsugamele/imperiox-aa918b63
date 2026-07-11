@@ -199,7 +199,27 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-2">
+        <div className="inline-flex rounded-md border border-border bg-card p-0.5">
+          <Button
+            size="icon"
+            variant={view === "list" ? "secondary" : "ghost"}
+            className="h-7 w-7"
+            title="Lista"
+            onClick={() => setView("list")}
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant={view === "grid" ? "secondary" : "ghost"}
+            className="h-7 w-7"
+            title="Cards"
+            onClick={() => setView("grid")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <Button size="sm" onClick={openAdd}>
           <Plus className="h-4 w-4 mr-1" /> Adicionar {labelByTipo}
         </Button>
