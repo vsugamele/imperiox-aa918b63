@@ -680,6 +680,21 @@ export default function OpenFlow() {
           if (data) setEditing({ ...(data as any), acoes: (data as any).acoes || [] });
         }}
       />
+
+      {editing && (
+        <AIGenerateDialog
+          open={aiDialogOpen}
+          onOpenChange={setAiDialogOpen}
+          projectId={editing.project_id}
+          triggerTipo={editing.trigger_tipo}
+          produto={editing.produto}
+          existingAcoes={editing.acoes || []}
+          onApply={(mode, acoes) => {
+            const current = editing.acoes || [];
+            setEditing({ ...editing, acoes: mode === "replace" ? acoes : [...current, ...acoes] });
+          }}
+        />
+      )}
     </div>
   );
 }
