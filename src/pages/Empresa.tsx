@@ -136,8 +136,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
+    foto_url: "" as string, mapa_node_id: "" as string,
   };
   const [form, setForm] = useState(emptyForm);
+  const [uploading, setUploading] = useState(false);
 
   const openAdd = () => {
     setEditingConta(null);
@@ -160,6 +162,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
       bio: conta.extra?.bio || "",
       channel_url: conta.extra?.channel_url || "",
       ativo: conta.extra?.ativo || "Ativo",
+      foto_url: conta.foto_url || "",
+      mapa_node_id: conta.mapa_node_id || "",
     });
     setShowFormPassword(false);
     setShowDialog(true);
@@ -169,12 +173,32 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
     setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `empresa/${tipo}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("company-map-images").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("company-map-images").getPublicUrl(path);
+      setForm(f => ({ ...f, foto_url: data.publicUrl }));
+      toast.success("Foto carregada");
+    } catch (e: any) {
+      toast.error("Erro no upload: " + e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const save = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const payload = {
       nome: form.nome,
       tipo,
       valor: form.valor || null,
+      foto_url: form.foto_url || null,
+      mapa_node_id: form.mapa_node_id || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -208,6 +232,9 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
     toast.success("Conta removida");
     onRefresh();
   };
+
+  const nodeLabel = (id?: string | null) => mapNodes.find(n => n.id === id)?.label;
+
 
   const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : tipo === "tiktok" ? "TikTok" : "YouTube";
   const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : tipo === "tiktok" ? "🎵" : "📺";
