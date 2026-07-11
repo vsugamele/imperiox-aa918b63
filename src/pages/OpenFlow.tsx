@@ -33,6 +33,7 @@ import { SaveIndicator } from "@/components/openflow/flow-editor/SaveIndicator";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
+import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -264,39 +265,10 @@ export default function OpenFlow() {
 
 
 
-  const handleGenerateAI = async () => {
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const handleGenerateAI = () => {
     if (!editing) return;
-    setIsGeneratingAI(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
-        body: {
-          project_id: editing.project_id,
-          trigger_tipo: editing.trigger_tipo,
-          num_etapas: 5,
-          produto: editing.produto || undefined,
-        },
-      });
-      if (error) throw error;
-      const acoesGeradas: Acao[] = (data?.acoes || []).map((a: any) => ({
-        id: crypto.randomUUID(),
-        tipo: a.tipo || "email",
-        template: a.template || "",
-        delay_min: typeof a.delay_min === "number" ? a.delay_min : 60,
-        ...(a.ia_vision !== undefined ? { ia_vision: !!a.ia_vision } : {}),
-        ...(a.ia_voice_response !== undefined ? { ia_voice_response: !!a.ia_voice_response } : {}),
-        ...(a.ia_search_web !== undefined ? { ia_search_web: !!a.ia_search_web } : {}),
-        ...(a.questioning_strategy ? { questioning_strategy: a.questioning_strategy } : {}),
-        ...(a.timeout_min !== undefined ? { timeout_min: a.timeout_min } : {}),
-        ...(a.tag ? { tag: a.tag } : {}),
-        ...(a.stop_event_type ? { stop_event_type: a.stop_event_type } : {}),
-      }));
-      setEditing({ ...editing, acoes: [...editing.acoes, ...acoesGeradas] });
-      toast.success(`${acoesGeradas.length} etapas geradas com IA!`);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar com IA");
-    } finally {
-      setIsGeneratingAI(false);
-    }
+    setAiDialogOpen(true);
   };
 
   const deleteAutomacao = async (id: string) => {
@@ -708,6 +680,21 @@ export default function OpenFlow() {
           if (data) setEditing({ ...(data as any), acoes: (data as any).acoes || [] });
         }}
       />
+
+      {editing && (
+        <AIGenerateDialog
+          open={aiDialogOpen}
+          onOpenChange={setAiDialogOpen}
+          projectId={editing.project_id}
+          triggerTipo={editing.trigger_tipo}
+          produto={editing.produto}
+          existingAcoes={editing.acoes || []}
+          onApply={(mode, acoes) => {
+            const current = editing.acoes || [];
+            setEditing({ ...editing, acoes: mode === "replace" ? acoes : [...current, ...acoes] });
+          }}
+        />
+      )}
     </div>
   );
 }
