@@ -553,9 +553,55 @@ export default function OpenFlow() {
                   </div>
                 </div>
 
+                {editing.trigger_tipo?.startsWith("whatsapp_") && (
+                  <div className="bg-secondary/10 p-4 rounded-2xl border border-white/5 space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🔑</span>
+                        <Label className="text-xs font-bold text-foreground">
+                          {editing.trigger_tipo === "whatsapp_palavra_chave"
+                            ? "Dispara quando o lead enviar uma dessas palavras/frases:"
+                            : "Filtro opcional por palavra-chave (deixe vazio para disparar em qualquer mensagem):"}
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Modo</Label>
+                        <Select
+                          value={editing.trigger_config?.match_mode || "any"}
+                          onValueChange={(v: any) => setEditing({
+                            ...editing,
+                            trigger_config: { ...(editing.trigger_config || {}), match_mode: v },
+                          })}
+                        >
+                          <SelectTrigger className="h-8 w-[180px] bg-background/50 border-white/10 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="any">Contém qualquer uma</SelectItem>
+                            <SelectItem value="all">Contém todas</SelectItem>
+                            <SelectItem value="exact">Mensagem exata</SelectItem>
+                            <SelectItem value="regex">Regex avançado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <EditableTagList
+                      tags={editing.trigger_config?.keywords || []}
+                      onChange={(kws) => setEditing({
+                        ...editing,
+                        trigger_config: { ...(editing.trigger_config || {}), keywords: kws },
+                        trigger_tipo: kws.length > 0 ? "whatsapp_palavra_chave" : "whatsapp_mensagem_recebida",
+                      })}
+                      placeholder="Ex: comprar, preço, info…"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Enter para adicionar cada palavra. Sem diferença entre maiúsculas/minúsculas. Deixe vazio para disparar em toda mensagem recebida.
+                    </p>
+                  </div>
+                )}
+
                 <FlowEditor 
                   triggerTipo={editing.trigger_tipo} 
                   acoes={editing.acoes} 
+
                   onChange={v => setEditing({ ...editing, acoes: v })} 
                   onTriggerChange={v => setEditing({ ...editing, trigger_tipo: v })}
                   projectId={editing.project_id} 
