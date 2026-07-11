@@ -692,6 +692,17 @@ export default function OpenFlow() {
           load();
         }}
       />
+
+      <X1BuilderWizard
+        open={showX1Wizard}
+        onOpenChange={setShowX1Wizard}
+        projects={projects}
+        onCreated={async (id) => {
+          await load();
+          const { data } = await supabase.from("imphq_automacoes").select("*").eq("id", id).maybeSingle();
+          if (data) setEditing({ ...(data as any), acoes: (data as any).acoes || [] });
+        }}
+      />
     </div>
   );
 }
