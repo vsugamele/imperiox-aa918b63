@@ -43,6 +43,7 @@ const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
+  const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
@@ -50,7 +51,12 @@ export default function Empresa() {
     setContas((data || []) as ContaEmpresa[]);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadNodes = async () => {
+    const { data } = await supabase.from("imphq_company_map_nodes").select("id, label").order("label");
+    setMapNodes((data || []) as MapNode[]);
+  };
+
+  useEffect(() => { load(); loadNodes(); }, []);
 
   const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
@@ -77,22 +83,22 @@ export default function Empresa() {
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable contas={filterByType("email")} tipo="email"
+          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes}
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="instagram">
-          <AccountTable contas={filterByType("instagram")} tipo="instagram"
+          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
-          <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="youtube">
-          <AccountTable contas={filterByType("youtube")} tipo="youtube"
+          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes}
             columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
@@ -107,12 +113,14 @@ export default function Empresa() {
   );
 }
 
-function AccountTable({ contas, tipo, columns, onRefresh }: {
+function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
   contas: ContaEmpresa[];
   tipo: string;
   columns: string[];
   onRefresh: () => void;
+  mapNodes: MapNode[];
 }) {
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
