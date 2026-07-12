@@ -654,13 +654,15 @@ function InnerMap({ projects }: { projects: any[] }) {
             onTextChange: updateAnnotationText,
             onUploadImage: (a.kind === "reel" || a.kind === "ad_asset") ? uploadReelImage : undefined,
             onGenerate: isGenerator ? generateAnnotation : undefined,
+            onStyleChange: updateAnnotationStyle,
           } as unknown as Record<string, unknown>,
         } as Node;
       });
 
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
-  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage, generateAnnotation]);
+  }, [annotations, editingAnnotationId, updateAnnotationText, updateAnnotationStyle, uploadReelImage, generateAnnotation]);
+
 
   const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
