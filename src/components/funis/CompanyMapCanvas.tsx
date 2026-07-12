@@ -1390,6 +1390,14 @@ function InnerMap({ projects }: { projects: any[] }) {
           const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
           setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
         }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: (e as any).clientX, y: (e as any).clientY });
+          setCtxMenu({ screenX: (e as any).clientX, screenY: (e as any).clientY, flowX: flow.x, flowY: flow.y, edgeId: edge.id });
+        }}
+        onEdgeDoubleClick={(_, edge) => {
+          if (confirm("Excluir esta conexão?")) deleteEdgeById(edge.id);
+        }}
         onNodeDoubleClick={(_, node) => {
           if (node.id.startsWith(ANN_PREFIX)) { setEditingAnnotationId(node.id); return; }
           const raw = rawNodes.find(r => r.id === node.id);
