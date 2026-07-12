@@ -565,6 +565,159 @@ export const AnnotationAdAssetNode = memo(({ id, data, selected }: NodeProps) =>
   );
 });
 
+// -------- Schedule / Cronograma --------
+const SCHEDULE_ITEM_META: Record<ScheduleItemKind, { label: string; color: string; Icon: any }> = {
+  post:  { label: "Post",   color: "#e1306c", Icon: Camera },
+  story: { label: "Story",  color: "#8b5cf6", Icon: Circle },
+  reel:  { label: "Reel",   color: "#f97316", Icon: Video },
+  email: { label: "Email",  color: "#3b82f6", Icon: Send },
+  wa:    { label: "WhatsApp", color: "#25d366", Icon: MessageCircle },
+  other: { label: "Outro",  color: "#94a3b8", Icon: Circle },
+};
+
+const SCHEDULE_KIND_ORDER: ScheduleItemKind[] = ["post", "story", "reel", "email", "wa", "other"];
+
+export const DEFAULT_SCHEDULE_ITEMS: ScheduleItem[] = [
+  { time: "09:00", kind: "post",  label: "Post carrossel — dor do avatar" },
+  { time: "13:00", kind: "post",  label: "Post reels — solução" },
+  { time: "18:00", kind: "post",  label: "Post prova social" },
+  { time: "20:00", kind: "story", label: "Story bastidor" },
+  { time: "20:05", kind: "story", label: "Story enquete" },
+  { time: "20:10", kind: "story", label: "Story CTA link" },
+];
+
+function sortScheduleItems(items: ScheduleItem[]): ScheduleItem[] {
+  return [...items].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+}
+
+export const AnnotationScheduleNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const editing = d.editingId === id;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, editing);
+  const recurrence = d.style?.recurrence || "daily";
+  const items = d.style?.items || [];
+
+  const patchItems = (next: ScheduleItem[]) => d.onStyleChange?.(id, { items: sortScheduleItems(next) });
+  const updateItem = (idx: number, patch: Partial<ScheduleItem>) => {
+    patchItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+  const removeItem = (idx: number) => patchItems(items.filter((_, i) => i !== idx));
+  const addItem = () => patchItems([...items, { time: "20:00", kind: "post", label: "Novo item" }]);
+  const cycleKind = (idx: number) => {
+    const cur = items[idx].kind;
+    const next = SCHEDULE_KIND_ORDER[(SCHEDULE_KIND_ORDER.indexOf(cur) + 1) % SCHEDULE_KIND_ORDER.length];
+    updateItem(idx, { kind: next });
+  };
+  const toggleRecurrence = () => d.onStyleChange?.(id, { recurrence: recurrence === "daily" ? "weekly" : "daily" });
+
+  return (
+    <div
+      {...hoverProps}
+      className="w-full h-full rounded-xl relative overflow-hidden bg-[#0a0809] border border-white/10 shadow-2xl flex flex-col transition-colors duration-300 hover:border-[#3b82f6]/40"
+    >
+      <NodeResizer isVisible={resizeVisible} minWidth={240} minHeight={200} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-1 rounded-md shrink-0" style={{ background: "#3b82f622", color: "#3b82f6" }}>
+            <CalendarClock className="h-3 w-3" />
+          </div>
+          <span className="text-[9px] font-semibold text-white/50 uppercase truncate" style={{ letterSpacing: "0.2em", fontFamily: "'DM Sans', sans-serif" }}>
+            Cronograma
+          </span>
+        </div>
+        <button
+          type="button"
+          onMouseDown={stopBubble}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleRecurrence(); }}
+          className="nodrag nopan text-[9px] uppercase tracking-wider text-white/50 hover:text-[#3b82f6] px-1.5 py-0.5 rounded border border-white/10"
+          title="Alternar recorrência"
+        >
+          {recurrence === "daily" ? "Diário" : "Semanal"}
+        </button>
+      </div>
+
+      {/* Título */}
+      <div className="px-3 pt-2 shrink-0">
+        <EditableText
+          id={id}
+          text={d.text}
+          editing={editing}
+          onDone={(v) => d.onTextChange?.(id, v)}
+          className="text-[13px] font-medium text-white/90 font-serif"
+          placeholder="Rotina Diária de Conteúdo"
+        />
+      </div>
+
+      {/* Lista */}
+      <div className="flex-1 overflow-auto nowheel px-2 py-2 space-y-1">
+        {items.length === 0 && (
+          <div className="text-[11px] text-white/40 italic px-2 py-4 text-center">
+            Nenhum item. Clique em "+ item" para começar.
+          </div>
+        )}
+        {items.map((it, idx) => {
+          const meta = SCHEDULE_ITEM_META[it.kind] || SCHEDULE_ITEM_META.other;
+          const KindIcon = meta.Icon;
+          return (
+            <div
+              key={idx}
+              className="nodrag flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-white/[0.03] group/item"
+              onMouseDown={stopBubble}
+            >
+              <input
+                type="time"
+                value={it.time}
+                onChange={(e) => updateItem(idx, { time: e.target.value })}
+                className="bg-transparent text-[10px] text-white/80 border border-white/10 rounded px-1 py-0.5 w-[62px] focus:outline-none focus:border-[#3b82f6]/50"
+              />
+              <button
+                type="button"
+                onClick={() => cycleKind(idx)}
+                className="p-1 rounded shrink-0 hover:bg-white/5"
+                style={{ color: meta.color }}
+                title={`Tipo: ${meta.label} (clique para alternar)`}
+              >
+                <KindIcon className="h-3 w-3" />
+              </button>
+              <input
+                type="text"
+                value={it.label}
+                onChange={(e) => updateItem(idx, { label: e.target.value })}
+                placeholder="Descrição…"
+                className="flex-1 min-w-0 bg-transparent text-[11px] text-white/85 border-b border-transparent hover:border-white/10 focus:border-[#3b82f6]/50 focus:outline-none px-1 py-0.5"
+              />
+              <button
+                type="button"
+                onClick={() => removeItem(idx)}
+                className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded text-white/40 hover:text-red-400 shrink-0"
+                title="Remover"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="shrink-0 border-t border-white/5 px-2 py-1.5">
+        <button
+          type="button"
+          onMouseDown={stopBubble}
+          onClick={(e) => { e.stopPropagation(); addItem(); }}
+          className="nodrag nopan w-full flex items-center justify-center gap-1 text-[10px] text-white/50 hover:text-[#3b82f6] py-1 rounded hover:bg-white/[0.03]"
+        >
+          <Plus className="h-3 w-3" /> item
+        </button>
+      </div>
+
+      <AnnotationHandles visible={resizeVisible} color="#3b82f6" />
+    </div>
+  );
+});
+
 export const annotationNodeTypes = {
   annotation_frame: AnnotationFrameNode,
   annotation_note: AnnotationNoteNode,
@@ -574,6 +727,7 @@ export const annotationNodeTypes = {
   annotation_script: AnnotationScriptNode,
   annotation_copy: AnnotationCopyNode,
   annotation_ad_asset: AnnotationAdAssetNode,
+  annotation_schedule: AnnotationScheduleNode,
 };
 
 export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
@@ -585,6 +739,7 @@ export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
   annotation_script: "script",
   annotation_copy: "copy",
   annotation_ad_asset: "ad_asset",
+  annotation_schedule: "schedule",
 };
 
 export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
@@ -596,6 +751,7 @@ export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
   script: "annotation_script",
   copy: "annotation_copy",
   ad_asset: "annotation_ad_asset",
+  schedule: "annotation_schedule",
 };
 
 export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number; text: string; style: AnnotationData["style"] }> = {
@@ -607,7 +763,9 @@ export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number;
   script: { w: 280, h: 240, text: "", style: { heading: "" } },
   copy:   { w: 260, h: 180, text: "", style: { heading: "" } },
   ad_asset: { w: 260, h: 260, text: "", style: { heading: "" } },
+  schedule: { w: 300, h: 340, text: "Rotina Diária de Conteúdo", style: { recurrence: "daily", items: DEFAULT_SCHEDULE_ITEMS } },
 };
+
 
 
 // ---------- Reel URL helpers ----------
