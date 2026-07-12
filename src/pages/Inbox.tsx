@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileInboxList } from "@/components/mobile/MobileInboxList";
 
 const WhatsAppPage = lazy(() => import("./WhatsAppPage"));
 const InstagramPage = lazy(() => import("./InstagramPage"));
