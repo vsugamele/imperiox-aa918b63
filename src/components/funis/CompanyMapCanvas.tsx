@@ -285,7 +285,7 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
           </div>
         );
       })()}
-      <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
+      
     </div>
   );
 }
