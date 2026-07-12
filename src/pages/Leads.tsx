@@ -1391,3 +1391,13 @@ function LeadsDesktop() {
     </div>
   );
 }
+
+// ── Mobile branch wrapper ────────────────────────────────────────────────────
+import { useIsMobile as _useIsMobileLeads } from "@/hooks/use-mobile";
+import { MobileLeadsList as _MobileLeadsList } from "@/components/mobile/MobileLeadsList";
+
+export default function Leads() {
+  const isMobile = _useIsMobileLeads();
+  if (isMobile) return <_MobileLeadsList />;
+  return <LeadsDesktop />;
+}
