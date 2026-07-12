@@ -114,6 +114,7 @@ function CmdKHint() {
 const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 
 export function AppLayout() {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
