@@ -1478,6 +1478,9 @@ function InnerMap({ projects }: { projects: any[] }) {
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onConnect={onConnect} onNodeClick={onNodeClick}
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={(event) => {
