@@ -300,6 +300,8 @@ const nodeTypes = Object.freeze({
   annotation_script: annotationNodeTypes.annotation_script,
   annotation_copy: annotationNodeTypes.annotation_copy,
   annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
+  annotation_schedule: annotationNodeTypes.annotation_schedule,
+
 }) as any;
 
 
