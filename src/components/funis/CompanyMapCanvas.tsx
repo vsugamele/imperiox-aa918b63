@@ -1008,6 +1008,82 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (raw) setSelected({ ...raw, checklist: raw.checklist || [] });
   };
 
+  // ---- Group drag: arrastar frame move tudo que está dentro ----
+  type GroupChild = { id: string; isAnn: boolean; startX: number; startY: number };
+  const groupDragRef = useRef<{ frameId: string; frameStart: { x: number; y: number }; children: GroupChild[] } | null>(null);
+
+  const onNodeDragStart = useCallback((_: any, node: Node) => {
+    if (!node.id.startsWith(ANN_PREFIX)) return;
+    const rawId = node.id.slice(ANN_PREFIX.length);
+    const frame = annotationsRef.current.find(a => a.id === rawId && a.kind === "frame");
+    if (!frame) return;
+    const fx = frame.x, fy = frame.y, fw = frame.width, fh = frame.height;
+    const insideCenter = (cx: number, cy: number) => cx >= fx && cx <= fx + fw && cy >= fy && cy <= fy + fh;
+    const children: GroupChild[] = [];
+    for (const a of annotationsRef.current) {
+      if (a.id === frame.id || a.kind === "frame") continue;
+      const cx = a.x + a.width / 2, cy = a.y + a.height / 2;
+      if (insideCenter(cx, cy)) children.push({ id: `${ANN_PREFIX}${a.id}`, isAnn: true, startX: a.x, startY: a.y });
+    }
+    for (const r of rawNodesRef.current as any[]) {
+      const w = r.width || 220, h = r.height || 100;
+      const px = r.position?.x || 0, py = r.position?.y || 0;
+      const cx = px + w / 2, cy = py + h / 2;
+      if (insideCenter(cx, cy)) children.push({ id: r.id, isAnn: false, startX: px, startY: py });
+    }
+    groupDragRef.current = { frameId: node.id, frameStart: { x: fx, y: fy }, children };
+  }, []);
+
+  const onNodeDrag = useCallback((_: any, node: Node) => {
+    const g = groupDragRef.current;
+    if (!g || g.frameId !== node.id) return;
+    const dx = node.position.x - g.frameStart.x;
+    const dy = node.position.y - g.frameStart.y;
+    if (dx === 0 && dy === 0) return;
+    setNodes(nds => {
+      const byId = new Map(g.children.map(c => [c.id, c]));
+      return nds.map(n => {
+        const c = byId.get(n.id);
+        if (!c) return n;
+        return { ...n, position: { x: c.startX + dx, y: c.startY + dy } };
+      });
+    });
+  }, []);
+
+  const onNodeDragStop = useCallback(async (_: any, node: Node) => {
+    const g = groupDragRef.current;
+    if (!g || g.frameId !== node.id) { groupDragRef.current = null; return; }
+    const dx = node.position.x - g.frameStart.x;
+    const dy = node.position.y - g.frameStart.y;
+    groupDragRef.current = null;
+    if (dx === 0 && dy === 0) return;
+    const annUpdates: { id: string; x: number; y: number }[] = [];
+    const rawUpdates: { id: string; x: number; y: number }[] = [];
+    for (const c of g.children) {
+      const nx = c.startX + dx, ny = c.startY + dy;
+      if (c.isAnn) annUpdates.push({ id: c.id.slice(ANN_PREFIX.length), x: nx, y: ny });
+      else rawUpdates.push({ id: c.id, x: nx, y: ny });
+    }
+    if (annUpdates.length) {
+      const annMap = new Map(annUpdates.map(u => [u.id, u]));
+      setAnnotations(list => list.map(a => {
+        const u = annMap.get(a.id);
+        return u ? { ...a, x: u.x, y: u.y } : a;
+      }));
+    }
+    if (rawUpdates.length) {
+      const rawMap = new Map(rawUpdates.map(u => [u.id, u]));
+      setRawNodes(list => list.map(r => {
+        const u = rawMap.get(r.id);
+        return u ? ({ ...r, position: { x: u.x, y: u.y } } as any) : r;
+      }));
+    }
+    await Promise.all<any>([
+      ...annUpdates.map(u => supabase.from(annTable).update({ x: u.x, y: u.y }).eq("id", u.id)),
+      ...rawUpdates.map(u => supabase.from("imphq_company_map_nodes").update({ position: { x: u.x, y: u.y } }).eq("id", u.id)),
+    ]);
+  }, []);
+
   const saveSelected = async () => {
     if (!selected) return;
     const { error } = await supabase.from("imphq_company_map_nodes").update({
