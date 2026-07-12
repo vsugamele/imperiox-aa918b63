@@ -152,12 +152,16 @@ export function AppLayout() {
 
             <div className="header-hairline" />
           </header>
-          <main className="flex-1 overflow-auto p-3 md:p-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <main
+            className="flex-1 overflow-auto p-3 md:p-6"
+            style={{ paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <Outlet />
           </main>
         </div>
-        <CopilotFab />
+        {!isMobile && <CopilotFab />}
         <ImperiusRail />
+        {isMobile && <MobileBottomNav />}
       </div>
     </SidebarProvider>
   );
