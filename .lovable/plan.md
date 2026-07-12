@@ -1,13 +1,9 @@
-## Excluir linha (edge) do Mapa
+## Handles sempre visíveis nos cards do mapa
 
-Hoje as conexões já podem ser removidas (tecla Delete após selecionar), mas não há indicação visual — o usuário não descobre.
+Em `src/components/funis/MapAnnotationNodes.tsx`, o componente `AnnotationHandles` só renderiza quando `visible` é true (baseado em hover/seleção via `useResizeVisibility`).
 
 ### Mudança
-`src/components/funis/CompanyMapCanvas.tsx`:
+- Forçar `visible={true}` nas 3 chamadas de `AnnotationHandles` (linhas 208, 433, 482), OU alterar o próprio componente para ignorar o prop e sempre mostrar os pontos.
+- Deixar os handles com opacidade reduzida (~50%) por padrão e 100% no hover/seleção, para não poluir mas ficarem sempre visíveis.
 
-1. **Clique na linha → menu de contexto** com opção "Excluir conexão" (reaproveitar o `ctxMenu` já existente usado nas anotações).
-2. **Hover na linha** → destaque (stroke mais grosso + cor mais viva) para deixar claro que é clicável.
-3. **Botão "×" flutuante** no ponto médio da edge selecionada, usando `EdgeLabelRenderer` do React Flow, que exclui direto no Supabase (`imphq_company_map_edges`).
-4. Manter atalho **Delete/Backspace** já funcional.
-
-Sem mudanças de schema, sem novos componentes de página.
+Um arquivo, sem mudanças de schema.
