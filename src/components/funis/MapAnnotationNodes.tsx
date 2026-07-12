@@ -40,7 +40,14 @@ function normalizeReelUrl(url: string): string {
   } catch { return url; }
 }
 
-export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel" | "script" | "copy" | "ad_asset";
+export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel" | "script" | "copy" | "ad_asset" | "schedule";
+
+export type ScheduleItemKind = "post" | "story" | "reel" | "email" | "wa" | "other";
+export interface ScheduleItem {
+  time: string;   // "HH:MM"
+  kind: ScheduleItemKind;
+  label: string;
+}
 
 export interface AnnotationData {
   kind: AnnotationKind;
@@ -64,12 +71,17 @@ export interface AnnotationData {
     subheading?: string;
     link?: string;
     generating?: boolean;
+    // schedule-specific
+    recurrence?: "daily" | "weekly";
+    items?: ScheduleItem[];
   };
   onTextChange?: (id: string, text: string) => void;
   onUploadImage?: (id: string) => void;
   onGenerate?: (id: string, kind: AnnotationKind) => void;
+  onStyleChange?: (id: string, patch: Partial<NonNullable<AnnotationData["style"]>>) => void;
   editingId?: string | null;
 }
+
 
 
 const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
