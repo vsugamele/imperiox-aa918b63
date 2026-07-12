@@ -1586,3 +1586,13 @@ function ReferenciasDesktop() {
     </div>
   );
 }
+
+// ── Mobile branch wrapper ────────────────────────────────────────────────────
+import { useIsMobile as _useIsMobileRefs } from "@/hooks/use-mobile";
+import { MobileReferenciasFeed as _MobileRefsFeed } from "@/components/mobile/MobileReferenciasFeed";
+
+export default function Referencias() {
+  const isMobile = _useIsMobileRefs();
+  if (isMobile) return <_MobileRefsFeed />;
+  return <ReferenciasDesktop />;
+}
