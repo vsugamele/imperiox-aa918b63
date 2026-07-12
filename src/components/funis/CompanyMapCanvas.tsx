@@ -1466,7 +1466,7 @@ function InnerMap({ projects }: { projects: any[] }) {
           style={{ left: ctxMenu.screenX, top: ctxMenu.screenY }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {!ctxMenu.annotationId && (
+          {!ctxMenu.annotationId && !ctxMenu.edgeId && (
             <>
               <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar anotação</div>
               <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
