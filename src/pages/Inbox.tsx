@@ -279,8 +279,11 @@ const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function Inbox() {
+  const isMobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const { data: badges } = useSidebarBadges();
+
+  if (isMobile) return <MobileInboxList />;
 
   const defaultTab = ((): InboxTab => {
     const p = params.get("tab") as InboxTab | null;
