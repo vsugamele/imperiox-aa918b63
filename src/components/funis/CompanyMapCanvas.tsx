@@ -501,7 +501,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
       label: e.label || undefined,
-      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
+      interactionWidth: 24,
+      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined, cursor: "pointer" },
     })));
   }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog]);
 
