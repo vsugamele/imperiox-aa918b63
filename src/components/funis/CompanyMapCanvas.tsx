@@ -154,7 +154,20 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         lineClassName="!border-primary/70 !border-2"
         handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background"
       />
-      <Handle type="target" position={Position.Top} style={{ background: data.color }} />
+      {/* 4 handles em todos os lados (source + target sobrepostos) — sempre visíveis */}
+      {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
+        const dotStyle: React.CSSProperties = {
+          width: 10, height: 10, background: data.color, border: "2px solid #080607",
+          borderRadius: 999, opacity: 0.55, transition: "opacity 120ms", pointerEvents: "auto",
+        };
+        return (
+          <div key={`h-${pos}`} className="group-hover:[&>*]:!opacity-100">
+            <Handle id={`${pos}-t`} type="target" position={pos} style={dotStyle} />
+            <Handle id={`${pos}-s`} type="source" position={pos} style={dotStyle} />
+          </div>
+        );
+      })}
+
 
       {/* Quick actions on hover */}
       <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
