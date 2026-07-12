@@ -1275,6 +1275,13 @@ function InnerMap({ projects }: { projects: any[] }) {
         }}>
           <Film className="h-3 w-3" /> Reel
         </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-blue-400" onClick={() => {
+          const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          addAnnotation("schedule", c.x, c.y);
+        }}>
+          <CalendarClock className="h-3 w-3" /> Cronograma
+        </Button>
+
 
       </div>
 
