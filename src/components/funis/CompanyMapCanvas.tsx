@@ -916,8 +916,14 @@ function InnerMap({ projects }: { projects: any[] }) {
     const { data } = await supabase.from("imphq_company_map_edges")
       .insert({ map_id: mapId, source_id: conn.source, target_id: conn.target })
       .select().single();
-    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, style: { stroke: "#c9922a", strokeWidth: 2 } }, eds));
+    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
   }, [mapId]);
+
+  const deleteEdgeById = useCallback(async (edgeId: string) => {
+    setEdges(eds => eds.filter(e => e.id !== edgeId));
+    await supabase.from("imphq_company_map_edges").delete().eq("id", edgeId);
+    toast.success("Conexão removida");
+  }, []);
 
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
