@@ -135,7 +135,7 @@ function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (pa
   );
 }
 
-export default function Referencias() {
+function ReferenciasDesktop() {
   const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -1585,4 +1585,14 @@ export default function Referencias() {
       </div>
     </div>
   );
+}
+
+// ── Mobile branch wrapper ────────────────────────────────────────────────────
+import { useIsMobile as _useIsMobileRefs } from "@/hooks/use-mobile";
+import { MobileReferenciasFeed as _MobileRefsFeed } from "@/components/mobile/MobileReferenciasFeed";
+
+export default function Referencias() {
+  const isMobile = _useIsMobileRefs();
+  if (isMobile) return <_MobileRefsFeed />;
+  return <ReferenciasDesktop />;
 }

@@ -11,6 +11,8 @@ import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
 import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
+import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
@@ -112,6 +114,7 @@ function CmdKHint() {
 const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 
 export function AppLayout() {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
@@ -149,12 +152,16 @@ export function AppLayout() {
 
             <div className="header-hairline" />
           </header>
-          <main className="flex-1 overflow-auto p-3 md:p-6" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <main
+            className="flex-1 overflow-auto p-3 md:p-6"
+            style={{ paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <Outlet />
           </main>
         </div>
-        <CopilotFab />
+        {!isMobile && <CopilotFab />}
         <ImperiusRail />
+        {isMobile && <MobileBottomNav />}
       </div>
     </SidebarProvider>
   );

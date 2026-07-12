@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileInboxList } from "@/components/mobile/MobileInboxList";
 
 const WhatsAppPage = lazy(() => import("./WhatsAppPage"));
 const InstagramPage = lazy(() => import("./InstagramPage"));
@@ -277,8 +279,11 @@ const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function Inbox() {
+  const isMobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const { data: badges } = useSidebarBadges();
+
+  if (isMobile) return <MobileInboxList />;
 
   const defaultTab = ((): InboxTab => {
     const p = params.get("tab") as InboxTab | null;

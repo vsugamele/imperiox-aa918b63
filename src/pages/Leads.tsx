@@ -147,7 +147,7 @@ function loadPersistedFilters(): Partial<PersistedFilters> {
   try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
 }
 
-export default function Leads() {
+function LeadsDesktop() {
   const persisted = loadPersistedFilters();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -1390,4 +1390,14 @@ export default function Leads() {
       </div>
     </div>
   );
+}
+
+// ── Mobile branch wrapper ────────────────────────────────────────────────────
+import { useIsMobile as _useIsMobileLeads } from "@/hooks/use-mobile";
+import { MobileLeadsList as _MobileLeadsList } from "@/components/mobile/MobileLeadsList";
+
+export default function Leads() {
+  const isMobile = _useIsMobileLeads();
+  if (isMobile) return <_MobileLeadsList />;
+  return <LeadsDesktop />;
 }
