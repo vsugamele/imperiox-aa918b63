@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ interface Props {
 const SWIPE_THRESHOLD = 80;
 const MAX_SWIPE = 220;
 
-export function MobileLeadCard({ lead, onOpen, onWhats, onQualify, onTag, onArchive }: Props) {
+function MobileLeadCardImpl({ lead, onOpen, onWhats, onQualify, onTag, onArchive }: Props) {
   const [offset, setOffset] = useState(0);
   const startX = useRef<number | null>(null);
   const moved = useRef(false);
@@ -129,3 +129,11 @@ export function MobileLeadCard({ lead, onOpen, onWhats, onQualify, onTag, onArch
     </div>
   );
 }
+
+// Memo: card only re-renders when the lead object itself changes.
+export const MobileLeadCard = memo(MobileLeadCardImpl, (a, b) =>
+  a.lead === b.lead &&
+  a.onOpen === b.onOpen &&
+  a.onWhats === b.onWhats &&
+  a.onArchive === b.onArchive
+);
