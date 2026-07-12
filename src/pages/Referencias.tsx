@@ -135,7 +135,7 @@ function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (pa
   );
 }
 
-export default function Referencias() {
+function ReferenciasDesktop() {
   const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
