@@ -361,7 +361,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     });
   }, []);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const { setCenter, screenToFlowPosition } = useReactFlow();
   const navigate = useNavigate();
@@ -501,7 +501,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       id: e.id, source: e.source_id, target: e.target_id,
       animated: e.style !== "dashed",
       label: e.label || undefined,
-      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined },
+      interactionWidth: 24,
+      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined, cursor: "pointer" },
     })));
   }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog]);
 
@@ -915,8 +916,14 @@ function InnerMap({ projects }: { projects: any[] }) {
     const { data } = await supabase.from("imphq_company_map_edges")
       .insert({ map_id: mapId, source_id: conn.source, target_id: conn.target })
       .select().single();
-    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, style: { stroke: "#c9922a", strokeWidth: 2 } }, eds));
+    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
   }, [mapId]);
+
+  const deleteEdgeById = useCallback(async (edgeId: string) => {
+    setEdges(eds => eds.filter(e => e.id !== edgeId));
+    await supabase.from("imphq_company_map_edges").delete().eq("id", edgeId);
+    toast.success("Conexão removida");
+  }, []);
 
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
@@ -1383,6 +1390,14 @@ function InnerMap({ projects }: { projects: any[] }) {
           const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
           setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, annotationId: node.id.slice(ANN_PREFIX.length) });
         }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault();
+          const flow = screenToFlowPosition({ x: (e as any).clientX, y: (e as any).clientY });
+          setCtxMenu({ screenX: (e as any).clientX, screenY: (e as any).clientY, flowX: flow.x, flowY: flow.y, edgeId: edge.id });
+        }}
+        onEdgeDoubleClick={(_, edge) => {
+          if (confirm("Excluir esta conexão?")) deleteEdgeById(edge.id);
+        }}
         onNodeDoubleClick={(_, node) => {
           if (node.id.startsWith(ANN_PREFIX)) { setEditingAnnotationId(node.id); return; }
           const raw = rawNodes.find(r => r.id === node.id);
@@ -1451,7 +1466,7 @@ function InnerMap({ projects }: { projects: any[] }) {
           style={{ left: ctxMenu.screenX, top: ctxMenu.screenY }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {!ctxMenu.annotationId && (
+          {!ctxMenu.annotationId && !ctxMenu.edgeId && (
             <>
               <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar anotação</div>
               <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
@@ -1475,6 +1490,15 @@ function InnerMap({ projects }: { projects: any[] }) {
                 <Film className="h-3.5 w-3.5 text-primary" /> Reel de inspiração…
               </button>
 
+            </>
+          )}
+          {ctxMenu.edgeId && (
+            <>
+              <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Conexão</div>
+              <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2 text-red-400"
+                onClick={() => { deleteEdgeById(ctxMenu.edgeId!); setCtxMenu(null); }}>
+                <Trash2 className="h-3.5 w-3.5" /> Excluir conexão
+              </button>
             </>
           )}
           {ctxMenu.annotationId && (() => {
