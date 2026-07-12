@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileLeadCard } from "./MobileLeadCard";
 import { Input } from "@/components/ui/input";
@@ -93,16 +93,18 @@ export function MobileLeadsList() {
 
   const visible = filtered.slice(0, limit);
 
-  const onWhats = (phone: string) => {
+  const onWhats = useCallback((phone: string) => {
     const digits = phone.replace(/\D/g, "");
     window.open(`https://wa.me/${digits}`, "_blank");
-  };
+  }, []);
 
-  const onArchive = async (lead: Lead) => {
+  const onArchive = useCallback(async (lead: Lead) => {
     await supabase.from("imphq_leads").update({ status: "arquivado" } as any).eq("id", lead.id);
     setLeads(prev => prev.filter(l => l.id !== lead.id));
     toast.success("Lead arquivado");
-  };
+  }, []);
+
+  const onOpen = useCallback((id: string) => navigate(`/leads/${id}`), [navigate]);
 
   return (
     <div className="flex flex-col h-full -m-3 md:-m-6">
@@ -192,7 +194,7 @@ export function MobileLeadsList() {
               <MobileLeadCard
                 key={l.id}
                 lead={l}
-                onOpen={(id) => navigate(`/lead/${id}`)}
+                onOpen={onOpen}
                 onWhats={onWhats}
                 onArchive={onArchive}
               />
