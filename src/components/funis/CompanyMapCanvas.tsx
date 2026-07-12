@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
@@ -154,7 +154,20 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         lineClassName="!border-primary/70 !border-2"
         handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background"
       />
-      <Handle type="target" position={Position.Top} style={{ background: data.color }} />
+      {/* 4 handles em todos os lados (source + target sobrepostos) — sempre visíveis */}
+      {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
+        const dotStyle: React.CSSProperties = {
+          width: 10, height: 10, background: data.color, border: "2px solid #080607",
+          borderRadius: 999, opacity: 0.55, transition: "opacity 120ms", pointerEvents: "auto",
+        };
+        return (
+          <div key={`h-${pos}`} className="group-hover:[&>*]:!opacity-100">
+            <Handle id={`${pos}-t`} type="target" position={pos} style={dotStyle} />
+            <Handle id={`${pos}-s`} type="source" position={pos} style={dotStyle} />
+          </div>
+        );
+      })}
+
 
       {/* Quick actions on hover */}
       <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
@@ -272,7 +285,7 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
           </div>
         );
       })()}
-      <Handle type="source" position={Position.Bottom} style={{ background: data.color }} />
+      
     </div>
   );
 }
@@ -287,6 +300,8 @@ const nodeTypes = Object.freeze({
   annotation_script: annotationNodeTypes.annotation_script,
   annotation_copy: annotationNodeTypes.annotation_copy,
   annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
+  annotation_schedule: annotationNodeTypes.annotation_schedule,
+
 }) as any;
 
 
@@ -310,7 +325,9 @@ const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   script: { w: 200, h: 160 },
   copy: { w: 200, h: 120 },
   ad_asset: { w: 200, h: 200 },
+  schedule: { w: 240, h: 200 },
 };
+
 
 
 function clampDimension(value: unknown, min: number) {
@@ -637,13 +654,15 @@ function InnerMap({ projects }: { projects: any[] }) {
             onTextChange: updateAnnotationText,
             onUploadImage: (a.kind === "reel" || a.kind === "ad_asset") ? uploadReelImage : undefined,
             onGenerate: isGenerator ? generateAnnotation : undefined,
+            onStyleChange: updateAnnotationStyle,
           } as unknown as Record<string, unknown>,
         } as Node;
       });
 
       return [...annNodes, ...base]; // annotations rendered behind by DOM order + lower zIndex
     });
-  }, [annotations, editingAnnotationId, updateAnnotationText, uploadReelImage, generateAnnotation]);
+  }, [annotations, editingAnnotationId, updateAnnotationText, updateAnnotationStyle, uploadReelImage, generateAnnotation]);
+
 
   const addAnnotation = useCallback(async (kind: AnnotationKind, x: number, y: number, extraStyle?: AnnotationData["style"], overrideText?: string) => {
     if (!mapId) return;
@@ -1256,6 +1275,13 @@ function InnerMap({ projects }: { projects: any[] }) {
         }}>
           <Film className="h-3 w-3" /> Reel
         </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-blue-400" onClick={() => {
+          const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          addAnnotation("schedule", c.x, c.y);
+        }}>
+          <CalendarClock className="h-3 w-3" /> Cronograma
+        </Button>
+
 
       </div>
 
