@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { memo, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileChat } from "./MobileChat";
 import { Loader2, Search, Flame, PauseCircle, MessageSquare } from "lucide-react";
@@ -192,7 +192,7 @@ export function MobileInboxList() {
   );
 }
 
-function ConvRow({ c, onOpen }: { c: Conv; onOpen: () => void }) {
+const ConvRow = memo(function ConvRow({ c, onOpen }: { c: Conv; onOpen: () => void }) {
   const isHot = c.temperature === "hot" || c.buy_intent_detected;
   const isPaused = c.ai_paused_until && new Date(c.ai_paused_until) > new Date();
   const unread = (c.unread_count || 0) > 0;
@@ -239,4 +239,4 @@ function ConvRow({ c, onOpen }: { c: Conv; onOpen: () => void }) {
       </button>
     </li>
   );
-}
+});

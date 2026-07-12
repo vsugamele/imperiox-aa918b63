@@ -192,7 +192,7 @@ export function MobileLeadsList() {
               <MobileLeadCard
                 key={l.id}
                 lead={l}
-                onOpen={(id) => navigate(`/lead/${id}`)}
+                onOpen={(id) => navigate(`/leads/${id}`)}
                 onWhats={onWhats}
                 onArchive={onArchive}
               />
