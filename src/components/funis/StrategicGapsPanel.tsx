@@ -109,7 +109,7 @@ interface Props {
 }
 
 export function StrategicGapsPanel({ nodes, edges = [], onCreateNode }: Props) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const gaps = useMemo(() => analyzeGaps(nodes, edges).filter(g => !dismissed.has(g.id)), [nodes, edges, dismissed]);
 

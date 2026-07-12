@@ -19422,8 +19422,10 @@ export type Database = {
           label: string | null
           map_id: string
           source_id: string
+          source_kind: string
           style: string | null
           target_id: string
+          target_kind: string
         }
         Insert: {
           created_at?: string
@@ -19431,8 +19433,10 @@ export type Database = {
           label?: string | null
           map_id: string
           source_id: string
+          source_kind?: string
           style?: string | null
           target_id: string
+          target_kind?: string
         }
         Update: {
           created_at?: string
@@ -19440,8 +19444,10 @@ export type Database = {
           label?: string | null
           map_id?: string
           source_id?: string
+          source_kind?: string
           style?: string | null
           target_id?: string
+          target_kind?: string
         }
         Relationships: [
           {
@@ -19449,20 +19455,6 @@ export type Database = {
             columns: ["map_id"]
             isOneToOne: false
             referencedRelation: "imphq_company_maps"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "imphq_company_map_edges_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "imphq_company_map_nodes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "imphq_company_map_edges_target_id_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "imphq_company_map_nodes"
             referencedColumns: ["id"]
           },
         ]
