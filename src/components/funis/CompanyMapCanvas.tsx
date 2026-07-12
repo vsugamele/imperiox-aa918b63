@@ -323,7 +323,9 @@ const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   script: { w: 200, h: 160 },
   copy: { w: 200, h: 120 },
   ad_asset: { w: 200, h: 200 },
+  schedule: { w: 240, h: 200 },
 };
+
 
 
 function clampDimension(value: unknown, min: number) {
