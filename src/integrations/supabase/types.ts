@@ -4324,6 +4324,39 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_perf_events: {
+        Row: {
+          created_at: string
+          id: string
+          metric: string
+          rating: string | null
+          route: string | null
+          ua: string | null
+          user_id: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric: string
+          rating?: string | null
+          route?: string | null
+          ua?: string | null
+          user_id?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric?: string
+          rating?: string | null
+          route?: string | null
+          ua?: string | null
+          user_id?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       areamembrojp_plan_external_products: {
         Row: {
           access_duration_days: number | null
