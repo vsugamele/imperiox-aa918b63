@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, Handle, Position, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone, CalendarClock, Camera, Circle, Video, Send, MessageCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 // Small connection handles (source+target overlaid) shown on hover/selected — same visual on all four sides.
