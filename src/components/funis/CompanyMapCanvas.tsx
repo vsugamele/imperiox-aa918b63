@@ -515,7 +515,9 @@ function InnerMap({ projects }: { projects: any[] }) {
       return [...baseNodes, ...annNodes];
     });
     setEdges((eds || []).map((e: any) => ({
-      id: e.id, source: e.source_id, target: e.target_id,
+      id: e.id,
+      source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
+      target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
       animated: e.style !== "dashed",
       label: e.label || undefined,
       interactionWidth: 24,
