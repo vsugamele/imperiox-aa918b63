@@ -147,7 +147,7 @@ function loadPersistedFilters(): Partial<PersistedFilters> {
   try { const raw = localStorage.getItem(FILTERS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
 }
 
-export default function Leads() {
+function LeadsDesktop() {
   const persisted = loadPersistedFilters();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
