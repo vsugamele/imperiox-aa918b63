@@ -7,8 +7,8 @@ import { toast } from "sonner";
 function AnnotationHandles({ visible, color = "#c9922a" }: { visible: boolean; color?: string }) {
   const base: React.CSSProperties = {
     width: 10, height: 10, background: color, border: "2px solid #080607",
-    borderRadius: 999, opacity: visible ? 1 : 0, transition: "opacity 120ms",
-    pointerEvents: visible ? "auto" : "none",
+    borderRadius: 999, opacity: visible ? 1 : 0.5, transition: "opacity 120ms",
+    pointerEvents: "auto",
   };
   const sides: { pos: Position; style: React.CSSProperties }[] = [
     { pos: Position.Top, style: {} },
