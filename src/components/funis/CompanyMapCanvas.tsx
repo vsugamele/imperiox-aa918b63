@@ -934,9 +934,14 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   const onConnect = useCallback(async (conn: Connection) => {
     if (!mapId || !conn.source || !conn.target) return;
-    const { data } = await supabase.from("imphq_company_map_edges")
-      .insert({ map_id: mapId, source_id: conn.source, target_id: conn.target })
+    const srcIsAnn = conn.source.startsWith(ANN_PREFIX);
+    const tgtIsAnn = conn.target.startsWith(ANN_PREFIX);
+    const source_id = srcIsAnn ? conn.source.slice(ANN_PREFIX.length) : conn.source;
+    const target_id = tgtIsAnn ? conn.target.slice(ANN_PREFIX.length) : conn.target;
+    const { data, error } = await (supabase.from("imphq_company_map_edges") as any)
+      .insert({ map_id: mapId, source_id, target_id, source_kind: srcIsAnn ? "annotation" : "node", target_kind: tgtIsAnn ? "annotation" : "node" })
       .select().single();
+    if (error) { toast.error("Erro ao conectar"); return; }
     if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
   }, [mapId]);
 
