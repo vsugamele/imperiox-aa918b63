@@ -2001,6 +2001,23 @@ function InnerMap({ projects }: { projects: any[] }) {
           assetLabel={copyDialog.label}
         />
       )}
+
+      <ReferenciasPicker
+        open={libPickerOpen}
+        onClose={() => setLibPickerOpen(false)}
+        initialTab="site"
+        onSelect={(item) => {
+          if (!selected) return;
+          const img = item.thumbnail || (item.kind === "image" ? item.url : "");
+          setSelected({
+            ...selected,
+            image_url: img || selected.image_url,
+            url: item.kind === "site" ? item.url : selected.url,
+            label: selected.label || item.title,
+          });
+          toast.success(item.kind === "site" ? "Site aplicado — clique em Salvar" : "Imagem aplicada — clique em Salvar");
+        }}
+      />
     </div>
   );
 }
