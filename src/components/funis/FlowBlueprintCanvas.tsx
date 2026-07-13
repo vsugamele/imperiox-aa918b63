@@ -611,13 +611,17 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       <ReferenciasPicker
         open={!!refPickerMode}
         onClose={() => setRefPickerMode(null)}
-        onSelect={(url) => {
+        onSelect={(item) => {
+          // Site → usa thumbnail como imagem; imagem → usa a URL diretamente
+          const imgUrl = item.kind === "site" ? (item.thumbnail || "") : item.url;
           if (refPickerMode === "image_url" && editing) {
-            updateBlock(editing.nodeId, editing.blockId, { image_url: url });
-            toast.success("Imagem da biblioteca aplicada");
+            const patch: Record<string, any> = { image_url: imgUrl };
+            if (item.kind === "site") patch.link_url = item.url;
+            updateBlock(editing.nodeId, editing.blockId, patch);
+            toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");
           } else if (refPickerMode === "context") {
-            setCtxRefUrl(url);
-            toast.success("Referência anexada");
+            setCtxRefUrl(item.url);
+            toast.success(item.kind === "site" ? "Site anexado" : "Referência anexada");
           }
         }}
       />
