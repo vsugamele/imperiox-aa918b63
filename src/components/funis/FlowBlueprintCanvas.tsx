@@ -455,7 +455,15 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     {b.type === "image" && (
                       <div className="relative">
                         {b.image_url ? (
-                          <img src={b.image_url} className="w-full h-24 object-cover rounded" alt="" />
+                          <img
+                            src={b.image_url}
+                            className="w-full h-24 object-cover rounded cursor-zoom-in"
+                            alt=""
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                            }}
+                          />
                         ) : (
                           <div className="w-full h-24 rounded bg-secondary/60 flex items-center justify-center text-[10px] text-muted-foreground">
                             {regenLoading === b.id ? <Loader2 className="h-4 w-4 animate-spin" /> : (b.image_prompt ? "Gerando…" : "Sem imagem")}
