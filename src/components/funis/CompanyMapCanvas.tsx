@@ -1007,27 +1007,43 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Conexão removida");
   }, []);
 
+  const createImageNode = async (image_url: string, label: string) => {
+    if (!mapId) return;
+    const preset = KIND_PRESETS.imagem || KIND_PRESETS.canal;
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "imagem", color: preset.color,
+      label: label || `Novo ${preset.label}`,
+      image_url,
+      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+    } as any).select().single();
+    if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
+  };
+
+  const handleUploadImageNode = async () => {
+    if (!mapId) return;
+    const file = await pickImageFile();
+    if (!file) return;
+    const t = toast.loading("Enviando imagem...");
+    const url = await uploadMapImage(mapId, file);
+    toast.dismiss(t);
+    if (!url) return;
+    await createImageNode(url, file.name.replace(/\.[^.]+$/, ""));
+  };
+
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
 
-    // Imagem: pede arquivo antes, faz upload, e só então cria o nó
-    let image_url: string | null = null;
-    let autoLabel: string | null = null;
+    // Imagem: perguntar Biblioteca vs Upload antes
     if (kind === "imagem") {
-      const file = await pickImageFile();
-      if (!file) return;
-      const t = toast.loading("Enviando imagem...");
-      image_url = await uploadMapImage(mapId, file);
-      toast.dismiss(t);
-      if (!image_url) return;
-      autoLabel = file.name.replace(/\.[^.]+$/, "");
+      setImageSourceOpen(true);
+      return;
     }
 
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: customLabel || autoLabel || `Novo ${preset.label}`,
-      image_url,
+      label: customLabel || `Novo ${preset.label}`,
+      image_url: null,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
