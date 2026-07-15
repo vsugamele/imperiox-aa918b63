@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye, Zap } from "lucide-react";
 import { ReferenciasPicker } from "./ReferenciasPicker";
+import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
