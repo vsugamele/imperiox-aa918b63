@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
-  addEdge, applyEdgeChanges, applyNodeChanges,
+  addEdge, applyEdgeChanges, applyNodeChanges, ConnectionMode,
   type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
   Handle, Position, useReactFlow, NodeResizer, ViewportPortal,
 } from "@xyflow/react";
