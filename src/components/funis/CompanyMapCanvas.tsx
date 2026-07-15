@@ -387,6 +387,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
+  const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
+  const [imageSourceOpen, setImageSourceOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
   useEffect(() => {
     const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
@@ -1007,27 +1009,43 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Conexão removida");
   }, []);
 
+  const createImageNode = async (image_url: string, label: string) => {
+    if (!mapId) return;
+    const preset = KIND_PRESETS.imagem || KIND_PRESETS.canal;
+    const { data } = await supabase.from("imphq_company_map_nodes").insert({
+      map_id: mapId, kind: "imagem", color: preset.color,
+      label: label || `Novo ${preset.label}`,
+      image_url,
+      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+    } as any).select().single();
+    if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
+  };
+
+  const handleUploadImageNode = async () => {
+    if (!mapId) return;
+    const file = await pickImageFile();
+    if (!file) return;
+    const t = toast.loading("Enviando imagem...");
+    const url = await uploadMapImage(mapId, file);
+    toast.dismiss(t);
+    if (!url) return;
+    await createImageNode(url, file.name.replace(/\.[^.]+$/, ""));
+  };
+
   const addNode = async (kind: string, customLabel?: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS[kind] || KIND_PRESETS.canal;
 
-    // Imagem: pede arquivo antes, faz upload, e só então cria o nó
-    let image_url: string | null = null;
-    let autoLabel: string | null = null;
+    // Imagem: perguntar Biblioteca vs Upload antes
     if (kind === "imagem") {
-      const file = await pickImageFile();
-      if (!file) return;
-      const t = toast.loading("Enviando imagem...");
-      image_url = await uploadMapImage(mapId, file);
-      toast.dismiss(t);
-      if (!image_url) return;
-      autoLabel = file.name.replace(/\.[^.]+$/, "");
+      setImageSourceOpen(true);
+      return;
     }
 
     const { data } = await supabase.from("imphq_company_map_nodes").insert({
       map_id: mapId, kind, color: preset.color,
-      label: customLabel || autoLabel || `Novo ${preset.label}`,
-      image_url,
+      label: customLabel || `Novo ${preset.label}`,
+      image_url: null,
       position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
@@ -2058,9 +2076,16 @@ function InnerMap({ projects }: { projects: any[] }) {
 
       <ReferenciasPicker
         open={libPickerOpen}
-        onClose={() => setLibPickerOpen(false)}
-        initialTab="site"
+        onClose={() => { setLibPickerOpen(false); setLibPickerMode("edit"); }}
+        initialTab={libPickerMode === "new-image" ? "image" : "site"}
         onSelect={(item) => {
+          if (libPickerMode === "new-image") {
+            const img = item.thumbnail || (item.kind === "image" ? item.url : "");
+            if (!img) { toast.error("Selecione uma imagem"); return; }
+            createImageNode(img, item.title);
+            setLibPickerMode("edit");
+            return;
+          }
           if (!selected) return;
           const img = item.thumbnail || (item.kind === "image" ? item.url : "");
           setSelected({
@@ -2072,7 +2097,30 @@ function InnerMap({ projects }: { projects: any[] }) {
           toast.success(item.kind === "site" ? "Site aplicado — clique em Salvar" : "Imagem aplicada — clique em Salvar");
         }}
       />
+
+      <Dialog open={imageSourceOpen} onOpenChange={setImageSourceOpen}>
+        <DialogContent className="max-w-sm bg-secondary/40 border-border/50">
+          <DialogHeader>
+            <DialogTitle>Adicionar imagem</DialogTitle>
+            <DialogDescription className="leading-7">De onde vem essa imagem?</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => { setImageSourceOpen(false); setLibPickerMode("new-image"); setLibPickerOpen(true); }}
+            >
+              Biblioteca
+            </Button>
+            <Button
+              onClick={() => { setImageSourceOpen(false); handleUploadImageNode(); }}
+            >
+              Enviar do computador
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
+
     </div>
   );
 }
