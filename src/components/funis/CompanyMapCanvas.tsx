@@ -1009,6 +1009,16 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Conexão removida");
   }, []);
 
+  // Posição no centro da viewport atual (com jitter pra não empilhar)
+  const nextDropPosition = () => {
+    try {
+      const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      return { x: c.x - 110 + (Math.random() * 80 - 40), y: c.y - 60 + (Math.random() * 80 - 40) };
+    } catch {
+      return { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 };
+    }
+  };
+
   const createImageNode = async (image_url: string, label: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS.imagem || KIND_PRESETS.canal;
@@ -1016,7 +1026,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       map_id: mapId, kind: "imagem", color: preset.color,
       label: label || `Novo ${preset.label}`,
       image_url,
-      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+      position: nextDropPosition(),
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
@@ -1046,7 +1056,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       map_id: mapId, kind, color: preset.color,
       label: customLabel || `Novo ${preset.label}`,
       image_url: null,
-      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+      position: nextDropPosition(),
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
