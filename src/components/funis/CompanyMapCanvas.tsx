@@ -159,11 +159,12 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
       {/* 4 handles em todos os lados (source + target sobrepostos) — sempre visíveis */}
       {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
         const dotStyle: React.CSSProperties = {
-          width: 10, height: 10, background: data.color, border: "2px solid #080607",
-          borderRadius: 999, opacity: 0.55, transition: "opacity 120ms", pointerEvents: "auto",
+          width: 14, height: 14, background: data.color, border: "2px solid #080607",
+          borderRadius: 999, opacity: 0.9, transition: "opacity 120ms, transform 120ms",
+          pointerEvents: "auto", zIndex: 5,
         };
         return (
-          <div key={`h-${pos}`} className="group-hover:[&>*]:!opacity-100">
+          <div key={`h-${pos}`} className="[&>*:hover]:!opacity-100 [&>*:hover]:!scale-125" title="Arraste para conectar">
             <Handle id={`${pos}-t`} type="target" position={pos} style={dotStyle} />
             <Handle id={`${pos}-s`} type="source" position={pos} style={dotStyle} />
           </div>
@@ -614,7 +615,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       const { data } = await supabase.from("imphq_company_map_nodes").insert({
         map_id: mapId, kind: "imagem", color: preset.color,
         label: "Imagem colada", image_url: url,
-        position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+        position: nextDropPosition(),
       } as any).select().single();
       if (data) { await loadMap(mapId); toast.success("Imagem colada"); }
     };
@@ -1009,6 +1010,16 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Conexão removida");
   }, []);
 
+  // Posição no centro da viewport atual (com jitter pra não empilhar)
+  const nextDropPosition = () => {
+    try {
+      const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      return { x: c.x - 110 + (Math.random() * 80 - 40), y: c.y - 60 + (Math.random() * 80 - 40) };
+    } catch {
+      return { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 };
+    }
+  };
+
   const createImageNode = async (image_url: string, label: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS.imagem || KIND_PRESETS.canal;
@@ -1016,7 +1027,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       map_id: mapId, kind: "imagem", color: preset.color,
       label: label || `Novo ${preset.label}`,
       image_url,
-      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+      position: nextDropPosition(),
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
@@ -1046,7 +1057,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       map_id: mapId, kind, color: preset.color,
       label: customLabel || `Novo ${preset.label}`,
       image_url: null,
-      position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+      position: nextDropPosition(),
     } as any).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
