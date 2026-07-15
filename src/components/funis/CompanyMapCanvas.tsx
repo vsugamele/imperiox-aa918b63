@@ -2072,9 +2072,11 @@ function InnerMap({ projects }: { projects: any[] }) {
           toast.success(item.kind === "site" ? "Site aplicado — clique em Salvar" : "Imagem aplicada — clique em Salvar");
         }}
       />
+      <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
     </div>
   );
 }
+
 
 
 export function CompanyMapCanvas({ projects }: { projects: any[] }) {
