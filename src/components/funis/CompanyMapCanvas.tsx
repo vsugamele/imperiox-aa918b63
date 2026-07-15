@@ -207,8 +207,12 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         <img
           src={data.image_url}
           alt={data.label}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: data.image_url, label: data.label } }));
+          }}
           className={cn(
-            "mt-2 w-full rounded border border-border/30 object-cover",
+            "mt-2 w-full rounded border border-border/30 object-cover cursor-zoom-in",
             hasCustomSize ? "flex-1 h-auto max-h-full" : "max-h-64"
           )}
           draggable={false}
