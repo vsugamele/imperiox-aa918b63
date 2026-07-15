@@ -2076,9 +2076,16 @@ function InnerMap({ projects }: { projects: any[] }) {
 
       <ReferenciasPicker
         open={libPickerOpen}
-        onClose={() => setLibPickerOpen(false)}
-        initialTab="site"
+        onClose={() => { setLibPickerOpen(false); setLibPickerMode("edit"); }}
+        initialTab={libPickerMode === "new-image" ? "image" : "site"}
         onSelect={(item) => {
+          if (libPickerMode === "new-image") {
+            const img = item.thumbnail || (item.kind === "image" ? item.url : "");
+            if (!img) { toast.error("Selecione uma imagem"); return; }
+            createImageNode(img, item.title);
+            setLibPickerMode("edit");
+            return;
+          }
           if (!selected) return;
           const img = item.thumbnail || (item.kind === "image" ? item.url : "");
           setSelected({
@@ -2090,7 +2097,30 @@ function InnerMap({ projects }: { projects: any[] }) {
           toast.success(item.kind === "site" ? "Site aplicado — clique em Salvar" : "Imagem aplicada — clique em Salvar");
         }}
       />
+
+      <Dialog open={imageSourceOpen} onOpenChange={setImageSourceOpen}>
+        <DialogContent className="max-w-sm bg-secondary/40 border-border/50">
+          <DialogHeader>
+            <DialogTitle>Adicionar imagem</DialogTitle>
+            <DialogDescription className="leading-7">De onde vem essa imagem?</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => { setImageSourceOpen(false); setLibPickerMode("new-image"); setLibPickerOpen(true); }}
+            >
+              Biblioteca
+            </Button>
+            <Button
+              onClick={() => { setImageSourceOpen(false); handleUploadImageNode(); }}
+            >
+              Enviar do computador
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
+
     </div>
   );
 }
