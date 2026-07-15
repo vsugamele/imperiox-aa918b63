@@ -680,6 +680,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           }
         }}
       />
+      <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
     </div>
   );
 }
