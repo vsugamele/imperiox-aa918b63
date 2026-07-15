@@ -527,7 +527,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       </p>
                       <div className="flex gap-1 flex-wrap">
                         {upstreamImageUrls.slice(0, 4).map((u, i) => (
-                          <img key={i} src={u} alt="" className="h-10 w-10 object-cover rounded border border-sky-500/40" />
+                          <img key={i} src={u} alt="" onClick={() => window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: u } }))} className="h-10 w-10 object-cover rounded border border-sky-500/40 cursor-zoom-in" />
                         ))}
                       </div>
                       <Button size="sm" onClick={refineWithImages} disabled={refineLoading} className="w-full gap-1.5 bg-sky-600 hover:bg-sky-700">
