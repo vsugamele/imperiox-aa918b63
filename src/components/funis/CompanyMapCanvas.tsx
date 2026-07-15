@@ -29,6 +29,7 @@ import { NodeCopyDialog } from "./NodeCopyDialog";
 import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 import { ReferenciasPicker } from "./ReferenciasPicker";
+import { ImageLightbox } from "@/components/shared/ImageLightbox";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
