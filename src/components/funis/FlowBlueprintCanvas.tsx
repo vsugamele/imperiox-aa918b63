@@ -152,6 +152,46 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     if (signed?.signedUrl) { setCtxRefUrl(signed.signedUrl); toast.success("Referência anexada"); }
   };
 
+  const uploadFlowImage = async (file: File): Promise<string | null> => {
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `paste/${blueprintId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("flow-media").upload(path, file, { upsert: false, contentType: file.type || undefined });
+    if (error) { toast.error(error.message); return null; }
+    const { data: signed } = await supabase.storage.from("flow-media").createSignedUrl(path, 60 * 60 * 24 * 365);
+    return signed?.signedUrl || null;
+  };
+
+  // Colar imagem (Ctrl+V) — preenche o bloco de imagem em edição
+  useEffect(() => {
+    const IMG_URL_RE = /^https?:\/\/\S+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i;
+    const handler = async (e: ClipboardEvent) => {
+      if (!editing) return;
+      const tgt = e.target as HTMLElement | null;
+      if (tgt?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]')) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const imgItem = items.find(i => i.type.startsWith("image/"));
+      let url: string | null = null;
+      if (imgItem) {
+        const file = imgItem.getAsFile();
+        if (!file) return;
+        e.preventDefault();
+        toast.loading("Enviando imagem colada...", { id: "paste-flow" });
+        url = await uploadFlowImage(file);
+        toast.dismiss("paste-flow");
+        if (!url) return;
+      } else {
+        const text = e.clipboardData?.getData("text/plain")?.trim() || "";
+        if (!IMG_URL_RE.test(text)) return;
+        e.preventDefault();
+        url = text;
+      }
+      await updateBlock(editing.nodeId, editing.blockId, { image_url: url });
+      toast.success("Imagem colada");
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [editing, blueprintId]);
+
   const onCanvasMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
     setPanning({ x: e.clientX - pan.x, y: e.clientY - pan.y });
