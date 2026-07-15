@@ -387,6 +387,12 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  useEffect(() => {
+    const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
+    window.addEventListener("open-image-lightbox", h);
+    return () => window.removeEventListener("open-image-lightbox", h);
+  }, []);
   const { setCenter, screenToFlowPosition } = useReactFlow();
   const navigate = useNavigate();
   useEffect(() => {
