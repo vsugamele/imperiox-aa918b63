@@ -387,6 +387,8 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
+  const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
+  const [imageSourceOpen, setImageSourceOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
   useEffect(() => {
     const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
