@@ -614,7 +614,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       const { data } = await supabase.from("imphq_company_map_nodes").insert({
         map_id: mapId, kind: "imagem", color: preset.color,
         label: "Imagem colada", image_url: url,
-        position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+        position: nextDropPosition(),
       } as any).select().single();
       if (data) { await loadMap(mapId); toast.success("Imagem colada"); }
     };
