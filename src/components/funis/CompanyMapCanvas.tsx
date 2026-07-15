@@ -566,6 +566,49 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
 
+  // Colar imagem (Ctrl+V) — cria nó novo ou atualiza o nó selecionado
+  useEffect(() => {
+    if (!mapId) return;
+    const IMG_URL_RE = /^https?:\/\/\S+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i;
+    const handler = async (e: ClipboardEvent) => {
+      const tgt = e.target as HTMLElement | null;
+      if (tgt?.closest?.('input, textarea, [contenteditable="true"], [role="textbox"]')) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const imgItem = items.find(i => i.type.startsWith("image/"));
+      let url: string | null = null;
+      if (imgItem) {
+        const file = imgItem.getAsFile();
+        if (!file) return;
+        e.preventDefault();
+        toast.loading("Enviando imagem colada...", { id: "paste-img" });
+        url = await uploadMapImage(mapId, file);
+        toast.dismiss("paste-img");
+        if (!url) return;
+      } else {
+        const text = e.clipboardData?.getData("text/plain")?.trim() || "";
+        if (!IMG_URL_RE.test(text)) return;
+        e.preventDefault();
+        url = text;
+      }
+      if (selected) {
+        setSelected({ ...selected, image_url: url });
+        await supabase.from("imphq_company_map_nodes").update({ image_url: url } as any).eq("id", selected.id);
+        await loadMap(mapId);
+        toast.success("Imagem atualizada");
+        return;
+      }
+      const preset = KIND_PRESETS["imagem"] || KIND_PRESETS.canal;
+      const { data } = await supabase.from("imphq_company_map_nodes").insert({
+        map_id: mapId, kind: "imagem", color: preset.color,
+        label: "Imagem colada", image_url: url,
+        position: { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 },
+      } as any).select().single();
+      if (data) { await loadMap(mapId); toast.success("Imagem colada"); }
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [mapId, selected, loadMap]);
+
   // ---------- Annotations helpers ----------
   const updateAnnotationText = useCallback(async (id: string, text: string) => {
     const annId = id.startsWith(ANN_PREFIX) ? id.slice(ANN_PREFIX.length) : id;
