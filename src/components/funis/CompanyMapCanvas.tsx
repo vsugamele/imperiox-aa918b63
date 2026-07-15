@@ -29,6 +29,7 @@ import { NodeCopyDialog } from "./NodeCopyDialog";
 import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 import { ReferenciasPicker } from "./ReferenciasPicker";
+import { ImageLightbox } from "@/components/shared/ImageLightbox";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -207,8 +208,12 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         <img
           src={data.image_url}
           alt={data.label}
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: data.image_url, label: data.label } }));
+          }}
           className={cn(
-            "mt-2 w-full rounded border border-border/30 object-cover",
+            "mt-2 w-full rounded border border-border/30 object-cover cursor-zoom-in",
             hasCustomSize ? "flex-1 h-auto max-h-full" : "max-h-64"
           )}
           draggable={false}
@@ -382,6 +387,12 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  useEffect(() => {
+    const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
+    window.addEventListener("open-image-lightbox", h);
+    return () => window.removeEventListener("open-image-lightbox", h);
+  }, []);
   const { setCenter, screenToFlowPosition } = useReactFlow();
   const navigate = useNavigate();
   useEffect(() => {
@@ -2061,9 +2072,11 @@ function InnerMap({ projects }: { projects: any[] }) {
           toast.success(item.kind === "site" ? "Site aplicado — clique em Salvar" : "Imagem aplicada — clique em Salvar");
         }}
       />
+      <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
     </div>
   );
 }
+
 
 
 export function CompanyMapCanvas({ projects }: { projects: any[] }) {

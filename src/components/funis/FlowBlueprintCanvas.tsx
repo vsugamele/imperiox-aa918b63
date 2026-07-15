@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye, Zap } from "lucide-react";
 import { ReferenciasPicker } from "./ReferenciasPicker";
+import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { FlowBlueprint, FlowBlock, FlowNode } from "@/lib/typebot-parser";
@@ -71,6 +72,12 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const [refineLoading, setRefineLoading] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  useEffect(() => {
+    const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
+    window.addEventListener("open-image-lightbox", h);
+    return () => window.removeEventListener("open-image-lightbox", h);
+  }, []);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -455,7 +462,15 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                     {b.type === "image" && (
                       <div className="relative">
                         {b.image_url ? (
-                          <img src={b.image_url} className="w-full h-24 object-cover rounded" alt="" />
+                          <img
+                            src={b.image_url}
+                            className="w-full h-24 object-cover rounded cursor-zoom-in"
+                            alt=""
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                            }}
+                          />
                         ) : (
                           <div className="w-full h-24 rounded bg-secondary/60 flex items-center justify-center text-[10px] text-muted-foreground">
                             {regenLoading === b.id ? <Loader2 className="h-4 w-4 animate-spin" /> : (b.image_prompt ? "Gerando…" : "Sem imagem")}
@@ -519,7 +534,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                       </p>
                       <div className="flex gap-1 flex-wrap">
                         {upstreamImageUrls.slice(0, 4).map((u, i) => (
-                          <img key={i} src={u} alt="" className="h-10 w-10 object-cover rounded border border-sky-500/40" />
+                          <img key={i} src={u} alt="" onClick={() => window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: u } }))} className="h-10 w-10 object-cover rounded border border-sky-500/40 cursor-zoom-in" />
                         ))}
                       </div>
                       <Button size="sm" onClick={refineWithImages} disabled={refineLoading} className="w-full gap-1.5 bg-sky-600 hover:bg-sky-700">
@@ -665,6 +680,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           }
         }}
       />
+      <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
     </div>
   );
 }
