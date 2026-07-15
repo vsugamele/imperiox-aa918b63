@@ -159,11 +159,12 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
       {/* 4 handles em todos os lados (source + target sobrepostos) — sempre visíveis */}
       {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
         const dotStyle: React.CSSProperties = {
-          width: 10, height: 10, background: data.color, border: "2px solid #080607",
-          borderRadius: 999, opacity: 0.55, transition: "opacity 120ms", pointerEvents: "auto",
+          width: 14, height: 14, background: data.color, border: "2px solid #080607",
+          borderRadius: 999, opacity: 0.9, transition: "opacity 120ms, transform 120ms",
+          pointerEvents: "auto", zIndex: 5,
         };
         return (
-          <div key={`h-${pos}`} className="group-hover:[&>*]:!opacity-100">
+          <div key={`h-${pos}`} className="[&>*:hover]:!opacity-100 [&>*:hover]:!scale-125" title="Arraste para conectar">
             <Handle id={`${pos}-t`} type="target" position={pos} style={dotStyle} />
             <Handle id={`${pos}-s`} type="source" position={pos} style={dotStyle} />
           </div>
