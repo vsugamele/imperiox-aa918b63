@@ -1583,6 +1583,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}

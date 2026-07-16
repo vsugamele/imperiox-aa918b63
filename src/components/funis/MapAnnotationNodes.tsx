@@ -239,6 +239,7 @@ export const AnnotationLabelNode = memo(({ id, data, selected }: NodeProps) => {
         style={{ fontSize: d.style?.fontSize || 28, lineHeight: 1.15 }}
         placeholder="Título"
       />
+      <AnnotationHandles visible={resizeVisible} color="#c9922a" />
     </div>
   );
 });
