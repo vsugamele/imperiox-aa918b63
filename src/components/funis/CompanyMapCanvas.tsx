@@ -156,23 +156,31 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
         lineClassName="!border-primary/70 !border-2"
         handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background"
       />
-      {/* 4 handles em todos os lados — connectionMode="loose" permite source atuar como target */}
+      {/* Handles em todos os lados — source+target sobrepostos, target embaixo (recebe drop), source acima (inicia drag). Área de hit ampliada. */}
       {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
-        const dotStyle: React.CSSProperties = {
-          width: 14, height: 14, background: data.color, border: "2px solid #080607",
+        const baseStyle: React.CSSProperties = {
+          width: 18, height: 18, background: data.color, border: "2px solid #080607",
           borderRadius: 999, opacity: 0.9, transition: "opacity 120ms, transform 120ms",
-          pointerEvents: "auto", zIndex: 5,
+          pointerEvents: "auto",
         };
         return (
-          <Handle
-            key={`h-${pos}`}
-            id={`${pos}-s`}
-            type="source"
-            position={pos}
-            style={dotStyle}
-            className="hover:!opacity-100 hover:!scale-125"
-            title="Arraste para conectar"
-          />
+          <div key={`h-${pos}`}>
+            <Handle
+              id={`${pos}-t`}
+              type="target"
+              position={pos}
+              style={{ ...baseStyle, zIndex: 10, background: "transparent", border: "none", opacity: 0 }}
+              isConnectableStart={false}
+            />
+            <Handle
+              id={`${pos}-s`}
+              type="source"
+              position={pos}
+              style={{ ...baseStyle, zIndex: 11 }}
+              className="hover:!opacity-100 hover:!scale-125"
+              title="Arraste para conectar"
+            />
+          </div>
         );
       })}
 
