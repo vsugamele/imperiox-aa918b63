@@ -53,6 +53,10 @@ const BodySchema = z.object({
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const { requireUser } = await import("../_shared/require-auth.ts");
+  const auth = await requireUser(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const raw = await req.json().catch(() => null);
     const parsed = BodySchema.safeParse(raw);
