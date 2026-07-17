@@ -189,6 +189,37 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
             </Badge>
           )}
           <div className="flex-1" />
+          {/* Score 1-5 */}
+          <div className="flex items-center gap-0.5 mr-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                onClick={async () => {
+                  const nv = s.rating === n ? 0 : n;
+                  onChanged?.({ rating: nv });
+                  await supabase.from("imphq_swipes" as any).update({ rating: nv }).eq("id", s.id);
+                }}
+                className={cn(
+                  "p-0.5 transition",
+                  (s.rating || 0) >= n ? "text-[hsl(var(--gold))]" : "text-muted-foreground/30 hover:text-muted-foreground",
+                )}
+                title={`${n} estrela${n > 1 ? "s" : ""}`}
+              >
+                <Star className="h-3 w-3" fill={(s.rating || 0) >= n ? "currentColor" : "none"} />
+              </button>
+            ))}
+          </div>
+          {s.source_url && (
+            <a
+              href={s.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 text-muted-foreground hover:text-foreground transition"
+              title="Abrir fonte original"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           <Button
             size="sm"
             variant="ghost"
