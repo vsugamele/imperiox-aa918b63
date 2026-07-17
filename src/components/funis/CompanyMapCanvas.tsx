@@ -1250,6 +1250,26 @@ function InnerMap({ projects }: { projects: any[] }) {
     catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
   };
 
+  const handleExportJson = () => {
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        mapId,
+        nodes: rawNodes,
+        edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
+        annotations,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mapa-${mapId || "sem-id"}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("JSON baixado");
+    } catch (e: any) { toast.error(e.message || "Erro ao exportar JSON"); }
+  };
+
 
   const deleteNode = async () => {
     if (!selected) return;
