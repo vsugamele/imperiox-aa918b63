@@ -279,6 +279,7 @@ export default function Swipe() {
                   onToggleSelect={() => toggleBulk(s.id)}
                   onEdit={() => setSelected(s)}
                   onDelete={() => deleteSwipe(s.id)}
+                  onChanged={(patch) => patchSwipe(s.id, patch)}
                 />
               ))
             )}
