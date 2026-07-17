@@ -24,10 +24,16 @@ export default function Swipe() {
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [vslOnly, setVslOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const patchSwipe = (id: string, patch: any) =>
+    setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const [activeId, setActiveId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
