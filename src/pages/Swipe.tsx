@@ -193,6 +193,17 @@ export default function Swipe() {
         >
           🎬 Só VSL ({swipes.filter((s) => s.formato === "vsl").length})
         </button>
+        <button
+          onClick={() => setFavOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            favOnly
+              ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          ⭐ Favoritos ({swipes.filter((s) => s.favorito).length})
+        </button>
       </div>
 
       {chips.length > 0 && (
