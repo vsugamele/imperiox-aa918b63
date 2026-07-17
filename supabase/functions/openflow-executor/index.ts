@@ -3152,6 +3152,8 @@ Instruções Adicionais:
           if (isCriticalStep(step.tipo)) {
             status = "failed";
             errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${stepErr.message}`;
+            (stepResult as any)._failed_step_index = i;
+            (stepResult as any)._failed_step_kind = step.tipo;
           }
         }
 
@@ -3171,8 +3173,64 @@ Instruções Adicionais:
         errorMessage = failureMessages.join(" | ");
       }
 
-      // Final update
-      if (status !== "waiting") {
+      // ============ Retry inteligente + Dead-letter ============
+      if (status === "failed") {
+        const { data: execRow } = await supabase
+          .from("imphq_flow_executions")
+          .select("retry_count, max_retries")
+          .eq("id", executionId)
+          .maybeSingle();
+        const retryCount = (execRow?.retry_count ?? 0) + 1;
+        const maxRetries = execRow?.max_retries ?? 4;
+        const failedResult = stepResults.find((s: any) => s._failed_step_index !== undefined);
+        const failedIdx = failedResult?._failed_step_index ?? 0;
+        const failedKind = failedResult?._failed_step_kind ?? "unknown";
+        // Backoff exponencial (minutos): 1, 5, 15, 60, 360
+        const backoffMin = [1, 5, 15, 60, 360][Math.min(retryCount - 1, 4)];
+        const nextRunAt = new Date(Date.now() + backoffMin * 60_000).toISOString();
+
+        if (retryCount <= maxRetries) {
+          await supabase.from("imphq_flow_executions")
+            .update({
+              status: "retrying",
+              retry_count: retryCount,
+              current_step: failedIdx,
+              next_run_at: nextRunAt,
+              step_results: stepResults,
+              error_message: errorMessage,
+              last_error_at: new Date().toISOString(),
+              last_error_kind: failedKind,
+            })
+            .eq("id", executionId);
+          console.log(`[openflow-executor] Retry ${retryCount}/${maxRetries} agendado para ${nextRunAt} (exec=${executionId}, step=${failedIdx})`);
+        } else {
+          // Move to dead-letter
+          await supabase.from("imphq_flow_dead_letter").insert({
+            execution_id: executionId,
+            automacao_id: auto.id,
+            project_id,
+            lead_id: lead_data?.lead_id || null,
+            current_step: failedIdx,
+            step_snapshot: steps[failedIdx] || {},
+            error_message: errorMessage,
+            error_kind: failedKind,
+            retry_count: retryCount - 1,
+            step_results: stepResults,
+          });
+          await supabase.from("imphq_flow_executions")
+            .update({
+              status: "dead_letter",
+              retry_count: retryCount - 1,
+              step_results: stepResults,
+              error_message: errorMessage,
+              last_error_at: new Date().toISOString(),
+              last_error_kind: failedKind,
+            })
+            .eq("id", executionId);
+          console.log(`[openflow-executor] Execução ${executionId} movida para dead-letter após ${retryCount - 1} tentativas`);
+        }
+      } else if (status !== "waiting") {
+        // Final update (sucesso ou parcial)
         await supabase.from("imphq_flow_executions")
           .update({
             status,
@@ -3182,6 +3240,7 @@ Instruções Adicionais:
           })
           .eq("id", executionId);
       }
+
 
       // Insert execution log with enriched data
       await supabase.from("imphq_automacao_logs").insert({
