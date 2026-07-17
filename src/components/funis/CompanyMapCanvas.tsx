@@ -1955,6 +1955,28 @@ function InnerMap({ projects }: { projects: any[] }) {
                       <ImageIcon className="h-3 w-3" /> Biblioteca
                     </Button>
                   </div>
+                  {selected.image_url && (
+                    <Button size="sm" variant="outline" className="w-full gap-1 mt-1"
+                      onClick={async () => {
+                        if (!selected.image_url) return;
+                        const t = toast.loading("Salvando na Biblioteca...");
+                        const { error } = await (supabase.from("imphq_referencias") as any).insert({
+                          id: crypto.randomUUID(),
+                          tipo: "imagem",
+                          titulo: selected.label || "Do Mapa da Empresa",
+                          image_url: selected.image_url,
+                          tags: ["mapa"],
+                          project_id: selected.linked_project_id || null,
+                        });
+                        toast.dismiss(t);
+                        if (error) { toast.error("Erro ao salvar"); return; }
+                        toast.success("Salvo na Biblioteca", {
+                          action: { label: "Abrir", onClick: () => navigate("/referencias") },
+                        });
+                      }}>
+                      <Sparkles className="h-3 w-3" /> Salvar na Biblioteca
+                    </Button>
+                  )}
                 </div>
               )}
               <div>
