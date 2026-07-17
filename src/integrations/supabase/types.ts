@@ -25696,6 +25696,33 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_swipe_colecoes: {
+        Row: {
+          cor: string | null
+          created_at: string
+          id: string
+          nome: string
+          ordem: number | null
+          user_id: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number | null
+          user_id: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_swipe_templates: {
         Row: {
           created_at: string
@@ -25736,21 +25763,26 @@ export type Database = {
         Row: {
           audio_hash: string | null
           blocks: Json
+          colecao_id: string | null
           created_at: string
           criador: string | null
           duration_s: number | null
+          favorito: boolean
           formato: string | null
           gatilhos: string[] | null
           id: string
+          lido_em: string | null
           mecanismo: string | null
           media_type: string | null
           media_urls: string[] | null
           nicho: string | null
+          notas_privadas: string | null
           plataforma: string | null
           produto_id: string | null
           project_id: string | null
           rating: number | null
           raw_text: string | null
+          resultado: Json | null
           reverse_engineering: Json | null
           source_swipe_id: string | null
           source_url: string | null
@@ -25767,21 +25799,26 @@ export type Database = {
         Insert: {
           audio_hash?: string | null
           blocks?: Json
+          colecao_id?: string | null
           created_at?: string
           criador?: string | null
           duration_s?: number | null
+          favorito?: boolean
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
+          lido_em?: string | null
           mecanismo?: string | null
           media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
+          notas_privadas?: string | null
           plataforma?: string | null
           produto_id?: string | null
           project_id?: string | null
           rating?: number | null
           raw_text?: string | null
+          resultado?: Json | null
           reverse_engineering?: Json | null
           source_swipe_id?: string | null
           source_url?: string | null
@@ -25798,21 +25835,26 @@ export type Database = {
         Update: {
           audio_hash?: string | null
           blocks?: Json
+          colecao_id?: string | null
           created_at?: string
           criador?: string | null
           duration_s?: number | null
+          favorito?: boolean
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
+          lido_em?: string | null
           mecanismo?: string | null
           media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
+          notas_privadas?: string | null
           plataforma?: string | null
           produto_id?: string | null
           project_id?: string | null
           rating?: number | null
           raw_text?: string | null
+          resultado?: Json | null
           reverse_engineering?: Json | null
           source_swipe_id?: string | null
           source_url?: string | null
