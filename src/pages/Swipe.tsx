@@ -34,8 +34,8 @@ export default function Swipe() {
 
   const patchSwipe = (id: string, patch: any) =>
     setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+
 
   const fetchSwipes = async () => {
     setLoading(true);
