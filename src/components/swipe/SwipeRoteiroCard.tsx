@@ -23,13 +23,9 @@ interface Props {
   onDelete: () => void;
   onChanged?: (patch: any) => void;
 }
-  onToggleSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}
 
 export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
-  ({ swipe: s, label, selected, onToggleSelect, onEdit, onDelete }, ref) => {
+  ({ swipe: s, label, selected, onToggleSelect, onEdit, onDelete, onChanged }, ref) => {
     const [ctaTab, setCtaTab] = useState<"engajamento" | "venda">("engajamento");
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
