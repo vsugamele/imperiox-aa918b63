@@ -90,11 +90,13 @@ Deno.serve(async (req) => {
 
     for (const exec of pending) {
       try {
-        // Mark as running to prevent double-processing
+        // Mark as running to prevent double-processing (CAS: only if still waiting/retrying)
+        const prevStatus = exec.status;
         await supabase.from("imphq_flow_executions")
           .update({ status: "running" })
           .eq("id", exec.id)
-          .eq("status", "waiting"); // CAS-like: only update if still waiting
+          .eq("status", prevStatus);
+
 
         // Get trigger_data from the matching automacao_log
         const { data: logData } = await supabase
