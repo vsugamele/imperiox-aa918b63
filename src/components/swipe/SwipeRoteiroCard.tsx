@@ -21,6 +21,11 @@ interface Props {
   onToggleSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onChanged?: (patch: any) => void;
+}
+  onToggleSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
