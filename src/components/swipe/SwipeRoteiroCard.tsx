@@ -85,6 +85,20 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={async () => {
+                const nv = !s.favorito;
+                onChanged?.({ favorito: nv });
+                await supabase.from("imphq_swipes" as any).update({ favorito: nv }).eq("id", s.id);
+              }}
+              className={cn(
+                "p-1.5 rounded transition",
+                s.favorito ? "text-[hsl(var(--gold))]" : "text-muted-foreground/40 hover:text-[hsl(var(--gold))]/70",
+              )}
+              title={s.favorito ? "Remover favorito" : "Favoritar"}
+            >
+              <Star className="h-4 w-4" fill={s.favorito ? "currentColor" : "none"} />
+            </button>
             <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-[hsl(var(--gold))] text-background text-xs font-bold">
               {label}
             </span>
