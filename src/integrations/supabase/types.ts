@@ -20629,6 +20629,57 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_flow_dead_letter: {
+        Row: {
+          automacao_id: string
+          created_at: string
+          current_step: number
+          error_kind: string | null
+          error_message: string | null
+          execution_id: string
+          id: string
+          lead_id: string | null
+          project_id: string
+          reprocess_execution_id: string | null
+          reprocessed_at: string | null
+          retry_count: number
+          step_results: Json | null
+          step_snapshot: Json | null
+        }
+        Insert: {
+          automacao_id: string
+          created_at?: string
+          current_step?: number
+          error_kind?: string | null
+          error_message?: string | null
+          execution_id: string
+          id?: string
+          lead_id?: string | null
+          project_id: string
+          reprocess_execution_id?: string | null
+          reprocessed_at?: string | null
+          retry_count?: number
+          step_results?: Json | null
+          step_snapshot?: Json | null
+        }
+        Update: {
+          automacao_id?: string
+          created_at?: string
+          current_step?: number
+          error_kind?: string | null
+          error_message?: string | null
+          execution_id?: string
+          id?: string
+          lead_id?: string | null
+          project_id?: string
+          reprocess_execution_id?: string | null
+          reprocessed_at?: string | null
+          retry_count?: number
+          step_results?: Json | null
+          step_snapshot?: Json | null
+        }
+        Relationships: []
+      }
       imphq_flow_executions: {
         Row: {
           automacao_id: string
@@ -20636,9 +20687,13 @@ export type Database = {
           current_step: number
           error_message: string | null
           id: string
+          last_error_at: string | null
+          last_error_kind: string | null
           lead_id: string | null
+          max_retries: number
           next_run_at: string | null
           project_id: string
+          retry_count: number
           status: string
           step_results: Json
           trigger_tipo: string
@@ -20651,9 +20706,13 @@ export type Database = {
           current_step?: number
           error_message?: string | null
           id?: string
+          last_error_at?: string | null
+          last_error_kind?: string | null
           lead_id?: string | null
+          max_retries?: number
           next_run_at?: string | null
           project_id: string
+          retry_count?: number
           status?: string
           step_results?: Json
           trigger_tipo: string
@@ -20666,9 +20725,13 @@ export type Database = {
           current_step?: number
           error_message?: string | null
           id?: string
+          last_error_at?: string | null
+          last_error_kind?: string | null
           lead_id?: string | null
+          max_retries?: number
           next_run_at?: string | null
           project_id?: string
+          retry_count?: number
           status?: string
           step_results?: Json
           trigger_tipo?: string

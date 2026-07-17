@@ -13,13 +13,14 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Find waiting executions (up to 100 to avoid memory overflow)
+    // Find waiting or retrying executions (up to 100 to avoid memory overflow)
     const { data: waitingExecs, error: fetchErr } = await supabase
       .from("imphq_flow_executions")
-      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results, next_run_at, created_at")
-      .eq("status", "waiting")
+      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results, next_run_at, created_at, status, retry_count")
+      .in("status", ["waiting", "retrying"])
       .order("next_run_at", { ascending: true })
       .limit(100);
+
 
     if (fetchErr) {
       console.error("[openflow-resume] Fetch error:", fetchErr);
@@ -89,11 +90,13 @@ Deno.serve(async (req) => {
 
     for (const exec of pending) {
       try {
-        // Mark as running to prevent double-processing
+        // Mark as running to prevent double-processing (CAS: only if still waiting/retrying)
+        const prevStatus = exec.status;
         await supabase.from("imphq_flow_executions")
           .update({ status: "running" })
           .eq("id", exec.id)
-          .eq("status", "waiting"); // CAS-like: only update if still waiting
+          .eq("status", prevStatus);
+
 
         // Get trigger_data from the matching automacao_log
         const { data: logData } = await supabase
