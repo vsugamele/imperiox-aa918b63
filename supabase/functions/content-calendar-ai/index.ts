@@ -1,5 +1,6 @@
 // Content Calendar AI — semanal, gera 7 ideias por projeto Vendendo
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUserOrServiceRole } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
