@@ -2907,6 +2907,107 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_diagnostic_conversations: {
+        Row: {
+          content: string
+          created_at: string
+          diagnostic_id: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          diagnostic_id: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          diagnostic_id?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_diagnostic_conversations_diagnostic_id_fkey"
+            columns: ["diagnostic_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_diagnostics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_diagnostics: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          converted: boolean
+          converted_at: string | null
+          created_at: string
+          id: string
+          lead_email: string | null
+          lead_name: string | null
+          lead_whatsapp: string | null
+          pain_points: Json | null
+          profile_marketing: Json | null
+          profile_negocio: Json | null
+          profile_objetivos: Json | null
+          profile_tecnico: Json | null
+          recommended_plan: string | null
+          report_markdown: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          converted?: boolean
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          pain_points?: Json | null
+          profile_marketing?: Json | null
+          profile_negocio?: Json | null
+          profile_objetivos?: Json | null
+          profile_tecnico?: Json | null
+          recommended_plan?: string | null
+          report_markdown?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          converted?: boolean
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          pain_points?: Json | null
+          profile_marketing?: Json | null
+          profile_negocio?: Json | null
+          profile_objetivos?: Json | null
+          profile_tecnico?: Json | null
+          recommended_plan?: string | null
+          report_markdown?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_email_jobs: {
         Row: {
           attempts: number
@@ -4356,6 +4457,47 @@ export type Database = {
           value?: number
         }
         Relationships: []
+      }
+      areamembrojp_personalized_tracks: {
+        Row: {
+          created_at: string
+          current_lesson_id: string | null
+          diagnostic_id: string | null
+          id: string
+          is_active: boolean
+          items: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_lesson_id?: string | null
+          diagnostic_id?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_lesson_id?: string | null
+          diagnostic_id?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_personalized_tracks_diagnostic_id_fkey"
+            columns: ["diagnostic_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_diagnostics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_plan_external_products: {
         Row: {
