@@ -2,9 +2,10 @@ import { useState, forwardRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Pencil, Trash2 } from "lucide-react";
+import { Copy, Check, Pencil, Trash2, Star, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const BLOCKS: { key: string; label: string }[] = [
   { key: "gancho", label: "GANCHO — 0–3s" },
