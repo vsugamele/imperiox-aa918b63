@@ -24,12 +24,18 @@ export default function Swipe() {
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [vslOnly, setVslOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const patchSwipe = (id: string, patch: any) =>
+    setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+
 
   const fetchSwipes = async () => {
     setLoading(true);
@@ -60,6 +66,7 @@ export default function Swipe() {
   const filtered = useMemo(() => {
     let arr = swipes;
     if (vslOnly) arr = arr.filter((s) => s.formato === "vsl");
+    if (favOnly) arr = arr.filter((s) => s.favorito);
     if (search.trim()) {
       const k = search.toLowerCase();
       arr = arr.filter((s) =>
@@ -77,7 +84,7 @@ export default function Swipe() {
       });
     }
     return arr;
-  }, [swipes, activeChips, search, vslOnly]);
+  }, [swipes, activeChips, search, vslOnly, favOnly]);
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
@@ -186,6 +193,17 @@ export default function Swipe() {
         >
           🎬 Só VSL ({swipes.filter((s) => s.formato === "vsl").length})
         </button>
+        <button
+          onClick={() => setFavOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            favOnly
+              ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          ⭐ Favoritos ({swipes.filter((s) => s.favorito).length})
+        </button>
       </div>
 
       {chips.length > 0 && (
@@ -261,6 +279,7 @@ export default function Swipe() {
                   onToggleSelect={() => toggleBulk(s.id)}
                   onEdit={() => setSelected(s)}
                   onDelete={() => deleteSwipe(s.id)}
+                  onChanged={(patch) => patchSwipe(s.id, patch)}
                 />
               ))
             )}
