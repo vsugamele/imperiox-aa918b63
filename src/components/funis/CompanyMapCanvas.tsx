@@ -1470,6 +1470,9 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
         </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExportJson}>
+          <Download className="h-3 w-3" /> JSON
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={() => {
           const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           setReelDialog({ x: c.x, y: c.y });
