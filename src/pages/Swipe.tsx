@@ -66,6 +66,7 @@ export default function Swipe() {
   const filtered = useMemo(() => {
     let arr = swipes;
     if (vslOnly) arr = arr.filter((s) => s.formato === "vsl");
+    if (favOnly) arr = arr.filter((s) => s.favorito);
     if (search.trim()) {
       const k = search.toLowerCase();
       arr = arr.filter((s) =>
@@ -83,7 +84,7 @@ export default function Swipe() {
       });
     }
     return arr;
-  }, [swipes, activeChips, search, vslOnly]);
+  }, [swipes, activeChips, search, vslOnly, favOnly]);
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
