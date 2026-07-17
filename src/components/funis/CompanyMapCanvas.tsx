@@ -1250,6 +1250,26 @@ function InnerMap({ projects }: { projects: any[] }) {
     catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
   };
 
+  const handleExportJson = () => {
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        mapId,
+        nodes: rawNodes,
+        edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target })),
+        annotations,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mapa-${mapId || "sem-id"}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("JSON baixado");
+    } catch (e: any) { toast.error(e.message || "Erro ao exportar JSON"); }
+  };
+
 
   const deleteNode = async () => {
     if (!selected) return;
@@ -1449,6 +1469,9 @@ function InnerMap({ projects }: { projects: any[] }) {
         </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExportJson}>
+          <Download className="h-3 w-3" /> JSON
         </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={() => {
           const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
