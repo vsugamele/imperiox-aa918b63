@@ -668,6 +668,26 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Projeto</Label>
+                <Select value={form.project_id || "__none__"} onValueChange={v => setForm({ ...form, project_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Device (Cloud Phone)</Label>
+                <Select value={form.cloud_phone_ref || "__none__"} onValueChange={v => setForm({ ...form, cloud_phone_ref: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
