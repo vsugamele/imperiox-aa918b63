@@ -41,7 +41,7 @@ function normalizeReelUrl(url: string): string {
   } catch { return url; }
 }
 
-export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel" | "script" | "copy" | "ad_asset" | "schedule";
+export type AnnotationKind = "frame" | "note" | "label" | "arrow" | "reel" | "script" | "copy" | "ad_asset" | "schedule" | "account";
 
 export type ScheduleItemKind = "post" | "story" | "reel" | "email" | "wa" | "other";
 export interface ScheduleItem {
