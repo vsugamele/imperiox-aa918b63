@@ -360,6 +360,18 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                     <MapIcon className="h-3 w-3" /> {nodeLabel(c.mapa_node_id)}
                   </Link>
                 )}
+                {(c.project_id || c.cloud_phone_ref) && (
+                  <div className="flex flex-wrap gap-1">
+                    {c.project_id && (() => {
+                      const pj = projects.find(p => p.id === c.project_id);
+                      return pj ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />{pj.name}</Badge> : null;
+                    })()}
+                    {c.cloud_phone_ref && (() => {
+                      const dv = devices.find(d => d.id === c.cloud_phone_ref);
+                      return dv ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Smartphone className="h-2.5 w-2.5" />{dv.nome}</Badge> : null;
+                    })()}
+                  </div>
+                )}
 
 
                 <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/50 pt-2">
