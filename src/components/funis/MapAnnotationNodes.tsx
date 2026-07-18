@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, Handle, Position, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone, CalendarClock, Camera, Circle, Video, Send, MessageCircle, Plus, X } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone, CalendarClock, Camera, Circle, Video, Send, MessageCircle, Plus, X, Maximize2, Minimize2, Sprout, Mail, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Small connection handles (source+target overlaid) shown on hover/selected — same visual on all four sides.
 function AnnotationHandles({ visible, color = "#c9922a" }: { visible: boolean; color?: string }) {
