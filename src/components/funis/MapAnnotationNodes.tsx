@@ -723,6 +723,132 @@ export const AnnotationScheduleNode = memo(({ id, data, selected }: NodeProps) =
   );
 });
 
+// ============================================================
+// AnnotationAccountNode — conta do Farm (imphq_empresa) como nó
+// ============================================================
+const ACCOUNT_CACHE = new Map<string, any>();
+
+function warmupBadgeCls(w?: string) {
+  switch ((w || "").toLowerCase()) {
+    case "pronto": return "border-emerald-500/40 text-emerald-400 bg-emerald-500/10";
+    case "aquecendo": return "border-amber-500/40 text-amber-400 bg-amber-500/10";
+    case "banido": return "border-red-500/40 text-red-400 bg-red-500/10";
+    case "pausado": return "border-slate-500/40 text-slate-400 bg-slate-500/10";
+    default: return "border-white/20 text-white/70 bg-white/5";
+  }
+}
+
+function tipoIcon(tipo?: string) {
+  const t = (tipo || "").toLowerCase();
+  if (t === "instagram") return Instagram;
+  if (t === "youtube") return Youtube;
+  if (t === "tiktok") return Music2;
+  if (t === "email") return Mail;
+  return Sprout;
+}
+
+export const AnnotationAccountNode = memo(({ id, data, selected }: NodeProps) => {
+  const d = data as unknown as AnnotationData;
+  const { resizeVisible, hoverProps } = useResizeVisibility(selected, false);
+  const accountId = d.style?.accountId;
+  const [row, setRow] = useState<any>(accountId ? ACCOUNT_CACHE.get(accountId) : null);
+  const viewMode: "compact" | "expanded" = d.style?.viewMode || "compact";
+  const expanded = viewMode === "expanded";
+
+  useEffect(() => {
+    if (!accountId) return;
+    if (ACCOUNT_CACHE.has(accountId)) { setRow(ACCOUNT_CACHE.get(accountId)); return; }
+    (async () => {
+      const { data: r } = await supabase.from("imphq_empresa").select("*").eq("id", accountId).maybeSingle();
+      if (r) { ACCOUNT_CACHE.set(accountId, r); setRow(r); }
+    })();
+  }, [accountId]);
+
+  const toggleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    d.onStyleChange?.(id, { viewMode: expanded ? "compact" : "expanded" });
+  };
+
+  const idade = row?.data_criacao_conta ? Math.floor((Date.now() - new Date(row.data_criacao_conta).getTime()) / 86400000) : null;
+  const risco = Array.isArray(row?.sinais_risco) && row.sinais_risco.length > 0;
+  const Tipo = tipoIcon(row?.tipo);
+
+  return (
+    <div
+      {...hoverProps}
+      className="w-full h-full rounded-lg border-2 bg-card/95 backdrop-blur shadow-lg overflow-hidden flex flex-col"
+      style={{ borderColor: row?.pronta_venda ? "#10b981" : risco ? "#ef4444" : "#c9922a" }}
+    >
+      <NodeResizer isVisible={resizeVisible} minWidth={200} minHeight={80} lineClassName={resizerLineClassName} handleClassName={resizerHandleClassName} />
+      <AnnotationHandles visible={resizeVisible} color="#c9922a" />
+
+      {!row ? (
+        <div className="flex-1 flex items-center justify-center text-[11px] text-muted-foreground">Carregando conta…</div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-white/5">
+            {row.foto_url ? (
+              <img src={row.foto_url} alt={row.nome} className="h-7 w-7 rounded-md object-cover shrink-0 border border-white/10" />
+            ) : (
+              <div className="h-7 w-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                <Tipo className="h-3.5 w-3.5 text-primary" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium truncate leading-tight">{row.nome}</div>
+              <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{row.tipo}</div>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded border ${warmupBadgeCls(row.warmup_status)}`}>{row.warmup_status || "novo"}</span>
+            {risco && <ShieldAlert className="h-3 w-3 text-red-400 shrink-0" />}
+            <button
+              onMouseDown={stopBubble}
+              onClick={toggleView}
+              className="nodrag p-0.5 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground shrink-0"
+              title={expanded ? "Compactar" : "Expandir"}
+            >
+              {expanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+            </button>
+          </div>
+
+          {expanded && (
+            <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-1 px-2.5 py-2 text-[10px] leading-tight">
+              <Row k="Idade" v={idade !== null ? `${idade}d` : "—"} />
+              <Row k="Seguidores" v={row.seguidores || 0} />
+              <Row k="Engaj." v={`${row.engajamento_medio || 0}%`} />
+              <Row k="Alcance" v={row.ultimo_alcance || "—"} />
+              <Row k="Proxy" v={row.proxy_tipo ? `${row.proxy_tipo}${row.proxy_geo ? ` · ${row.proxy_geo}` : ""}` : "—"} />
+              <Row k="Cloud" v={row.cloud_phone_provider || "—"} />
+              <Row k="Preço" v={row.preco_alvo ? `R$ ${row.preco_alvo}` : "—"} />
+              <Row k="Venda" v={row.status_venda || "mantida"} />
+              {row.pronta_venda && (
+                <div className="col-span-2 mt-1 text-[10px] text-emerald-400 flex items-center gap-1">
+                  <Sprout className="h-3 w-3" /> Pronta para venda
+                </div>
+              )}
+            </div>
+          )}
+
+          {!expanded && (
+            <div className="px-2.5 py-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>{row.seguidores || 0} seg. · {row.engajamento_medio || 0}%</span>
+              <span>{idade !== null ? `${idade}d` : ""}</span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+});
+
+function Row({ k, v }: { k: string; v: any }) {
+  return (
+    <>
+      <div className="text-muted-foreground">{k}</div>
+      <div className="text-foreground/90 text-right truncate">{String(v)}</div>
+    </>
+  );
+}
+
 export const annotationNodeTypes = {
   annotation_frame: AnnotationFrameNode,
   annotation_note: AnnotationNoteNode,
@@ -733,6 +859,7 @@ export const annotationNodeTypes = {
   annotation_copy: AnnotationCopyNode,
   annotation_ad_asset: AnnotationAdAssetNode,
   annotation_schedule: AnnotationScheduleNode,
+  annotation_account: AnnotationAccountNode,
 };
 
 export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
@@ -745,6 +872,7 @@ export const ANNOTATION_TYPE_TO_KIND: Record<string, AnnotationKind> = {
   annotation_copy: "copy",
   annotation_ad_asset: "ad_asset",
   annotation_schedule: "schedule",
+  annotation_account: "account",
 };
 
 export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
@@ -757,6 +885,7 @@ export const ANNOTATION_KIND_TO_TYPE: Record<AnnotationKind, string> = {
   copy: "annotation_copy",
   ad_asset: "annotation_ad_asset",
   schedule: "annotation_schedule",
+  account: "annotation_account",
 };
 
 export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number; text: string; style: AnnotationData["style"] }> = {
@@ -769,6 +898,7 @@ export const ANNOTATION_DEFAULTS: Record<AnnotationKind, { w: number; h: number;
   copy:   { w: 260, h: 180, text: "", style: { heading: "" } },
   ad_asset: { w: 260, h: 260, text: "", style: { heading: "" } },
   schedule: { w: 300, h: 340, text: "Rotina Diária de Conteúdo", style: { recurrence: "daily", items: DEFAULT_SCHEDULE_ITEMS } },
+  account: { w: 260, h: 130, text: "", style: { viewMode: "compact" } },
 };
 
 
