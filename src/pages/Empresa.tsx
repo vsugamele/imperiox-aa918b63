@@ -329,14 +329,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
         </Button>
       </div>
 
-      {contas.length === 0 ? (
+      {filteredContas.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-3xl mb-2">{iconByTipo}</p>
           <p className="text-sm">Nenhum {labelByTipo.toLowerCase()} cadastrado ainda</p>
         </div>
       ) : view === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {contas.map((c) => {
+          {filteredContas.map((c) => {
             const statusText = tipo === "youtube" ? (c.extra?.ativo || "Inativo") : (c.extra?.status_aquecimento || "Inativo");
             const statusClass = tipo === "youtube"
               ? (c.extra?.ativo === "Ativo" || c.extra?.ativo === "Monetizado" ? "border-emerald-500/30 text-emerald-400" : c.extra?.ativo === "Inativo" ? "border-red-500/30 text-red-400" : "")
@@ -478,7 +478,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contas.map((c) => (
+              {filteredContas.map((c) => (
                 <TableRow key={c.id}>
                   {tipo === "email" ? (
                     <>
