@@ -128,7 +128,7 @@ export default function HookLabs() {
             <SelectTrigger className="w-56"><SelectValue placeholder="Projeto (p/ IA)" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Sem projeto</SelectItem>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button onClick={gerarNovos} className="bg-primary text-primary-foreground">
