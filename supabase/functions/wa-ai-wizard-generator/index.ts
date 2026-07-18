@@ -3,6 +3,7 @@
 // para gerar um config completo da IA do WhatsApp (persona, tom, instruções, FAQ, gatilhos).
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { requireUser } from "../_shared/require-auth.ts";
 
 interface WizardInput {
   project_id: string;
@@ -16,6 +17,9 @@ interface WizardInput {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const body = (await req.json()) as WizardInput;

@@ -1,6 +1,7 @@
 // Funnel Hacking Automático — scrape URL do concorrente + análise + sugere ativos espelho
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,6 +22,9 @@ async function scrape(url: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { project_id, product, urls } = await req.json();
     if (!project_id || !Array.isArray(urls) || urls.length === 0) {

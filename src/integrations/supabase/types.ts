@@ -16257,6 +16257,96 @@ export type Database = {
           },
         ]
       }
+      guiadobuscador_rss_import_jobs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          download_images: boolean
+          error_message: string | null
+          errors: Json
+          feed_url: string
+          finished_at: string | null
+          id: string
+          imported: number
+          item_limit: number
+          log: Json
+          skipped: number
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url?: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guiadobuscador_site_settings: {
         Row: {
           ads_txt: string | null

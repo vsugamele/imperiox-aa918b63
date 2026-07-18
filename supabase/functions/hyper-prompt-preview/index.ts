@@ -1,5 +1,6 @@
 // Gera imagem de preview do prompt via Lovable AI Gateway (Nano Banana)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,9 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { prompt, save_to_vault_id } = await req.json();

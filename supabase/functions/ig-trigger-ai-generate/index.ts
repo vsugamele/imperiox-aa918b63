@@ -2,6 +2,7 @@
 // Input: { project_id, keyword, channel: "comment"|"dm"|"story"|"story_mention", briefing?: string }
 // Output: { reply_public: string, dm_message: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,9 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { project_id, keyword, channel = "comment", briefing = "" } = await req.json();
     if (!keyword?.trim()) throw new Error("keyword obrigatório");

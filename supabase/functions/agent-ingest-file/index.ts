@@ -5,6 +5,7 @@
 // (openai/text-embedding-3-small, 768 dims) e insere em imphq_agent_knowledge.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,9 @@ async function embed(texts: string[]): Promise<number[][]> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const body = await req.json();
     const { agent_id, file_path, file_name, text } = body as {

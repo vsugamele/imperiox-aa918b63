@@ -3,6 +3,7 @@
 // All anchored to the same core idea, project context and avatar.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +59,9 @@ async function generateOne(opts: {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const auth = req.headers.get("Authorization");

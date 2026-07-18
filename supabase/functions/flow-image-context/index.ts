@@ -3,6 +3,7 @@
 // Tipos: mockup_pagina | mensagem_autoridade | icone
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -81,6 +82,9 @@ async function genWithGemini(prompt: string, refImageUrl?: string): Promise<Uint
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { blueprint_id, block_id, tipo = "mockup_pagina", extra = "", reference_url } = await req.json();
     if (!blueprint_id || !block_id) {
