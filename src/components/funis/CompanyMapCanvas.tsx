@@ -321,6 +321,7 @@ const nodeTypes = Object.freeze({
   annotation_copy: annotationNodeTypes.annotation_copy,
   annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
   annotation_schedule: annotationNodeTypes.annotation_schedule,
+  annotation_account: annotationNodeTypes.annotation_account,
 
 }) as any;
 
