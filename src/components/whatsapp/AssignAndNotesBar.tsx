@@ -13,6 +13,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
   const [aiPausedUntil, setAiPausedUntil] = useState<string | null>(null);
+  const [convStatus, setConvStatus] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -40,11 +41,12 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until").eq("id", conversationId).maybeSingle()
+    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until,status").eq("id", conversationId).maybeSingle()
       .then(({ data }) => {
         setAssignedTo((data as any)?.assigned_to || null);
         setSnoozedUntil((data as any)?.snoozed_until || null);
         setAiPausedUntil((data as any)?.ai_paused_until || null);
+        setConvStatus((data as any)?.status || null);
       });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
@@ -104,10 +106,31 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   const isAiPaused = aiPausedUntil && new Date(aiPausedUntil).getTime() > Date.now();
   const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
+  const isHandoff = convStatus === "needs_human";
   const owner = members.find(m => m.user_id === assignedTo);
 
+  const resumeAi = async () => {
+    const { error } = await supabase
+      .from("imphq_wa_conversations")
+      .update({ status: "active", ai_paused_until: null } as any)
+      .eq("id", conversationId);
+    if (error) { toast.error("Falha ao retomar IA"); return; }
+    setConvStatus("active");
+    setAiPausedUntil(null);
+    toast.success("IA retomada. Próxima mensagem do lead volta a ser respondida.");
+  };
+
   return (
-    <div className="border-b border-border bg-card/30 px-3 py-1.5 flex items-center gap-2 text-xs">
+    <div className="border-b border-border bg-card/30 px-3 py-1.5 flex items-center gap-2 text-xs flex-wrap">
+      {isHandoff && (
+        <>
+          <Button size="sm" variant="outline" className="h-7 px-2 gap-1.5 border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20" onClick={resumeAi}>
+            <Bot className="h-3.5 w-3.5" />
+            Retomar IA (handoff ativo)
+          </Button>
+          <div className="w-px h-4 bg-border" />
+        </>
+      )}
       {/* Assign */}
       <Popover>
         <PopoverTrigger asChild>

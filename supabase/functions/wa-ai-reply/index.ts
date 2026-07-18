@@ -501,10 +501,37 @@ Deno.serve(async (req) => {
     }
 
     if (conv?.status === "needs_human" && !isTestMode) {
-      console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
-      return new Response(JSON.stringify({ skipped: "needs_human" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Auto-resume: se ninguém humano respondeu há >=24h e o lead reengajou, IA reassume
+      const HANDOFF_TIMEOUT_HOURS = 24;
+      let autoResumeHandoff = false;
+      try {
+        const { data: lastOut } = await supabase
+          .from("imphq_wa_messages")
+          .select("created_at")
+          .eq("conversation_id", conversation_id)
+          .eq("direction", "outgoing")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
+        const hoursSinceHuman = (Date.now() - lastOutAt) / 3600_000;
+        if (!lastOutAt || hoursSinceHuman >= HANDOFF_TIMEOUT_HOURS) {
+          autoResumeHandoff = true;
+        }
+      } catch (_) { /* ignore */ }
+
+      if (autoResumeHandoff) {
+        console.log(`[wa-ai-reply] Auto-resume de needs_human (>=24h sem humano). Reativando IA.`);
+        await supabase.from("imphq_wa_conversations").update({
+          status: "active",
+          ai_paused_until: null,
+        }).eq("id", conversation_id);
+      } else {
+        console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
+        return new Response(JSON.stringify({ skipped: "needs_human" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // === HANDOFF HUMANO — detecta sinais de fricção e pausa IA ===
