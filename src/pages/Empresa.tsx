@@ -40,6 +40,8 @@ interface ContaEmpresa {
   status_venda?: string | null;
   pronta_venda?: boolean | null;
   sinais_risco?: string[] | null;
+  cloud_phone_ref?: string | null;
+  project_id?: string | null;
   extra?: {
     senha?: string;
     telefone?: string;
