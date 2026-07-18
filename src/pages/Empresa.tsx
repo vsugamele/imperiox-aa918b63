@@ -627,6 +627,23 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {farmDialog && (
+        <AccountFarmDialog
+          open={!!farmDialog}
+          onOpenChange={(v) => !v && setFarmDialog(null)}
+          accountId={farmDialog.id}
+          onSaved={() => { setFarmDialog(null); onRefresh(); }}
+        />
+      )}
+      {mapDialog && (
+        <AddAccountToMapDialog
+          open={!!mapDialog}
+          onOpenChange={(v) => !v && setMapDialog(null)}
+          accountId={mapDialog.id}
+          accountLabel={mapDialog.label}
+        />
+      )}
     </div>
   );
 }
