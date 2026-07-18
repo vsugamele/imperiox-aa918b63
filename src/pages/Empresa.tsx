@@ -378,11 +378,51 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                   )}
                 </div>
 
+                {/* Farm section — só mostra se houver algum dado de farm */}
+                {(c.warmup_status || c.seguidores || c.proxy_tipo || c.cloud_phone_provider || c.pronta_venda || (c.sinais_risco && c.sinais_risco.length > 0)) && (
+                  <div className="space-y-1 text-[11px] border-t border-border/50 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase tracking-wider text-primary/70 flex items-center gap-1">
+                        <Sprout className="h-3 w-3" /> Farm
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {c.pronta_venda && <Badge className="h-4 px-1 text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">pronta</Badge>}
+                        {c.sinais_risco && c.sinais_risco.length > 0 && (
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-red-500/30 text-red-400 gap-0.5">
+                            <ShieldAlert className="h-2.5 w-2.5" /> risco
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {c.warmup_status && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Warmup</span><span className="text-foreground/80">{c.warmup_status}{c.warmup_days ? ` · ${c.warmup_days}d` : ""}</span></div>
+                    )}
+                    {(c.seguidores || c.engajamento_medio) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Seg./Eng.</span><span className="text-foreground/80">{c.seguidores || 0} · {c.engajamento_medio || 0}%</span></div>
+                    )}
+                    {(c.proxy_tipo || c.proxy_geo) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Proxy</span><span className="text-foreground/80 truncate">{c.proxy_tipo || "—"}{c.proxy_geo ? ` · ${c.proxy_geo}` : ""}</span></div>
+                    )}
+                    {c.cloud_phone_provider && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Cloud</span><span className="text-foreground/80 truncate">{c.cloud_phone_provider}</span></div>
+                    )}
+                    {c.status_venda && c.status_venda !== "mantida" && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Venda</span><span className="text-foreground/80">{c.status_venda}</span></div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => openEdit(c)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Farm da conta" onClick={() => setFarmDialog({ id: c.id })}>
+                    <Sprout className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Adicionar ao Mapa da Empresa" onClick={() => setMapDialog({ id: c.id, label: tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}` })}>
+                    <MapPinPlus className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Editar" onClick={() => openEdit(c)}>
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Remover" onClick={() => remove(c.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
