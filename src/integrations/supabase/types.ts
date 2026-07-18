@@ -27085,6 +27085,7 @@ export type Database = {
           escalation_keywords: string[] | null
           expert_persona: string | null
           faq: Json
+          handoff_auto_resume_minutes: number | null
           id: string
           ignored_phones: string[] | null
           instagram_comments_behavior: string | null
@@ -27154,6 +27155,7 @@ export type Database = {
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
+          handoff_auto_resume_minutes?: number | null
           id?: string
           ignored_phones?: string[] | null
           instagram_comments_behavior?: string | null
@@ -27223,6 +27225,7 @@ export type Database = {
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
+          handoff_auto_resume_minutes?: number | null
           id?: string
           ignored_phones?: string[] | null
           instagram_comments_behavior?: string | null
