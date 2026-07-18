@@ -56,6 +56,8 @@ interface ContaEmpresa {
 }
 
 interface MapNode { id: string; label: string; }
+interface DeviceOpt { id: string; nome: string; provider: string; }
+interface ProjectOpt { id: string; name: string; }
 
 
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
@@ -64,6 +66,8 @@ const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
   const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
+  const [devices, setDevices] = useState<DeviceOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
@@ -76,7 +80,16 @@ export default function Empresa() {
     setMapNodes((data || []) as MapNode[]);
   };
 
-  useEffect(() => { load(); loadNodes(); }, []);
+  const loadRefs = async () => {
+    const [d, p] = await Promise.all([
+      (supabase.from("imphq_cloud_phones" as any) as any).select("id, nome, provider").order("nome"),
+      supabase.from("imphq_projects").select("id, name").order("name"),
+    ]);
+    setDevices(((d.data as any) || []).map((x: any) => ({ id: x.id, nome: x.nome || x.provider, provider: x.provider })));
+    setProjects((p.data as any) || []);
+  };
+
+  useEffect(() => { load(); loadNodes(); loadRefs(); }, []);
 
   const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
