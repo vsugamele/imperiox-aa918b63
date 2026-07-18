@@ -153,6 +153,9 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
   });
   useEffect(() => { try { localStorage.setItem(viewKey, view); } catch {} }, [view, viewKey]);
 
+  const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
+  const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
+
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
