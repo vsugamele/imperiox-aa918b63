@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus } from "lucide-react";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { FarmTab } from "@/components/empresa/FarmTab";
+import { AccountFarmDialog } from "@/components/empresa/AccountFarmDialog";
+import { AddAccountToMapDialog } from "@/components/empresa/AddAccountToMapDialog";
 import { toast } from "sonner";
 
 
@@ -23,6 +25,20 @@ interface ContaEmpresa {
   valor?: string;
   foto_url?: string | null;
   mapa_node_id?: string | null;
+  // Farm columns
+  warmup_status?: string | null;
+  warmup_days?: number | null;
+  data_criacao_conta?: string | null;
+  seguidores?: number | null;
+  engajamento_medio?: number | null;
+  ultimo_alcance?: number | null;
+  proxy_tipo?: string | null;
+  proxy_geo?: string | null;
+  cloud_phone_provider?: string | null;
+  preco_alvo?: number | null;
+  status_venda?: string | null;
+  pronta_venda?: boolean | null;
+  sinais_risco?: string[] | null;
   extra?: {
     senha?: string;
     telefone?: string;
@@ -136,6 +152,9 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
     return (localStorage.getItem(viewKey) as "list" | "grid") || "list";
   });
   useEffect(() => { try { localStorage.setItem(viewKey, view); } catch {} }, [view, viewKey]);
+
+  const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
+  const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
 
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
@@ -359,11 +378,51 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                   )}
                 </div>
 
+                {/* Farm section — só mostra se houver algum dado de farm */}
+                {(c.warmup_status || c.seguidores || c.proxy_tipo || c.cloud_phone_provider || c.pronta_venda || (c.sinais_risco && c.sinais_risco.length > 0)) && (
+                  <div className="space-y-1 text-[11px] border-t border-border/50 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase tracking-wider text-primary/70 flex items-center gap-1">
+                        <Sprout className="h-3 w-3" /> Farm
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {c.pronta_venda && <Badge className="h-4 px-1 text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">pronta</Badge>}
+                        {c.sinais_risco && c.sinais_risco.length > 0 && (
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-red-500/30 text-red-400 gap-0.5">
+                            <ShieldAlert className="h-2.5 w-2.5" /> risco
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {c.warmup_status && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Warmup</span><span className="text-foreground/80">{c.warmup_status}{c.warmup_days ? ` · ${c.warmup_days}d` : ""}</span></div>
+                    )}
+                    {(c.seguidores || c.engajamento_medio) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Seg./Eng.</span><span className="text-foreground/80">{c.seguidores || 0} · {c.engajamento_medio || 0}%</span></div>
+                    )}
+                    {(c.proxy_tipo || c.proxy_geo) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Proxy</span><span className="text-foreground/80 truncate">{c.proxy_tipo || "—"}{c.proxy_geo ? ` · ${c.proxy_geo}` : ""}</span></div>
+                    )}
+                    {c.cloud_phone_provider && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Cloud</span><span className="text-foreground/80 truncate">{c.cloud_phone_provider}</span></div>
+                    )}
+                    {c.status_venda && c.status_venda !== "mantida" && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Venda</span><span className="text-foreground/80">{c.status_venda}</span></div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => openEdit(c)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Farm da conta" onClick={() => setFarmDialog({ id: c.id })}>
+                    <Sprout className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Adicionar ao Mapa da Empresa" onClick={() => setMapDialog({ id: c.id, label: tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}` })}>
+                    <MapPinPlus className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Editar" onClick={() => openEdit(c)}>
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(c.id)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Remover" onClick={() => remove(c.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -568,6 +627,23 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {farmDialog && (
+        <AccountFarmDialog
+          open={!!farmDialog}
+          onOpenChange={(v) => !v && setFarmDialog(null)}
+          accountId={farmDialog.id}
+          onSaved={() => { setFarmDialog(null); onRefresh(); }}
+        />
+      )}
+      {mapDialog && (
+        <AddAccountToMapDialog
+          open={!!mapDialog}
+          onOpenChange={(v) => !v && setMapDialog(null)}
+          accountId={mapDialog.id}
+          accountLabel={mapDialog.label}
+        />
+      )}
     </div>
   );
 }

@@ -321,6 +321,7 @@ const nodeTypes = Object.freeze({
   annotation_copy: annotationNodeTypes.annotation_copy,
   annotation_ad_asset: annotationNodeTypes.annotation_ad_asset,
   annotation_schedule: annotationNodeTypes.annotation_schedule,
+  annotation_account: annotationNodeTypes.annotation_account,
 
 }) as any;
 
@@ -346,6 +347,7 @@ const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   copy: { w: 200, h: 120 },
   ad_asset: { w: 200, h: 200 },
   schedule: { w: 240, h: 200 },
+  account: { w: 200, h: 80 },
 };
 
 
