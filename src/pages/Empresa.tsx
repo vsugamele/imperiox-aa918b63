@@ -110,6 +110,9 @@ export default function Empresa() {
         <TabsContent value="zernio">
           <ZernioTab />
         </TabsContent>
+        <TabsContent value="farm">
+          <FarmTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
