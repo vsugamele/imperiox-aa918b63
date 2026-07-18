@@ -257,6 +257,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       valor: form.valor || null,
       foto_url: form.foto_url || null,
       mapa_node_id: form.mapa_node_id || null,
+      cloud_phone_ref: form.cloud_phone_ref || null,
+      project_id: form.project_id || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
