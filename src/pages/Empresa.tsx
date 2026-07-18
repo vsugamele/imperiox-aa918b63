@@ -25,6 +25,20 @@ interface ContaEmpresa {
   valor?: string;
   foto_url?: string | null;
   mapa_node_id?: string | null;
+  // Farm columns
+  warmup_status?: string | null;
+  warmup_days?: number | null;
+  data_criacao_conta?: string | null;
+  seguidores?: number | null;
+  engajamento_medio?: number | null;
+  ultimo_alcance?: number | null;
+  proxy_tipo?: string | null;
+  proxy_geo?: string | null;
+  cloud_phone_provider?: string | null;
+  preco_alvo?: number | null;
+  status_venda?: string | null;
+  pronta_venda?: boolean | null;
+  sinais_risco?: string[] | null;
   extra?: {
     senha?: string;
     telefone?: string;
