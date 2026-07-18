@@ -75,6 +75,9 @@ export interface AnnotationData {
     // schedule-specific
     recurrence?: "daily" | "weekly";
     items?: ScheduleItem[];
+    // account-specific
+    accountId?: string;
+    viewMode?: "compact" | "expanded";
   };
   onTextChange?: (id: string, text: string) => void;
   onUploadImage?: (id: string) => void;
