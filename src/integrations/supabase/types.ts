@@ -19579,6 +19579,66 @@ export type Database = {
           },
         ]
       }
+      imphq_cloud_phones: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          fingerprint_id: string | null
+          id: string
+          nome: string | null
+          notas: string | null
+          project_id: string | null
+          provider: string
+          proxy_geo: string | null
+          proxy_tipo: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          fingerprint_id?: string | null
+          id?: string
+          nome?: string | null
+          notas?: string | null
+          project_id?: string | null
+          provider?: string
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          fingerprint_id?: string | null
+          id?: string
+          nome?: string | null
+          notas?: string | null
+          project_id?: string | null
+          provider?: string
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_cloud_phones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cloud_phones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_cold_reactivation_rules: {
         Row: {
           ativo: boolean
@@ -20691,6 +20751,7 @@ export type Database = {
         Row: {
           cloud_phone_id: string | null
           cloud_phone_provider: string | null
+          cloud_phone_ref: string | null
           comprador: string | null
           created_at: string | null
           data_criacao_conta: string | null
@@ -20706,6 +20767,7 @@ export type Database = {
           nome: string
           observacoes_venda: string | null
           preco_alvo: number | null
+          project_id: string | null
           pronta_venda: boolean | null
           proxy_endpoint: string | null
           proxy_geo: string | null
@@ -20725,6 +20787,7 @@ export type Database = {
         Insert: {
           cloud_phone_id?: string | null
           cloud_phone_provider?: string | null
+          cloud_phone_ref?: string | null
           comprador?: string | null
           created_at?: string | null
           data_criacao_conta?: string | null
@@ -20740,6 +20803,7 @@ export type Database = {
           nome: string
           observacoes_venda?: string | null
           preco_alvo?: number | null
+          project_id?: string | null
           pronta_venda?: boolean | null
           proxy_endpoint?: string | null
           proxy_geo?: string | null
@@ -20759,6 +20823,7 @@ export type Database = {
         Update: {
           cloud_phone_id?: string | null
           cloud_phone_provider?: string | null
+          cloud_phone_ref?: string | null
           comprador?: string | null
           created_at?: string | null
           data_criacao_conta?: string | null
@@ -20774,6 +20839,7 @@ export type Database = {
           nome?: string
           observacoes_venda?: string | null
           preco_alvo?: number | null
+          project_id?: string | null
           pronta_venda?: boolean | null
           proxy_endpoint?: string | null
           proxy_geo?: string | null
@@ -20790,7 +20856,29 @@ export type Database = {
           warmup_started_at?: string | null
           warmup_status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_cloud_phone_ref_fkey"
+            columns: ["cloud_phone_ref"]
+            isOneToOne: false
+            referencedRelation: "imphq_cloud_phones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_empresa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_empresa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
       }
       imphq_empresa_conteudo: {
         Row: {

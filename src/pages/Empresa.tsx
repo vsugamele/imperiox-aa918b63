@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase } from "lucide-react";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { FarmTab } from "@/components/empresa/FarmTab";
+import { DevicesTab } from "@/components/empresa/DevicesTab";
 import { AccountFarmDialog } from "@/components/empresa/AccountFarmDialog";
 import { AddAccountToMapDialog } from "@/components/empresa/AddAccountToMapDialog";
 import { toast } from "sonner";
@@ -39,6 +40,8 @@ interface ContaEmpresa {
   status_venda?: string | null;
   pronta_venda?: boolean | null;
   sinais_risco?: string[] | null;
+  cloud_phone_ref?: string | null;
+  project_id?: string | null;
   extra?: {
     senha?: string;
     telefone?: string;
@@ -53,6 +56,8 @@ interface ContaEmpresa {
 }
 
 interface MapNode { id: string; label: string; }
+interface DeviceOpt { id: string; nome: string; provider: string; }
+interface ProjectOpt { id: string; name: string; }
 
 
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
@@ -61,6 +66,8 @@ const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
   const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
+  const [devices, setDevices] = useState<DeviceOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
@@ -73,7 +80,16 @@ export default function Empresa() {
     setMapNodes((data || []) as MapNode[]);
   };
 
-  useEffect(() => { load(); loadNodes(); }, []);
+  const loadRefs = async () => {
+    const [d, p] = await Promise.all([
+      (supabase.from("imphq_cloud_phones" as any) as any).select("id, nome, provider").order("nome"),
+      supabase.from("imphq_projects").select("id, name").order("name"),
+    ]);
+    setDevices(((d.data as any) || []).map((x: any) => ({ id: x.id, nome: x.nome || x.provider, provider: x.provider })));
+    setProjects((p.data as any) || []);
+  };
+
+  useEffect(() => { load(); loadNodes(); loadRefs(); }, []);
 
   const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
@@ -95,30 +111,34 @@ export default function Empresa() {
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
           <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>
+          <TabsTrigger value="devices"><Smartphone className="h-3.5 w-3.5 mr-1" /> Devices</TabsTrigger>
           <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
           <TabsTrigger value="zernio"><KeyRound className="h-3.5 w-3.5 mr-1" /> Zernio</TabsTrigger>
           <TabsTrigger value="farm"><Sprout className="h-3.5 w-3.5 mr-1" /> Farm</TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="instagram">
-          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
-          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="youtube">
-          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
+        </TabsContent>
+        <TabsContent value="devices">
+          <DevicesTab />
         </TabsContent>
         <TabsContent value="ad_accounts">
           <AdAccountsTab />
@@ -134,12 +154,14 @@ export default function Empresa() {
   );
 }
 
-function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
+function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, projects }: {
   contas: ContaEmpresa[];
   tipo: string;
   columns: string[];
   onRefresh: () => void;
   mapNodes: MapNode[];
+  devices: DeviceOpt[];
+  projects: ProjectOpt[];
 }) {
 
   const [showDialog, setShowDialog] = useState(false);
@@ -156,11 +178,21 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
   const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
   const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
 
+  // Filtros
+  const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [filterDevice, setFilterDevice] = useState<string>("__all__");
+  const filteredContas = contas.filter(c => {
+    if (filterProject !== "__all__" && c.project_id !== filterProject) return false;
+    if (filterDevice !== "__all__" && c.cloud_phone_ref !== filterDevice) return false;
+    return true;
+  });
+
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
     foto_url: "" as string, mapa_node_id: "" as string,
+    cloud_phone_ref: "" as string, project_id: "" as string,
   };
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
@@ -188,6 +220,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
       ativo: conta.extra?.ativo || "Ativo",
       foto_url: conta.foto_url || "",
       mapa_node_id: conta.mapa_node_id || "",
+      cloud_phone_ref: conta.cloud_phone_ref || "",
+      project_id: conta.project_id || "",
     });
     setShowFormPassword(false);
     setShowDialog(true);
@@ -223,6 +257,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
       valor: form.valor || null,
       foto_url: form.foto_url || null,
       mapa_node_id: form.mapa_node_id || null,
+      cloud_phone_ref: form.cloud_phone_ref || null,
+      project_id: form.project_id || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -265,24 +301,26 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end items-center gap-2">
+      <div className="flex flex-wrap justify-end items-center gap-2">
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterDevice} onValueChange={setFilterDevice}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Device" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os devices</SelectItem>
+            {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-          <Button
-            size="icon"
-            variant={view === "list" ? "secondary" : "ghost"}
-            className="h-7 w-7"
-            title="Lista"
-            onClick={() => setView("list")}
-          >
+          <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} className="h-7 w-7" title="Lista" onClick={() => setView("list")}>
             <List className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            size="icon"
-            variant={view === "grid" ? "secondary" : "ghost"}
-            className="h-7 w-7"
-            title="Cards"
-            onClick={() => setView("grid")}
-          >
+          <Button size="icon" variant={view === "grid" ? "secondary" : "ghost"} className="h-7 w-7" title="Cards" onClick={() => setView("grid")}>
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -291,14 +329,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
         </Button>
       </div>
 
-      {contas.length === 0 ? (
+      {filteredContas.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-3xl mb-2">{iconByTipo}</p>
           <p className="text-sm">Nenhum {labelByTipo.toLowerCase()} cadastrado ainda</p>
         </div>
       ) : view === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {contas.map((c) => {
+          {filteredContas.map((c) => {
             const statusText = tipo === "youtube" ? (c.extra?.ativo || "Inativo") : (c.extra?.status_aquecimento || "Inativo");
             const statusClass = tipo === "youtube"
               ? (c.extra?.ativo === "Ativo" || c.extra?.ativo === "Monetizado" ? "border-emerald-500/30 text-emerald-400" : c.extra?.ativo === "Inativo" ? "border-red-500/30 text-red-400" : "")
@@ -321,6 +359,18 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                   <Link to={`/funis?view=mapa&node=${c.mapa_node_id}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline w-fit">
                     <MapIcon className="h-3 w-3" /> {nodeLabel(c.mapa_node_id)}
                   </Link>
+                )}
+                {(c.project_id || c.cloud_phone_ref) && (
+                  <div className="flex flex-wrap gap-1">
+                    {c.project_id && (() => {
+                      const pj = projects.find(p => p.id === c.project_id);
+                      return pj ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />{pj.name}</Badge> : null;
+                    })()}
+                    {c.cloud_phone_ref && (() => {
+                      const dv = devices.find(d => d.id === c.cloud_phone_ref);
+                      return dv ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Smartphone className="h-2.5 w-2.5" />{dv.nome}</Badge> : null;
+                    })()}
+                  </div>
                 )}
 
 
@@ -440,7 +490,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contas.map((c) => (
+              {filteredContas.map((c) => (
                 <TableRow key={c.id}>
                   {tipo === "email" ? (
                     <>
@@ -615,6 +665,26 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
                   <SelectContent>
                     <SelectItem value="__none__">Nenhum</SelectItem>
                     {mapNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Projeto</Label>
+                <Select value={form.project_id || "__none__"} onValueChange={v => setForm({ ...form, project_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Device (Cloud Phone)</Label>
+                <Select value={form.cloud_phone_ref || "__none__"} onValueChange={v => setForm({ ...form, cloud_phone_ref: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
