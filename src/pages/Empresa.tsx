@@ -301,24 +301,26 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end items-center gap-2">
+      <div className="flex flex-wrap justify-end items-center gap-2">
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterDevice} onValueChange={setFilterDevice}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Device" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os devices</SelectItem>
+            {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-          <Button
-            size="icon"
-            variant={view === "list" ? "secondary" : "ghost"}
-            className="h-7 w-7"
-            title="Lista"
-            onClick={() => setView("list")}
-          >
+          <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} className="h-7 w-7" title="Lista" onClick={() => setView("list")}>
             <List className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            size="icon"
-            variant={view === "grid" ? "secondary" : "ghost"}
-            className="h-7 w-7"
-            title="Cards"
-            onClick={() => setView("grid")}
-          >
+          <Button size="icon" variant={view === "grid" ? "secondary" : "ghost"} className="h-7 w-7" title="Cards" onClick={() => setView("grid")}>
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
         </div>
