@@ -220,6 +220,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       ativo: conta.extra?.ativo || "Ativo",
       foto_url: conta.foto_url || "",
       mapa_node_id: conta.mapa_node_id || "",
+      cloud_phone_ref: conta.cloud_phone_ref || "",
+      project_id: conta.project_id || "",
     });
     setShowFormPassword(false);
     setShowDialog(true);
