@@ -37,7 +37,7 @@ export default function HookLabs() {
   const [variacoes, setVariacoes] = useState<string[]>([]);
   const [novoOpen, setNovoOpen] = useState(false);
   const [novosHooks, setNovosHooks] = useState<Array<{ texto: string; motivo: string }>>([]);
-  const { projects } = useProjectList();
+  const { data: projects = [] } = useProjectList();
 
   const gatilhos = useMemo(() => {
     const s = new Set<string>();
