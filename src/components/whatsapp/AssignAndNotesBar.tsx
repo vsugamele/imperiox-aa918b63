@@ -41,11 +41,12 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until").eq("id", conversationId).maybeSingle()
+    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until,status").eq("id", conversationId).maybeSingle()
       .then(({ data }) => {
         setAssignedTo((data as any)?.assigned_to || null);
         setSnoozedUntil((data as any)?.snoozed_until || null);
         setAiPausedUntil((data as any)?.ai_paused_until || null);
+        setConvStatus((data as any)?.status || null);
       });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
