@@ -191,6 +191,7 @@ const App = () => (
                 <Route path="studio" element={<StudioCanvas />} />
                 <Route path="studio/legado" element={<Studio />} />
                 <Route path="swipe" element={<Swipe />} />
+                <Route path="hooks" element={<HookLabs />} />
                 <Route path="imperius" element={<Imperius />} />
                 <Route path="assistente" element={<Assistente />} />
                 <Route path="rascunhos" element={<Rascunhos />} />
