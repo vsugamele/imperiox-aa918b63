@@ -13,6 +13,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
   const [aiPausedUntil, setAiPausedUntil] = useState<string | null>(null);
+  const [convStatus, setConvStatus] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
