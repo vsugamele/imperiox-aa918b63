@@ -111,30 +111,34 @@ export default function Empresa() {
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
           <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>
+          <TabsTrigger value="devices"><Smartphone className="h-3.5 w-3.5 mr-1" /> Devices</TabsTrigger>
           <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
           <TabsTrigger value="zernio"><KeyRound className="h-3.5 w-3.5 mr-1" /> Zernio</TabsTrigger>
           <TabsTrigger value="farm"><Sprout className="h-3.5 w-3.5 mr-1" /> Farm</TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="instagram">
-          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
-          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="youtube">
-          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes}
+          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
+        </TabsContent>
+        <TabsContent value="devices">
+          <DevicesTab />
         </TabsContent>
         <TabsContent value="ad_accounts">
           <AdAccountsTab />
