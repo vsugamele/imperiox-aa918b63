@@ -57,6 +57,7 @@ const Gerenciador = lazy(() => import("./pages/Gerenciador"));
 const Studio = lazy(() => import("./pages/Studio"));
 const StudioCanvas = lazy(() => import("./pages/StudioCanvas"));
 const Swipe = lazy(() => import("./pages/Swipe"));
+const HookLabs = lazy(() => import("./pages/HookLabs"));
 const Imperius = lazy(() => import("./pages/Imperius"));
 const Campanhas = lazy(() => import("./pages/Campanhas"));
 const Lancamentos = lazy(() => import("./pages/Lancamentos"));
