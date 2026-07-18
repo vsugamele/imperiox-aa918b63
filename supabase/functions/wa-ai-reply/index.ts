@@ -501,33 +501,36 @@ Deno.serve(async (req) => {
     }
 
     if (conv?.status === "needs_human" && !isTestMode) {
-      // Auto-resume: se ninguém humano respondeu há >=24h e o lead reengajou, IA reassume
-      const HANDOFF_TIMEOUT_HOURS = 24;
+      // Auto-resume: se nenhum humano respondeu após o handoff dentro do timeout configurado, IA reassume
+      const autoResumeMinutes = Number((aiConfig as any)?.handoff_auto_resume_minutes ?? 30);
       let autoResumeHandoff = false;
-      try {
-        const { data: lastOut } = await supabase
-          .from("imphq_wa_messages")
-          .select("created_at")
-          .eq("conversation_id", conversation_id)
-          .eq("direction", "outgoing")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
-        const hoursSinceHuman = (Date.now() - lastOutAt) / 3600_000;
-        if (!lastOutAt || hoursSinceHuman >= HANDOFF_TIMEOUT_HOURS) {
-          autoResumeHandoff = true;
-        }
-      } catch (_) { /* ignore */ }
+      if (autoResumeMinutes > 0) {
+        try {
+          // Referência: última saída humana OU horário do handoff
+          const { data: lastOut } = await supabase
+            .from("imphq_wa_messages")
+            .select("created_at")
+            .eq("conversation_id", conversation_id)
+            .eq("direction", "outgoing")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const handoffAt = (conv as any)?.handoff_at ? new Date((conv as any).handoff_at).getTime() : 0;
+          const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
+          const refAt = Math.max(handoffAt, lastOutAt);
+          const minutesSince = refAt ? (Date.now() - refAt) / 60_000 : Infinity;
+          if (minutesSince >= autoResumeMinutes) autoResumeHandoff = true;
+        } catch (_) { /* ignore */ }
+      }
 
       if (autoResumeHandoff) {
-        console.log(`[wa-ai-reply] Auto-resume de needs_human (>=24h sem humano). Reativando IA.`);
+        console.log(`[wa-ai-reply] Auto-resume de needs_human (>=${autoResumeMinutes}min sem humano). Reativando IA.`);
         await supabase.from("imphq_wa_conversations").update({
           status: "active",
           ai_paused_until: null,
         }).eq("id", conversation_id);
       } else {
-        console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA`);
+        console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA (timeout=${autoResumeMinutes}min)`);
         return new Response(JSON.stringify({ skipped: "needs_human" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
