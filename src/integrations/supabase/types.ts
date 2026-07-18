@@ -20689,39 +20689,199 @@ export type Database = {
       }
       imphq_empresa: {
         Row: {
+          cloud_phone_id: string | null
+          cloud_phone_provider: string | null
+          comprador: string | null
           created_at: string | null
+          data_criacao_conta: string | null
+          engajamento_medio: number | null
           extra: Json | null
+          fingerprint_id: string | null
           foto_url: string | null
           id: string
+          idioma: string | null
           mapa_node_id: string | null
+          marketplace: string | null
+          nicho: string | null
           nome: string
+          observacoes_venda: string | null
+          preco_alvo: number | null
+          pronta_venda: boolean | null
+          proxy_endpoint: string | null
+          proxy_geo: string | null
+          proxy_tipo: string | null
+          revendedor_id: string | null
+          seguidores: number | null
+          sinais_risco: Json | null
+          status_venda: string | null
           tipo: string
+          ultimo_alcance: number | null
           updated_at: string | null
           valor: string | null
+          warmup_days: number | null
+          warmup_started_at: string | null
+          warmup_status: string | null
         }
         Insert: {
+          cloud_phone_id?: string | null
+          cloud_phone_provider?: string | null
+          comprador?: string | null
           created_at?: string | null
+          data_criacao_conta?: string | null
+          engajamento_medio?: number | null
           extra?: Json | null
+          fingerprint_id?: string | null
           foto_url?: string | null
           id?: string
+          idioma?: string | null
           mapa_node_id?: string | null
+          marketplace?: string | null
+          nicho?: string | null
           nome: string
+          observacoes_venda?: string | null
+          preco_alvo?: number | null
+          pronta_venda?: boolean | null
+          proxy_endpoint?: string | null
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          revendedor_id?: string | null
+          seguidores?: number | null
+          sinais_risco?: Json | null
+          status_venda?: string | null
           tipo?: string
+          ultimo_alcance?: number | null
           updated_at?: string | null
           valor?: string | null
+          warmup_days?: number | null
+          warmup_started_at?: string | null
+          warmup_status?: string | null
         }
         Update: {
+          cloud_phone_id?: string | null
+          cloud_phone_provider?: string | null
+          comprador?: string | null
           created_at?: string | null
+          data_criacao_conta?: string | null
+          engajamento_medio?: number | null
           extra?: Json | null
+          fingerprint_id?: string | null
           foto_url?: string | null
           id?: string
+          idioma?: string | null
           mapa_node_id?: string | null
+          marketplace?: string | null
+          nicho?: string | null
           nome?: string
+          observacoes_venda?: string | null
+          preco_alvo?: number | null
+          pronta_venda?: boolean | null
+          proxy_endpoint?: string | null
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          revendedor_id?: string | null
+          seguidores?: number | null
+          sinais_risco?: Json | null
+          status_venda?: string | null
           tipo?: string
+          ultimo_alcance?: number | null
           updated_at?: string | null
           valor?: string | null
+          warmup_days?: number | null
+          warmup_started_at?: string | null
+          warmup_status?: string | null
         }
         Relationships: []
+      }
+      imphq_empresa_conteudo: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          conta_id: string
+          created_at: string
+          erro: string | null
+          horario_agendado: string | null
+          id: string
+          legenda: string | null
+          likes: number | null
+          post_url: string | null
+          status: string | null
+          updated_at: string
+          video_origem_url: string | null
+          video_processado_url: string | null
+        }
+        Insert: {
+          alcance?: number | null
+          comentarios?: number | null
+          conta_id: string
+          created_at?: string
+          erro?: string | null
+          horario_agendado?: string | null
+          id?: string
+          legenda?: string | null
+          likes?: number | null
+          post_url?: string | null
+          status?: string | null
+          updated_at?: string
+          video_origem_url?: string | null
+          video_processado_url?: string | null
+        }
+        Update: {
+          alcance?: number | null
+          comentarios?: number | null
+          conta_id?: string
+          created_at?: string
+          erro?: string | null
+          horario_agendado?: string | null
+          id?: string
+          legenda?: string | null
+          likes?: number | null
+          post_url?: string | null
+          status?: string | null
+          updated_at?: string
+          video_origem_url?: string | null
+          video_processado_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_conteudo_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_empresa"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_empresa_eventos: {
+        Row: {
+          conta_id: string
+          created_at: string
+          id: string
+          payload: Json | null
+          tipo: string
+        }
+        Insert: {
+          conta_id: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          tipo: string
+        }
+        Update: {
+          conta_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_eventos_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_empresa"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_events: {
         Row: {
