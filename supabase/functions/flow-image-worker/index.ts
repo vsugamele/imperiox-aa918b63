@@ -1,6 +1,7 @@
 // Processa jobs pending de imagem de um blueprint: chama gpt-image-2 e salva no bucket flow-media (signed URL).
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireUser } from "../_shared/require-auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -30,6 +31,9 @@ async function generateImage(prompt: string): Promise<Uint8Array> {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { blueprint_id, job_id, execution_id } = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);

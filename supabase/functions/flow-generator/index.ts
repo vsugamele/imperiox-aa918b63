@@ -2,6 +2,7 @@
 // Usa Gemini para estruturar fluxo + dispara jobs assíncronos para imagens.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireUser } from "../_shared/require-auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -26,6 +27,9 @@ Use blocos type:"wait" entre estágios. Inclua condition para variável "respond
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { project_id, produto_nome, produto_id, objetivo, tom, canal } = await req.json();

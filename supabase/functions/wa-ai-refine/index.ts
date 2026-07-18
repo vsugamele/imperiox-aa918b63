@@ -1,5 +1,6 @@
 // wa-ai-refine — chat de refinamento: usuário ensina a IA, IA salva lições
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +73,9 @@ async function embed(text: string): Promise<number[] | null> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { messages, projeto_id } = await req.json();

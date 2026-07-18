@@ -2,6 +2,7 @@
 // usando frameworks Schwartz/Bencivenga/Filemon-E3. Cria sugestão como variante B testável.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -9,6 +10,9 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { blueprint_id, framework = "schwartz", create_variant = true } = await req.json();
     if (!blueprint_id) throw new Error("blueprint_id obrigatório");

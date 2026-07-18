@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAnglesForDay } from "../_shared/creativeAngles.ts";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,9 @@ function detectStage(diasDesdeInicio: number): { estagio: string; instrucao: str
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { lead_id, sequence_id, enrollment_id } = await req.json();

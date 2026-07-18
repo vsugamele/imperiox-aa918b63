@@ -1,6 +1,7 @@
 // Gera um Plano de Lançamento estruturado (fases + cronograma + ações).
 // Salva como kanban cards em uma coluna "🚀 Plano de Lançamento" e retorna o plano completo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,9 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const { project_id, produto, objetivo, prazo_dias = 30, meta_faturamento, briefing = "", apply = false } = await req.json();
     if (!project_id) throw new Error("project_id obrigatório");

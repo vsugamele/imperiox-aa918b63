@@ -3,6 +3,7 @@
 // para /v1/audio/transcriptions (gpt-4o-mini-transcribe). Salvamos transcrição no swipe e
 // opcionalmente disparamos swipe-engineer.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,9 @@ const MAX_BYTES = 24 * 1024 * 1024; // 24MB — abaixo do cap do Gateway (25MiB)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {

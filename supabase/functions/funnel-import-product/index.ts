@@ -2,6 +2,7 @@
 // Pipeline: site-scrape (Firecrawl) -> Lovable AI Gateway (Gemini) -> JSON estruturado.
 // O cliente persiste o resultado em imphq_projects.data.produtos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,6 +45,9 @@ interface Body {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { url, template = "extrair", project_id } = (await req.json()) as Body;

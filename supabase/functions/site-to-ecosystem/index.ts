@@ -1,6 +1,7 @@
 // Orquestra: site -> projeto + avatar + produtos (principal/OB/upsell/lowticket) + VSL + criativos + LP + funil
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +107,9 @@ const ECOSYSTEM_SCHEMA = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { site_id, projeto_id, novo_projeto_nome, nicho, tom } = await req.json();

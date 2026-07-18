@@ -1,4 +1,5 @@
 // Audita uma página (LP/VSL/Checkout) contra avatar + produto.
+import { requireUser } from "../_shared/require-auth.ts";
 // Pipeline: site-scrape (Firecrawl) -> Gemini avalia 7 critérios.
 // Retorna score (0-100) + issues + quick_wins.
 
@@ -33,6 +34,9 @@ interface Body {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { url, produto, avatar } = (await req.json()) as Body;

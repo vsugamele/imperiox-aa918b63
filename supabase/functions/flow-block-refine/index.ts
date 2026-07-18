@@ -3,6 +3,7 @@
 // atual + instruções, e persiste o novo texto no blueprint.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +24,9 @@ const Body = z.object({
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const parsed = Body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {

@@ -2,6 +2,7 @@
 // envia para Lovable AI Gateway (default) OU OpenRouter (provider="openrouter").
 // Persiste em `transcricao` + `transcribe_status` + `transcribe_provider`.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,9 @@ function b64(bytes: Uint8Array): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {

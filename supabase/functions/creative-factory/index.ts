@@ -21,6 +21,7 @@ function openaiSizeFromFormato(formato: string): "1024x1024" | "1024x1536" | "15
 }
 
 import { ANGLE_BY_SLUG } from "../_shared/creativeAngles.ts";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const ANGULO_PROMPTS: Record<string, string> = Object.fromEntries(
   Object.entries(ANGLE_BY_SLUG).map(([slug, a]) => [slug, a.visualPrompt])
@@ -281,6 +282,9 @@ async function processBatch(batchId: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     if (!LOVABLE_API_KEY) {

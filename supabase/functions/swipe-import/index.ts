@@ -1,6 +1,7 @@
 // Swipe File — Importação (JSON estruturado, texto bruto via IA, URL via Firecrawl)
 // Detecta automaticamente formato VSL (longo) vs. copy curta e aplica esquema de blocos correspondente.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,6 +142,9 @@ async function fetchUrl(url: string): Promise<string> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "no auth" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
