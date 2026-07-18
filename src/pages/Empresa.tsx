@@ -154,12 +154,14 @@ export default function Empresa() {
   );
 }
 
-function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
+function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, projects }: {
   contas: ContaEmpresa[];
   tipo: string;
   columns: string[];
   onRefresh: () => void;
   mapNodes: MapNode[];
+  devices: DeviceOpt[];
+  projects: ProjectOpt[];
 }) {
 
   const [showDialog, setShowDialog] = useState(false);
@@ -176,11 +178,21 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes }: {
   const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
   const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
 
+  // Filtros
+  const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [filterDevice, setFilterDevice] = useState<string>("__all__");
+  const filteredContas = contas.filter(c => {
+    if (filterProject !== "__all__" && c.project_id !== filterProject) return false;
+    if (filterDevice !== "__all__" && c.cloud_phone_ref !== filterDevice) return false;
+    return true;
+  });
+
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
     foto_url: "" as string, mapa_node_id: "" as string,
+    cloud_phone_ref: "" as string, project_id: "" as string,
   };
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
