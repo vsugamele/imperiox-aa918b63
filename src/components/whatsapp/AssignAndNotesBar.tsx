@@ -121,7 +121,16 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   };
 
   return (
-    <div className="border-b border-border bg-card/30 px-3 py-1.5 flex items-center gap-2 text-xs">
+    <div className="border-b border-border bg-card/30 px-3 py-1.5 flex items-center gap-2 text-xs flex-wrap">
+      {isHandoff && (
+        <>
+          <Button size="sm" variant="outline" className="h-7 px-2 gap-1.5 border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20" onClick={resumeAi}>
+            <Bot className="h-3.5 w-3.5" />
+            Retomar IA (handoff ativo)
+          </Button>
+          <div className="w-px h-4 bg-border" />
+        </>
+      )}
       {/* Assign */}
       <Popover>
         <PopoverTrigger asChild>
