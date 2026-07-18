@@ -106,7 +106,19 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   const isAiPaused = aiPausedUntil && new Date(aiPausedUntil).getTime() > Date.now();
   const isSnoozed = snoozedUntil && new Date(snoozedUntil).getTime() > Date.now();
+  const isHandoff = convStatus === "needs_human";
   const owner = members.find(m => m.user_id === assignedTo);
+
+  const resumeAi = async () => {
+    const { error } = await supabase
+      .from("imphq_wa_conversations")
+      .update({ status: "active", ai_paused_until: null } as any)
+      .eq("id", conversationId);
+    if (error) { toast.error("Falha ao retomar IA"); return; }
+    setConvStatus("active");
+    setAiPausedUntil(null);
+    toast.success("IA retomada. Próxima mensagem do lead volta a ser respondida.");
+  };
 
   return (
     <div className="border-b border-border bg-card/30 px-3 py-1.5 flex items-center gap-2 text-xs">
