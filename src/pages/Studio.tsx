@@ -72,6 +72,12 @@ export default function Studio() {
           <RoteirosTab />
         </TabsContent>
 
+        <TabsContent value="modelagem" className="mt-6">
+          <ModelagemTab />
+        </TabsContent>
+
+
+
         <TabsContent value="avatar-studio" className="mt-6">
           <AvatarStudioTab />
         </TabsContent>
