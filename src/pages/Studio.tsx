@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film, UserSquare2, ScrollText } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film, UserSquare2, ScrollText, Layers } from "lucide-react";
+import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
 import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
