@@ -268,18 +268,24 @@ function InnerCanvas() {
   const runAll = () => openCostDialog(undefined);
   const runFromNode = (nodeId: string) => openCostDialog(nodeId);
 
-  const plantTemplate = async (key: string) => {
+  const plantGraph = useCallback(async (payload: {
+    nodes: { tipo: string; position?: { x: number; y: number }; config?: any; titulo?: string; prompt?: string }[];
+    edges: { from: number; to: number }[];
+  }) => {
     if (!workflowId) return;
-    const t = TEMPLATES.find(x => x.key === key);
-    if (!t) return;
     const created: any[] = [];
-    for (const n of t.nodes) {
+    payload.nodes.forEach((n, i) => {
+      if (!n.position) n.position = { x: 340 + i * 300, y: 200 };
+    });
+    for (const n of payload.nodes) {
       const meta = CANVAS_BLOCKS.find(b => b.id === n.tipo);
+      const config: any = { ...(meta?.defaultConfig || {}), ...(n.config || {}) };
+      if (n.prompt) config.prompt = n.prompt;
       const { data } = await supabase.from("imphq_studio_canvas_nodes").insert({
         workflow_id: workflowId,
         tipo: n.tipo,
         titulo: n.titulo || meta?.label,
-        config: { ...(meta?.defaultConfig || {}), ...(n.config || {}) },
+        config,
         position: n.position,
         status: "pendente",
       }).select("*").single();
@@ -290,7 +296,7 @@ function InnerCanvas() {
       data: { id: d.id, tipo: d.tipo, titulo: d.titulo, config: d.config, output: {}, status: "pendente" },
     }));
     const newEdges: Edge[] = [];
-    for (const e of t.edges) {
+    for (const e of payload.edges) {
       const src = created[e.from]?.id, tgt = created[e.to]?.id;
       if (!src || !tgt) continue;
       const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
@@ -304,8 +310,55 @@ function InnerCanvas() {
     }
     setNodes(prev => [...prev, ...newNodes]);
     setEdges(prev => [...prev, ...newEdges]);
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 100);
+    return created;
+  }, [workflowId, setNodes, setEdges, rf]);
+
+  const plantTemplate = async (key: string) => {
+    const t = TEMPLATES.find(x => x.key === key);
+    if (!t) return;
+    await plantGraph({ nodes: t.nodes, edges: t.edges });
     toast.success(`Template "${t.name}" plantado`);
   };
+
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestFromAI = async () => {
+    if (!workflowId || !projectId) return;
+    setSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("studio-suggest-graph", {
+        body: { projeto_id: projectId, produto_idx: productIdx },
+      });
+      if (error) throw error;
+      const graph = data as any;
+      if (!graph?.nodes?.length) { toast.error("IA não devolveu grafo"); return; }
+      await plantGraph({ nodes: graph.nodes, edges: graph.edges || [] });
+      toast.success(`Grafo sugerido: ${graph.titulo || graph.output_type || "criativo"}`);
+    } catch (e: any) {
+      toast.error("Erro na sugestão: " + (e?.message || "desconhecido"));
+    } finally { setSuggesting(false); }
+  };
+
+  // Auto-scaffold: canvas vazio ganha um esqueleto inicial
+  const scaffoldedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workflowId || loading) return;
+    if (scaffoldedRef.current === workflowId) return;
+    const userNodes = nodes.filter(n => n.id !== "product-hub");
+    if (userNodes.length === 0) {
+      scaffoldedRef.current = workflowId;
+      const t = TEMPLATES.find(x => x.key === "reels_narracao");
+      if (t) {
+        const shifted = t.nodes.map((n, i) => ({ ...n, position: { x: 340 + i * 300, y: 220 } }));
+        plantGraph({ nodes: shifted, edges: t.edges }).then(() => {
+          toast.success("Canvas iniciado com fluxo sugerido — edite ou clique em Sugerir IA");
+        });
+      }
+    } else {
+      scaffoldedRef.current = workflowId;
+    }
+  }, [workflowId, loading, nodes, plantGraph]);
+
 
   const deleteNode = async (id: string) => {
     await supabase.from("imphq_studio_canvas_nodes").delete().eq("id", id);
