@@ -36,6 +36,7 @@ function InnerCanvas() {
   const [dragBlock, setDragBlock] = useState<CanvasBlockType | null>(null);
   const [briefing, setBriefing] = useState<any>({});
   const [costOpen, setCostOpen] = useState(false);
+  const [modelagemOpen, setModelagemOpen] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
   const rf = useReactFlow();
