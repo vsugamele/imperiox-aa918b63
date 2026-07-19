@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Clapperboard, LayoutGrid, Copy } from "lucide-react";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { toast } from "sonner";
 import { StudioBlockLibrary } from "@/components/studio/canvas/StudioBlockLibrary";
 import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
@@ -34,6 +36,7 @@ function InnerCanvas() {
   const [dragBlock, setDragBlock] = useState<CanvasBlockType | null>(null);
   const [briefing, setBriefing] = useState<any>({});
   const [costOpen, setCostOpen] = useState(false);
+  const [modelagemOpen, setModelagemOpen] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
   const rf = useReactFlow();
@@ -417,6 +420,9 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={organize} disabled={!workflowId || nodes.length < 2} className="h-8 text-xs gap-1.5" title="Reorganizar layout (dagre)">
             <LayoutGrid className="h-3.5 w-3.5" /> Organizar
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setModelagemOpen(true)} className="h-8 text-xs gap-1.5" title="Modelar a partir de referências">
+            <Layers className="h-3.5 w-3.5" /> Modelagem
+          </Button>
           <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
@@ -473,6 +479,19 @@ function InnerCanvas() {
         estimate={estimate}
         onConfirm={confirmRun}
       />
+
+      <Sheet open={modelagemOpen} onOpenChange={setModelagemOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" /> Modelagem visual
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ModelagemTab />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
