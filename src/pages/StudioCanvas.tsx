@@ -420,6 +420,9 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={organize} disabled={!workflowId || nodes.length < 2} className="h-8 text-xs gap-1.5" title="Reorganizar layout (dagre)">
             <LayoutGrid className="h-3.5 w-3.5" /> Organizar
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setModelagemOpen(true)} className="h-8 text-xs gap-1.5" title="Modelar a partir de referências">
+            <Layers className="h-3.5 w-3.5" /> Modelagem
+          </Button>
           <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
