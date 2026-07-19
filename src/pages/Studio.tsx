@@ -32,9 +32,12 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-6xl grid-cols-10">
+        <TabsList className="grid w-full max-w-6xl grid-cols-11">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="modelagem" className="gap-2">
+            <Layers className="h-4 w-4" /> Modelagem
           </TabsTrigger>
           <TabsTrigger value="roteiros" className="gap-2">
             <ScrollText className="h-4 w-4" /> Roteiros
