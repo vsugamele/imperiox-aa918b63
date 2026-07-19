@@ -479,6 +479,19 @@ function InnerCanvas() {
         estimate={estimate}
         onConfirm={confirmRun}
       />
+
+      <Sheet open={modelagemOpen} onOpenChange={setModelagemOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" /> Modelagem visual
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ModelagemTab />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
