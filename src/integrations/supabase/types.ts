@@ -26063,6 +26063,57 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_studio_reference_models: {
+        Row: {
+          created_at: string
+          ficha: Json | null
+          id: string
+          output_type: string | null
+          projeto_id: string | null
+          source_asset_ids: string[]
+          source_assets: Json
+          source_folder: string | null
+          source_kind: string
+          status: string
+          storyboard: Json | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ficha?: Json | null
+          id?: string
+          output_type?: string | null
+          projeto_id?: string | null
+          source_asset_ids?: string[]
+          source_assets?: Json
+          source_folder?: string | null
+          source_kind?: string
+          status?: string
+          storyboard?: Json | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ficha?: Json | null
+          id?: string
+          output_type?: string | null
+          projeto_id?: string | null
+          source_asset_ids?: string[]
+          source_assets?: Json
+          source_folder?: string | null
+          source_kind?: string
+          status?: string
+          storyboard?: Json | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_studio_user_state: {
         Row: {
           created_at: string
@@ -53196,6 +53247,10 @@ export type Database = {
         Returns: number
       }
       orion_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      orion_ensure_monthly_allowance: {
         Args: { _user_id: string }
         Returns: number
       }
