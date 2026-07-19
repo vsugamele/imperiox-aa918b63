@@ -473,6 +473,9 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={organize} disabled={!workflowId || nodes.length < 2} className="h-8 text-xs gap-1.5" title="Reorganizar layout (dagre)">
             <LayoutGrid className="h-3.5 w-3.5" /> Organizar
           </Button>
+          <Button size="sm" variant="outline" onClick={suggestFromAI} disabled={!workflowId || suggesting} className="h-8 text-xs gap-1.5" title="IA propõe grafo baseado no produto + modelagem">
+            {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Sugerir IA
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setModelagemOpen(true)} className="h-8 text-xs gap-1.5" title="Modelar a partir de referências">
             <Layers className="h-3.5 w-3.5" /> Modelagem
           </Button>
