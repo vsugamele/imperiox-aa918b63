@@ -144,7 +144,7 @@ export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
 
       <ReferenciasPicker
         open={picker}
-        onOpenChange={setPicker}
+        onClose={() => setPicker(false)}
         multi
         onConfirm={(items) => { setExternal(items); setPicker(false); }}
       />
