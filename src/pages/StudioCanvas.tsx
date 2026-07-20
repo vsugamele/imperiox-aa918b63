@@ -277,6 +277,30 @@ function InnerCanvas() {
   const runAll = () => openCostDialog(undefined);
   const runFromNode = (nodeId: string) => openCostDialog(nodeId);
 
+  const cancelRun = async () => {
+    if (!workflowId) return;
+    await (supabase.from("imphq_studio_workflows") as any).update({ run_status: "canceling" }).eq("id", workflowId);
+    toast.info("Cancelando… as ondas em execução vão terminar");
+  };
+
+  const retryFailed = async () => {
+    if (!workflowId) return;
+    const failed = nodes.filter(n => (n.data as any)?.status === "erro");
+    if (!failed.length) { toast.info("Nenhum bloco com erro"); return; }
+    setRunning(true);
+    try {
+      // roda cada bloco falho com force_rerun; downstream é considerado se o usuário quiser individualmente
+      for (const n of failed) {
+        await supabase.functions.invoke("studio-canvas-run", {
+          body: { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, start_node_id: n.id, force_rerun: true },
+        });
+      }
+      toast.success(`Reprocessando ${failed.length} bloco(s) que falharam`);
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } finally { setRunning(false); }
+  };
+
   const plantGraph = useCallback(async (payload: {
     nodes: { tipo: string; position?: { x: number; y: number }; config?: any; titulo?: string; prompt?: string }[];
     edges: { from: number; to: number }[];
