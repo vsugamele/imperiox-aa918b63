@@ -51,15 +51,16 @@ const TIPO_LABEL: Record<string, string> = {
 const isImageUrl = (u?: string | null) =>
   !!u && /\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(u);
 
-export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image" }: Props) {
+export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image", multi = false, onConfirm }: Props) {
   const [tab, setTab] = useState<"image" | "site">(initialTab);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RefItem[]>([]);
   const [sites, setSites] = useState<SiteItem[]>([]);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
+  const [picked, setPicked] = useState<Map<string, PickerSelection>>(new Map());
 
-  useEffect(() => { if (open) setTab(initialTab); }, [open, initialTab]);
+  useEffect(() => { if (open) { setTab(initialTab); setPicked(new Map()); } }, [open, initialTab]);
 
   useEffect(() => {
     if (!open) return;
