@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.studio-publish-worker]
 verify_jwt = false
+
+[functions.company-map-public]
+verify_jwt = false

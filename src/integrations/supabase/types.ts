@@ -19877,6 +19877,7 @@ export type Database = {
           id: string
           name: string
           parent_node_id: string | null
+          share_token: string | null
           updated_at: string
           viewport: Json
         }
@@ -19885,6 +19886,7 @@ export type Database = {
           id?: string
           name?: string
           parent_node_id?: string | null
+          share_token?: string | null
           updated_at?: string
           viewport?: Json
         }
@@ -19893,6 +19895,7 @@ export type Database = {
           id?: string
           name?: string
           parent_node_id?: string | null
+          share_token?: string | null
           updated_at?: string
           viewport?: Json
         }
