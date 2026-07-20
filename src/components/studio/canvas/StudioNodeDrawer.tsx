@@ -9,6 +9,7 @@ import { Sparkles, Trash2, ExternalLink, Copy, Play, Eraser } from "lucide-react
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { ReferenceUploader } from "./ReferenceUploader";
 import { ModelingNodePanel } from "./ModelingNodePanel";
+import { StoryboardNodePanel } from "./StoryboardNodePanel";
 
 interface Props {
   node: any | null;
@@ -18,6 +19,7 @@ interface Props {
   onUpdate: (id: string, patch: any) => Promise<void>;
   onDuplicate?: (id: string) => void;
   onRunFrom?: (id: string) => void;
+  onExplodeStoryboard?: (opts: { sourceNodeId: string; scenes: any[]; ficha: any; targetKind: "image" | "video" }) => Promise<void>;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
@@ -41,7 +43,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom, onExplodeStoryboard }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
@@ -113,6 +115,16 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             />
           )}
 
+          {kind === "storyboard" && onExplodeStoryboard && (
+            <StoryboardNodePanel
+              nodeId={node.id}
+              modelId={node.data.config?.model_id || null}
+              targetKind={(node.data.config?.target_kind as any) || "image"}
+              onChangeConfig={(patch) => onUpdate(node.id, { config: { ...(node.data.config || {}), ...patch } })}
+              onExplode={onExplodeStoryboard}
+            />
+          )}
+
 
           {MODELS[kind || ""] && (
             <div>
@@ -161,7 +173,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
-            {kind !== "publish" && kind !== "prompt" && kind !== "modeling" && (
+            {kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
               <Button
                 onClick={() => onGenerate(node.id)}
                 disabled={node.data.status === "gerando"}

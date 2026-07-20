@@ -527,6 +527,39 @@ function InnerCanvas() {
         onUpdate={updateNode}
         onDuplicate={duplicateNode}
         onRunFrom={runFromNode}
+        onExplodeStoryboard={async ({ sourceNodeId, scenes, ficha, targetKind }) => {
+          const src = rf.getNode(sourceNodeId);
+          const baseX = (src?.position?.x || 400) + 340;
+          const baseY = (src?.position?.y || 200) - ((scenes.length - 1) * 110);
+          const sceneNodes = scenes.map((s: any, i: number) => ({
+            tipo: targetKind,
+            titulo: s.titulo || s.title || `Cena ${i + 1}`,
+            position: { x: baseX, y: baseY + i * 220 },
+            config: {
+              prompt: [
+                s.prompt || s.descricao || s.title || `Cena ${i + 1}`,
+                ficha?.estilo_visual && `Estilo: ${ficha.estilo_visual}`,
+                ficha?.iluminação && `Luz: ${ficha.iluminação}`,
+                ficha?.ritmo && `Ritmo: ${ficha.ritmo}`,
+              ].filter(Boolean).join("\n\n"),
+              scene_index: i,
+            },
+          }));
+          const created = await plantGraph({ nodes: sceneNodes, edges: [] });
+          if (!created || !workflowId) return;
+          // conecta storyboard → cada cena
+          for (const c of created) {
+            const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
+              workflow_id: workflowId, source_id: sourceNodeId, target_id: c.id,
+            }).select("id").single();
+            if (data) {
+              setEdges(prev => [...prev, {
+                id: data.id, source: sourceNodeId, target: c.id, animated: true,
+                style: { stroke: KIND_COLORS.storyboard, strokeWidth: 2 },
+              }]);
+            }
+          }
+        }}
       />
 
       <StudioCostDialog
