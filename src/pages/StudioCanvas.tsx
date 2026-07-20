@@ -39,6 +39,7 @@ function InnerCanvas() {
   const [modelagemOpen, setModelagemOpen] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
+  const [runStatus, setRunStatus] = useState<string>("idle");
   const rf = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
