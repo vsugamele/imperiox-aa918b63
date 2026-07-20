@@ -150,19 +150,30 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
   const visibleImages = filteredImages.slice(0, limit);
   const visibleSites = filteredSites.slice(0, limit);
 
+  const togglePick = (key: string, sel: PickerSelection) => {
+    setPicked(prev => {
+      const n = new Map(prev);
+      n.has(key) ? n.delete(key) : n.set(key, sel);
+      return n;
+    });
+  };
+
   const handlePickImage = (item: RefItem) => {
-    onSelect({ url: item.url, title: item.title, kind: "image", thumbnail: item.thumb });
+    const sel: PickerSelection = { url: item.url, title: item.title, kind: "image", thumbnail: item.thumb };
+    if (multi) { togglePick(item.id, sel); return; }
+    onSelect(sel);
     onClose();
   };
 
   const handlePickSite = (item: SiteItem) => {
-    onSelect({
-      url: item.url,
-      title: item.title,
-      kind: "site",
-      thumbnail: item.thumb,
-      siteId: item.id,
-    });
+    const sel: PickerSelection = { url: item.url, title: item.title, kind: "site", thumbnail: item.thumb, siteId: item.id };
+    if (multi) { togglePick(item.id, sel); return; }
+    onSelect(sel);
+    onClose();
+  };
+
+  const confirmMulti = () => {
+    onConfirm?.(Array.from(picked.values()));
     onClose();
   };
 
