@@ -34,6 +34,8 @@ export function ModelagemTab() {
   const [outputType, setOutputType] = useState<string>("reels");
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState<Model | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [external, setExternal] = useState<PickerSelection[]>([]);
 
   const load = async () => {
     const [{ data: r }, { data: m }] = await Promise.all([
