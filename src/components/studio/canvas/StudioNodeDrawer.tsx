@@ -50,6 +50,9 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   const [voice, setVoice] = useState("");
   const [refUrls, setRefUrls] = useState<string[]>([]);
   const [refKinds, setRefKinds] = useState<string[]>([]);
+  const [pubChannel, setPubChannel] = useState("salvar");
+  const [pubScheduledAt, setPubScheduledAt] = useState("");
+  const [pubCaption, setPubCaption] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -60,6 +63,9 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
       setVoice(node.data.config?.voice_id || "");
       setRefUrls(node.data.config?.reference_urls || []);
       setRefKinds(node.data.config?.reference_kinds || []);
+      setPubChannel(node.data.config?.channel || "salvar");
+      setPubScheduledAt(node.data.config?.scheduled_at || "");
+      setPubCaption(node.data.config?.caption || "");
     }
   }, [node?.id]);
 
@@ -72,8 +78,13 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
   const save = async () => {
     setSaving(true);
-    const cfg = { ...(node.data.config || {}), model, prompt, voice_id: voice, reference_urls: refUrls, reference_kinds: refKinds };
+    const cfg: any = { ...(node.data.config || {}), model, prompt, voice_id: voice, reference_urls: refUrls, reference_kinds: refKinds };
     if (kind === "prompt") cfg.texto = prompt;
+    if (kind === "publish") {
+      cfg.channel = pubChannel;
+      cfg.scheduled_at = pubScheduledAt || null;
+      cfg.caption = pubCaption;
+    }
     await onUpdate(node.id, { titulo, config: cfg });
     setSaving(false);
   };
