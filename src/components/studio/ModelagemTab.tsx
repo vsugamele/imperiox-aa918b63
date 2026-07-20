@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Film, Wand2, FolderOpen, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, Film, Wand2, FolderOpen, CheckCircle2, Library, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ReferenciasPicker, type PickerSelection } from "@/components/funis/ReferenciasPicker";
 
 type Ref = { id: string; url: string; titulo: string | null; thumbnail_url: string | null; tipo: string | null };
 type Model = {
@@ -33,6 +34,8 @@ export function ModelagemTab() {
   const [outputType, setOutputType] = useState<string>("reels");
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState<Model | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [external, setExternal] = useState<PickerSelection[]>([]);
 
   const load = async () => {
     const [{ data: r }, { data: m }] = await Promise.all([
@@ -69,12 +72,17 @@ export function ModelagemTab() {
   };
 
   const analyze = async () => {
-    if (selected.size === 0) { toast.error("Selecione pelo menos 1 referência"); return; }
+    const total = selected.size + external.length;
+    if (total === 0) { toast.error("Selecione pelo menos 1 referência"); return; }
     setLoading(true);
     try {
-      const assets = refs.filter((r) => selected.has(r.id)).map((r) => ({
+      const fromLib = refs.filter((r) => selected.has(r.id)).map((r) => ({
         url: r.thumbnail_url ?? r.url, title: r.titulo ?? "", kind: "image",
       }));
+      const fromExt = external.map((e) => ({
+        url: e.thumbnail ?? e.url, title: e.title, kind: e.kind === "site" ? "image" : e.kind,
+      }));
+      const assets = [...fromLib, ...fromExt];
       const { data, error } = await supabase.functions.invoke("studio-analyze-references", {
         body: { assets, contexto: briefing },
       });
@@ -122,8 +130,26 @@ export function ModelagemTab() {
               </Select>
               <Input placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} className="w-56" />
               <Button variant="outline" size="sm" onClick={selectFolder}>Selecionar visíveis</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar ({selected.size})</Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                <Library className="h-3.5 w-3.5 mr-1.5" /> Biblioteca (multi)
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setSelected(new Set()); setExternal([]); }}>
+                Limpar ({selected.size + external.length})
+              </Button>
             </div>
+            {external.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-md bg-secondary/30 border border-border/40">
+                {external.map((e, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-background/60 border border-border/60 rounded px-2 py-1 text-xs">
+                    <img src={e.thumbnail ?? e.url} className="w-5 h-5 object-cover rounded" alt="" />
+                    <span className="truncate max-w-[120px]">{e.title}</span>
+                    <button onClick={() => setExternal(prev => prev.filter((_, idx) => idx !== i))}>
+                      <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-[420px] overflow-y-auto p-1">
               {visible.map((r) => {
                 const on = selected.has(r.id);
@@ -148,9 +174,9 @@ export function ModelagemTab() {
             <Textarea rows={3} value={briefing} onChange={(e) => setBriefing(e.target.value)}
               placeholder="Ex.: produto X, oferta Y, tom Z. Ou deixe em branco para IA seguir a estética." />
             <div className="flex flex-wrap gap-2 items-center">
-              <Button onClick={analyze} disabled={loading || selected.size === 0}>
+              <Button onClick={analyze} disabled={loading || (selected.size + external.length) === 0}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Analisar modelagem ({selected.size})
+                Analisar modelagem ({selected.size + external.length})
               </Button>
               <Select value={outputType} onValueChange={setOutputType}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -225,6 +251,14 @@ export function ModelagemTab() {
           </button>
         ))}
       </div>
+
+      <ReferenciasPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={() => {}}
+        multi
+        onConfirm={(items) => setExternal(prev => [...prev, ...items])}
+      />
     </div>
   );
 }
