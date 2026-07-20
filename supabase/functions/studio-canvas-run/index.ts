@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
         const upIds = incoming[nid] || [];
         let ficha: any = undefined;
         for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
-        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha);
+        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha, userId);
         const duration = Date.now() - t0;
         if (!res.ok) {
           await admin.from("imphq_studio_canvas_nodes").update({
