@@ -55,4 +55,5 @@ export const KIND_COLORS: Record<string, string> = {
   publish: "#10b981",
   product: "#c9922a",
   modeling: "#d946ef",
+  storyboard: "#06b6d4",
 };
