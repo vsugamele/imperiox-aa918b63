@@ -3,7 +3,7 @@ export interface CanvasBlockType {
   label: string;
   icon: string;
   desc: string;
-  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling";
+  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard";
   color: string;
   defaultConfig?: Record<string, any>;
 }
@@ -53,6 +53,15 @@ export const CANVAS_BLOCKS: CanvasBlockType[] = [
     kind: "modeling",
     color: "border-fuchsia-500/40 bg-fuchsia-500/5",
     defaultConfig: { model_id: null },
+  },
+  {
+    id: "storyboard",
+    label: "Storyboard",
+    icon: "🎞️",
+    desc: "Explode cenas da modelagem em nós de imagem",
+    kind: "storyboard",
+    color: "border-cyan-500/40 bg-cyan-500/5",
+    defaultConfig: { model_id: null, target_kind: "image" },
   },
   {
     id: "prompt",
