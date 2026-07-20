@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAP_TEMPLATES } from "./mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
@@ -1475,6 +1475,39 @@ function InnerMap({ projects }: { projects: any[] }) {
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExportJson}>
           <Download className="h-3 w-3" /> JSON
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary">
+              <Share2 className="h-3 w-3" /> Compartilhar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[240px]">
+            <DropdownMenuItem onClick={async () => {
+              if (!mapId) return;
+              const { data: cur } = await supabase.from("imphq_company_maps").select("share_token").eq("id", mapId).maybeSingle();
+              let tok = (cur as any)?.share_token as string | null;
+              if (!tok) {
+                tok = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+                const { error } = await supabase.from("imphq_company_maps").update({ share_token: tok } as any).eq("id", mapId);
+                if (error) { toast.error("Erro ao gerar link"); return; }
+              }
+              const url = `${window.location.origin}/mapa/${tok}`;
+              try { await navigator.clipboard.writeText(url); toast.success("Link copiado! Envie para seu sócio."); }
+              catch { prompt("Copie o link:", url); }
+            }}>
+              <Copy className="h-3 w-3 mr-2" /> Copiar link público
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-red-400" onClick={async () => {
+              if (!mapId) return;
+              if (!confirm("Revogar o link atual? Quem já tem não conseguirá mais abrir.")) return;
+              const { error } = await supabase.from("imphq_company_maps").update({ share_token: null } as any).eq("id", mapId);
+              if (error) { toast.error("Erro"); return; }
+              toast.success("Link revogado");
+            }}>
+              <X className="h-3 w-3 mr-2" /> Revogar link
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={() => {
           const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
           setReelDialog({ x: c.x, y: c.y });
