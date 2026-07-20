@@ -76,9 +76,17 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
         </div>
       )}
 
+      {d.tipo === "storyboard" && (
+        <div className="text-[10px] text-cyan-300/90 mb-1 line-clamp-2 leading-tight">
+          🎞️ {output.ficha?.storyboard?.length || 0} cenas · alvo: {d.config?.target_kind || "image"}
+        </div>
+      )}
+
       <div className="text-[10px] text-muted-foreground truncate">
         {d.tipo === "modeling"
           ? (d.config?.model_id ? "modelagem vinculada" : "escolha uma modelagem")
+          : d.tipo === "storyboard"
+          ? (d.config?.model_id ? "abra p/ explodir cenas" : "escolha uma modelagem")
           : (d.config?.model || d.config?.prompt?.slice(0, 40) || meta?.desc)}
       </div>
       {refCount > 0 && (
@@ -93,7 +101,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
           status === "erro" && "bg-rose-500/15 text-rose-300 border-rose-500/40",
           status === "pendente" && "bg-muted/30 text-muted-foreground border-muted-foreground/30",
         )}>{status}</span>
-        {status === "pendente" && d.tipo !== "modeling" && d.tipo !== "prompt" && d.tipo !== "publish" && (
+        {status === "pendente" && d.tipo !== "modeling" && d.tipo !== "storyboard" && d.tipo !== "prompt" && d.tipo !== "publish" && (
           <button
             onClick={(e) => { e.stopPropagation(); d.onGenerate?.(d.id); }}
             className="text-[9px] text-primary hover:underline flex items-center gap-0.5"
