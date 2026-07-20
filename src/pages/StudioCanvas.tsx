@@ -135,6 +135,10 @@ function InnerCanvas() {
   // Realtime
   useEffect(() => {
     if (!workflowId) return;
+    // fetch initial run_status
+    (supabase.from("imphq_studio_workflows") as any).select("run_status").eq("id", workflowId).maybeSingle().then(({ data }: any) => {
+      if (data?.run_status) setRunStatus(data.run_status);
+    });
     const ch = supabase
       .channel(`studio-canvas-${workflowId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
@@ -143,6 +147,10 @@ function InnerCanvas() {
           ...x,
           data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
         } : x));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_workflows", filter: `id=eq.${workflowId}` }, (payload) => {
+        const w = payload.new as any;
+        if (w?.run_status) setRunStatus(w.run_status);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
