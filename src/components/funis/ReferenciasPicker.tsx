@@ -37,6 +37,10 @@ interface Props {
   onSelect: (item: PickerSelection) => void;
   /** Aba inicial */
   initialTab?: "image" | "site";
+  /** Multi-select mode: shows checkboxes and confirm button */
+  multi?: boolean;
+  /** Called on confirm when multi=true */
+  onConfirm?: (items: PickerSelection[]) => void;
 }
 
 const PAGE = 60;
