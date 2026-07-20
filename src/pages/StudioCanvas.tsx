@@ -563,7 +563,9 @@ function InnerCanvas() {
           </ReactFlow>
           <StudioRunLogPanel workflowId={workflowId} nodeTitles={nodeTitles} />
         </div>
+        <StudioPublicationsPanel workflowId={workflowId} />
       </div>
+
 
       <StudioNodeDrawer
         node={drawerNode}
