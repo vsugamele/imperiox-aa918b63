@@ -174,9 +174,9 @@ export function ModelagemTab() {
             <Textarea rows={3} value={briefing} onChange={(e) => setBriefing(e.target.value)}
               placeholder="Ex.: produto X, oferta Y, tom Z. Ou deixe em branco para IA seguir a estética." />
             <div className="flex flex-wrap gap-2 items-center">
-              <Button onClick={analyze} disabled={loading || selected.size === 0}>
+              <Button onClick={analyze} disabled={loading || (selected.size + external.length) === 0}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Analisar modelagem ({selected.size})
+                Analisar modelagem ({selected.size + external.length})
               </Button>
               <Select value={outputType} onValueChange={setOutputType}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
