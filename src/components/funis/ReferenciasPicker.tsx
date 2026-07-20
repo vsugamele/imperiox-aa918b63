@@ -324,6 +324,17 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
             )
           )}
         </div>
+        {multi && (
+          <div className="flex items-center justify-between pt-3 border-t border-border/40">
+            <span className="text-xs text-muted-foreground">{picked.size} selecionado{picked.size === 1 ? "" : "s"}</span>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-secondary/60">Cancelar</button>
+              <button onClick={confirmMulti} disabled={picked.size === 0} className="px-3 py-1.5 text-xs rounded-md bg-pink-600 hover:bg-pink-500 text-white disabled:opacity-40">
+                Adicionar ({picked.size})
+              </button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
