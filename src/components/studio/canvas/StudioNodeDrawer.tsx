@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, Trash2, ExternalLink, Copy, Play, Eraser } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { ReferenceUploader } from "./ReferenceUploader";
+import { ModelingNodePanel } from "./ModelingNodePanel";
 
 interface Props {
   node: any | null;
@@ -101,6 +102,17 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             <Label className="text-xs">Título</Label>
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="h-8 mt-1" />
           </div>
+
+          {kind === "modeling" && (
+            <ModelingNodePanel
+              modelId={node.data.config?.model_id || null}
+              onChange={(mid, ficha) => {
+                const cfg = { ...(node.data.config || {}), model_id: mid, ficha_snapshot: ficha };
+                onUpdate(node.id, { config: cfg });
+              }}
+            />
+          )}
+
 
           {MODELS[kind || ""] && (
             <div>
