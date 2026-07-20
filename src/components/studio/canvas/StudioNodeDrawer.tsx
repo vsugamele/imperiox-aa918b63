@@ -137,6 +137,34 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
           )}
 
 
+          {kind === "publish" && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
+              <div>
+                <Label className="text-xs">Canal</Label>
+                <Select value={pubChannel} onValueChange={setPubChannel}>
+                  <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="salvar">💾 Só salvar na biblioteca</SelectItem>
+                    <SelectItem value="instagram">📸 Instagram</SelectItem>
+                    <SelectItem value="tiktok">🎵 TikTok</SelectItem>
+                    <SelectItem value="youtube">▶️ YouTube Shorts</SelectItem>
+                    <SelectItem value="whatsapp">💬 WhatsApp Status</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Agendar para</Label>
+                <Input type="datetime-local" value={pubScheduledAt} onChange={(e) => setPubScheduledAt(e.target.value)} className="h-8 mt-1" />
+                <p className="text-[10px] text-muted-foreground mt-1">Vazio = publica/salva assim que o fluxo terminar.</p>
+              </div>
+              <div>
+                <Label className="text-xs">Legenda</Label>
+                <Textarea value={pubCaption} onChange={(e) => setPubCaption(e.target.value)} rows={4} className="mt-1 text-sm leading-6" placeholder="Legenda do post…" />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Quando o fluxo rodar, a mídia do nó anterior vira uma publicação na fila.</p>
+            </div>
+          )}
+
           {MODELS[kind || ""] && (
             <div>
               <Label className="text-xs">Modelo</Label>
