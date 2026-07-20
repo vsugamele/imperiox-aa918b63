@@ -130,8 +130,26 @@ export function ModelagemTab() {
               </Select>
               <Input placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} className="w-56" />
               <Button variant="outline" size="sm" onClick={selectFolder}>Selecionar visíveis</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar ({selected.size})</Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                <Library className="h-3.5 w-3.5 mr-1.5" /> Biblioteca (multi)
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setSelected(new Set()); setExternal([]); }}>
+                Limpar ({selected.size + external.length})
+              </Button>
             </div>
+            {external.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-md bg-secondary/30 border border-border/40">
+                {external.map((e, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-background/60 border border-border/60 rounded px-2 py-1 text-xs">
+                    <img src={e.thumbnail ?? e.url} className="w-5 h-5 object-cover rounded" alt="" />
+                    <span className="truncate max-w-[120px]">{e.title}</span>
+                    <button onClick={() => setExternal(prev => prev.filter((_, idx) => idx !== i))}>
+                      <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-[420px] overflow-y-auto p-1">
               {visible.map((r) => {
                 const on = selected.has(r.id);
