@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers, Wand2, Sparkles } from "lucide-react";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers, Wand2, Sparkles, Square, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { toast } from "sonner";
