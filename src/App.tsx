@@ -70,6 +70,7 @@ const WebinarPublic = lazy(() => import("./pages/WebinarPublic"));
 const FormPublic = lazy(() => import("./pages/FormPublic"));
 const ProductCopilot = lazy(() => import("./pages/ProductCopilot"));
 const InfoprodutoCopilot = lazy(() => import("./pages/InfoprodutoCopilot"));
+const MapaPublico = lazy(() => import("./pages/MapaPublico"));
 
 const SDRCoach = lazy(() => import("./pages/SDRCoach"));
 const ABTests = lazy(() => import("./pages/ABTests"));
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/expert/:token" element={<ExpertPortal />} />
               <Route path="/f/:formId" element={<FormPublic />} />
               <Route path="/w/:sessionId" element={<WebinarPublic />} />
+              <Route path="/mapa/:token" element={<MapaPublico />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — goes straight to pending AI actions */}
                 <Route index element={<Navigate to="/imperius" replace />} />
