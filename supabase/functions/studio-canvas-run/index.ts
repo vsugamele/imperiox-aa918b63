@@ -178,7 +178,11 @@ Deno.serve(async (req) => {
 
     (async () => {
       const outputs: Record<string, string> = {};
-      for (const n of nodes) if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
+      const modelingFichas: Record<string, any> = {};
+      for (const n of nodes) {
+        if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
+        if (n.tipo === "modeling" && n.output?.ficha) modelingFichas[n.id] = n.output.ficha;
+      }
 
       // Determinar alvos
       let targetIds: string[];
@@ -227,7 +231,11 @@ Deno.serve(async (req) => {
         await logEvent(admin, workflowId, nid, "info", `▶ ${n.tipo} · ${cfg.model || "—"}${estCost ? ` (~${estCost} créditos)` : ""}`);
 
         const t0 = Date.now();
-        const res = await runNode(admin, auth, n, ups, projetoId, workflowId);
+        // Resolver ficha de modelagem: primeiro upstream que seja modeling
+        const upIds = incoming[nid] || [];
+        let ficha: any = undefined;
+        for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
+        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha);
         const duration = Date.now() - t0;
 
         if (!res.ok) {
@@ -241,9 +249,10 @@ Deno.serve(async (req) => {
           continue;
         }
         outputs[nid] = res.output_url || "";
+        if (res.ficha) modelingFichas[nid] = res.ficha;
         await admin.from("imphq_studio_canvas_nodes").update({
           status: "gerado",
-          output: { url: res.output_url, kind: res.kind },
+          output: res.ficha ? { url: res.output_url, kind: res.kind, ficha: res.ficha } : { url: res.output_url, kind: res.kind },
           duration_ms: duration,
           cost_actual: estCost,
         }).eq("id", nid);
