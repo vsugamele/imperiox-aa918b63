@@ -515,10 +515,22 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
-          <Button size="sm" onClick={runAll} disabled={!workflowId || running} className="h-8 gap-1.5">
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            Executar tudo
-          </Button>
+          {nodes.some(n => (n.data as any)?.status === "erro") && runStatus !== "running" && (
+            <Button size="sm" variant="outline" onClick={retryFailed} disabled={!workflowId || running} className="h-8 gap-1.5 text-xs" title="Reprocessar apenas os blocos que falharam">
+              <RotateCcw className="h-3.5 w-3.5" /> Retomar falhas
+            </Button>
+          )}
+          {runStatus === "running" || runStatus === "canceling" ? (
+            <Button size="sm" variant="destructive" onClick={cancelRun} disabled={runStatus === "canceling"} className="h-8 gap-1.5">
+              {runStatus === "canceling" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Square className="h-3.5 w-3.5" />}
+              {runStatus === "canceling" ? "Cancelando…" : "Cancelar"}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={runAll} disabled={!workflowId || running} className="h-8 gap-1.5">
+              {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+              Executar tudo
+            </Button>
+          )}
         </div>
 
         <div ref={wrapperRef} className="flex-1 rounded-lg border border-border/60 bg-[#050304] overflow-hidden relative"
