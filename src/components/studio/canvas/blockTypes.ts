@@ -3,7 +3,7 @@ export interface CanvasBlockType {
   label: string;
   icon: string;
   desc: string;
-  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish";
+  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling";
   color: string;
   defaultConfig?: Record<string, any>;
 }
@@ -44,6 +44,15 @@ export const CANVAS_BLOCKS: CanvasBlockType[] = [
     kind: "avatar",
     color: "border-violet-500/40 bg-violet-500/5",
     defaultConfig: { provider: "kie", model: "seedance-2", prompt: "", params: { aspect_ratio: "9:16", duration: 10, resolution: "1080p", generate_audio: false } },
+  },
+  {
+    id: "modeling",
+    label: "Modelagem",
+    icon: "🧬",
+    desc: "Ficha visual a partir de referências (estilo, ritmo, copy)",
+    kind: "modeling",
+    color: "border-fuchsia-500/40 bg-fuchsia-500/5",
+    defaultConfig: { model_id: null },
   },
   {
     id: "prompt",

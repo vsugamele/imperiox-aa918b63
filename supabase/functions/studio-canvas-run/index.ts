@@ -12,11 +12,15 @@ const KIND_BY_TIPO: Record<string, "image" | "video" | "audio"> = {
   image: "image", video: "video", audio: "audio", avatar: "video",
 };
 
-function resolvePrompt(text: string, upstreamOutputs: string[]): string {
+function resolvePrompt(text: string, upstreamOutputs: string[], modelingFicha?: any): string {
   if (!text) return text;
   const first = upstreamOutputs[0] || "";
+  const fichaStr = modelingFicha ? JSON.stringify(modelingFicha) : "";
+  const fichaResumo = modelingFicha?.modelagem_resumo || fichaStr;
   return text
     .replace(/\{\{anterior\.output\}\}/g, first)
+    .replace(/\{\{modelagem\.ficha\}\}/g, fichaStr)
+    .replace(/\{\{modelagem\.resumo\}\}/g, fichaResumo)
     .replace(/\{\{upstream\.(\d+)\.output\}\}/g, (_, i) => upstreamOutputs[Number(i)] || "");
 }
 
@@ -52,14 +56,26 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
   return { ok: false, error: "timeout" };
 }
 
-async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string) {
+async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any) {
+  // Modeling node: fetch ficha and pass along as output text
+  if (node.tipo === "modeling") {
+    const mid = node.config?.model_id;
+    if (mid) {
+      const { data: m } = await admin.from("imphq_studio_reference_models").select("ficha").eq("id", mid).single();
+      const ficha = m?.ficha || node.config?.ficha_snapshot || {};
+      return { ok: true, output_url: JSON.stringify(ficha), kind: "modeling", ficha };
+    }
+    const snap = node.config?.ficha_snapshot || {};
+    return { ok: true, output_url: JSON.stringify(snap), kind: "modeling", ficha: snap };
+  }
+
   const kind = KIND_BY_TIPO[node.tipo];
   if (!kind) {
     const text = node.config?.texto || node.config?.prompt || "";
-    return { ok: true, output_url: resolvePrompt(text, upstreamOutputs), kind: "text" };
+    return { ok: true, output_url: resolvePrompt(text, upstreamOutputs, modelingFicha), kind: "text" };
   }
   const cfg = node.config || {};
-  const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs);
+  const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs, modelingFicha);
   const params: Record<string, any> = { ...(cfg.params || {}) };
 
   // Referências visuais (fotos/vídeos anexados no drawer do bloco)
@@ -162,7 +178,11 @@ Deno.serve(async (req) => {
 
     (async () => {
       const outputs: Record<string, string> = {};
-      for (const n of nodes) if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
+      const modelingFichas: Record<string, any> = {};
+      for (const n of nodes) {
+        if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
+        if (n.tipo === "modeling" && n.output?.ficha) modelingFichas[n.id] = n.output.ficha;
+      }
 
       // Determinar alvos
       let targetIds: string[];
@@ -211,7 +231,11 @@ Deno.serve(async (req) => {
         await logEvent(admin, workflowId, nid, "info", `▶ ${n.tipo} · ${cfg.model || "—"}${estCost ? ` (~${estCost} créditos)` : ""}`);
 
         const t0 = Date.now();
-        const res = await runNode(admin, auth, n, ups, projetoId, workflowId);
+        // Resolver ficha de modelagem: primeiro upstream que seja modeling
+        const upIds = incoming[nid] || [];
+        let ficha: any = undefined;
+        for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
+        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha);
         const duration = Date.now() - t0;
 
         if (!res.ok) {
@@ -225,9 +249,10 @@ Deno.serve(async (req) => {
           continue;
         }
         outputs[nid] = res.output_url || "";
+        if (res.ficha) modelingFichas[nid] = res.ficha;
         await admin.from("imphq_studio_canvas_nodes").update({
           status: "gerado",
-          output: { url: res.output_url, kind: res.kind },
+          output: res.ficha ? { url: res.output_url, kind: res.kind, ficha: res.ficha } : { url: res.output_url, kind: res.kind },
           duration_ms: duration,
           cost_actual: estCost,
         }).eq("id", nid);

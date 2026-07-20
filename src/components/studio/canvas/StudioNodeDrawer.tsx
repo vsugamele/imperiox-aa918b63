@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, Trash2, ExternalLink, Copy, Play, Eraser } from "lucide-react";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { ReferenceUploader } from "./ReferenceUploader";
+import { ModelingNodePanel } from "./ModelingNodePanel";
 
 interface Props {
   node: any | null;
@@ -102,6 +103,17 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="h-8 mt-1" />
           </div>
 
+          {kind === "modeling" && (
+            <ModelingNodePanel
+              modelId={node.data.config?.model_id || null}
+              onChange={(mid, ficha) => {
+                const cfg = { ...(node.data.config || {}), model_id: mid, ficha_snapshot: ficha };
+                onUpdate(node.id, { config: cfg });
+              }}
+            />
+          )}
+
+
           {MODELS[kind || ""] && (
             <div>
               <Label className="text-xs">Modelo</Label>
@@ -114,19 +126,21 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
-          <div>
-            <Label className="text-xs">{kind === "audio" ? "Roteiro da fala" : kind === "prompt" ? "Prompt / texto" : "Prompt"}</Label>
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={6}
-              className="mt-1 text-sm leading-6"
-              placeholder={kind === "audio" ? "O que o narrador vai falar…" : "Descreva a cena…"}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Use <code className="text-primary">{"{{anterior.output}}"}</code> para referenciar o nó conectado antes deste.
-            </p>
-          </div>
+          {kind !== "modeling" && (
+            <div>
+              <Label className="text-xs">{kind === "audio" ? "Roteiro da fala" : kind === "prompt" ? "Prompt / texto" : "Prompt"}</Label>
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={6}
+                className="mt-1 text-sm leading-6"
+                placeholder={kind === "audio" ? "O que o narrador vai falar…" : "Descreva a cena…"}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Use <code className="text-primary">{"{{anterior.output}}"}</code> para o nó anterior, <code className="text-primary">{"{{modelagem.ficha}}"}</code> para a modelagem conectada.
+              </p>
+            </div>
+          )}
 
           {kind === "audio" && (
             <div>
@@ -147,7 +161,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
-            {kind !== "publish" && kind !== "prompt" && (
+            {kind !== "publish" && kind !== "prompt" && kind !== "modeling" && (
               <Button
                 onClick={() => onGenerate(node.id)}
                 disabled={node.data.status === "gerando"}
