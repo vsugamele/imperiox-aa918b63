@@ -237,13 +237,15 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
             ) : (
               <>
                 <div className="grid grid-cols-4 gap-2">
-                  {visibleImages.map(item => (
+                  {visibleImages.map(item => {
+                    const on = picked.has(item.id);
+                    return (
                     <button
                       key={item.id}
                       onClick={() => handlePickImage(item)}
                       className={cn(
-                        "group relative aspect-square rounded-md overflow-hidden border border-border/60 bg-background/40",
-                        "hover:border-pink-500/60 hover:ring-2 hover:ring-pink-500/30 transition"
+                        "group relative aspect-square rounded-md overflow-hidden border bg-background/40 transition",
+                        on ? "border-pink-500 ring-2 ring-pink-500/50" : "border-border/60 hover:border-pink-500/60 hover:ring-2 hover:ring-pink-500/30"
                       )}
                       title={item.title}
                     >
@@ -253,11 +255,14 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
+                      {multi && on && (
+                        <div className="absolute top-1 right-1 bg-pink-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center">✓</div>
+                      )}
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1">
                         <p className="text-[10px] text-white truncate">{item.title}</p>
                       </div>
                     </button>
-                  ))}
+                  );})}
                 </div>
                 {filteredImages.length > limit && (
                   <button
