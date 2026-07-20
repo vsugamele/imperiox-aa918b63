@@ -26063,6 +26063,91 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_studio_publications: {
+        Row: {
+          caption: string | null
+          channel: string
+          created_at: string
+          error: string | null
+          id: string
+          media_kind: string | null
+          media_url: string | null
+          meta: Json | null
+          node_id: string | null
+          produto_idx: number | null
+          projeto_id: string | null
+          published_at: string | null
+          scheduled_at: string | null
+          source_node_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          workflow_id: string
+        }
+        Insert: {
+          caption?: string | null
+          channel?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          media_kind?: string | null
+          media_url?: string | null
+          meta?: Json | null
+          node_id?: string | null
+          produto_idx?: number | null
+          projeto_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_node_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workflow_id: string
+        }
+        Update: {
+          caption?: string | null
+          channel?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          media_kind?: string | null
+          media_url?: string | null
+          meta?: Json | null
+          node_id?: string | null
+          produto_idx?: number | null
+          projeto_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_node_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_publications_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_publications_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_publications_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_studio_reference_models: {
         Row: {
           created_at: string

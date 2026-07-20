@@ -56,7 +56,7 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
   return { ok: false, error: "timeout" };
 }
 
-async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any) {
+async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any, userId?: string) {
   // Modeling / Storyboard: fetch ficha and pass along as output text
   if (node.tipo === "modeling" || node.tipo === "storyboard") {
     const mid = node.config?.model_id;
@@ -67,6 +67,26 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
     }
     const snap = node.config?.ficha_snapshot || {};
     return { ok: true, output_url: JSON.stringify(snap), kind: node.tipo, ficha: snap };
+  }
+
+  // Publish: grava uma linha em imphq_studio_publications com a mídia do nó anterior
+  if (node.tipo === "publish") {
+    const cfg = node.config || {};
+    const url = upstreamOutputs.find(Boolean) || "";
+    if (!url) return { ok: false, error: "sem mídia a montante para publicar" };
+    let mediaKind: string = "image";
+    if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)) mediaKind = "video";
+    else if (/\.(mp3|wav|ogg|m4a)(\?|$)/i.test(url)) mediaKind = "audio";
+    const scheduledAt = cfg.scheduled_at ? new Date(cfg.scheduled_at).toISOString() : null;
+    const channel = cfg.channel || "salvar";
+    const status = scheduledAt ? "agendado" : (channel !== "salvar" ? "pendente" : "rascunho");
+    const { data: pub, error } = await admin.from("imphq_studio_publications").insert({
+      user_id: userId, workflow_id: workflowId, node_id: node.id,
+      projeto_id: projetoId, media_url: url, media_kind: mediaKind,
+      caption: cfg.caption || "", channel, scheduled_at: scheduledAt, status,
+    }).select("id").single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, output_url: url, kind: "publish", publication_id: pub?.id };
   }
 
   const kind = KIND_BY_TIPO[node.tipo];
@@ -249,7 +269,7 @@ Deno.serve(async (req) => {
         const upIds = incoming[nid] || [];
         let ficha: any = undefined;
         for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
-        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha);
+        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha, userId);
         const duration = Date.now() - t0;
         if (!res.ok) {
           await admin.from("imphq_studio_canvas_nodes").update({
