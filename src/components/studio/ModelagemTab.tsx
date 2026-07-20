@@ -72,12 +72,17 @@ export function ModelagemTab() {
   };
 
   const analyze = async () => {
-    if (selected.size === 0) { toast.error("Selecione pelo menos 1 referência"); return; }
+    const total = selected.size + external.length;
+    if (total === 0) { toast.error("Selecione pelo menos 1 referência"); return; }
     setLoading(true);
     try {
-      const assets = refs.filter((r) => selected.has(r.id)).map((r) => ({
+      const fromLib = refs.filter((r) => selected.has(r.id)).map((r) => ({
         url: r.thumbnail_url ?? r.url, title: r.titulo ?? "", kind: "image",
       }));
+      const fromExt = external.map((e) => ({
+        url: e.thumbnail ?? e.url, title: e.title, kind: e.kind === "site" ? "image" : e.kind,
+      }));
+      const assets = [...fromLib, ...fromExt];
       const { data, error } = await supabase.functions.invoke("studio-analyze-references", {
         body: { assets, contexto: briefing },
       });
