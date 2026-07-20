@@ -26198,6 +26198,9 @@ export type Database = {
           name: string
           produto_idx: number | null
           projeto_id: string | null
+          run_finished_at: string | null
+          run_started_at: string | null
+          run_status: string
           steps: Json
           template_key: string | null
           updated_at: string
@@ -26209,6 +26212,9 @@ export type Database = {
           name: string
           produto_idx?: number | null
           projeto_id?: string | null
+          run_finished_at?: string | null
+          run_started_at?: string | null
+          run_status?: string
           steps?: Json
           template_key?: string | null
           updated_at?: string
@@ -26220,6 +26226,9 @@ export type Database = {
           name?: string
           produto_idx?: number | null
           projeto_id?: string | null
+          run_finished_at?: string | null
+          run_started_at?: string | null
+          run_status?: string
           steps?: Json
           template_key?: string | null
           updated_at?: string

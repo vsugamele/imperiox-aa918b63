@@ -176,7 +176,12 @@ Deno.serve(async (req) => {
     const costMap = new Map<string, number>();
     for (const c of (costRows || [])) costMap.set(`${c.provider}:${c.model}`, Number(c.cost_credits));
 
-    (async () => {
+    // Marca workflow como rodando
+    await admin.from("imphq_studio_workflows").update({
+      run_status: "running", run_started_at: new Date().toISOString(), run_finished_at: null,
+    }).eq("id", workflowId);
+
+    const runAsync = async () => {
       const outputs: Record<string, string> = {};
       const modelingFichas: Record<string, any> = {};
       for (const n of nodes) {
@@ -188,7 +193,6 @@ Deno.serve(async (req) => {
       let targetIds: string[];
       if (singleNodeId) targetIds = [singleNodeId];
       else if (startNodeId) {
-        // start_node_id + tudo a jusante
         const set = new Set<string>();
         const walk = (id: string) => { if (set.has(id)) return; set.add(id); (outgoing[id] || []).forEach(walk); };
         walk(startNodeId);
@@ -197,7 +201,7 @@ Deno.serve(async (req) => {
         targetIds = nodes.map((n: any) => n.id);
       }
 
-      // Ordem topológica
+      // Ordem topológica + set de alvos
       const order: string[] = [];
       const visited = new Set<string>();
       const visit = (id: string) => {
@@ -207,63 +211,85 @@ Deno.serve(async (req) => {
         order.push(id);
       };
       for (const t of targetIds) visit(t);
+      const targetSet = new Set(order);
 
-      await logEvent(admin, workflowId, null, "info", `Iniciando execução (${order.length} nós na fila)`);
-
+      // Agrupa em "waves" por profundidade — nós na mesma wave rodam em paralelo
+      const depth: Record<string, number> = {};
       for (const nid of order) {
-        const n = byId[nid];
-        if (!n) continue;
+        const ups = (incoming[nid] || []).filter(u => targetSet.has(u));
+        depth[nid] = ups.length ? Math.max(...ups.map(u => (depth[u] ?? 0))) + 1 : 0;
+      }
+      const waves: string[][] = [];
+      for (const nid of order) {
+        const d = depth[nid];
+        (waves[d] ||= []).push(nid);
+      }
 
+      await logEvent(admin, workflowId, null, "info", `Iniciando execução (${order.length} nós em ${waves.length} ondas paralelas)`);
+
+      const isCanceled = async (): Promise<boolean> => {
+        const { data: w } = await admin.from("imphq_studio_workflows").select("run_status").eq("id", workflowId).single();
+        return w?.run_status === "canceling" || w?.run_status === "canceled";
+      };
+
+      const processNode = async (nid: string) => {
+        const n = byId[nid]; if (!n) return;
         const ups = (incoming[nid] || []).map(id => outputs[id]).filter(Boolean);
-
-        // Cache: se hash da config + hash das entradas bate, reaproveita
         const configHash = await sha256({ tipo: n.tipo, config: n.config, ups });
         if (!forceRerun && n.status === "gerado" && n.output?.url && n.config_hash === configHash) {
           outputs[nid] = n.output.url;
           await logEvent(admin, workflowId, nid, "info", `cache hit — reaproveitou output`, { hash: configHash.slice(0, 8) });
-          continue;
+          return;
         }
-
         const cfg = n.config || {};
         const estCost = costMap.get(`${cfg.provider || "kie"}:${cfg.model || ""}`) || 0;
-
         await admin.from("imphq_studio_canvas_nodes").update({ status: "gerando", config_hash: configHash }).eq("id", nid);
         await logEvent(admin, workflowId, nid, "info", `▶ ${n.tipo} · ${cfg.model || "—"}${estCost ? ` (~${estCost} créditos)` : ""}`);
-
         const t0 = Date.now();
-        // Resolver ficha de modelagem: primeiro upstream que seja modeling
         const upIds = incoming[nid] || [];
         let ficha: any = undefined;
         for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
         const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha);
         const duration = Date.now() - t0;
-
         if (!res.ok) {
           await admin.from("imphq_studio_canvas_nodes").update({
-            status: "erro",
-            output: { error: res.error },
-            duration_ms: duration,
+            status: "erro", output: { error: res.error }, duration_ms: duration,
           }).eq("id", nid);
           await logEvent(admin, workflowId, nid, "error", `✗ falhou: ${res.error}`, { duration_ms: duration });
-          if (!runAll && !startNodeId) return;
-          continue;
+          return;
         }
         outputs[nid] = res.output_url || "";
         if (res.ficha) modelingFichas[nid] = res.ficha;
         await admin.from("imphq_studio_canvas_nodes").update({
           status: "gerado",
           output: res.ficha ? { url: res.output_url, kind: res.kind, ficha: res.ficha } : { url: res.output_url, kind: res.kind },
-          duration_ms: duration,
-          cost_actual: estCost,
+          duration_ms: duration, cost_actual: estCost,
         }).eq("id", nid);
         await logEvent(admin, workflowId, nid, "success", `✓ pronto em ${(duration / 1000).toFixed(1)}s`, { duration_ms: duration, cost: estCost });
+      };
+
+      let canceled = false;
+      for (let i = 0; i < waves.length; i++) {
+        const wave = waves[i] || [];
+        if (await isCanceled()) { canceled = true; break; }
+        if (wave.length > 1) await logEvent(admin, workflowId, null, "info", `Onda ${i + 1}/${waves.length}: ${wave.length} nós em paralelo`);
+        await Promise.all(wave.map(processNode));
       }
 
-      await logEvent(admin, workflowId, null, "success", `Execução concluída`);
-    })().catch(async (e) => {
+      await admin.from("imphq_studio_workflows").update({
+        run_status: canceled ? "canceled" : "idle",
+        run_finished_at: new Date().toISOString(),
+      }).eq("id", workflowId);
+      await logEvent(admin, workflowId, null, canceled ? "warn" : "success", canceled ? "Execução cancelada" : "Execução concluída");
+    };
+
+    // @ts-ignore
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(runAsync().catch(async (e) => {
       console.error("studio-canvas-run fatal:", e);
       await logEvent(admin, workflowId, null, "error", `fatal: ${e?.message || e}`);
-    });
+      await admin.from("imphq_studio_workflows").update({ run_status: "idle", run_finished_at: new Date().toISOString() }).eq("id", workflowId);
+    }));
+    else runAsync().catch((e) => console.error("studio-canvas-run fatal:", e));
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
