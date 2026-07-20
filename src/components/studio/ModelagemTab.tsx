@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Film, Wand2, FolderOpen, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, Film, Wand2, FolderOpen, CheckCircle2, Library, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ReferenciasPicker, type PickerSelection } from "@/components/funis/ReferenciasPicker";
 
 type Ref = { id: string; url: string; titulo: string | null; thumbnail_url: string | null; tipo: string | null };
 type Model = {
