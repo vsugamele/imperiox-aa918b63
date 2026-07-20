@@ -251,6 +251,14 @@ export function ModelagemTab() {
           </button>
         ))}
       </div>
+
+      <ReferenciasPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={() => {}}
+        multi
+        onConfirm={(items) => setExternal(prev => [...prev, ...items])}
+      />
     </div>
   );
 }
