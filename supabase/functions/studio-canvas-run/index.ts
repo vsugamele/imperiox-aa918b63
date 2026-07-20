@@ -57,16 +57,16 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
 }
 
 async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any) {
-  // Modeling node: fetch ficha and pass along as output text
-  if (node.tipo === "modeling") {
+  // Modeling / Storyboard: fetch ficha and pass along as output text
+  if (node.tipo === "modeling" || node.tipo === "storyboard") {
     const mid = node.config?.model_id;
     if (mid) {
-      const { data: m } = await admin.from("imphq_studio_reference_models").select("ficha").eq("id", mid).single();
-      const ficha = m?.ficha || node.config?.ficha_snapshot || {};
-      return { ok: true, output_url: JSON.stringify(ficha), kind: "modeling", ficha };
+      const { data: m } = await admin.from("imphq_studio_reference_models").select("ficha,storyboard").eq("id", mid).single();
+      const ficha = { ...(m?.ficha || node.config?.ficha_snapshot || {}), ...(node.tipo === "storyboard" ? { storyboard: m?.storyboard || [] } : {}) };
+      return { ok: true, output_url: JSON.stringify(ficha), kind: node.tipo, ficha };
     }
     const snap = node.config?.ficha_snapshot || {};
-    return { ok: true, output_url: JSON.stringify(snap), kind: "modeling", ficha: snap };
+    return { ok: true, output_url: JSON.stringify(snap), kind: node.tipo, ficha: snap };
   }
 
   const kind = KIND_BY_TIPO[node.tipo];
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       const modelingFichas: Record<string, any> = {};
       for (const n of nodes) {
         if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
-        if (n.tipo === "modeling" && n.output?.ficha) modelingFichas[n.id] = n.output.ficha;
+        if ((n.tipo === "modeling" || n.tipo === "storyboard") && n.output?.ficha) modelingFichas[n.id] = n.output.ficha;
       }
 
       // Determinar alvos
