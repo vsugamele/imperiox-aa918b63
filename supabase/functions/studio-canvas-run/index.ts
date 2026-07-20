@@ -12,11 +12,15 @@ const KIND_BY_TIPO: Record<string, "image" | "video" | "audio"> = {
   image: "image", video: "video", audio: "audio", avatar: "video",
 };
 
-function resolvePrompt(text: string, upstreamOutputs: string[]): string {
+function resolvePrompt(text: string, upstreamOutputs: string[], modelingFicha?: any): string {
   if (!text) return text;
   const first = upstreamOutputs[0] || "";
+  const fichaStr = modelingFicha ? JSON.stringify(modelingFicha) : "";
+  const fichaResumo = modelingFicha?.modelagem_resumo || fichaStr;
   return text
     .replace(/\{\{anterior\.output\}\}/g, first)
+    .replace(/\{\{modelagem\.ficha\}\}/g, fichaStr)
+    .replace(/\{\{modelagem\.resumo\}\}/g, fichaResumo)
     .replace(/\{\{upstream\.(\d+)\.output\}\}/g, (_, i) => upstreamOutputs[Number(i)] || "");
 }
 
@@ -52,14 +56,26 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
   return { ok: false, error: "timeout" };
 }
 
-async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string) {
+async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any) {
+  // Modeling node: fetch ficha and pass along as output text
+  if (node.tipo === "modeling") {
+    const mid = node.config?.model_id;
+    if (mid) {
+      const { data: m } = await admin.from("imphq_studio_reference_models").select("ficha").eq("id", mid).single();
+      const ficha = m?.ficha || node.config?.ficha_snapshot || {};
+      return { ok: true, output_url: JSON.stringify(ficha), kind: "modeling", ficha };
+    }
+    const snap = node.config?.ficha_snapshot || {};
+    return { ok: true, output_url: JSON.stringify(snap), kind: "modeling", ficha: snap };
+  }
+
   const kind = KIND_BY_TIPO[node.tipo];
   if (!kind) {
     const text = node.config?.texto || node.config?.prompt || "";
-    return { ok: true, output_url: resolvePrompt(text, upstreamOutputs), kind: "text" };
+    return { ok: true, output_url: resolvePrompt(text, upstreamOutputs, modelingFicha), kind: "text" };
   }
   const cfg = node.config || {};
-  const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs);
+  const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs, modelingFicha);
   const params: Record<string, any> = { ...(cfg.params || {}) };
 
   // Referências visuais (fotos/vídeos anexados no drawer do bloco)
