@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers, Wand2, Sparkles } from "lucide-react";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers, Wand2, Sparkles, Square, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ function InnerCanvas() {
   const [modelagemOpen, setModelagemOpen] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
+  const [runStatus, setRunStatus] = useState<string>("idle");
   const rf = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +135,10 @@ function InnerCanvas() {
   // Realtime
   useEffect(() => {
     if (!workflowId) return;
+    // fetch initial run_status
+    (supabase.from("imphq_studio_workflows") as any).select("run_status").eq("id", workflowId).maybeSingle().then(({ data }: any) => {
+      if (data?.run_status) setRunStatus(data.run_status);
+    });
     const ch = supabase
       .channel(`studio-canvas-${workflowId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
@@ -142,6 +147,10 @@ function InnerCanvas() {
           ...x,
           data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
         } : x));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_workflows", filter: `id=eq.${workflowId}` }, (payload) => {
+        const w = payload.new as any;
+        if (w?.run_status) setRunStatus(w.run_status);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -267,6 +276,30 @@ function InnerCanvas() {
 
   const runAll = () => openCostDialog(undefined);
   const runFromNode = (nodeId: string) => openCostDialog(nodeId);
+
+  const cancelRun = async () => {
+    if (!workflowId) return;
+    await (supabase.from("imphq_studio_workflows") as any).update({ run_status: "canceling" }).eq("id", workflowId);
+    toast.info("Cancelando… as ondas em execução vão terminar");
+  };
+
+  const retryFailed = async () => {
+    if (!workflowId) return;
+    const failed = nodes.filter(n => (n.data as any)?.status === "erro");
+    if (!failed.length) { toast.info("Nenhum bloco com erro"); return; }
+    setRunning(true);
+    try {
+      // roda cada bloco falho com force_rerun; downstream é considerado se o usuário quiser individualmente
+      for (const n of failed) {
+        await supabase.functions.invoke("studio-canvas-run", {
+          body: { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, start_node_id: n.id, force_rerun: true },
+        });
+      }
+      toast.success(`Reprocessando ${failed.length} bloco(s) que falharam`);
+    } catch (e: any) {
+      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } finally { setRunning(false); }
+  };
 
   const plantGraph = useCallback(async (payload: {
     nodes: { tipo: string; position?: { x: number; y: number }; config?: any; titulo?: string; prompt?: string }[];
@@ -482,10 +515,22 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
-          <Button size="sm" onClick={runAll} disabled={!workflowId || running} className="h-8 gap-1.5">
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            Executar tudo
-          </Button>
+          {nodes.some(n => (n.data as any)?.status === "erro") && runStatus !== "running" && (
+            <Button size="sm" variant="outline" onClick={retryFailed} disabled={!workflowId || running} className="h-8 gap-1.5 text-xs" title="Reprocessar apenas os blocos que falharam">
+              <RotateCcw className="h-3.5 w-3.5" /> Retomar falhas
+            </Button>
+          )}
+          {runStatus === "running" || runStatus === "canceling" ? (
+            <Button size="sm" variant="destructive" onClick={cancelRun} disabled={runStatus === "canceling"} className="h-8 gap-1.5">
+              {runStatus === "canceling" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Square className="h-3.5 w-3.5" />}
+              {runStatus === "canceling" ? "Cancelando…" : "Cancelar"}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={runAll} disabled={!workflowId || running} className="h-8 gap-1.5">
+              {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+              Executar tudo
+            </Button>
+          )}
         </div>
 
         <div ref={wrapperRef} className="flex-1 rounded-lg border border-border/60 bg-[#050304] overflow-hidden relative"
