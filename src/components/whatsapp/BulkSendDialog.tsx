@@ -226,7 +226,7 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
         </div>
         <DialogFooter>
           <Button onClick={send} disabled={sending}>
-            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({contactMode === "leads" ? selected.length : manualCount})</>}
+            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({contactMode === "leads" ? selected.length : contactMode === "audience" ? audienceSample.length : manualCount})</>}
           </Button>
         </DialogFooter>
       </DialogContent>
