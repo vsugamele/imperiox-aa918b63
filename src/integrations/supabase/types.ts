@@ -26943,6 +26943,90 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ugc_jobs: {
+        Row: {
+          actor_ref_url: string | null
+          age_bracket: string | null
+          casting_image_url: string | null
+          casting_json: Json | null
+          clip1_json: Json | null
+          clip1_url: string | null
+          clip2_json: Json | null
+          clip2_url: string | null
+          cost_usd: number | null
+          created_at: string
+          current_step: string | null
+          error: string | null
+          final_916_url: string | null
+          gate_errors: Json | null
+          id: string
+          lane: string | null
+          produto: string
+          project_id: string
+          research_leads: string | null
+          script_json: Json | null
+          seam_metric: number | null
+          status: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actor_ref_url?: string | null
+          age_bracket?: string | null
+          casting_image_url?: string | null
+          casting_json?: Json | null
+          clip1_json?: Json | null
+          clip1_url?: string | null
+          clip2_json?: Json | null
+          clip2_url?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          current_step?: string | null
+          error?: string | null
+          final_916_url?: string | null
+          gate_errors?: Json | null
+          id?: string
+          lane?: string | null
+          produto: string
+          project_id: string
+          research_leads?: string | null
+          script_json?: Json | null
+          seam_metric?: number | null
+          status?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          actor_ref_url?: string | null
+          age_bracket?: string | null
+          casting_image_url?: string | null
+          casting_json?: Json | null
+          clip1_json?: Json | null
+          clip1_url?: string | null
+          clip2_json?: Json | null
+          clip2_url?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          current_step?: string | null
+          error?: string | null
+          final_916_url?: string | null
+          gate_errors?: Json | null
+          id?: string
+          lane?: string | null
+          produto?: string
+          project_id?: string
+          research_leads?: string | null
+          script_json?: Json | null
+          seam_metric?: number | null
+          status?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_user_roles: {
         Row: {
           created_at: string
