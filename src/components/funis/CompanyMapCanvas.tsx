@@ -1720,6 +1720,8 @@ function InnerMap({ projects }: { projects: any[] }) {
           </ViewportPortal>
         )}
       </ReactFlow>
+      {mapId && <PresenceCursors mapId={mapId} />}
+
 
 
       {/* Strategic gaps floating panel */}
@@ -1919,6 +1921,10 @@ function InnerMap({ projects }: { projects: any[] }) {
                   </SelectContent>
                 </Select>
               </div>
+              <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => setCommentsTarget({ id: selected.id, label: selected.label })}>
+                <MessageSquare className="h-3.5 w-3.5" /> Comentários
+              </Button>
+
               <div>
                 <Label className="text-xs">Rótulo</Label>
                 <Input value={selected.label} onChange={e => setSelected({ ...selected, label: e.target.value })} />
