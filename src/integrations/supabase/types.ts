@@ -25730,6 +25730,7 @@ export type Database = {
       }
       imphq_studio_canvas_nodes: {
         Row: {
+          batch_group_id: string | null
           cached_from_hash: string | null
           config: Json
           config_hash: string | null
@@ -25737,15 +25738,22 @@ export type Database = {
           created_at: string
           duration_ms: number | null
           id: string
+          is_variant_winner: boolean
           output: Json
           position: Json
           status: string
           tipo: string
           titulo: string | null
           updated_at: string
+          variant_angulo: string | null
+          variant_label: string | null
+          variant_of: string | null
+          variant_score: number | null
+          variant_score_data: Json | null
           workflow_id: string
         }
         Insert: {
+          batch_group_id?: string | null
           cached_from_hash?: string | null
           config?: Json
           config_hash?: string | null
@@ -25753,15 +25761,22 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           id?: string
+          is_variant_winner?: boolean
           output?: Json
           position?: Json
           status?: string
           tipo: string
           titulo?: string | null
           updated_at?: string
+          variant_angulo?: string | null
+          variant_label?: string | null
+          variant_of?: string | null
+          variant_score?: number | null
+          variant_score_data?: Json | null
           workflow_id: string
         }
         Update: {
+          batch_group_id?: string | null
           cached_from_hash?: string | null
           config?: Json
           config_hash?: string | null
@@ -25769,15 +25784,28 @@ export type Database = {
           created_at?: string
           duration_ms?: number | null
           id?: string
+          is_variant_winner?: boolean
           output?: Json
           position?: Json
           status?: string
           tipo?: string
           titulo?: string | null
           updated_at?: string
+          variant_angulo?: string | null
+          variant_label?: string | null
+          variant_of?: string | null
+          variant_score?: number | null
+          variant_score_data?: Json | null
           workflow_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_nodes_variant_of_fkey"
+            columns: ["variant_of"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_studio_canvas_nodes_workflow_id_fkey"
             columns: ["workflow_id"]
