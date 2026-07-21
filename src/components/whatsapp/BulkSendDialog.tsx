@@ -151,7 +151,8 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
 
           <Tabs value={contactMode} onValueChange={v => setContactMode(v as any)}>
             <TabsList className="w-full">
-              <TabsTrigger value="leads" className="flex-1">Leads cadastrados</TabsTrigger>
+              <TabsTrigger value="leads" className="flex-1">Leads</TabsTrigger>
+              <TabsTrigger value="audience" className="flex-1">🎯 Segmento</TabsTrigger>
               <TabsTrigger value="manual" className="flex-1">Colar números</TabsTrigger>
             </TabsList>
 
@@ -173,6 +174,25 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
                 {leads.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead com telefone</p>}
               </ScrollArea>
             </TabsContent>
+
+            <TabsContent value="audience">
+              {audienceProjectId ? (
+                <AudiencePreviewPanel
+                  projectId={audienceProjectId}
+                  value={audienceFilters}
+                  onChange={(f, sample) => {
+                    setAudienceFilters(f);
+                    setAudienceSample(sample);
+                  }}
+                  compact
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground p-4 text-center">
+                  Selecione um provider acima para segmentar a audiência.
+                </p>
+              )}
+            </TabsContent>
+
 
             <TabsContent value="manual">
               <Label>Cole os números (um por linha)</Label>
