@@ -147,8 +147,15 @@ function InnerCanvas() {
         const n = payload.new as any;
         setNodes(prev => prev.map(x => x.id === n.id ? {
           ...x,
-          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
+          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
         } : x));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
+        const n = payload.new as any;
+        setNodes(prev => prev.some(x => x.id === n.id) ? prev : [...prev, {
+          id: n.id, type: "block", position: n.position || { x: 200, y: 200 },
+          data: { id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output || {}, status: n.status, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
+        }]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_workflows", filter: `id=eq.${workflowId}` }, (payload) => {
         const w = payload.new as any;
