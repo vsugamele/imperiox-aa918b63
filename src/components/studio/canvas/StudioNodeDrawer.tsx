@@ -10,6 +10,7 @@ import { CANVAS_BLOCKS } from "./blockTypes";
 import { ReferenceUploader } from "./ReferenceUploader";
 import { ModelingNodePanel } from "./ModelingNodePanel";
 import { StoryboardNodePanel } from "./StoryboardNodePanel";
+import { BatchVariationsPanel } from "./BatchVariationsPanel";
 
 interface Props {
   node: any | null;
