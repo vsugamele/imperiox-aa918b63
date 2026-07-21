@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
+import AudiencePreviewPanel, { type AudienceFilters } from "./AudiencePreviewPanel";
 
 interface Props {
   open: boolean;
@@ -29,7 +30,9 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [manualNumbers, setManualNumbers] = useState("");
-  const [contactMode, setContactMode] = useState<"leads" | "manual">("leads");
+  const [contactMode, setContactMode] = useState<"leads" | "manual" | "audience">("leads");
+  const [audienceFilters, setAudienceFilters] = useState<AudienceFilters>({});
+  const [audienceSample, setAudienceSample] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -55,6 +58,11 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
         name: l.nome || "",
       }));
     }
+    if (contactMode === "audience") {
+      return audienceSample
+        .map((r: any) => ({ phone: (r.phone || "").replace(/\D/g, ""), name: r.contact_name || r.nome || "" }))
+        .filter((c) => c.phone.length >= 8);
+    }
     // Parse manual numbers: one per line, format "number" or "number - name"
     return manualNumbers
       .split("\n")
@@ -68,6 +76,11 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
       })
       .filter(c => c.phone.length >= 8);
   };
+
+  const audienceProjectId = useMemo(
+    () => providers.find(p => p.id === providerId)?.project_id || "",
+    [providers, providerId]
+  );
 
   const send = async () => {
     if (!providerId) { toast.error("Selecione um provider"); return; }
@@ -138,7 +151,8 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
 
           <Tabs value={contactMode} onValueChange={v => setContactMode(v as any)}>
             <TabsList className="w-full">
-              <TabsTrigger value="leads" className="flex-1">Leads cadastrados</TabsTrigger>
+              <TabsTrigger value="leads" className="flex-1">Leads</TabsTrigger>
+              <TabsTrigger value="audience" className="flex-1">🎯 Segmento</TabsTrigger>
               <TabsTrigger value="manual" className="flex-1">Colar números</TabsTrigger>
             </TabsList>
 
@@ -160,6 +174,25 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
                 {leads.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead com telefone</p>}
               </ScrollArea>
             </TabsContent>
+
+            <TabsContent value="audience">
+              {audienceProjectId ? (
+                <AudiencePreviewPanel
+                  projectId={audienceProjectId}
+                  value={audienceFilters}
+                  onChange={(f, sample) => {
+                    setAudienceFilters(f);
+                    setAudienceSample(sample);
+                  }}
+                  compact
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground p-4 text-center">
+                  Selecione um provider acima para segmentar a audiência.
+                </p>
+              )}
+            </TabsContent>
+
 
             <TabsContent value="manual">
               <Label>Cole os números (um por linha)</Label>
@@ -193,7 +226,7 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
         </div>
         <DialogFooter>
           <Button onClick={send} disabled={sending}>
-            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({contactMode === "leads" ? selected.length : manualCount})</>}
+            {sending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Enviando...</> : <><Send className="h-4 w-4 mr-1" /> Disparar ({contactMode === "leads" ? selected.length : contactMode === "audience" ? audienceSample.length : manualCount})</>}
           </Button>
         </DialogFooter>
       </DialogContent>
