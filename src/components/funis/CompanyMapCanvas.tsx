@@ -2235,6 +2235,14 @@ function InnerMap({ projects }: { projects: any[] }) {
         </DialogContent>
       </Dialog>
       <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
+      {mapId && (
+        <MapCommentsPanel
+          mapId={mapId}
+          targetId={commentsTarget?.id || null}
+          targetLabel={commentsTarget?.label}
+          onClose={() => setCommentsTarget(null)}
+        />
+      )}
 
     </div>
   );
