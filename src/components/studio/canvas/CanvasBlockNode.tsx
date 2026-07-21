@@ -42,7 +42,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
       status === "gerando" && "animate-pulse ring-2 ring-blue-400/60 shadow-lg shadow-blue-400/30",
       status === "erro" && "ring-1 ring-rose-500/60",
     )}>
-      <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />
+      {!isMedia && <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />}
       <Handle type="source" position={Position.Right} style={{ background: kindColor, width: 10, height: 10 }} />
 
       <button
@@ -53,24 +53,31 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
         <X className="h-3 w-3" />
       </button>
 
-
-
-
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-base">{meta?.icon}</span>
         <span className="text-xs font-semibold truncate flex-1">{d.titulo || meta?.label}</span>
         {status === "gerando" && <Loader2 className="h-3 w-3 animate-spin text-blue-400" />}
-        {status === "gerado" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+        {status === "gerado" && !isMedia && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
         {status === "erro" && <AlertCircle className="h-3 w-3 text-rose-400" />}
       </div>
 
-      {preview && output.kind === "image" && (
-        <img src={preview} alt="" className="w-full h-20 object-cover rounded mb-1" />
+      {isMedia && !preview && (
+        <button
+          onClick={(e) => { e.stopPropagation(); d.onOpenDrawer?.(d.id); }}
+          className="w-full h-24 rounded border-2 border-dashed border-slate-500/40 flex flex-col items-center justify-center gap-1 text-[10px] text-muted-foreground hover:border-primary/60 hover:text-primary transition mb-1"
+        >
+          <ImagePlus className="h-4 w-4" />
+          Escolher mídia
+        </button>
       )}
-      {preview && output.kind === "video" && (
-        <video src={preview} className="w-full h-20 object-cover rounded mb-1" muted />
+
+      {preview && (previewKind === "image" || (isMedia && previewKind !== "video")) && (
+        <img src={preview} alt="" className="w-full h-24 object-cover rounded mb-1" />
       )}
-      {preview && output.kind === "audio" && (
+      {preview && previewKind === "video" && (
+        <video src={preview} className="w-full h-24 object-cover rounded mb-1" muted />
+      )}
+      {preview && previewKind === "audio" && (
         <div className="text-[10px] text-emerald-400 mb-1 truncate">🎵 áudio pronto</div>
       )}
 
