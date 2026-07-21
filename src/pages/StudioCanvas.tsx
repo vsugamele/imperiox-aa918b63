@@ -540,6 +540,40 @@ function InnerCanvas() {
     if (n) setDrawerNode(n);
   }, [rf]);
 
+  const focusNode = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (!n) return;
+    rf.setCenter((n.position?.x || 0) + 100, (n.position?.y || 0) + 60, { zoom: 1.1, duration: 500 });
+    setNodes(ns => ns.map(x => ({ ...x, selected: x.id === id })));
+  }, [rf, setNodes]);
+
+  const promoteVariant = useCallback(async (winnerId: string, baseId: string) => {
+    if (!workflowId) return;
+    // Reroute downstream edges: base → X viram winner → X
+    const { data: outEdges } = await supabase.from("imphq_studio_canvas_edges")
+      .select("*").eq("workflow_id", workflowId).eq("source_id", baseId);
+    for (const e of (outEdges || [])) {
+      // Se já existe edge winner→target, apenas apaga base→target
+      const { data: existing } = await supabase.from("imphq_studio_canvas_edges")
+        .select("id").eq("workflow_id", workflowId).eq("source_id", winnerId).eq("target_id", e.target_id).maybeSingle();
+      if (existing) {
+        await supabase.from("imphq_studio_canvas_edges").delete().eq("id", e.id);
+      } else {
+        await supabase.from("imphq_studio_canvas_edges").update({ source_id: winnerId }).eq("id", e.id);
+      }
+    }
+    // Recarrega edges
+    const { data: edgeRows } = await supabase.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", workflowId);
+    const nodeTipoMap = new Map<string, string>();
+    nodes.forEach(n => nodeTipoMap.set(n.id, (n.data as any)?.tipo || ""));
+    const newEdges: Edge[] = ((edgeRows || []) as any[]).map(e => {
+      const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+      return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+    });
+    setEdges(newEdges);
+    focusNode(winnerId);
+  }, [workflowId, nodes, setEdges, focusNode]);
+
   // Rastreia posição do cursor sobre o canvas para colar no ponto exato
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
