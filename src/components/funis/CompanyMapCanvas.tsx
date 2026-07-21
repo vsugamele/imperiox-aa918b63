@@ -30,6 +30,8 @@ import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, dete
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 import { ReferenciasPicker } from "./ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
+import { PresenceCursors } from "./PresenceCursors";
+import { MapCommentsPanel } from "./MapCommentsPanel";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -401,6 +403,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, []);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
+  const [commentsTarget, setCommentsTarget] = useState<{ id: string; label?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
   const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
@@ -1717,6 +1720,8 @@ function InnerMap({ projects }: { projects: any[] }) {
           </ViewportPortal>
         )}
       </ReactFlow>
+      {mapId && <PresenceCursors mapId={mapId} />}
+
 
 
       {/* Strategic gaps floating panel */}
@@ -1916,6 +1921,10 @@ function InnerMap({ projects }: { projects: any[] }) {
                   </SelectContent>
                 </Select>
               </div>
+              <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => setCommentsTarget({ id: selected.id, label: selected.label })}>
+                <MessageSquare className="h-3.5 w-3.5" /> Comentários
+              </Button>
+
               <div>
                 <Label className="text-xs">Rótulo</Label>
                 <Input value={selected.label} onChange={e => setSelected({ ...selected, label: e.target.value })} />
@@ -2226,6 +2235,14 @@ function InnerMap({ projects }: { projects: any[] }) {
         </DialogContent>
       </Dialog>
       <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
+      {mapId && (
+        <MapCommentsPanel
+          mapId={mapId}
+          targetId={commentsTarget?.id || null}
+          targetLabel={commentsTarget?.label}
+          onClose={() => setCommentsTarget(null)}
+        />
+      )}
 
     </div>
   );

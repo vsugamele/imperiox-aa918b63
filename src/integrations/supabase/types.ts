@@ -19740,6 +19740,48 @@ export type Database = {
           },
         ]
       }
+      imphq_company_map_comments: {
+        Row: {
+          author_avatar: string | null
+          author_id: string
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          map_id: string
+          resolved: boolean
+          target_id: string
+          target_kind: string
+          updated_at: string
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_id: string
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          map_id: string
+          resolved?: boolean
+          target_id: string
+          target_kind?: string
+          updated_at?: string
+        }
+        Update: {
+          author_avatar?: string | null
+          author_id?: string
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          map_id?: string
+          resolved?: boolean
+          target_id?: string
+          target_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_company_map_edges: {
         Row: {
           created_at: string
