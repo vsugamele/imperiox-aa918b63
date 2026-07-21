@@ -778,6 +778,8 @@ function InnerCanvas() {
         onUpdate={updateNode}
         onDuplicate={duplicateNode}
         onRunFrom={runFromNode}
+        onPromoteVariant={promoteVariant}
+        onFocusNode={focusNode}
         onExplodeStoryboard={async ({ sourceNodeId, scenes, ficha, targetKind }) => {
           const src = rf.getNode(sourceNodeId);
           const baseX = (src?.position?.x || 400) + 340;
