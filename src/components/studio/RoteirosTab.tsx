@@ -30,6 +30,14 @@ export function RoteirosTab() {
   const [saving, setSaving] = useState(false);
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState<string>("");
+  const [scoring, setScoring] = useState(false);
+  const [score, setScore] = useState<null | {
+    score: number;
+    breakdown: Record<string, number>;
+    veredito: string;
+    diagnostico: string;
+    sugestao: string;
+  }>(null);
 
   const { data: projects = [] } = useProjectList();
   const ctx = useCreativeContext(projectId);
