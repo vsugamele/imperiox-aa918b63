@@ -46,7 +46,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom, onExplodeStoryboard }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom, onExplodeStoryboard, onPromoteVariant, onFocusNode }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
