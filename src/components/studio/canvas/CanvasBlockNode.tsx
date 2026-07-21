@@ -8,9 +8,11 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
   const d = data as any;
   const meta = CANVAS_BLOCKS.find(b => b.id === d.tipo);
   const isProduct = d.tipo === "product";
+  const isMedia = d.tipo === "media";
   const status = d.status || "pendente";
   const output = d.output || {};
-  const preview = output.url || output.image_url || output.video_url || output.audio_url;
+  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? d.config?.url : undefined);
+  const previewKind = output.kind || (isMedia ? d.config?.kind : undefined);
 
   const kindColor = KIND_COLORS[d.tipo] || "#c9922a";
 
@@ -27,6 +29,8 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
       </div>
     );
   }
+
+  const hasMedia = !!preview && (previewKind === "image" || previewKind === "video" || isMedia);
 
   const refCount = (d.config?.reference_urls || []).length;
 
