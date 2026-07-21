@@ -237,6 +237,14 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
+          {onPromoteVariant && ["image", "video", "audio", "avatar", "prompt"].includes(node.data.tipo) && (
+            <BatchVariationsPanel
+              node={node}
+              onPromote={onPromoteVariant}
+              onFocusNode={onFocusNode}
+            />
+          )}
+
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
             {!isMedia && kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
