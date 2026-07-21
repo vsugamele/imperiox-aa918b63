@@ -2,7 +2,7 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { KIND_COLORS } from "@/lib/studioAutoLayout";
-import { Loader2, CheckCircle2, AlertCircle, Sparkles, X } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Sparkles, X, Film, Mic, Send, ImagePlus } from "lucide-react";
 
 export function CanvasBlockNode({ data, selected }: NodeProps) {
   const d = data as any;
