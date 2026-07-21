@@ -117,6 +117,29 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="h-8 mt-1" />
           </div>
 
+          {isMedia && (
+            <div className="rounded-lg border border-slate-500/30 bg-slate-500/5 p-3 space-y-2">
+              <Label className="text-xs">Mídia deste bloco</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Envie do computador ou cole com Ctrl+V. Essa mídia vira o ponto de partida do fluxo — puxe uma seta para animar, narrar ou publicar.
+              </p>
+              <ReferenceUploader
+                urls={node.data.config?.url ? [node.data.config.url] : []}
+                kinds={node.data.config?.url ? [node.data.config?.kind || "image"] : []}
+                onChange={(urls, kinds) => {
+                  const url = urls[urls.length - 1] || "";
+                  const k = kinds[kinds.length - 1] || "image";
+                  const cfg = { ...(node.data.config || {}), url, kind: k };
+                  onUpdate(node.id, {
+                    config: cfg,
+                    status: url ? "gerado" : "pendente",
+                    output: url ? { url, kind: k } : {},
+                  } as any);
+                }}
+              />
+            </div>
+          )}
+
           {kind === "modeling" && (
             <ModelingNodePanel
               modelId={node.data.config?.model_id || null}
