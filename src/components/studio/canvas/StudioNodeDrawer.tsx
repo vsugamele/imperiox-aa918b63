@@ -201,7 +201,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
-          {kind !== "modeling" && kind !== "publish" && kind !== "storyboard" && (
+          {!isMedia && kind !== "modeling" && kind !== "publish" && kind !== "storyboard" && (
             <div>
               <Label className="text-xs">{kind === "audio" ? "Roteiro da fala" : kind === "prompt" ? "Prompt / texto" : "Prompt"}</Label>
               <Textarea
