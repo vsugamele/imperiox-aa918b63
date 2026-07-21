@@ -117,6 +117,7 @@ function InnerCanvas() {
           position: n.position || { x: 200, y: 200 },
           data: {
             id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output, status: n.status,
+            batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner,
           },
         })),
       ];
