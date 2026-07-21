@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Brain, Target, MessageCircle, Phone, Copy, Zap, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { onlyDigits } from "@/lib/phoneVariants";
+const onlyDigits = (s: string) => (s || "").replace(/\D/g, "");
 
 interface Prediction {
   id: string;
