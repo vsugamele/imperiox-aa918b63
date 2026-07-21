@@ -532,27 +532,73 @@ function InnerCanvas() {
     if (n) setDrawerNode(n);
   }, [rf]);
 
-  // Ctrl+V para colar imagem/vídeo do clipboard como nó de mídia
+  // Rastreia posição do cursor sobre o canvas para colar no ponto exato
+  const cursorRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onMove = (e: MouseEvent) => { cursorRef.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { cursorRef.current = null; };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  // Ctrl+V: cola arquivo do clipboard OU URL de mídia, no ponto do cursor
+  useEffect(() => {
+    const MEDIA_URL_RE = /^https?:\/\/[^\s]+\.(png|jpg|jpeg|webp|gif|mp4|webm|mov)(\?[^\s]*)?$/i;
+    const VIDEO_RE = /\.(mp4|webm|mov)(\?|$)/i;
+
     const onPaste = async (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (!workflowId) return;
+
       const items = Array.from(e.clipboardData?.items || []);
       const files = items.map(it => it.getAsFile()).filter((f): f is File => !!f && (f.type.startsWith("image/") || f.type.startsWith("video/")));
-      if (!files.length || !workflowId) return;
+      const text = e.clipboardData?.getData("text")?.trim() || "";
+      const urlMatch = !files.length && MEDIA_URL_RE.test(text);
+
+      if (!files.length && !urlMatch) return;
       e.preventDefault();
-      toast.info(`Colando ${files.length} mídia(s)…`);
-      const center = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-      let i = 0;
-      for (const file of files) {
-        const up = await uploadFileToStudio(file);
-        if (up) await createMediaNode({ ...up, position: { x: center.x + i * 40, y: center.y + i * 40 } });
-        i++;
+
+      // Posição base = cursor sobre canvas, senão centro do viewport
+      const basePoint = cursorRef.current
+        ? rf.screenToFlowPosition(cursorRef.current)
+        : rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+      const createdIds: string[] = [];
+
+      if (urlMatch) {
+        const kind: "image" | "video" = VIDEO_RE.test(text) ? "video" : "image";
+        const node = await createMediaNode({ url: text, kind, position: basePoint, titulo: "Mídia colada (URL)" });
+        if (node?.id) createdIds.push(node.id);
+        toast.success("Mídia colada da URL");
+      } else {
+        const t = toast.loading(`Colando ${files.length} mídia(s)…`);
+        let i = 0;
+        for (const file of files) {
+          const up = await uploadFileToStudio(file);
+          if (up) {
+            const node = await createMediaNode({ ...up, position: { x: basePoint.x + i * 40, y: basePoint.y + i * 40 }, titulo: file.name });
+            if (node?.id) createdIds.push(node.id);
+          }
+          i++;
+        }
+        toast.success(`${createdIds.length} mídia(s) coladas`, { id: t });
+      }
+
+      // Destaca os nós recém-criados
+      if (createdIds.length) {
+        setNodes(ns => ns.map(n => ({ ...n, selected: createdIds.includes(n.id) })));
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [workflowId, rf, uploadFileToStudio, createMediaNode]);
+  }, [workflowId, rf, uploadFileToStudio, createMediaNode, setNodes]);
 
   // Atalhos: Ctrl/Cmd+D duplica nó selecionado
   useEffect(() => {
