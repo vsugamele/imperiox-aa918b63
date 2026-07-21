@@ -27783,6 +27783,45 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_audience_segments: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          filters: Json
+          id: string
+          last_count: number | null
+          last_previewed_at: string | null
+          nome: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          filters?: Json
+          id?: string
+          last_count?: number | null
+          last_previewed_at?: string | null
+          nome: string
+          project_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          filters?: Json
+          id?: string
+          last_count?: number | null
+          last_previewed_at?: string | null
+          nome?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_wa_campaign_logs: {
         Row: {
           campaign_id: string | null
