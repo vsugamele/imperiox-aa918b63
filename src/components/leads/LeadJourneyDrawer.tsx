@@ -70,6 +70,12 @@ export default function LeadJourneyDrawer({ open, onClose, lead, automations = [
           </div>
         )}
 
+        {lead?.id && (
+          <div className="mt-4">
+            <NextBestActionInline lead={lead} />
+          </div>
+        )}
+
         <div className="mt-6 space-y-3">
           {loading && <p className="text-xs text-muted-foreground">Carregando...</p>}
           {!loading && !sorted.length && (
