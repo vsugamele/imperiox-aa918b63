@@ -117,6 +117,7 @@ function InnerCanvas() {
           position: n.position || { x: 200, y: 200 },
           data: {
             id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output, status: n.status,
+            batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner,
           },
         })),
       ];
@@ -146,8 +147,15 @@ function InnerCanvas() {
         const n = payload.new as any;
         setNodes(prev => prev.map(x => x.id === n.id ? {
           ...x,
-          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual },
+          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
         } : x));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
+        const n = payload.new as any;
+        setNodes(prev => prev.some(x => x.id === n.id) ? prev : [...prev, {
+          id: n.id, type: "block", position: n.position || { x: 200, y: 200 },
+          data: { id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output || {}, status: n.status, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
+        }]);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_workflows", filter: `id=eq.${workflowId}` }, (payload) => {
         const w = payload.new as any;
@@ -532,6 +540,40 @@ function InnerCanvas() {
     if (n) setDrawerNode(n);
   }, [rf]);
 
+  const focusNode = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (!n) return;
+    rf.setCenter((n.position?.x || 0) + 100, (n.position?.y || 0) + 60, { zoom: 1.1, duration: 500 });
+    setNodes(ns => ns.map(x => ({ ...x, selected: x.id === id })));
+  }, [rf, setNodes]);
+
+  const promoteVariant = useCallback(async (winnerId: string, baseId: string) => {
+    if (!workflowId) return;
+    // Reroute downstream edges: base → X viram winner → X
+    const { data: outEdges } = await supabase.from("imphq_studio_canvas_edges")
+      .select("*").eq("workflow_id", workflowId).eq("source_id", baseId);
+    for (const e of (outEdges || [])) {
+      // Se já existe edge winner→target, apenas apaga base→target
+      const { data: existing } = await supabase.from("imphq_studio_canvas_edges")
+        .select("id").eq("workflow_id", workflowId).eq("source_id", winnerId).eq("target_id", e.target_id).maybeSingle();
+      if (existing) {
+        await supabase.from("imphq_studio_canvas_edges").delete().eq("id", e.id);
+      } else {
+        await supabase.from("imphq_studio_canvas_edges").update({ source_id: winnerId }).eq("id", e.id);
+      }
+    }
+    // Recarrega edges
+    const { data: edgeRows } = await supabase.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", workflowId);
+    const nodeTipoMap = new Map<string, string>();
+    nodes.forEach(n => nodeTipoMap.set(n.id, (n.data as any)?.tipo || ""));
+    const newEdges: Edge[] = ((edgeRows || []) as any[]).map(e => {
+      const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+      return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+    });
+    setEdges(newEdges);
+    focusNode(winnerId);
+  }, [workflowId, nodes, setEdges, focusNode]);
+
   // Rastreia posição do cursor sobre o canvas para colar no ponto exato
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
@@ -736,6 +778,8 @@ function InnerCanvas() {
         onUpdate={updateNode}
         onDuplicate={duplicateNode}
         onRunFrom={runFromNode}
+        onPromoteVariant={promoteVariant}
+        onFocusNode={focusNode}
         onExplodeStoryboard={async ({ sourceNodeId, scenes, ficha, targetKind }) => {
           const src = rf.getNode(sourceNodeId);
           const baseX = (src?.position?.x || 400) + 340;

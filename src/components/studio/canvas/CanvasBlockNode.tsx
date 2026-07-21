@@ -53,6 +53,17 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
         <X className="h-3 w-3" />
       </button>
 
+      {d.is_variant_winner && (
+        <div className="absolute -top-2.5 -left-2 z-10 bg-amber-400 text-amber-950 rounded-full px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5 shadow-lg shadow-amber-500/50" title="Vencedora do batch">
+          👑 {d.variant_score ?? ""}
+        </div>
+      )}
+      {d.variant_label && !d.is_variant_winner && (
+        <div className="absolute -top-2.5 -left-2 z-10 bg-fuchsia-500/90 text-white rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow" title={`Variante ${d.variant_label}`}>
+          {d.variant_label}{d.variant_score != null && <span className="opacity-70 ml-1">{d.variant_score}</span>}
+        </div>
+      )}
+
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-base">{meta?.icon}</span>
         <span className="text-xs font-semibold truncate flex-1">{d.titulo || meta?.label}</span>

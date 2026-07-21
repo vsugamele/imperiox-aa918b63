@@ -10,6 +10,7 @@ import { CANVAS_BLOCKS } from "./blockTypes";
 import { ReferenceUploader } from "./ReferenceUploader";
 import { ModelingNodePanel } from "./ModelingNodePanel";
 import { StoryboardNodePanel } from "./StoryboardNodePanel";
+import { BatchVariationsPanel } from "./BatchVariationsPanel";
 
 interface Props {
   node: any | null;
@@ -20,6 +21,8 @@ interface Props {
   onDuplicate?: (id: string) => void;
   onRunFrom?: (id: string) => void;
   onExplodeStoryboard?: (opts: { sourceNodeId: string; scenes: any[]; ficha: any; targetKind: "image" | "video" }) => Promise<void>;
+  onPromoteVariant?: (winnerId: string, baseId: string) => Promise<void>;
+  onFocusNode?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
@@ -43,7 +46,7 @@ const MODELS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom, onExplodeStoryboard }: Props) {
+export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate, onDuplicate, onRunFrom, onExplodeStoryboard, onPromoteVariant, onFocusNode }: Props) {
   const [titulo, setTitulo] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
@@ -232,6 +235,14 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
               </p>
               <ReferenceUploader urls={refUrls} kinds={refKinds} onChange={updateRefs} />
             </div>
+          )}
+
+          {onPromoteVariant && ["image", "video", "audio", "avatar", "prompt"].includes(node.data.tipo) && (
+            <BatchVariationsPanel
+              node={node}
+              onPromote={onPromoteVariant}
+              onFocusNode={onFocusNode}
+            />
           )}
 
           <div className="flex gap-2">
