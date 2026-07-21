@@ -21,6 +21,8 @@ interface Props {
   onDuplicate?: (id: string) => void;
   onRunFrom?: (id: string) => void;
   onExplodeStoryboard?: (opts: { sourceNodeId: string; scenes: any[]; ficha: any; targetKind: "image" | "video" }) => Promise<void>;
+  onPromoteVariant?: (winnerId: string, baseId: string) => Promise<void>;
+  onFocusNode?: (id: string) => void;
 }
 
 const MODELS: Record<string, { label: string; value: string }[]> = {
