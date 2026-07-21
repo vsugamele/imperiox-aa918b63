@@ -73,7 +73,8 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   const meta = CANVAS_BLOCKS.find(b => b.id === node.data.tipo);
   const kind = meta?.kind;
   const output = node.data.output || {};
-  const preview = output.url || output.image_url || output.video_url || output.audio_url;
+  const isMedia = node.data.tipo === "media";
+  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? node.data.config?.url : undefined);
   const supportsRefs = kind === "image" || kind === "video" || node.data.tipo === "avatar";
 
   const save = async () => {
