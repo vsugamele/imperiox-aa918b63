@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Check, Save, Sparkles, Loader2, BookOpen } from "lucide-react";
+import { Copy, Check, Save, Sparkles, Loader2, BookOpen, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { ROTEIRO_TEMPLATES, type RoteiroTemplate } from "@/data/studio/roteiroTemplates";
 import { useProjectList } from "@/hooks/useProjectList";
