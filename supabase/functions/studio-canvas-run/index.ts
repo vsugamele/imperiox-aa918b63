@@ -57,6 +57,13 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
 }
 
 async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any, userId?: string) {
+  // Media: bloco de mídia pronta (upload/biblioteca). Só devolve a URL.
+  if (node.tipo === "media") {
+    const url = node.config?.url || node.output?.url || "";
+    if (!url) return { ok: false, error: "sem mídia anexada" };
+    return { ok: true, output_url: url, kind: node.config?.kind || node.output?.kind || "image" };
+  }
+
   // Modeling / Storyboard: fetch ficha and pass along as output text
   if (node.tipo === "modeling" || node.tipo === "storyboard") {
     const mid = node.config?.model_id;
