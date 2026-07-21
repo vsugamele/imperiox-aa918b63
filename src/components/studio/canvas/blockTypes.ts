@@ -3,7 +3,7 @@ export interface CanvasBlockType {
   label: string;
   icon: string;
   desc: string;
-  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard";
+  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard" | "media";
   color: string;
   defaultConfig?: Record<string, any>;
 }
@@ -71,6 +71,15 @@ export const CANVAS_BLOCKS: CanvasBlockType[] = [
     kind: "prompt",
     color: "border-primary/40 bg-primary/5",
     defaultConfig: { texto: "" },
+  },
+  {
+    id: "media",
+    label: "Mídia (upload/biblioteca)",
+    icon: "🎞️",
+    desc: "Foto ou vídeo pronto — vira ponto de partida do fluxo",
+    kind: "media",
+    color: "border-slate-400/40 bg-slate-400/5",
+    defaultConfig: { url: "", kind: "image" },
   },
   {
     id: "publish",

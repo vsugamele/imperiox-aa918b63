@@ -28,7 +28,7 @@ export function autoLayout(nodes: Node[], edges: Edge[], direction: "LR" | "TB" 
 // Regras de compatibilidade entre tipos ao conectar handles
 // key = tipo do nó SOURCE, value = tipos aceitáveis no TARGET
 const CONNECTION_RULES: Record<string, string[]> = {
-  product: ["image", "video", "audio", "prompt", "avatar", "publish", "modeling", "storyboard"],
+  product: ["image", "video", "audio", "prompt", "avatar", "publish", "modeling", "storyboard", "media"],
   modeling: ["image", "video", "prompt", "avatar", "publish", "storyboard"],
   storyboard: ["image", "video", "publish"],
   prompt: ["image", "video", "audio", "prompt", "avatar", "publish"],
@@ -36,6 +36,7 @@ const CONNECTION_RULES: Record<string, string[]> = {
   video: ["publish", "video"],
   audio: ["avatar", "publish", "video"],
   avatar: ["publish"],
+  media: ["video", "avatar", "publish", "image"],
   publish: [],
 };
 
@@ -56,4 +57,5 @@ export const KIND_COLORS: Record<string, string> = {
   product: "#c9922a",
   modeling: "#d946ef",
   storyboard: "#06b6d4",
+  media: "#94a3b8",
 };

@@ -206,11 +206,61 @@ function InnerCanvas() {
     }
   }, []);
 
+  const createMediaNode = useCallback(async (opts: { url: string; kind: "image" | "video"; position: { x: number; y: number }; titulo?: string }) => {
+    if (!workflowId) return null;
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: "media",
+      titulo: opts.titulo || (opts.kind === "video" ? "Vídeo" : "Imagem"),
+      config: { url: opts.url, kind: opts.kind },
+      position: opts.position,
+      status: "gerado",
+      output: { url: opts.url, kind: opts.kind },
+    } as any).select("*").single();
+    if (error) { toast.error(error.message); return null; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position: opts.position,
+      data: { id: data.id, tipo: "media", titulo: data.titulo, config: data.config, output: data.output, status: "gerado" },
+    }]);
+    return data;
+  }, [workflowId, setNodes]);
+
+  const uploadFileToStudio = useCallback(async (file: File): Promise<{ url: string; kind: "image" | "video" } | null> => {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) { toast.error("Faça login"); return null; }
+    const ext = file.name.split(".").pop() || "bin";
+    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("studio-references").upload(path, file, {
+      contentType: file.type, upsert: false,
+    });
+    if (error) { toast.error(error.message); return null; }
+    const { data: signed } = await supabase.storage.from("studio-references").createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (!signed?.signedUrl) return null;
+    return { url: signed.signedUrl, kind: file.type.startsWith("video") ? "video" : "image" };
+  }, []);
+
   const onDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
-    if (!dragBlock || !workflowId || !wrapperRef.current) return;
+    if (!workflowId || !wrapperRef.current) return;
     const bounds = wrapperRef.current.getBoundingClientRect();
     const position = rf.screenToFlowPosition({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
+
+    // 1) arquivos soltos → cria nós de mídia
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    if (files.length) {
+      toast.info(`Enviando ${files.length} mídia(s)…`);
+      let i = 0;
+      for (const file of files) {
+        const up = await uploadFileToStudio(file);
+        if (up) await createMediaNode({ ...up, position: { x: position.x + i * 40, y: position.y + i * 40 }, titulo: file.name });
+        i++;
+      }
+      return;
+    }
+
+    // 2) bloco arrastado da barra lateral
+    if (!dragBlock) return;
     const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
       workflow_id: workflowId,
       tipo: dragBlock.id,
@@ -225,7 +275,7 @@ function InnerCanvas() {
       data: { id: data.id, tipo: data.tipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
     }]);
     setDragBlock(null);
-  }, [dragBlock, workflowId, rf, setNodes]);
+  }, [dragBlock, workflowId, rf, setNodes, uploadFileToStudio, createMediaNode]);
 
   const generate = async (nodeId: string) => {
     if (!workflowId) return;
@@ -439,6 +489,71 @@ function InnerCanvas() {
     toast.success("Canvas organizado");
   }, [nodes, edges, setNodes, rf]);
 
+  const spawnDownstream = useCallback(async (sourceId: string, targetTipo: "video" | "avatar" | "audio" | "publish") => {
+    if (!workflowId) return;
+    const src = rf.getNode(sourceId);
+    if (!src) return;
+    const srcData: any = src.data;
+    const srcUrl = srcData?.output?.url || srcData?.config?.url || "";
+    const srcKind = srcData?.output?.kind || srcData?.config?.kind || "image";
+    const meta = CANVAS_BLOCKS.find(b => b.id === targetTipo);
+    const position = { x: (src.position?.x || 0) + 300, y: (src.position?.y || 0) };
+    const cfg: any = { ...(meta?.defaultConfig || {}) };
+    if (srcUrl && (targetTipo === "video" || targetTipo === "avatar")) {
+      cfg.reference_urls = [srcUrl];
+      cfg.reference_kinds = [srcKind];
+    }
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: targetTipo,
+      titulo: meta?.label,
+      config: cfg,
+      position,
+      status: "pendente",
+    } as any).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    const { data: edgeRow } = await supabase.from("imphq_studio_canvas_edges").insert({
+      workflow_id: workflowId, source_id: sourceId, target_id: data.id,
+    }).select("id").single();
+    if (edgeRow) {
+      const color = KIND_COLORS[srcData?.tipo] || "hsl(var(--primary))";
+      setEdges(prev => [...prev, { id: edgeRow.id, source: sourceId, target: data.id, animated: true, style: { stroke: color, strokeWidth: 2 } }]);
+    }
+    toast.success(`${meta?.label} conectado`);
+    setDrawerNode({ id: data.id, type: "block", position, data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" } } as any);
+  }, [workflowId, rf, setNodes, setEdges]);
+
+  const openDrawerFor = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (n) setDrawerNode(n);
+  }, [rf]);
+
+  // Ctrl+V para colar imagem/vídeo do clipboard como nó de mídia
+  useEffect(() => {
+    const onPaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const files = items.map(it => it.getAsFile()).filter((f): f is File => !!f && (f.type.startsWith("image/") || f.type.startsWith("video/")));
+      if (!files.length || !workflowId) return;
+      e.preventDefault();
+      toast.info(`Colando ${files.length} mídia(s)…`);
+      const center = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      let i = 0;
+      for (const file of files) {
+        const up = await uploadFileToStudio(file);
+        if (up) await createMediaNode({ ...up, position: { x: center.x + i * 40, y: center.y + i * 40 } });
+        i++;
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [workflowId, rf, uploadFileToStudio, createMediaNode]);
+
   // Atalhos: Ctrl/Cmd+D duplica nó selecionado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -467,8 +582,8 @@ function InnerCanvas() {
   // wire generate + duplicate + delete onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode },
-  })), [nodes, duplicateNode]);
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode, onSpawnDownstream: spawnDownstream, onOpenDrawer: openDrawerFor },
+  })), [nodes, duplicateNode, spawnDownstream, openDrawerFor]);
 
   const nodeTitles = useMemo(() => {
     const m: Record<string, string> = {};

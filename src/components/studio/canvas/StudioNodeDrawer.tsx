@@ -73,7 +73,8 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   const meta = CANVAS_BLOCKS.find(b => b.id === node.data.tipo);
   const kind = meta?.kind;
   const output = node.data.output || {};
-  const preview = output.url || output.image_url || output.video_url || output.audio_url;
+  const isMedia = node.data.tipo === "media";
+  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? node.data.config?.url : undefined);
   const supportsRefs = kind === "image" || kind === "video" || node.data.tipo === "avatar";
 
   const save = async () => {
@@ -115,6 +116,29 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             <Label className="text-xs">Título</Label>
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="h-8 mt-1" />
           </div>
+
+          {isMedia && (
+            <div className="rounded-lg border border-slate-500/30 bg-slate-500/5 p-3 space-y-2">
+              <Label className="text-xs">Mídia deste bloco</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Envie do computador ou cole com Ctrl+V. Essa mídia vira o ponto de partida do fluxo — puxe uma seta para animar, narrar ou publicar.
+              </p>
+              <ReferenceUploader
+                urls={node.data.config?.url ? [node.data.config.url] : []}
+                kinds={node.data.config?.url ? [node.data.config?.kind || "image"] : []}
+                onChange={(urls, kinds) => {
+                  const url = urls[urls.length - 1] || "";
+                  const k = kinds[kinds.length - 1] || "image";
+                  const cfg = { ...(node.data.config || {}), url, kind: k };
+                  onUpdate(node.id, {
+                    config: cfg,
+                    status: url ? "gerado" : "pendente",
+                    output: url ? { url, kind: k } : {},
+                  } as any);
+                }}
+              />
+            </div>
+          )}
 
           {kind === "modeling" && (
             <ModelingNodePanel
@@ -177,7 +201,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </div>
           )}
 
-          {kind !== "modeling" && kind !== "publish" && kind !== "storyboard" && (
+          {!isMedia && kind !== "modeling" && kind !== "publish" && kind !== "storyboard" && (
             <div>
               <Label className="text-xs">{kind === "audio" ? "Roteiro da fala" : kind === "prompt" ? "Prompt / texto" : "Prompt"}</Label>
               <Textarea
@@ -212,7 +236,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
-            {kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
+            {!isMedia && kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
               <Button
                 onClick={() => onGenerate(node.id)}
                 disabled={node.data.status === "gerando"}

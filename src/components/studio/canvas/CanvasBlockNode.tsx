@@ -2,15 +2,17 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { KIND_COLORS } from "@/lib/studioAutoLayout";
-import { Loader2, CheckCircle2, AlertCircle, Sparkles, X } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Sparkles, X, Film, Mic, Send, ImagePlus } from "lucide-react";
 
 export function CanvasBlockNode({ data, selected }: NodeProps) {
   const d = data as any;
   const meta = CANVAS_BLOCKS.find(b => b.id === d.tipo);
   const isProduct = d.tipo === "product";
+  const isMedia = d.tipo === "media";
   const status = d.status || "pendente";
   const output = d.output || {};
-  const preview = output.url || output.image_url || output.video_url || output.audio_url;
+  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? d.config?.url : undefined);
+  const previewKind = output.kind || (isMedia ? d.config?.kind : undefined);
 
   const kindColor = KIND_COLORS[d.tipo] || "#c9922a";
 
@@ -28,6 +30,8 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
     );
   }
 
+  const hasMedia = !!preview && (previewKind === "image" || previewKind === "video" || isMedia);
+
   const refCount = (d.config?.reference_urls || []).length;
 
   return (
@@ -38,7 +42,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
       status === "gerando" && "animate-pulse ring-2 ring-blue-400/60 shadow-lg shadow-blue-400/30",
       status === "erro" && "ring-1 ring-rose-500/60",
     )}>
-      <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />
+      {!isMedia && <Handle type="target" position={Position.Left} style={{ background: kindColor, width: 10, height: 10 }} />}
       <Handle type="source" position={Position.Right} style={{ background: kindColor, width: 10, height: 10 }} />
 
       <button
@@ -49,24 +53,31 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
         <X className="h-3 w-3" />
       </button>
 
-
-
-
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-base">{meta?.icon}</span>
         <span className="text-xs font-semibold truncate flex-1">{d.titulo || meta?.label}</span>
         {status === "gerando" && <Loader2 className="h-3 w-3 animate-spin text-blue-400" />}
-        {status === "gerado" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+        {status === "gerado" && !isMedia && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
         {status === "erro" && <AlertCircle className="h-3 w-3 text-rose-400" />}
       </div>
 
-      {preview && output.kind === "image" && (
-        <img src={preview} alt="" className="w-full h-20 object-cover rounded mb-1" />
+      {isMedia && !preview && (
+        <button
+          onClick={(e) => { e.stopPropagation(); d.onOpenDrawer?.(d.id); }}
+          className="w-full h-24 rounded border-2 border-dashed border-slate-500/40 flex flex-col items-center justify-center gap-1 text-[10px] text-muted-foreground hover:border-primary/60 hover:text-primary transition mb-1"
+        >
+          <ImagePlus className="h-4 w-4" />
+          Escolher mídia
+        </button>
       )}
-      {preview && output.kind === "video" && (
-        <video src={preview} className="w-full h-20 object-cover rounded mb-1" muted />
+
+      {preview && (previewKind === "image" || (isMedia && previewKind !== "video")) && (
+        <img src={preview} alt="" className="w-full h-24 object-cover rounded mb-1" />
       )}
-      {preview && output.kind === "audio" && (
+      {preview && previewKind === "video" && (
+        <video src={preview} className="w-full h-24 object-cover rounded mb-1" muted />
+      )}
+      {preview && previewKind === "audio" && (
         <div className="text-[10px] text-emerald-400 mb-1 truncate">🎵 áudio pronto</div>
       )}
 
@@ -101,7 +112,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
           status === "erro" && "bg-rose-500/15 text-rose-300 border-rose-500/40",
           status === "pendente" && "bg-muted/30 text-muted-foreground border-muted-foreground/30",
         )}>{status}</span>
-        {status === "pendente" && d.tipo !== "modeling" && d.tipo !== "storyboard" && d.tipo !== "prompt" && d.tipo !== "publish" && (
+        {status === "pendente" && !isMedia && d.tipo !== "modeling" && d.tipo !== "storyboard" && d.tipo !== "prompt" && d.tipo !== "publish" && (
           <button
             onClick={(e) => { e.stopPropagation(); d.onGenerate?.(d.id); }}
             className="text-[9px] text-primary hover:underline flex items-center gap-0.5"
@@ -110,6 +121,36 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
           </button>
         )}
       </div>
+
+      {hasMedia && (previewKind === "image" || previewKind === "video" || isMedia) && (
+        <div className="opacity-0 group-hover/node:opacity-100 transition flex gap-1 mt-1.5 pt-1.5 border-t border-border/40">
+          {(previewKind === "image" || (isMedia && previewKind !== "video")) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "video"); }}
+              className="flex-1 text-[9px] px-1 py-1 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 flex items-center justify-center gap-0.5"
+              title="Animar em vídeo"
+            >
+              <Film className="h-2.5 w-2.5" /> animar
+            </button>
+          )}
+          {(previewKind === "image" || (isMedia && previewKind !== "video")) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "avatar"); }}
+              className="flex-1 text-[9px] px-1 py-1 rounded bg-violet-500/15 hover:bg-violet-500/30 text-violet-300 border border-violet-500/40 flex items-center justify-center gap-0.5"
+              title="Avatar falante"
+            >
+              <Mic className="h-2.5 w-2.5" /> falar
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "publish"); }}
+            className="flex-1 text-[9px] px-1 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-0.5"
+            title="Publicar/salvar"
+          >
+            <Send className="h-2.5 w-2.5" /> publicar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
