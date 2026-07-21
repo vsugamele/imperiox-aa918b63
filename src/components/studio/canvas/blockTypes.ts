@@ -3,7 +3,7 @@ export interface CanvasBlockType {
   label: string;
   icon: string;
   desc: string;
-  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard";
+  kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard" | "media";
   color: string;
   defaultConfig?: Record<string, any>;
 }
