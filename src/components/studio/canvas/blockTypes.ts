@@ -73,6 +73,15 @@ export const CANVAS_BLOCKS: CanvasBlockType[] = [
     defaultConfig: { texto: "" },
   },
   {
+    id: "media",
+    label: "Mídia (upload/biblioteca)",
+    icon: "🎞️",
+    desc: "Foto ou vídeo pronto — vira ponto de partida do fluxo",
+    kind: "media",
+    color: "border-slate-400/40 bg-slate-400/5",
+    defaultConfig: { url: "", kind: "image" },
+  },
+  {
     id: "publish",
     label: "Publicar / Salvar",
     icon: "📤",
