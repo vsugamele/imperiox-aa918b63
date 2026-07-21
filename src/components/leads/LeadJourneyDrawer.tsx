@@ -5,6 +5,7 @@ import { Activity, MousePointerClick, MessageCircle, ShoppingCart, Mail, Zap, Ey
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import NextBestActionInline from "./NextBestActionInline";
 
 interface Props {
   open: boolean;
