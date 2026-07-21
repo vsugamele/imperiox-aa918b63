@@ -30,6 +30,8 @@ import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, dete
 import { StrategicGapsPanel } from "./StrategicGapsPanel";
 import { ReferenciasPicker } from "./ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
+import { PresenceCursors } from "./PresenceCursors";
+import { MapCommentsPanel } from "./MapCommentsPanel";
 
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
@@ -401,6 +403,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   }, []);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
+  const [commentsTarget, setCommentsTarget] = useState<{ id: string; label?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   const [libPickerOpen, setLibPickerOpen] = useState(false);
   const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
