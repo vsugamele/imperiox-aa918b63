@@ -88,6 +88,31 @@ export function RoteirosTab() {
     }
   };
 
+  const avaliarHook = async () => {
+    if (scoring) return;
+    setScoring(true);
+    setScore(null);
+    try {
+      const contexto = [
+        productName && `Produto: ${productName}`,
+        ctx.avatar && `Avatar: ${JSON.stringify(ctx.avatar).slice(0, 400)}`,
+        ctx.branding && `Branding: ${JSON.stringify(ctx.branding).slice(0, 300)}`,
+      ].filter(Boolean).join("\n");
+      const { data, error } = await supabase.functions.invoke("hook-score", {
+        body: { hook: output, contexto },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setScore(data as any);
+      toast.success(`Hook avaliado: ${(data as any)?.score ?? "?"} / 100`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao avaliar hook");
+    } finally {
+      setScoring(false);
+    }
+  };
+
+
   const salvarCofre = async () => {
     setSaving(true);
     try {
