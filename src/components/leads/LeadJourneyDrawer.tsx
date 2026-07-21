@@ -5,6 +5,7 @@ import { Activity, MousePointerClick, MessageCircle, ShoppingCart, Mail, Zap, Ey
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import NextBestActionInline from "./NextBestActionInline";
 
 interface Props {
   open: boolean;
@@ -66,6 +67,12 @@ export default function LeadJourneyDrawer({ open, onClose, lead, automations = [
               <p className="text-[10px] uppercase text-muted-foreground">Vendas</p>
               <p className="text-lg font-semibold text-amber-300">{stats.vendas}</p>
             </div>
+          </div>
+        )}
+
+        {lead?.id && (
+          <div className="mt-4">
+            <NextBestActionInline lead={lead} />
           </div>
         )}
 
