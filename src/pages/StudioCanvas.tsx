@@ -489,6 +489,71 @@ function InnerCanvas() {
     toast.success("Canvas organizado");
   }, [nodes, edges, setNodes, rf]);
 
+  const spawnDownstream = useCallback(async (sourceId: string, targetTipo: "video" | "avatar" | "audio" | "publish") => {
+    if (!workflowId) return;
+    const src = rf.getNode(sourceId);
+    if (!src) return;
+    const srcData: any = src.data;
+    const srcUrl = srcData?.output?.url || srcData?.config?.url || "";
+    const srcKind = srcData?.output?.kind || srcData?.config?.kind || "image";
+    const meta = CANVAS_BLOCKS.find(b => b.id === targetTipo);
+    const position = { x: (src.position?.x || 0) + 300, y: (src.position?.y || 0) };
+    const cfg: any = { ...(meta?.defaultConfig || {}) };
+    if (srcUrl && (targetTipo === "video" || targetTipo === "avatar")) {
+      cfg.reference_urls = [srcUrl];
+      cfg.reference_kinds = [srcKind];
+    }
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: targetTipo,
+      titulo: meta?.label,
+      config: cfg,
+      position,
+      status: "pendente",
+    } as any).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    const { data: edgeRow } = await supabase.from("imphq_studio_canvas_edges").insert({
+      workflow_id: workflowId, source_id: sourceId, target_id: data.id,
+    }).select("id").single();
+    if (edgeRow) {
+      const color = KIND_COLORS[srcData?.tipo] || "hsl(var(--primary))";
+      setEdges(prev => [...prev, { id: edgeRow.id, source: sourceId, target: data.id, animated: true, style: { stroke: color, strokeWidth: 2 } }]);
+    }
+    toast.success(`${meta?.label} conectado`);
+    setDrawerNode({ id: data.id, type: "block", position, data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" } } as any);
+  }, [workflowId, rf, setNodes, setEdges]);
+
+  const openDrawerFor = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (n) setDrawerNode(n);
+  }, [rf]);
+
+  // Ctrl+V para colar imagem/vídeo do clipboard como nó de mídia
+  useEffect(() => {
+    const onPaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const files = items.map(it => it.getAsFile()).filter((f): f is File => !!f && (f.type.startsWith("image/") || f.type.startsWith("video/")));
+      if (!files.length || !workflowId) return;
+      e.preventDefault();
+      toast.info(`Colando ${files.length} mídia(s)…`);
+      const center = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      let i = 0;
+      for (const file of files) {
+        const up = await uploadFileToStudio(file);
+        if (up) await createMediaNode({ ...up, position: { x: center.x + i * 40, y: center.y + i * 40 } });
+        i++;
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [workflowId, rf, uploadFileToStudio, createMediaNode]);
+
   // Atalhos: Ctrl/Cmd+D duplica nó selecionado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
