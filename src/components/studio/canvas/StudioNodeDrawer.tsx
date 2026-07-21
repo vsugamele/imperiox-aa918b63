@@ -236,7 +236,7 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
           <div className="flex gap-2">
             <Button onClick={save} disabled={saving} size="sm" variant="outline" className="flex-1">Salvar</Button>
-            {kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
+            {!isMedia && kind !== "publish" && kind !== "prompt" && kind !== "modeling" && kind !== "storyboard" && (
               <Button
                 onClick={() => onGenerate(node.id)}
                 disabled={node.data.status === "gerando"}
