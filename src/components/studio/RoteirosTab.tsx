@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Check, Save, Sparkles, Loader2, BookOpen } from "lucide-react";
+import { Copy, Check, Save, Sparkles, Loader2, BookOpen, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { ROTEIRO_TEMPLATES, type RoteiroTemplate } from "@/data/studio/roteiroTemplates";
 import { useProjectList } from "@/hooks/useProjectList";
@@ -30,6 +30,14 @@ export function RoteirosTab() {
   const [saving, setSaving] = useState(false);
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState<string>("");
+  const [scoring, setScoring] = useState(false);
+  const [score, setScore] = useState<null | {
+    score: number;
+    breakdown: Record<string, number>;
+    veredito: string;
+    diagnostico: string;
+    sugestao: string;
+  }>(null);
 
   const { data: projects = [] } = useProjectList();
   const ctx = useCreativeContext(projectId);
@@ -79,6 +87,31 @@ export function RoteirosTab() {
       setRefining(false);
     }
   };
+
+  const avaliarHook = async () => {
+    if (scoring) return;
+    setScoring(true);
+    setScore(null);
+    try {
+      const contexto = [
+        productName && `Produto: ${productName}`,
+        ctx.avatar && `Avatar: ${JSON.stringify(ctx.avatar).slice(0, 400)}`,
+        ctx.branding && `Branding: ${JSON.stringify(ctx.branding).slice(0, 300)}`,
+      ].filter(Boolean).join("\n");
+      const { data, error } = await supabase.functions.invoke("hook-score", {
+        body: { hook: output, contexto },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setScore(data as any);
+      toast.success(`Hook avaliado: ${(data as any)?.score ?? "?"} / 100`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao avaliar hook");
+    } finally {
+      setScoring(false);
+    }
+  };
+
 
   const salvarCofre = async () => {
     setSaving(true);
@@ -238,14 +271,52 @@ export function RoteirosTab() {
             Refinar IA
           </Button>
         </div>
-        <Button onClick={salvarCofre} disabled={saving} className="w-full">
-          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          Salvar no Cofre
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button onClick={avaliarHook} disabled={scoring} variant="outline" className="w-full">
+            {scoring ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Flame className="h-4 w-4 mr-1 text-amber-400" />}
+            Hook Score
+          </Button>
+          <Button onClick={salvarCofre} disabled={saving} className="w-full">
+            {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+            Salvar no Cofre
+          </Button>
+        </div>
         {refined && (
           <Button onClick={() => setRefined("")} variant="ghost" size="sm" className="w-full text-[11px]">
             Descartar refinamento
           </Button>
+        )}
+
+        {score && (
+          <Card className="p-4 bg-secondary/40 border-border/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-400">Hook Score</div>
+                <div className="font-display text-3xl leading-none mt-1 tabular-nums">
+                  {score.score}<span className="text-sm text-muted-foreground">/100</span>
+                </div>
+              </div>
+              <div className="text-[13px] font-medium text-right max-w-[55%] leading-5">{score.veredito}</div>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {Object.entries(score.breakdown || {}).map(([k, v]) => (
+                <div key={k} className="text-center">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground truncate">{k}</div>
+                  <div className="text-sm font-semibold tabular-nums">{v}</div>
+                  <div className="h-1 rounded-full bg-border/60 overflow-hidden mt-1">
+                    <div className="h-full bg-amber-400/80" style={{ width: `${Math.min(100, ((v as number) / 20) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11.5px] leading-5 text-foreground/80">{score.diagnostico}</p>
+            {score.sugestao && (
+              <div className="rounded-md border border-emerald-700/30 bg-emerald-950/20 px-3 py-2">
+                <div className="text-[9px] uppercase tracking-wider text-emerald-400 mb-1">Reescrita sugerida</div>
+                <p className="text-[12px] leading-5 text-emerald-100/90">{score.sugestao}</p>
+              </div>
+            )}
+          </Card>
         )}
       </div>
     </div>
