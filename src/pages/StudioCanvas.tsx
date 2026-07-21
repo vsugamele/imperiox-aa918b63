@@ -582,8 +582,8 @@ function InnerCanvas() {
   // wire generate + duplicate + delete onto nodes' data
   const nodesWithHandlers = useMemo(() => nodes.map(n => ({
     ...n,
-    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode },
-  })), [nodes, duplicateNode]);
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode, onSpawnDownstream: spawnDownstream, onOpenDrawer: openDrawerFor },
+  })), [nodes, duplicateNode, spawnDownstream, openDrawerFor]);
 
   const nodeTitles = useMemo(() => {
     const m: Record<string, string> = {};
