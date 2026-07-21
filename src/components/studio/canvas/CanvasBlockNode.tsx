@@ -112,7 +112,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
           status === "erro" && "bg-rose-500/15 text-rose-300 border-rose-500/40",
           status === "pendente" && "bg-muted/30 text-muted-foreground border-muted-foreground/30",
         )}>{status}</span>
-        {status === "pendente" && d.tipo !== "modeling" && d.tipo !== "storyboard" && d.tipo !== "prompt" && d.tipo !== "publish" && (
+        {status === "pendente" && !isMedia && d.tipo !== "modeling" && d.tipo !== "storyboard" && d.tipo !== "prompt" && d.tipo !== "publish" && (
           <button
             onClick={(e) => { e.stopPropagation(); d.onGenerate?.(d.id); }}
             className="text-[9px] text-primary hover:underline flex items-center gap-0.5"
@@ -121,6 +121,36 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
           </button>
         )}
       </div>
+
+      {hasMedia && (previewKind === "image" || previewKind === "video" || isMedia) && (
+        <div className="opacity-0 group-hover/node:opacity-100 transition flex gap-1 mt-1.5 pt-1.5 border-t border-border/40">
+          {(previewKind === "image" || (isMedia && previewKind !== "video")) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "video"); }}
+              className="flex-1 text-[9px] px-1 py-1 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 flex items-center justify-center gap-0.5"
+              title="Animar em vídeo"
+            >
+              <Film className="h-2.5 w-2.5" /> animar
+            </button>
+          )}
+          {(previewKind === "image" || (isMedia && previewKind !== "video")) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "avatar"); }}
+              className="flex-1 text-[9px] px-1 py-1 rounded bg-violet-500/15 hover:bg-violet-500/30 text-violet-300 border border-violet-500/40 flex items-center justify-center gap-0.5"
+              title="Avatar falante"
+            >
+              <Mic className="h-2.5 w-2.5" /> falar
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); d.onSpawnDownstream?.(d.id, "publish"); }}
+            className="flex-1 text-[9px] px-1 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-0.5"
+            title="Publicar/salvar"
+          >
+            <Send className="h-2.5 w-2.5" /> publicar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
