@@ -468,13 +468,22 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                             alt=""
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                              if (b.folder_id) {
+                                setFolderLightbox({ id: b.folder_id, title: b.folder_title || "Pasta" });
+                              } else {
+                                window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                              }
                             }}
                           />
                         ) : (
                           <div className="w-full h-24 rounded bg-secondary/60 flex items-center justify-center text-[10px] text-muted-foreground">
                             {regenLoading === b.id ? <Loader2 className="h-4 w-4 animate-spin" /> : (b.image_prompt ? "Gerando…" : "Sem imagem")}
                           </div>
+                        )}
+                        {b.folder_id && (
+                          <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-pink-600/80 text-white flex items-center gap-1">
+                            📁 {b.folder_title || "Pasta"}
+                          </span>
                         )}
                         <span
                           role="button"
