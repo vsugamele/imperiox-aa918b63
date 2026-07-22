@@ -670,10 +670,19 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           // Site → usa thumbnail como imagem; imagem → usa a URL diretamente
           const imgUrl = item.kind === "site" ? (item.thumbnail || "") : item.url;
           if (refPickerMode === "image_url" && editing) {
-            const patch: Record<string, any> = { image_url: imgUrl };
-            if (item.kind === "site") patch.link_url = item.url;
-            updateBlock(editing.nodeId, editing.blockId, patch);
-            toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");
+            if (item.kind === "folder") {
+              updateBlock(editing.nodeId, editing.blockId, {
+                folder_id: item.folderId,
+                folder_title: item.title,
+                image_url: item.thumbnail || "",
+              });
+              toast.success(`Pasta "${item.title}" vinculada`);
+            } else {
+              const patch: Record<string, any> = { image_url: imgUrl, folder_id: undefined, folder_title: undefined };
+              if (item.kind === "site") patch.url = item.url;
+              updateBlock(editing.nodeId, editing.blockId, patch);
+              toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");
+            }
           } else if (refPickerMode === "context") {
             setCtxRefUrl(item.url);
             toast.success(item.kind === "site" ? "Site anexado" : "Referência anexada");
