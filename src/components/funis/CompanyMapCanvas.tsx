@@ -383,6 +383,9 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [rawNodes, setRawNodes] = useState<MapNode[]>([]);
   const [selected, setSelected] = useState<MapNode | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const selectedBaselineIdRef = useRef<string | null>(null);
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [flows, setFlows] = useState<{ id: string; name: string }[]>([]);
   const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
@@ -1194,25 +1197,75 @@ function InnerMap({ projects }: { projects: any[] }) {
     ]);
   }, []);
 
+  const persistSelected = async (node: MapNode, opts?: { silent?: boolean }) => {
+    const { error } = await supabase.from("imphq_company_map_nodes").update({
+      label: node.label, description: node.description, notes: node.notes,
+      color: node.color, kind: node.kind, checklist: node.checklist as any,
+      size: node.size || "M",
+      url: node.url || null,
+      image_url: node.image_url || null,
+      show_live_kpis: !!node.show_live_kpis,
+      linked_funnel_id: node.linked_funnel_id || null,
+      linked_project_id: node.linked_project_id || null,
+      linked_flow_id: node.linked_flow_id || null,
+      linked_wa_provider_id: node.linked_wa_provider_id || null,
+    } as any).eq("id", node.id);
+    if (error) {
+      if (!opts?.silent) toast.error("Erro ao salvar");
+      return false;
+    }
+    return true;
+  };
+
   const saveSelected = async () => {
     if (!selected) return;
-    const { error } = await supabase.from("imphq_company_map_nodes").update({
-      label: selected.label, description: selected.description, notes: selected.notes,
-      color: selected.color, kind: selected.kind, checklist: selected.checklist as any,
-      size: selected.size || "M",
-      url: selected.url || null,
-      image_url: selected.image_url || null,
-      show_live_kpis: !!selected.show_live_kpis,
-      linked_funnel_id: selected.linked_funnel_id || null,
-      linked_project_id: selected.linked_project_id || null,
-      linked_flow_id: selected.linked_flow_id || null,
-      linked_wa_provider_id: selected.linked_wa_provider_id || null,
-    } as any).eq("id", selected.id);
-    if (error) { toast.error("Erro ao salvar"); return; }
+    if (autoSaveTimerRef.current) { window.clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+    const ok = await persistSelected(selected);
+    if (!ok) return;
     toast.success("Salvo");
     if (mapId) await loadMap(mapId);
     setSelected(null);
   };
+
+  // Auto-save on change (debounced) + flush on close
+  useEffect(() => {
+    if (!selected) return;
+    // Skip first render for a freshly opened node
+    if (selectedBaselineIdRef.current !== selected.id) {
+      selectedBaselineIdRef.current = selected.id;
+      setAutoSaveStatus("idle");
+      return;
+    }
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    setAutoSaveStatus("saving");
+    const snapshot = selected;
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      const ok = await persistSelected(snapshot, { silent: true });
+      setAutoSaveStatus(ok ? "saved" : "error");
+      // reflect on canvas
+      if (ok) {
+        setNodes(nds => nds.map(n => n.id === snapshot.id ? { ...n, data: { ...(n.data as any), ...snapshot } } : n));
+        setRawNodes(prev => prev.map(n => n.id === snapshot.id ? { ...n, ...snapshot } : n));
+      }
+    }, 700);
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  const flushAndClose = async () => {
+    if (autoSaveTimerRef.current) { window.clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+    if (selected) {
+      setAutoSaveStatus("saving");
+      const ok = await persistSelected(selected, { silent: true });
+      setAutoSaveStatus(ok ? "saved" : "error");
+      if (ok && mapId) await loadMap(mapId);
+    }
+    setSelected(null);
+    selectedBaselineIdRef.current = null;
+  };
+
 
   const runAutoLayout = async () => {
     const next = autoLayout(nodes, edges);
@@ -1900,9 +1953,22 @@ function InnerMap({ projects }: { projects: any[] }) {
       </Sheet>
 
       {/* Editor sheet */}
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+      <Sheet open={!!selected} onOpenChange={(o) => { if (!o) flushAndClose(); }}>
         <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
-          <SheetHeader><SheetTitle className="font-serif">Editar nó do mapa</SheetTitle></SheetHeader>
+          <SheetHeader>
+            <SheetTitle className="font-serif flex items-center justify-between gap-2">
+              <span>Editar nó do mapa</span>
+              <span className={`text-[10px] uppercase tracking-wider font-sans ${
+                autoSaveStatus === "saving" ? "text-amber-400" :
+                autoSaveStatus === "saved" ? "text-emerald-400" :
+                autoSaveStatus === "error" ? "text-rose-400" : "text-muted-foreground"
+              }`}>
+                {autoSaveStatus === "saving" ? "Salvando…" :
+                 autoSaveStatus === "saved" ? "✓ Salvo" :
+                 autoSaveStatus === "error" ? "Erro" : ""}
+              </span>
+            </SheetTitle>
+          </SheetHeader>
           {selected && (
             <div className="space-y-4 mt-4">
               <div>
