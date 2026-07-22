@@ -16362,6 +16362,7 @@ export type Database = {
           drop_caps_enabled: boolean | null
           favicon_url: string | null
           featured_post_ids: string[] | null
+          footer_disclaimer: string | null
           footer_logo_style: string | null
           footer_text: string | null
           google_analytics_id: string | null
@@ -16415,6 +16416,7 @@ export type Database = {
           drop_caps_enabled?: boolean | null
           favicon_url?: string | null
           featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
           footer_logo_style?: string | null
           footer_text?: string | null
           google_analytics_id?: string | null
@@ -16468,6 +16470,7 @@ export type Database = {
           drop_caps_enabled?: boolean | null
           favicon_url?: string | null
           featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
           footer_logo_style?: string | null
           footer_text?: string | null
           google_analytics_id?: string | null
