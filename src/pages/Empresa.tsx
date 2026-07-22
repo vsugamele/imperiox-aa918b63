@@ -52,7 +52,13 @@ interface ContaEmpresa {
     bio?: string;
     channel_url?: string;
     ativo?: string;
+    proxy_endpoint?: string;
+    proxy_user?: string;
+    proxy_pass?: string;
+    geelark_profile?: string;
+    geelark_status?: string;
   };
+
 }
 
 interface MapNode { id: string; label: string; }
@@ -193,7 +199,11 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
     foto_url: "" as string, mapa_node_id: "" as string,
     cloud_phone_ref: "" as string, project_id: "" as string,
+    proxy_tipo: "" as string, proxy_geo: "" as string,
+    proxy_endpoint: "" as string, proxy_user: "" as string, proxy_pass: "" as string,
+    geelark_profile: "" as string, geelark_status: "" as string,
   };
+
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
 
@@ -222,7 +232,15 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       mapa_node_id: conta.mapa_node_id || "",
       cloud_phone_ref: conta.cloud_phone_ref || "",
       project_id: conta.project_id || "",
+      proxy_tipo: conta.proxy_tipo || "",
+      proxy_geo: conta.proxy_geo || "",
+      proxy_endpoint: conta.extra?.proxy_endpoint || "",
+      proxy_user: conta.extra?.proxy_user || "",
+      proxy_pass: conta.extra?.proxy_pass || "",
+      geelark_profile: conta.extra?.geelark_profile || "",
+      geelark_status: conta.extra?.geelark_status || "",
     });
+
     setShowFormPassword(false);
     setShowDialog(true);
   };
@@ -259,6 +277,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       mapa_node_id: form.mapa_node_id || null,
       cloud_phone_ref: form.cloud_phone_ref || null,
       project_id: form.project_id || null,
+      proxy_tipo: form.proxy_tipo || null,
+      proxy_geo: form.proxy_geo || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -269,8 +289,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
         bio: form.bio || null,
         channel_url: form.channel_url || null,
         ativo: form.ativo || null,
+        proxy_endpoint: form.proxy_endpoint || null,
+        proxy_user: form.proxy_user || null,
+        proxy_pass: form.proxy_pass || null,
+        geelark_profile: form.geelark_profile || null,
+        geelark_status: form.geelark_status || null,
       },
     } as any;
+
 
     if (editingConta) {
       const { error } = await supabase.from("imphq_empresa").update(payload).eq("id", editingConta.id);
@@ -689,7 +715,81 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </Select>
               </div>
             </div>
+
+
+
+            {/* Proxy */}
+            <div className="pt-3 border-t border-border/50">
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground mb-2">Proxy</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Tipo</Label>
+                  <Select value={form.proxy_tipo || "__none__"} onValueChange={v => setForm({ ...form, proxy_tipo: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      <SelectItem value="Residential">Residential</SelectItem>
+                      <SelectItem value="Mobile">Mobile (4G/5G)</SelectItem>
+                      <SelectItem value="Datacenter">Datacenter</SelectItem>
+                      <SelectItem value="ISP">ISP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Geo</Label>
+                  <Input placeholder="BR-SP, US-NY..." value={form.proxy_geo} onChange={e => setForm({ ...form, proxy_geo: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Endpoint (host:porta)</Label>
+                  <Input placeholder="proxy.exemplo.com:8080" value={form.proxy_endpoint} onChange={e => setForm({ ...form, proxy_endpoint: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Usuário</Label>
+                  <Input value={form.proxy_user} onChange={e => setForm({ ...form, proxy_user: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Senha</Label>
+                  <Input type="password" value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            {/* GeeLark */}
+            <div className="pt-3 border-t border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-editorial text-muted-foreground">GeeLark</p>
+                {form.geelark_profile && (
+                  <a
+                    href={`https://app.geelark.com/profile/${encodeURIComponent(form.geelark_profile)}`}
+                    target="_blank" rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    abrir no GeeLark ↗
+                  </a>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Profile ID</Label>
+                  <Input placeholder="GL-4823" value={form.geelark_profile} onChange={e => setForm({ ...form, geelark_profile: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={form.geelark_status || "__none__"} onValueChange={v => setForm({ ...form, geelark_status: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">—</SelectItem>
+                      <SelectItem value="Novo">Novo</SelectItem>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Pausado">Pausado</SelectItem>
+                      <SelectItem value="Banido">Banido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </div>
+
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
