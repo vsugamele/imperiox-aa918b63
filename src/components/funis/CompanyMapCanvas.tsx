@@ -383,6 +383,9 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [rawNodes, setRawNodes] = useState<MapNode[]>([]);
   const [selected, setSelected] = useState<MapNode | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const selectedBaselineIdRef = useRef<string | null>(null);
   const [funis, setFunis] = useState<{ id: string; nome: string }[]>([]);
   const [flows, setFlows] = useState<{ id: string; name: string }[]>([]);
   const [waProviders, setWaProviders] = useState<WaProvider[]>([]);
