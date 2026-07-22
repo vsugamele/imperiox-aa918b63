@@ -1953,9 +1953,22 @@ function InnerMap({ projects }: { projects: any[] }) {
       </Sheet>
 
       {/* Editor sheet */}
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+      <Sheet open={!!selected} onOpenChange={(o) => { if (!o) flushAndClose(); }}>
         <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] overflow-y-auto bg-secondary/40">
-          <SheetHeader><SheetTitle className="font-serif">Editar nó do mapa</SheetTitle></SheetHeader>
+          <SheetHeader>
+            <SheetTitle className="font-serif flex items-center justify-between gap-2">
+              <span>Editar nó do mapa</span>
+              <span className={`text-[10px] uppercase tracking-wider font-sans ${
+                autoSaveStatus === "saving" ? "text-amber-400" :
+                autoSaveStatus === "saved" ? "text-emerald-400" :
+                autoSaveStatus === "error" ? "text-rose-400" : "text-muted-foreground"
+              }`}>
+                {autoSaveStatus === "saving" ? "Salvando…" :
+                 autoSaveStatus === "saved" ? "✓ Salvo" :
+                 autoSaveStatus === "error" ? "Erro" : ""}
+              </span>
+            </SheetTitle>
+          </SheetHeader>
           {selected && (
             <div className="space-y-4 mt-4">
               <div>
