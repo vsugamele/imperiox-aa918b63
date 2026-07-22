@@ -19791,9 +19791,11 @@ export type Database = {
           id: string
           label: string | null
           map_id: string
+          source_handle: string | null
           source_id: string
           source_kind: string
           style: string | null
+          target_handle: string | null
           target_id: string
           target_kind: string
         }
@@ -19802,9 +19804,11 @@ export type Database = {
           id?: string
           label?: string | null
           map_id: string
+          source_handle?: string | null
           source_id: string
           source_kind?: string
           style?: string | null
+          target_handle?: string | null
           target_id: string
           target_kind?: string
         }
@@ -19813,9 +19817,11 @@ export type Database = {
           id?: string
           label?: string | null
           map_id?: string
+          source_handle?: string | null
           source_id?: string
           source_kind?: string
           style?: string | null
+          target_handle?: string | null
           target_id?: string
           target_kind?: string
         }
