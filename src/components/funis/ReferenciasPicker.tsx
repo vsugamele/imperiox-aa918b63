@@ -141,12 +141,99 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
         }));
         setSites(s);
 
+        // Carrega pastas
+        const { data: fData } = await supabase
+          .from("imphq_ref_folders" as any)
+          .select("id, nome, cor, cover_url")
+          .order("created_at", { ascending: false });
+        const foldersList = ((fData as any[]) || []) as FolderItem[];
+        // Conta itens em paralelo
+        if (foldersList.length) {
+          const counts = await Promise.all(foldersList.map(f =>
+            supabase.from("imphq_ref_folder_items" as any).select("id", { count: "exact", head: true }).eq("folder_id", f.id)
+          ));
+          foldersList.forEach((f, i) => { f.count = counts[i].count || 0; });
+        }
+        setFolders(foldersList);
+
         setLimit(PAGE);
       } finally {
         setLoading(false);
       }
     })();
   }, [open]);
+
+  // Carrega itens de uma pasta ao abri-la
+  useEffect(() => {
+    if (!openFolderId) { setFolderItems([]); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("imphq_ref_folder_items" as any)
+        .select("id, url, thumb_url, titulo")
+        .eq("folder_id", openFolderId)
+        .order("ordem", { ascending: true });
+      setFolderItems(((data as any[]) || []) as any);
+    })();
+  }, [openFolderId]);
+
+  const createFolder = async () => {
+    const nome = newFolderName.trim();
+    if (!nome) return;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { toast.error("Faça login"); return; }
+    const { data, error } = await supabase
+      .from("imphq_ref_folders" as any)
+      .insert({ nome, user_id: auth.user.id })
+      .select("id, nome, cor, cover_url")
+      .single();
+    if (error) { toast.error(error.message); return; }
+    setFolders(f => [{ ...(data as any), count: 0 }, ...f]);
+    setNewFolderName("");
+    toast.success("Pasta criada");
+  };
+
+  const deleteFolder = async (id: string) => {
+    if (!confirm("Excluir esta pasta e todos os itens dela?")) return;
+    const { error } = await supabase.from("imphq_ref_folders" as any).delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setFolders(f => f.filter(x => x.id !== id));
+  };
+
+  const addSelectedToFolder = async (selection: PickerSelection[]) => {
+    if (!openFolderId || selection.length === 0) return;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { toast.error("Faça login"); return; }
+    const rows = selection
+      .filter(s => s.kind === "image" || s.kind === "site")
+      .map((s, i) => ({
+        folder_id: openFolderId,
+        user_id: auth.user!.id,
+        url: s.kind === "site" ? (s.thumbnail || s.url) : s.url,
+        thumb_url: s.thumbnail || null,
+        titulo: s.title,
+        ordem: folderItems.length + i,
+      }));
+    const { error } = await supabase.from("imphq_ref_folder_items" as any).insert(rows);
+    if (error) { toast.error(error.message); return; }
+    // reload
+    const { data } = await supabase
+      .from("imphq_ref_folder_items" as any)
+      .select("id, url, thumb_url, titulo")
+      .eq("folder_id", openFolderId)
+      .order("ordem", { ascending: true });
+    setFolderItems(((data as any[]) || []) as any);
+    setFolders(fs => fs.map(f => f.id === openFolderId ? { ...f, count: (f.count || 0) + rows.length } : f));
+    setAddingToFolder(false);
+    setPicked(new Map());
+    toast.success(`${rows.length} item(ns) adicionado(s)`);
+  };
+
+  const removeFolderItem = async (id: string) => {
+    const { error } = await supabase.from("imphq_ref_folder_items" as any).delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setFolderItems(fi => fi.filter(x => x.id !== id));
+    setFolders(fs => fs.map(f => f.id === openFolderId ? { ...f, count: Math.max(0, (f.count || 0) - 1) } : f));
+  };
 
   const filteredImages = useMemo(() => {
     const q = query.trim().toLowerCase();
