@@ -555,6 +555,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       id: e.id,
       source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
       target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
+      sourceHandle: e.source_handle || undefined,
+      targetHandle: e.target_handle || undefined,
       animated: e.style !== "dashed",
       label: e.label || undefined,
       interactionWidth: 24,
