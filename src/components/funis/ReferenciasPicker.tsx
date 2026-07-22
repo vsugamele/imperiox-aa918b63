@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, ImageIcon, Globe } from "lucide-react";
+import { Loader2, Search, ImageIcon, Globe, FolderPlus, FolderOpen, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface RefItem {
   id: string;
@@ -23,12 +24,21 @@ interface SiteItem {
   created_at: string;
 }
 
+interface FolderItem {
+  id: string;
+  nome: string;
+  cor: string | null;
+  cover_url: string | null;
+  count?: number;
+}
+
 export type PickerSelection = {
   url: string;
   title: string;
-  kind: "image" | "site";
+  kind: "image" | "site" | "folder";
   thumbnail?: string | null;
   siteId?: string;
+  folderId?: string;
 };
 
 interface Props {
@@ -36,7 +46,7 @@ interface Props {
   onClose: () => void;
   onSelect: (item: PickerSelection) => void;
   /** Aba inicial */
-  initialTab?: "image" | "site";
+  initialTab?: "image" | "site" | "folder";
   /** Multi-select mode: shows checkboxes and confirm button */
   multi?: boolean;
   /** Called on confirm when multi=true */
