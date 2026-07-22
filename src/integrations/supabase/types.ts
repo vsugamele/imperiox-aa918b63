@@ -25217,6 +25217,148 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ref_folder_items: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          ordem: number
+          thumb_url: string | null
+          titulo: string | null
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          ordem?: number
+          thumb_url?: string | null
+          titulo?: string | null
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          ordem?: number
+          thumb_url?: string | null
+          titulo?: string | null
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ref_folder_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ref_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ref_folders: {
+        Row: {
+          cor: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cor?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cor?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_referencias: {
         Row: {
           created_at: string | null

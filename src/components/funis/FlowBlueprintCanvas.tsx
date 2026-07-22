@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ZoomIn, ZoomOut, Maximize2, X, ImagePlus, Loader2, RefreshCw, Sparkles, FlaskConical, Images, Library, Upload, Link2, Eye, Zap } from "lucide-react";
 import { ReferenciasPicker } from "./ReferenciasPicker";
+import { FolderLightbox } from "./FolderLightbox";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const [refineLoading, setRefineLoading] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  const [folderLightbox, setFolderLightbox] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => {
     const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
     window.addEventListener("open-image-lightbox", h);
@@ -468,13 +470,22 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                             alt=""
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                              if (b.folder_id) {
+                                setFolderLightbox({ id: b.folder_id, title: b.folder_title || "Pasta" });
+                              } else {
+                                window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: b.image_url, label: b.image_prompt } }));
+                              }
                             }}
                           />
                         ) : (
                           <div className="w-full h-24 rounded bg-secondary/60 flex items-center justify-center text-[10px] text-muted-foreground">
                             {regenLoading === b.id ? <Loader2 className="h-4 w-4 animate-spin" /> : (b.image_prompt ? "Gerando…" : "Sem imagem")}
                           </div>
+                        )}
+                        {b.folder_id && (
+                          <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-pink-600/80 text-white flex items-center gap-1">
+                            📁 {b.folder_title || "Pasta"}
+                          </span>
                         )}
                         <span
                           role="button"
@@ -670,10 +681,19 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
           // Site → usa thumbnail como imagem; imagem → usa a URL diretamente
           const imgUrl = item.kind === "site" ? (item.thumbnail || "") : item.url;
           if (refPickerMode === "image_url" && editing) {
-            const patch: Record<string, any> = { image_url: imgUrl };
-            if (item.kind === "site") patch.link_url = item.url;
-            updateBlock(editing.nodeId, editing.blockId, patch);
-            toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");
+            if (item.kind === "folder") {
+              updateBlock(editing.nodeId, editing.blockId, {
+                folder_id: item.folderId,
+                folder_title: item.title,
+                image_url: item.thumbnail || "",
+              });
+              toast.success(`Pasta "${item.title}" vinculada`);
+            } else {
+              const patch: Record<string, any> = { image_url: imgUrl, folder_id: undefined, folder_title: undefined };
+              if (item.kind === "site") patch.url = item.url;
+              updateBlock(editing.nodeId, editing.blockId, patch);
+              toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");
+            }
           } else if (refPickerMode === "context") {
             setCtxRefUrl(item.url);
             toast.success(item.kind === "site" ? "Site anexado" : "Referência anexada");
@@ -681,6 +701,14 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         }}
       />
       <ImageLightbox open={!!lightbox} url={lightbox?.url || ""} label={lightbox?.label} onClose={() => setLightbox(null)} />
+      {folderLightbox && (
+        <FolderLightbox
+          open={!!folderLightbox}
+          folderId={folderLightbox.id}
+          folderTitle={folderLightbox.title}
+          onClose={() => setFolderLightbox(null)}
+        />
+      )}
     </div>
   );
 }

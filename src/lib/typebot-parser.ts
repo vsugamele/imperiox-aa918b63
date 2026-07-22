@@ -34,6 +34,8 @@ export interface FlowBlock {
   url?: string;
   seconds?: number;
   code?: string;
+  folder_id?: string;
+  folder_title?: string;
   raw?: any; // preserva original
 }
 
