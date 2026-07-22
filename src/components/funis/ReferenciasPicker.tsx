@@ -260,21 +260,30 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
     });
   };
 
+  const effectiveMulti = multi || addingToFolder;
+
   const handlePickImage = (item: RefItem) => {
     const sel: PickerSelection = { url: item.url, title: item.title, kind: "image", thumbnail: item.thumb };
-    if (multi) { togglePick(item.id, sel); return; }
+    if (effectiveMulti) { togglePick(item.id, sel); return; }
     onSelect(sel);
     onClose();
   };
 
   const handlePickSite = (item: SiteItem) => {
     const sel: PickerSelection = { url: item.url, title: item.title, kind: "site", thumbnail: item.thumb, siteId: item.id };
-    if (multi) { togglePick(item.id, sel); return; }
+    if (effectiveMulti) { togglePick(item.id, sel); return; }
+    onSelect(sel);
+    onClose();
+  };
+
+  const handlePickFolder = (f: FolderItem) => {
+    const sel: PickerSelection = { url: f.cover_url || "", title: f.nome, kind: "folder", thumbnail: f.cover_url, folderId: f.id };
     onSelect(sel);
     onClose();
   };
 
   const confirmMulti = () => {
+    if (addingToFolder) { addSelectedToFolder(Array.from(picked.values())); return; }
     onConfirm?.(Array.from(picked.values()));
     onClose();
   };
