@@ -713,7 +713,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                     {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
             </div>
+
+
 
             {/* Proxy */}
             <div className="pt-3 border-t border-border/50">
