@@ -16,7 +16,8 @@ import {
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
-// â”€â”€ Nav items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Nav items ──────────────────────────────────────────────────────────
+// Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
   { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
@@ -27,40 +28,38 @@ const hojeitems = [
 ];
 
 const venderItems = [
-  { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
-  { title: "Campanhas",            url: "/campanhas",  icon: Target },
-  { title: "Funis",                url: "/funis",      icon: Target },
-  { title: "Sites",                url: "/sites",      icon: Globe },
-  { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-];
-
-const adsFinancasItems = [
-  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
-  { title: "Tracker",              url: "/tracker",    icon: Link2 },
-  { title: "Atribuição",           url: "/atribuicao", icon: Radio },
-  { title: "Finanças",             url: "/financas",   icon: DollarSign },
-  { title: "Custos IA",            url: "/openrouter-custos", icon: Coins },
-];
-
-const planejarItems = [
-  { title: "Docs / KB",    url: "/docs",        icon: FileText },
-  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
-  { title: "Referências",  url: "/referencias", icon: Library },
+  { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
+  { title: "Campanhas",  url: "/campanhas", icon: Target },
+  { title: "Funis",      url: "/funis",     icon: Target },
+  { title: "Sites",      url: "/sites",     icon: Globe },
+  { title: "OpenFlow",   url: "/openflow",  icon: Workflow },
 ];
 
 const inteligenciaItems = [
-  { title: "Inteligência IA",      url: "/inteligencia-ia",icon: Brain },
-  { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
-  { title: "Assistente",           url: "/assistente",     icon: Compass },
-  { title: "Skills",               url: "/skills",         icon: Zap },
-  { title: "Guia Claude (Copy)",   url: "/claude-skills",  icon: BookOpen },
-  { title: "Estúdio de Produto",   url: "/studio",         icon: Clapperboard },
-  { title: "Copy Lab (Imperador)", url: "/copy-lab",       icon: Zap },
-  { title: "Swipe File",           url: "/swipe",          icon: Library },
-  { title: "Hook Labs",            url: "/hooks",          icon: Sparkles },
-  { title: "Market Intel",         url: "/market-intel",   icon: Search },
+  { title: "Inteligência IA",  url: "/inteligencia-ia",icon: Brain },
+  { title: "Assistente",       url: "/assistente",     icon: Compass },
+  { title: "Estúdio",          url: "/studio",         icon: Clapperboard },
+  { title: "Copy Lab",         url: "/copy-lab",       icon: Zap },
+  { title: "Hook Labs",        url: "/hooks",          icon: Sparkles },
+  { title: "Swipe File",       url: "/swipe",          icon: Library },
+  { title: "Market Intel",     url: "/market-intel",   icon: Search },
+  { title: "Skills",           url: "/skills",         icon: Zap },
 ];
 
+const capitalItems = [
+  { title: "Gerenciador Ads",  url: "/gerenciador",       icon: Activity },
+  { title: "Tracker",          url: "/tracker",           icon: Link2 },
+  { title: "Atribuição",       url: "/atribuicao",        icon: Radio },
+  { title: "Finanças",         url: "/financas",          icon: DollarSign },
+  { title: "Custos IA",        url: "/openrouter-custos", icon: Coins },
+];
+
+const acervoItems = [
+  { title: "Referências",  url: "/referencias", icon: Library },
+  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
+  { title: "Docs / KB",    url: "/docs",        icon: FileText },
+  { title: "Guia Claude",  url: "/claude-skills", icon: BookOpen },
+];
 
 const configurarItems = [
   { title: "Empresa", url: "/empresa",       icon: Building2 },
@@ -69,6 +68,7 @@ const configurarItems = [
   { title: "Config",  url: "/configuracoes", icon: Settings },
   { title: "Guia",    url: "/guia",          icon: BookOpen },
 ];
+
 
 type NavItem = {
   title: string;
@@ -140,7 +140,7 @@ function NavItemRow({
   );
 }
 
-// â”€â”€ Nav group â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Nav group ──────────────────────────────────────────────────────────
 function NavGroup({
   label,
   items,
@@ -160,10 +160,11 @@ function NavGroup({
   const collapsed = state === "collapsed";
 
   return (
-    <SidebarGroup className={!isLast ? "pb-2 mb-2 border-b border-sidebar-border/40" : ""}>
+    <SidebarGroup className={!isLast ? "pb-3 mb-2 border-b border-sidebar-border/30" : "pb-3"}>
       {!collapsed && (
-        <SidebarGroupLabel className="nav-kicker px-3">Â· {label}</SidebarGroupLabel>
+        <SidebarGroupLabel className="nav-kicker px-3">· {label}</SidebarGroupLabel>
       )}
+
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
