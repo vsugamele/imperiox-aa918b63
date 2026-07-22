@@ -201,8 +201,9 @@ export function AppSidebar() {
   // All items pool for favourites lookup
   const allItems: NavItem[] = [
     ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...planejarItems, ...adsFinancasItems, ...configurarItems,
+    ...capitalItems, ...acervoItems, ...configurarItems,
   ];
+
 
   const favItems = favorites
     .map((url) => allItems.find((i) => i.url === url))
@@ -249,12 +250,13 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <NavGroup label="Hoje"          items={hojeitems}         {...sharedProps} />
-        <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
-        <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
-        <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
-        <NavGroup label="Ads / Finanças" items={adsFinancasItems} {...sharedProps} />
-        <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
+        <NavGroup label="Hoje"         items={hojeitems}         {...sharedProps} />
+        <NavGroup label="Vender"       items={venderItems}       {...sharedProps} />
+        <NavGroup label="Inteligência" items={inteligenciaItems} {...sharedProps} />
+        <NavGroup label="Capital"      items={capitalItems}      {...sharedProps} />
+        <NavGroup label="Acervo"       items={acervoItems}       {...sharedProps} />
+        <NavGroup label="Setup"        items={configurarItems}   {...sharedProps} isLast />
+
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 p-2">
