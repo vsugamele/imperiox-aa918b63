@@ -403,7 +403,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
                 )}
               </>
             )
-          ) : (
+          ) : tab === "site" ? (
             visibleSites.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground text-sm gap-2">
                 <Globe className="h-8 w-8 opacity-40" />
@@ -451,15 +451,116 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
                 )}
               </>
             )
+          ) : (
+            // Aba PASTAS
+            openFolderId ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <button onClick={() => setOpenFolderId(null)} className="text-xs text-pink-200 flex items-center gap-1 hover:underline">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+                  </button>
+                  <button
+                    onClick={() => { setAddingToFolder(true); setTab("image"); setPicked(new Map()); }}
+                    className="text-xs px-2 py-1 rounded border border-pink-500/40 text-pink-100 hover:bg-pink-500/10 flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Adicionar imagens/sites
+                  </button>
+                </div>
+                {folderItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[240px] text-muted-foreground text-sm gap-2">
+                    <FolderOpen className="h-8 w-8 opacity-40" />
+                    Pasta vazia.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {folderItems.map(it => (
+                      <div key={it.id} className="relative aspect-square rounded-md overflow-hidden border border-border/60 group">
+                        <img src={it.thumb_url || it.url} alt={it.titulo || ""} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeFolderItem(it.id)}
+                          className="absolute top-1 right-1 h-6 w-6 rounded bg-black/70 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          title="Remover"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newFolderName}
+                    onChange={e => setNewFolderName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && createFolder()}
+                    placeholder="Nome da nova pasta..."
+                    className="h-9 text-sm flex-1"
+                  />
+                  <button
+                    onClick={createFolder}
+                    disabled={!newFolderName.trim()}
+                    className="px-3 h-9 rounded-md bg-pink-600 hover:bg-pink-500 text-white text-xs disabled:opacity-40 flex items-center gap-1"
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" /> Criar
+                  </button>
+                </div>
+                {folders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[240px] text-muted-foreground text-sm gap-2">
+                    <FolderOpen className="h-8 w-8 opacity-40" />
+                    Nenhuma pasta ainda.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {folders.map(f => (
+                      <div key={f.id} className="relative group">
+                        <button
+                          onDoubleClick={() => setOpenFolderId(f.id)}
+                          onClick={() => handlePickFolder(f)}
+                          className="w-full rounded-md overflow-hidden border border-border/60 bg-background/40 hover:border-pink-500/60 hover:ring-2 hover:ring-pink-500/30 transition text-left"
+                          title={`Clique: usar pasta · Duplo-clique: abrir`}
+                        >
+                          <div className="aspect-video bg-secondary/30 flex items-center justify-center">
+                            {f.cover_url ? (
+                              <img src={f.cover_url} alt={f.nome} className="w-full h-full object-cover" />
+                            ) : (
+                              <FolderOpen className="h-10 w-10 text-pink-500/60" />
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <p className="text-[11px] font-medium truncate">{f.nome}</p>
+                            <p className="text-[10px] text-muted-foreground">{f.count ?? 0} {(f.count ?? 0) === 1 ? "item" : "itens"}</p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => setOpenFolderId(f.id)}
+                          className="absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-pink-600/80 hover:bg-pink-500 text-white opacity-0 group-hover:opacity-100 transition"
+                        >
+                          abrir
+                        </button>
+                        <button
+                          onClick={() => deleteFolder(f.id)}
+                          className="absolute top-1 right-1 h-6 w-6 rounded bg-black/70 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          title="Excluir pasta"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
           )}
         </div>
-        {multi && (
+        {effectiveMulti && (
           <div className="flex items-center justify-between pt-3 border-t border-border/40">
             <span className="text-xs text-muted-foreground">{picked.size} selecionado{picked.size === 1 ? "" : "s"}</span>
             <div className="flex gap-2">
               <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-secondary/60">Cancelar</button>
               <button onClick={confirmMulti} disabled={picked.size === 0} className="px-3 py-1.5 text-xs rounded-md bg-pink-600 hover:bg-pink-500 text-white disabled:opacity-40">
-                Adicionar ({picked.size})
+                {addingToFolder ? `Adicionar à pasta (${picked.size})` : `Adicionar (${picked.size})`}
               </button>
             </div>
           </div>
