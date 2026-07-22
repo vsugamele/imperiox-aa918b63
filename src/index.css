@@ -310,6 +310,96 @@
   }
 }
 
+/* ───────── Oxygen: breathing room & calm hierarchy ───────── */
+@layer utilities {
+  /* Página com respiração editorial — aplicar no <main> ou container raiz */
+  .page-oxygen {
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-block: 1.75rem;
+  }
+  .page-oxygen > * + * {
+    margin-top: 1.75rem;
+  }
+
+  /* Header de página com kicker + título serifado + linha fina */
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+  }
+  .page-header-kicker {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: hsl(var(--gold) / 0.85);
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+  .page-header-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 2rem;
+    line-height: 1;
+    color: hsl(var(--foreground));
+  }
+
+  /* Card sereno — sem gradiente, borda quase invisível, hover discreto */
+  .card-calm {
+    background: hsl(var(--card) / 0.5);
+    border: 1px solid hsl(var(--border) / 0.4);
+    border-radius: var(--radius);
+    transition: border-color 220ms ease, background 220ms ease;
+  }
+  .card-calm:hover {
+    border-color: hsl(var(--border) / 0.8);
+    background: hsl(var(--card) / 0.75);
+  }
+
+  /* KPI numérico com peso editorial */
+  .kpi-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 2.25rem;
+    line-height: 1;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
+  .kpi-value-gold { color: hsl(var(--gold)); }
+  .kpi-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Divisor fino para separar seções sem gritar */
+  .quiet-divider {
+    height: 1px;
+    background: hsl(var(--border) / 0.4);
+  }
+
+  /* Ação silenciosa — botão minimalista dourado */
+  .btn-quiet {
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: color 180ms ease;
+  }
+  .btn-quiet:hover {
+    color: hsl(var(--gold));
+  }
+}
+
+
 
 /* Aumenta hit-area dos handles de resize do React Flow (canvas de funis) */
 .react-flow__resize-control {
