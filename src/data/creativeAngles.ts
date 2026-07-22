@@ -211,6 +211,9 @@ export const CREATIVE_ANGLES: CreativeAngle[] = [
     visualPrompt: "Estética da trend do momento, hashtag em destaque, referência cultural clara.",
     categoria: "wander",
   },
+];
+
+
 
 
 export const ANGLE_BY_SLUG: Record<string, CreativeAngle> = Object.fromEntries(
