@@ -288,7 +288,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => { setTab("image"); setLimit(PAGE); }}
             className={cn(
@@ -313,6 +313,24 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
             <Globe className="h-3.5 w-3.5 inline mr-1.5" />
             Sites ({sites.length})
           </button>
+          <button
+            onClick={() => { setTab("folder"); setOpenFolderId(null); setAddingToFolder(false); setPicked(new Map()); }}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-xs font-medium border transition",
+              tab === "folder"
+                ? "bg-pink-600/30 border-pink-500/60 text-pink-100"
+                : "bg-secondary/40 border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <FolderOpen className="h-3.5 w-3.5 inline mr-1.5" />
+            Pastas ({folders.length})
+          </button>
+          {addingToFolder && (
+            <span className="ml-auto text-[11px] text-pink-200 flex items-center gap-2">
+              Selecione imagens/sites para a pasta
+              <button onClick={() => { setAddingToFolder(false); setPicked(new Map()); setTab("folder"); }} className="underline">cancelar</button>
+            </span>
+          )}
         </div>
 
         <div className="relative">
