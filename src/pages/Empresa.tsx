@@ -52,7 +52,13 @@ interface ContaEmpresa {
     bio?: string;
     channel_url?: string;
     ativo?: string;
+    proxy_endpoint?: string;
+    proxy_user?: string;
+    proxy_pass?: string;
+    geelark_profile?: string;
+    geelark_status?: string;
   };
+
 }
 
 interface MapNode { id: string; label: string; }
