@@ -555,6 +555,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       id: e.id,
       source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
       target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
+      sourceHandle: e.source_handle || undefined,
+      targetHandle: e.target_handle || undefined,
       animated: e.style !== "dashed",
       label: e.label || undefined,
       interactionWidth: 24,
@@ -1019,10 +1021,10 @@ function InnerMap({ projects }: { projects: any[] }) {
     const source_id = srcIsAnn ? conn.source.slice(ANN_PREFIX.length) : conn.source;
     const target_id = tgtIsAnn ? conn.target.slice(ANN_PREFIX.length) : conn.target;
     const { data, error } = await (supabase.from("imphq_company_map_edges") as any)
-      .insert({ map_id: mapId, source_id, target_id, source_kind: srcIsAnn ? "annotation" : "node", target_kind: tgtIsAnn ? "annotation" : "node" })
+      .insert({ map_id: mapId, source_id, target_id, source_kind: srcIsAnn ? "annotation" : "node", target_kind: tgtIsAnn ? "annotation" : "node", source_handle: conn.sourceHandle || null, target_handle: conn.targetHandle || null })
       .select().single();
     if (error) { toast.error("Erro ao conectar"); return; }
-    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
+    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, sourceHandle: conn.sourceHandle || undefined, targetHandle: conn.targetHandle || undefined, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
   }, [mapId]);
 
   const deleteEdgeById = useCallback(async (edgeId: string) => {
