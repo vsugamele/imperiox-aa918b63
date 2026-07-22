@@ -193,7 +193,11 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
     foto_url: "" as string, mapa_node_id: "" as string,
     cloud_phone_ref: "" as string, project_id: "" as string,
+    proxy_tipo: "" as string, proxy_geo: "" as string,
+    proxy_endpoint: "" as string, proxy_user: "" as string, proxy_pass: "" as string,
+    geelark_profile: "" as string, geelark_status: "" as string,
   };
+
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
 
@@ -222,7 +226,15 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       mapa_node_id: conta.mapa_node_id || "",
       cloud_phone_ref: conta.cloud_phone_ref || "",
       project_id: conta.project_id || "",
+      proxy_tipo: conta.proxy_tipo || "",
+      proxy_geo: conta.proxy_geo || "",
+      proxy_endpoint: conta.extra?.proxy_endpoint || "",
+      proxy_user: conta.extra?.proxy_user || "",
+      proxy_pass: conta.extra?.proxy_pass || "",
+      geelark_profile: conta.extra?.geelark_profile || "",
+      geelark_status: conta.extra?.geelark_status || "",
     });
+
     setShowFormPassword(false);
     setShowDialog(true);
   };
@@ -259,6 +271,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       mapa_node_id: form.mapa_node_id || null,
       cloud_phone_ref: form.cloud_phone_ref || null,
       project_id: form.project_id || null,
+      proxy_tipo: form.proxy_tipo || null,
+      proxy_geo: form.proxy_geo || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -269,8 +283,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
         bio: form.bio || null,
         channel_url: form.channel_url || null,
         ativo: form.ativo || null,
+        proxy_endpoint: form.proxy_endpoint || null,
+        proxy_user: form.proxy_user || null,
+        proxy_pass: form.proxy_pass || null,
+        geelark_profile: form.geelark_profile || null,
+        geelark_status: form.geelark_status || null,
       },
     } as any;
+
 
     if (editingConta) {
       const { error } = await supabase.from("imphq_empresa").update(payload).eq("id", editingConta.id);
