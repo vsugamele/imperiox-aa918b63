@@ -74,6 +74,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const [refineLoading, setRefineLoading] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  const [folderLightbox, setFolderLightbox] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => {
     const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
     window.addEventListener("open-image-lightbox", h);
