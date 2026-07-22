@@ -713,9 +713,80 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                     {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
+            </div>
+
+            {/* Proxy */}
+            <div className="pt-3 border-t border-border/50">
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground mb-2">Proxy</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Tipo</Label>
+                  <Select value={form.proxy_tipo || "__none__"} onValueChange={v => setForm({ ...form, proxy_tipo: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      <SelectItem value="Residential">Residential</SelectItem>
+                      <SelectItem value="Mobile">Mobile (4G/5G)</SelectItem>
+                      <SelectItem value="Datacenter">Datacenter</SelectItem>
+                      <SelectItem value="ISP">ISP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Geo</Label>
+                  <Input placeholder="BR-SP, US-NY..." value={form.proxy_geo} onChange={e => setForm({ ...form, proxy_geo: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Endpoint (host:porta)</Label>
+                  <Input placeholder="proxy.exemplo.com:8080" value={form.proxy_endpoint} onChange={e => setForm({ ...form, proxy_endpoint: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Usuário</Label>
+                  <Input value={form.proxy_user} onChange={e => setForm({ ...form, proxy_user: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Senha</Label>
+                  <Input type="password" value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            {/* GeeLark */}
+            <div className="pt-3 border-t border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-editorial text-muted-foreground">GeeLark</p>
+                {form.geelark_profile && (
+                  <a
+                    href={`https://app.geelark.com/profile/${encodeURIComponent(form.geelark_profile)}`}
+                    target="_blank" rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    abrir no GeeLark ↗
+                  </a>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Profile ID</Label>
+                  <Input placeholder="GL-4823" value={form.geelark_profile} onChange={e => setForm({ ...form, geelark_profile: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={form.geelark_status || "__none__"} onValueChange={v => setForm({ ...form, geelark_status: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">—</SelectItem>
+                      <SelectItem value="Novo">Novo</SelectItem>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Pausado">Pausado</SelectItem>
+                      <SelectItem value="Banido">Banido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
+
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
