@@ -12,8 +12,9 @@ export interface CreativeAngle {
   gatilho: string;          // emoção/mecanismo psicológico dominante
   exemploHook: string;      // hook curto pronto pra adaptar
   visualPrompt: string;     // diretriz para creative-factory (imagem)
-  categoria: "classico" | "filemon" | "emocional";
+  categoria: "classico" | "filemon" | "emocional" | "wander";
 }
+
 
 export const CREATIVE_ANGLES: CreativeAngle[] = [
   // ──────── CLÁSSICOS (7 originais) ────────
@@ -118,7 +119,99 @@ export const CREATIVE_ANGLES: CreativeAngle[] = [
     visualPrompt: "Foco em PROMESSA: número grande e específico em destaque (R$, dias, %), elemento visual de cronômetro/calendário, prova de garantia.",
     categoria: "filemon",
   },
-];
+
+  // ──────── WANDER / 7 CAMADAS (10 novos) ────────
+  {
+    slug: "lista",
+    nome: "Lista",
+    descricao: "Hook → 2 opções fracas → 1 opção forte → CTA. Público comparador.",
+    gatilho: "Comparação lógica + escolha guiada",
+    exemploHook: "3 formas de ganhar R$ 300 por dia sem sair de casa — a 3ª é a que ninguém te contou.",
+    visualPrompt: "Numeração grande na tela (1, 2, 3), cards ou split, ranking visual do fraco pro forte.",
+    categoria: "wander",
+  },
+  {
+    slug: "erro-comum",
+    nome: "Erro Comum",
+    descricao: "Aponta um erro que a maioria comete → consequência → solução.",
+    gatilho: "Autoconsciência de falha + medo de continuar errando",
+    exemploHook: "Se você faz isso todo café da manhã, tá sabotando sua glicose antes das 8h.",
+    visualPrompt: "X vermelho ou 'ERRADO' sobreposto ao hábito, transição pra versão correta.",
+    categoria: "wander",
+  },
+  {
+    slug: "contrarian",
+    nome: "Contrarian",
+    descricao: "Posição contra o consenso do mercado. 'Não é X, é Y.'",
+    gatilho: "Quebra de crença + revelação de causa raiz",
+    exemploHook: "A neuropatia não é por açúcar alto. É porque seus nervos estão sendo privados de UMA vitamina.",
+    visualPrompt: "Divisão 'todos dizem X / mas na verdade Y', tom investigativo.",
+    categoria: "wander",
+  },
+  {
+    slug: "mecanismo-oculto",
+    nome: "Mecanismo Oculto",
+    descricao: "Revela o 'porquê biológico/sistêmico' que explica o problema.",
+    gatilho: "Curiosidade científica + validação lógica",
+    exemploHook: "O motivo biológico pelo qual mulheres 40+ acumulam gordura não tem NADA a ver com o que comem.",
+    visualPrompt: "Diagrama simples, animação de mecanismo (célula, órgão, sistema), tom educativo.",
+    categoria: "wander",
+  },
+  {
+    slug: "predicao",
+    nome: "Predição",
+    descricao: "Projeta consequência futura se nada mudar. Baseado em sintoma atual.",
+    gatilho: "Medo do futuro previsível",
+    exemploHook: "Esquecer nomes no meio da frase não é envelhecimento — é aviso de algo 20 anos antes de começar.",
+    visualPrompt: "Timeline com marcos futuros escuros, contagem regressiva, tom de alerta.",
+    categoria: "wander",
+  },
+  {
+    slug: "quick-fast",
+    nome: "Quick & Fast",
+    descricao: "Resultado em prazo curto, esforço mínimo, sem cortar hábitos.",
+    gatilho: "Urgência + baixa fricção",
+    exemploHook: "5 frutas baratas que sugam açúcar do sangue em 24 horas.",
+    visualPrompt: "Cronômetro, '24H', '7 DIAS' em destaque, ícone de rapidez.",
+    categoria: "wander",
+  },
+  {
+    slug: "superestrutura",
+    nome: "Superestrutura",
+    descricao: "Ancora a oferta numa marca/plataforma/hábito reconhecível (Wi-Fi, Spotify, café).",
+    gatilho: "Familiaridade = segurança = abertura mental",
+    exemploHook: "Se você tem Wi-Fi em casa, você já tem tudo pra ganhar R$ 200 a R$ 500 por dia.",
+    visualPrompt: "Logo/símbolo da superestrutura em destaque + avatar comum interagindo.",
+    categoria: "wander",
+  },
+  {
+    slug: "medo-consequencia",
+    nome: "Medo + Consequência",
+    descricao: "Amplifica o custo real (pessoal, financeiro, corporal) de não agir.",
+    gatilho: "Aversão à perda concreta",
+    exemploHook: "Se você é tipo 2 e sente formigamento nos pés, o que acontece dentro do seu corpo é MUITO pior.",
+    visualPrompt: "Imagem visceral da consequência (pé escurecendo, extrato zerado), tom sério.",
+    categoria: "wander",
+  },
+  {
+    slug: "fofoca-descoberta",
+    nome: "Fofoca + Descoberta",
+    descricao: "Celebridade/famoso + transformação inexplicada → método por trás.",
+    gatilho: "Curiosidade social + prova aspiracional",
+    exemploHook: "Jelly Roll apareceu magro no Grammy — as páginas de fofoca foram à loucura pra entender o que ele fez.",
+    visualPrompt: "Foto de celebridade antes/depois, print de tabloide, tom cochicho.",
+    categoria: "wander",
+  },
+  {
+    slug: "trend",
+    nome: "Trend Cultural",
+    descricao: "Ancora na tendência do momento (moda praia 2026, verão, ano-novo).",
+    gatilho: "FOMO cultural + timing",
+    exemploHook: "Moda praia 2026: como mulheres reais estão usando UM truque caseiro pra chegar prontas pro verão.",
+    visualPrompt: "Estética da trend do momento, hashtag em destaque, referência cultural clara.",
+    categoria: "wander",
+  },
+
 
 export const ANGLE_BY_SLUG: Record<string, CreativeAngle> = Object.fromEntries(
   CREATIVE_ANGLES.map((a) => [a.slug, a])
