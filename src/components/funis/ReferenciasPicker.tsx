@@ -62,15 +62,20 @@ const isImageUrl = (u?: string | null) =>
   !!u && /\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(u);
 
 export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image", multi = false, onConfirm }: Props) {
-  const [tab, setTab] = useState<"image" | "site">(initialTab);
+  const [tab, setTab] = useState<"image" | "site" | "folder">(initialTab);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RefItem[]>([]);
   const [sites, setSites] = useState<SiteItem[]>([]);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
+  const [folderItems, setFolderItems] = useState<Array<{id: string; url: string; thumb_url: string | null; titulo: string | null;}>>([]);
+  const [addingToFolder, setAddingToFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [picked, setPicked] = useState<Map<string, PickerSelection>>(new Map());
 
-  useEffect(() => { if (open) { setTab(initialTab); setPicked(new Map()); } }, [open, initialTab]);
+  useEffect(() => { if (open) { setTab(initialTab); setPicked(new Map()); setOpenFolderId(null); } }, [open, initialTab]);
 
   useEffect(() => {
     if (!open) return;
