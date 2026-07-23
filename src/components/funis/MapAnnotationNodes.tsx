@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { NodeResizer, Handle, Position, type NodeProps } from "@xyflow/react";
-import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone, CalendarClock, Camera, Circle, Video, Send, MessageCircle, Plus, X, Maximize2, Minimize2, Sprout, Mail, ShieldAlert } from "lucide-react";
+import { ExternalLink, Play, Instagram, Youtube, Music2, Copy, ImagePlus, ImageIcon, Sparkles, Loader2, Film, FileText, MessageSquare, Megaphone, CalendarClock, Camera, Circle, Video, Send, MessageCircle, Plus, X, Maximize2, Minimize2, Sprout, Mail, ShieldAlert, Pencil, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
