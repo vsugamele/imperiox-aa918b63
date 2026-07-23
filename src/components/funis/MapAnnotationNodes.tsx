@@ -429,8 +429,55 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
               </button>
             </>
           )}
+          <button
+            type="button"
+            onMouseDown={stopBubble}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); setUrlDraft(url); setEditingUrl(v => !v); }}
+            className="nodrag nopan p-1 rounded text-white/30 hover:text-[#c9922a] transition-colors"
+            title={url ? "Editar link" : "Adicionar link"}
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
         </div>
       </div>
+
+      {editingUrl && (
+        <div
+          className="px-3 py-2 bg-[#0f0d0e] border-b border-white/5 flex items-center gap-1.5 shrink-0"
+          onMouseDown={stopBubble}
+          onClick={stopBubble}
+        >
+          <input
+            autoFocus
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") { e.preventDefault(); saveUrl(); }
+              if (e.key === "Escape") { e.preventDefault(); setEditingUrl(false); setUrlDraft(url); }
+            }}
+            placeholder="https://…"
+            className="nodrag nopan flex-1 h-6 px-2 rounded bg-black/40 border border-white/10 text-[11px] text-white placeholder:text-white/25 focus:outline-none focus:border-[#c9922a]/50"
+          />
+          <button
+            type="button"
+            disabled={savingUrl}
+            onClick={saveUrl}
+            className="nodrag nopan p-1 rounded text-[#c9922a] hover:bg-[#c9922a]/10 disabled:opacity-40"
+            title="Salvar"
+          >
+            {savingUrl ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setEditingUrl(false); setUrlDraft(url); }}
+            className="nodrag nopan p-1 rounded text-white/40 hover:text-white/80"
+            title="Cancelar"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
 
       {/* Corpo visual */}
       <div
