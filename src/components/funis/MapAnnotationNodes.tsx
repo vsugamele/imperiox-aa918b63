@@ -332,6 +332,36 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
     if (ok) toast.success("Link copiado");
     else toast.error("Falha ao copiar");
   };
+  const saveUrl = async () => {
+    const raw = urlDraft.trim();
+    if (!raw) { setEditingUrl(false); setUrlDraft(url); return; }
+    if (!/^https?:\/\//i.test(raw)) { toast.error("Link inválido — precisa começar com http(s)://"); return; }
+    if (raw === url) { setEditingUrl(false); return; }
+    setSavingUrl(true);
+    const newPlatform = detectReelPlatform(raw);
+    // Patch imediato para sensação de instantaneidade
+    d.onStyleChange?.(id, { url: raw, platform: newPlatform, thumb: undefined, thumb_proxy: undefined, author: undefined, title: undefined, description: undefined });
+    setEditingUrl(false);
+    try {
+      const { data: prev } = await supabase.functions.invoke("link-preview", { body: { url: raw } });
+      if (prev) {
+        d.onStyleChange?.(id, {
+          url: raw,
+          platform: newPlatform,
+          thumb: prev.thumb || undefined,
+          thumb_proxy: prev.thumb_proxy || undefined,
+          author: prev.author || undefined,
+          title: prev.title || undefined,
+          description: prev.description || undefined,
+        });
+      }
+      toast.success("Link atualizado");
+    } catch (e) {
+      toast.message("Link salvo — preview indisponível");
+    } finally {
+      setSavingUrl(false);
+    }
+  };
 
   const platformGradient =
     platform === "instagram" ? "linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)" :
