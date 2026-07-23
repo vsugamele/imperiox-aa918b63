@@ -286,6 +286,10 @@ export const AnnotationReelNode = memo(({ id, data, selected }: NodeProps) => {
   const thumb = d.style?.thumb_proxy || d.style?.thumb;
   const author = d.style?.author;
   const title = d.style?.title;
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlDraft, setUrlDraft] = useState(url);
+  const [savingUrl, setSavingUrl] = useState(false);
+  useEffect(() => { setUrlDraft(url); }, [url]);
   const PlatformIcon = platform === "instagram" ? Instagram : platform === "youtube" ? Youtube : platform === "tiktok" ? Music2 : Play;
   const platformColor = platform === "instagram" ? "#e1306c" : platform === "youtube" ? "#ff0033" : platform === "tiktok" ? "#25f4ee" : "#c9922a";
   const writeClipboard = async (text: string): Promise<boolean> => {
