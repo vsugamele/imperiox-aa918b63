@@ -26,6 +26,7 @@ interface ContaEmpresa {
   valor?: string;
   foto_url?: string | null;
   mapa_node_id?: string | null;
+  color?: string | null;
   // Farm columns
   warmup_status?: string | null;
   warmup_days?: number | null;
