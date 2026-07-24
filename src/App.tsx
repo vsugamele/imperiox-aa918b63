@@ -129,7 +129,7 @@ const App = () => (
               <Route path="/mapa/:token" element={<MapaPublico />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — Cockpit da Empresa (foco do dia + pulso) */}
-                <Route index element={<Navigate to="/tarefas" replace />} />
+                <Route index element={<Navigate to="/tarefas?view=kanban" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="dashboard-classic" element={<DashboardClassic />} />
                 <Route path="inteligencia-ia" element={<InteligenciaIA />} />
