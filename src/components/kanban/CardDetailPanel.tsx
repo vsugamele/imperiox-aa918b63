@@ -144,6 +144,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [creatives, setCreatives] = useState<any[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Relations
@@ -174,6 +175,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     loadChecklist(card.id);
     loadComments(card.id);
     loadAttachments(card.id);
+    loadCreatives(card.id);
     loadRelations(card.id);
     loadAllCards();
   }, [card]);
@@ -191,6 +193,17 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const loadAttachments = async (cardId: string) => {
     const { data } = await supabase.from("imphq_card_attachments").select("*").eq("card_id", cardId).order("created_at", { ascending: false });
     setAttachments((data as any[]) || []);
+  };
+
+  const loadCreatives = async (cardId: string) => {
+    const { data } = await supabase.from("imphq_creative_assets").select("id, image_url, angulo, formato, aprovado").eq("card_id", cardId).order("created_at", { ascending: false });
+    setCreatives((data as any[]) || []);
+  };
+
+  const unlinkCreative = async (id: string) => {
+    await supabase.from("imphq_creative_assets").update({ card_id: null }).eq("id", id);
+    setCreatives(prev => prev.filter(c => c.id !== id));
+    toast.success("Criativo desvinculado");
   };
 
   const loadRelations = async (cardId: string) => {
@@ -822,6 +835,38 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
               </div>
 
               <Separator />
+
+              {/* Criativos vinculados */}
+              <div>
+                <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-2">
+                  <FolderOpen className="h-3 w-3" /> Criativos do Studio ({creatives.length})
+                </Label>
+                {creatives.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {creatives.map(c => (
+                      <div key={c.id} className="relative group rounded-md border border-border overflow-hidden bg-muted/20">
+                        <img src={c.image_url} alt={c.angulo} className="w-full h-20 object-cover cursor-pointer hover:opacity-80" onClick={() => setLightboxUrl(c.image_url)} />
+                        <div className="px-1.5 py-1 flex items-center justify-between gap-1">
+                          <span className="text-[9px] text-muted-foreground truncate">{c.angulo}</span>
+                          {c.aprovado && <Badge className="h-3 px-1 text-[8px] bg-emerald-500/20 text-emerald-300 border-emerald-500/30">✓</Badge>}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); unlinkCreative(c.id); }}
+                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 hover:bg-destructive text-destructive-foreground rounded-full p-1 transition-opacity"
+                          title="Desvincular"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-3 italic">Nenhum criativo vinculado. Vincule pelo Studio.</p>
+                )}
+              </div>
+
+              <Separator />
+
 
               {/* Checklist */}
               <div>
