@@ -135,6 +135,14 @@ export default function Tarefas() {
   const [params, setParams] = useSearchParams();
   const viewParam = params.get("view");
   const { user } = useAuth();
+  const [cockpitOpen, setCockpitOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("cockpit.open");
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("cockpit.open", cockpitOpen ? "1" : "0"); } catch {}
+  }, [cockpitOpen]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
