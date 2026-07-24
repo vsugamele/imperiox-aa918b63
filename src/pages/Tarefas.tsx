@@ -23,8 +23,13 @@ import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
   RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
-  BookOpen, GripVertical, MessageSquare, Kanban
+  BookOpen, GripVertical, MessageSquare, Kanban, ChevronDown, ChevronUp
 } from "lucide-react";
+import { EditorialHeader } from "@/components/dashboard/cockpit/EditorialHeader";
+import { ProjectSellingGrid } from "@/components/dashboard/cockpit/ProjectSellingGrid";
+import { DecisionQueue } from "@/components/dashboard/cockpit/DecisionQueue";
+import { BlendedFunnelStrip } from "@/components/dashboard/cockpit/BlendedFunnelStrip";
+import { OperationsFooter } from "@/components/dashboard/cockpit/OperationsFooter";
 import Chat from "./Chat";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
