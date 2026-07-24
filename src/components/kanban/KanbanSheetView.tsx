@@ -130,6 +130,23 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
     if (activeView === id) setActiveView(null);
   };
 
+  const colName = (id: string) => columns.find((c) => c.id === id)?.title || "—";
+  const memberName = (id?: string) => members.find((m) => m.id === id)?.name || "—";
+  const projectName = (id?: string) => projects.find((p) => p.id === id)?.name || "—";
+
+  const filtered = useMemo(() => {
+    let list = cards;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((c) => c.title.toLowerCase().includes(q) || (c.tags || []).some((t) => t.toLowerCase().includes(q)));
+    }
+    const p = PRESETS.find((x) => x.id === preset);
+    if (p) list = list.filter(p.test);
+    return list;
+  }, [cards, search, preset]);
+
+
+
 
   const groups = useMemo(() => {
     if (groupBy === "none") return [{ key: "all", label: "Todos", rows: filtered }];
