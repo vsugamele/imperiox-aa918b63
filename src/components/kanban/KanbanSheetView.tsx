@@ -449,7 +449,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
             })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={METRIC_FIELDS.length + 6} className="text-center py-8 text-xs text-muted-foreground">
+                <TableCell colSpan={METRIC_FIELDS.length + 7} className="text-center py-8 text-xs text-muted-foreground">
                   Nenhum card encontrado com esse filtro
                 </TableCell>
               </TableRow>
