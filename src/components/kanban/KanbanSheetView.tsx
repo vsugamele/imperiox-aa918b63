@@ -65,7 +65,9 @@ const PRESETS: Array<{ id: string; label: string; test: (c: KanbanCard) => boole
     } },
 ];
 
-export function KanbanSheetView({ cards, columns, members, projects, onReload }: Props) {
+export function KanbanSheetView({ cards, columns, members, projects, boards = [], onReload, onOpenCard }: Props) {
+  const [projectSearch, setProjectSearch] = useState("");
+  const boardOptions = boards.filter((b) => b.id !== "geral" && b.id !== "experts");
   const [groupBy, setGroupBy] = useState<GroupKey>("column");
   const [preset, setPreset] = useState<string>("all");
   const [search, setSearch] = useState("");
