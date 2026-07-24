@@ -195,6 +195,17 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     setAttachments((data as any[]) || []);
   };
 
+  const loadCreatives = async (cardId: string) => {
+    const { data } = await supabase.from("imphq_creative_assets").select("id, image_url, angulo, formato, aprovado").eq("card_id", cardId).order("created_at", { ascending: false });
+    setCreatives((data as any[]) || []);
+  };
+
+  const unlinkCreative = async (id: string) => {
+    await supabase.from("imphq_creative_assets").update({ card_id: null }).eq("id", id);
+    setCreatives(prev => prev.filter(c => c.id !== id));
+    toast.success("Criativo desvinculado");
+  };
+
   const loadRelations = async (cardId: string) => {
     const { data } = await supabase.from("imphq_card_relations").select("*").or(`card_id.eq.${cardId},related_card_id.eq.${cardId}`);
     if (!data) { setRelations([]); return; }
