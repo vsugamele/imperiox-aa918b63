@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Search, Bookmark, Save, X } from "lucide-react";
 import { METRIC_FIELDS, formatMetric, autoStatusColor } from "./kanbanTemplates";
 import type { KanbanBoard } from "./BoardTabsBar";
+
+interface SavedView {
+  id: string;
+  name: string;
+  groupBy: GroupKey;
+  preset: string;
+  search: string;
+}
 
 interface KanbanCard {
   id: string;
