@@ -54,6 +54,33 @@ export default function CriativoDetalhe() {
   const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
   const [exporting, setExporting] = useState(false);
   const [zipping, setZipping] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<Asset | null>(null);
+  const [cardOptions, setCardOptions] = useState<Array<{ id: string; titulo: string; board_id: string | null }>>([]);
+  const [cardSearch, setCardSearch] = useState("");
+
+  async function openLinkDialog(a: Asset) {
+    setLinkTarget(a);
+    setCardSearch("");
+    const { data } = await supabase
+      .from("imphq_kanban_cards")
+      .select("id, titulo, board_id")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setCardOptions((data as any) || []);
+  }
+
+  async function linkToCard(cardId: string | null) {
+    if (!linkTarget) return;
+    const { error } = await supabase
+      .from("imphq_creative_assets")
+      .update({ card_id: cardId } as any)
+      .eq("id", linkTarget.id);
+    if (error) { toast.error(error.message); return; }
+    setAssets((prev) => prev.map((x) => x.id === linkTarget.id ? { ...x, card_id: cardId } : x));
+    toast.success(cardId ? "Criativo vinculado ao card" : "Vínculo removido");
+    setLinkTarget(null);
+  }
+
 
   async function load() {
     if (!id) return;
