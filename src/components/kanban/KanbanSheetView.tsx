@@ -259,6 +259,23 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
             {PRESETS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        {activeBoard && (
+          <div className="flex items-center gap-1">
+            {savedViews.map((v) => (
+              <div key={v.id} className={`h-8 flex items-center gap-1 pl-2 pr-1 rounded-md border text-xs ${activeView === v.id ? "border-primary bg-primary/10" : "border-border/60 hover:border-primary/60"}`}>
+                <button onClick={() => applyView(v)} className="flex items-center gap-1.5">
+                  <Bookmark className="h-3 w-3" /> {v.name}
+                </button>
+                <button onClick={() => removeView(v.id)} className="opacity-40 hover:opacity-100 p-0.5" title="Remover view">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={saveCurrentView}>
+              <Save className="h-3 w-3" /> Salvar view
+            </Button>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {selected.size > 0 && (
             <Popover>
