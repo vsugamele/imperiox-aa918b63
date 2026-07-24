@@ -23097,9 +23097,11 @@ export type Database = {
           id: string
           member_id: string | null
           metadata: Json | null
+          metrics: Json
           position: number | null
           priority: string | null
           project_id: string | null
+          status_color: string | null
           tags: string[] | null
           title: string
           updated_at: string | null
@@ -23115,9 +23117,11 @@ export type Database = {
           id?: string
           member_id?: string | null
           metadata?: Json | null
+          metrics?: Json
           position?: number | null
           priority?: string | null
           project_id?: string | null
+          status_color?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string | null
@@ -23133,9 +23137,11 @@ export type Database = {
           id?: string
           member_id?: string | null
           metadata?: Json | null
+          metrics?: Json
           position?: number | null
           priority?: string | null
           project_id?: string | null
+          status_color?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string | null
