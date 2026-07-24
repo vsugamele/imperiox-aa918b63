@@ -37,7 +37,9 @@ interface Props {
   columns: Column[];
   members: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
+  boards?: KanbanBoard[];
   onReload: () => void;
+  onOpenCard?: (card: KanbanCard) => void;
 }
 
 type GroupKey = "column" | "board" | "member" | "roi" | "priority" | "none";
