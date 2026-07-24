@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { FarmTab } from "@/components/empresa/FarmTab";
@@ -26,6 +28,7 @@ interface ContaEmpresa {
   valor?: string;
   foto_url?: string | null;
   mapa_node_id?: string | null;
+  color?: string | null;
   // Farm columns
   warmup_status?: string | null;
   warmup_days?: number | null;
@@ -369,7 +372,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
               : (statusText === "Pronto" ? "border-emerald-500/30 text-emerald-400" : statusText === "Aquecendo" ? "border-amber-500/30 text-amber-400" : statusText === "Banido" ? "border-red-500/30 text-red-400" : "");
             const title = tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}`;
             return (
-              <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2">
+              <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2" style={c.color ? { borderLeft: `3px solid ${c.color}`, backgroundColor: hexToTint(c.color, 0.06) } : undefined}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {c.foto_url ? (
@@ -489,6 +492,35 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 )}
 
                 <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Cor do card">
+                        <Palette className="h-3 w-3" style={c.color ? { color: c.color } : undefined} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="end">
+                      <ColumnColorMenu
+                        currentColor={c.color}
+                        onPick={async (hex) => {
+                          await supabase.from("imphq_empresa").update({ color: hex } as any).eq("id", c.id);
+                          onRefresh();
+                        }}
+                      />
+                      {c.color && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-1 h-7 text-xs text-muted-foreground"
+                          onClick={async () => {
+                            await supabase.from("imphq_empresa").update({ color: null } as any).eq("id", c.id);
+                            onRefresh();
+                          }}
+                        >
+                          Sem cor
+                        </Button>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Farm da conta" onClick={() => setFarmDialog({ id: c.id })}>
                     <Sprout className="h-3 w-3" />
                   </Button>
