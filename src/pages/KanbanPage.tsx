@@ -140,14 +140,18 @@ export default function KanbanPage() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [colRes, cardRes, memberRes, projRes, attRes, checkRes] = await Promise.all([
+    const [colRes, cardRes, memberRes, projRes, attRes, checkRes, boardRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
       supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
+      supabase.from("imphq_kanban_boards" as any).select("*").order("position"),
     ]);
+
+    const loadedBoards = ((boardRes as any)?.data || []) as KanbanBoard[];
+    if (loadedBoards.length > 0) setBoards(loadedBoards);
 
     let cols = (colRes.data || []) as KanbanColumn[];
     const existingBoards = new Set(cols.map(c => c.board));
