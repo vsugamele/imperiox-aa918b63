@@ -768,6 +768,40 @@ export default function Tarefas() {
 
   return (
     <div className="space-y-6">
+      {/* ═══ COCKPIT DA EMPRESA ═══ */}
+      <section className="border border-border/60 rounded-lg bg-background/40 backdrop-blur-sm">
+        <button
+          onClick={() => setCockpitOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/20 transition-colors rounded-t-lg"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] tracking-[0.32em] uppercase text-gold/80 font-medium">
+              Cockpit da Empresa
+            </span>
+            <span className="text-[10px] text-muted-foreground/60">
+              {cockpitOpen ? "recolher" : "expandir"}
+            </span>
+          </div>
+          {cockpitOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {cockpitOpen && (
+          <div className="px-4 pb-4 pt-2 space-y-6 animate-fade-in">
+            <EditorialHeader />
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+              <div className="space-y-6 min-w-0">
+                <ProjectSellingGrid />
+                <BlendedFunnelStrip />
+              </div>
+              <div className="xl:sticky xl:top-16 xl:self-start xl:max-h-[calc(100vh-5rem)]">
+                <DecisionQueue />
+              </div>
+            </div>
+            <OperationsFooter />
+          </div>
+        )}
+      </section>
+
+      {/* ═══ FOCO DO DIA — Tarefas ═══ */}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
