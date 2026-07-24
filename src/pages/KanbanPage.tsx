@@ -323,8 +323,8 @@ export default function KanbanPage() {
   const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
   const noOwnerCount = allCards.filter(c => !c.member_id).length;
   const boardCardCounts: Record<string, number> = {};
-  for (const b of BOARDS) {
-    boardCardCounts[b] = b === "geral" ? allCards.length : allCards.filter(c => c.board === b).length;
+  for (const b of boards) {
+    boardCardCounts[b.id] = b.id === "geral" ? allCards.length : allCards.filter(c => c.board === b.id).length;
   }
 
   const toggleHideDone = (v: boolean) => {
