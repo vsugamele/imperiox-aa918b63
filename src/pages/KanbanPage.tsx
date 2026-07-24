@@ -755,15 +755,25 @@ export default function KanbanPage() {
             variant={viewMode === "board" ? "secondary" : "ghost"}
             size="sm" className="h-8 px-2 rounded-r-none"
             onClick={() => setViewMode("board")}
+            title="Board"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm" className="h-8 px-2 rounded-l-none"
+            size="sm" className="h-8 px-2 rounded-none"
             onClick={() => setViewMode("list")}
+            title="Lista"
           >
             <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={viewMode === "sheet" ? "secondary" : "ghost"}
+            size="sm" className="h-8 px-2 rounded-l-none"
+            onClick={() => setViewMode("sheet")}
+            title="Planilha"
+          >
+            <TableIcon className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
