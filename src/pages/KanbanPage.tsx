@@ -71,6 +71,8 @@ interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
   member_id?: string; project_id?: string;
+  metrics?: Record<string, any> | null;
+  status_color?: string | null;
 }
 
 interface Filters {
