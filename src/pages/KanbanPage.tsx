@@ -802,12 +802,18 @@ export default function KanbanPage() {
                   <div
                     key={col.id}
                     className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] flex-1 snap-start`}
+                    style={col.color && !["#8b5cf6"].includes(col.color) ? { borderLeftColor: col.color, backgroundColor: hexToTint(col.color, 0.05) } : undefined}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >
-                    <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
+                    <div
+                      className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}
+                      style={col.color && !["#8b5cf6"].includes(col.color) ? { backgroundColor: hexToTint(col.color, 0.15) } : undefined}
+                    >
                       <div className="flex items-center gap-2">
-                        {config.icon}
+                        {col.color && !["#8b5cf6"].includes(col.color)
+                          ? <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                          : config.icon}
                         <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</h3>
                       </div>
                       <div className="flex items-center gap-1">
@@ -822,11 +828,23 @@ export default function KanbanPage() {
                                 <MoreHorizontal className="h-3 w-3" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1" align="end">
+                            <PopoverContent className="w-48 p-1" align="end">
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
                                 onClick={() => { setRenameCol(col); setRenameValue(col.title); }}>
                                 <Pencil className="h-3 w-3" /> Renomear
                               </button>
+                              <div className="px-2 py-1.5">
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                                  <Palette className="h-3 w-3" /> Cor
+                                </div>
+                                <ColumnColorMenu
+                                  currentColor={col.color}
+                                  onPick={async (hex) => {
+                                    await supabase.from("imphq_kanban_columns").update({ color: hex }).eq("id", col.id);
+                                    loadAllData();
+                                  }}
+                                />
+                              </div>
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
                                 onClick={() => { setDeleteCol(col); setMoveToColId(""); }}>
                                 <Trash2 className="h-3 w-3" /> Excluir
