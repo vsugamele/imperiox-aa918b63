@@ -98,6 +98,7 @@ export default function KanbanPage() {
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
+  const [boards, setBoards] = useState<KanbanBoard[]>(FALLBACK_BOARDS);
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
   const [newTitle, setNewTitle] = useState("");
