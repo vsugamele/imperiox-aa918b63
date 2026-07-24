@@ -944,6 +944,7 @@ export default function KanbanPage() {
               members={members}
               projects={projects}
               boards={boards}
+              activeBoard={activeBoard}
               onReload={loadAllData}
               onOpenCard={(c) => setEditCard({ ...(c as any) })}
             />

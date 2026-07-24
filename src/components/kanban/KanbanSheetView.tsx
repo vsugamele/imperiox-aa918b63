@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Search, Bookmark, Save, X } from "lucide-react";
 import { METRIC_FIELDS, formatMetric, autoStatusColor } from "./kanbanTemplates";
 import type { KanbanBoard } from "./BoardTabsBar";
+
+interface SavedView {
+  id: string;
+  name: string;
+  groupBy: GroupKey;
+  preset: string;
+  search: string;
+}
 
 interface KanbanCard {
   id: string;
@@ -38,6 +46,7 @@ interface Props {
   members: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
   boards?: KanbanBoard[];
+  activeBoard?: string;
   onReload: () => void;
   onOpenCard?: (card: KanbanCard) => void;
 }
@@ -65,7 +74,7 @@ const PRESETS: Array<{ id: string; label: string; test: (c: KanbanCard) => boole
     } },
 ];
 
-export function KanbanSheetView({ cards, columns, members, projects, boards = [], onReload, onOpenCard }: Props) {
+export function KanbanSheetView({ cards, columns, members, projects, boards = [], activeBoard, onReload, onOpenCard }: Props) {
   const [projectSearch, setProjectSearch] = useState("");
   const boardOptions = boards.filter((b) => b.id !== "geral" && b.id !== "experts");
   const [groupBy, setGroupBy] = useState<GroupKey>("column");
@@ -74,6 +83,52 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [activeView, setActiveView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeBoard) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("imphq_kanban_boards")
+        .select("saved_views")
+        .eq("id", activeBoard)
+        .maybeSingle();
+      const list = Array.isArray(data?.saved_views) ? (data!.saved_views as SavedView[]) : [];
+      setSavedViews(list);
+    })();
+  }, [activeBoard]);
+
+  const persistViews = async (next: SavedView[]) => {
+    if (!activeBoard) return;
+    setSavedViews(next);
+    const { error } = await (supabase as any)
+      .from("imphq_kanban_boards")
+      .update({ saved_views: next })
+      .eq("id", activeBoard);
+    if (error) toast.error("Erro ao salvar view");
+  };
+
+  const saveCurrentView = async () => {
+    const name = window.prompt("Nome da view:");
+    if (!name?.trim()) return;
+    const v: SavedView = { id: crypto.randomUUID(), name: name.trim(), groupBy, preset, search };
+    await persistViews([...savedViews, v]);
+    setActiveView(v.id);
+    toast.success("View salva");
+  };
+
+  const applyView = (v: SavedView) => {
+    setGroupBy(v.groupBy);
+    setPreset(v.preset);
+    setSearch(v.search);
+    setActiveView(v.id);
+  };
+
+  const removeView = async (id: string) => {
+    await persistViews(savedViews.filter((v) => v.id !== id));
+    if (activeView === id) setActiveView(null);
+  };
 
   const colName = (id: string) => columns.find((c) => c.id === id)?.title || "—";
   const memberName = (id?: string) => members.find((m) => m.id === id)?.name || "—";
@@ -89,6 +144,9 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
     if (p) list = list.filter(p.test);
     return list;
   }, [cards, search, preset]);
+
+
+
 
   const groups = useMemo(() => {
     if (groupBy === "none") return [{ key: "all", label: "Todos", rows: filtered }];
@@ -201,6 +259,23 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
             {PRESETS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        {activeBoard && (
+          <div className="flex items-center gap-1">
+            {savedViews.map((v) => (
+              <div key={v.id} className={`h-8 flex items-center gap-1 pl-2 pr-1 rounded-md border text-xs ${activeView === v.id ? "border-primary bg-primary/10" : "border-border/60 hover:border-primary/60"}`}>
+                <button onClick={() => applyView(v)} className="flex items-center gap-1.5">
+                  <Bookmark className="h-3 w-3" /> {v.name}
+                </button>
+                <button onClick={() => removeView(v.id)} className="opacity-40 hover:opacity-100 p-0.5" title="Remover view">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ))}
+            <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={saveCurrentView}>
+              <Save className="h-3 w-3" /> Salvar view
+            </Button>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {selected.size > 0 && (
             <Popover>
