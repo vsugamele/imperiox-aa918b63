@@ -29,8 +29,16 @@ import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
 import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
 import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
 import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
+import { BoardTabsBar, type KanbanBoard } from "@/components/kanban/BoardTabsBar";
 
-const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
+const FALLBACK_BOARDS: KanbanBoard[] = [
+  { id: "geral",     label: "Geral",     emoji: "📋", color: "#71717a", position: 0, is_pinned: true },
+  { id: "agentes",   label: "Agentes",   emoji: "🤖", color: "#8b5cf6", position: 1 },
+  { id: "humanas",   label: "Humanas",   emoji: "👥", color: "#3b82f6", position: 2 },
+  { id: "criativos", label: "Criativos", emoji: "🎨", color: "#ec4899", position: 3 },
+  { id: "campanhas", label: "Campanhas", emoji: "🚀", color: "#f0b100", position: 4 },
+  { id: "experts",   label: "Experts",   emoji: "⭐", color: "#22c55e", position: 5, is_pinned: true },
+];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
 
 // Synonym map for smart merging in "geral" view
@@ -90,6 +98,7 @@ export default function KanbanPage() {
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
+  const [boards, setBoards] = useState<KanbanBoard[]>(FALLBACK_BOARDS);
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -131,14 +140,18 @@ export default function KanbanPage() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [colRes, cardRes, memberRes, projRes, attRes, checkRes] = await Promise.all([
+    const [colRes, cardRes, memberRes, projRes, attRes, checkRes, boardRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
       supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
+      supabase.from("imphq_kanban_boards" as any).select("*").order("position"),
     ]);
+
+    const loadedBoards = ((boardRes as any)?.data || []) as KanbanBoard[];
+    if (loadedBoards.length > 0) setBoards(loadedBoards);
 
     let cols = (colRes.data || []) as KanbanColumn[];
     const existingBoards = new Set(cols.map(c => c.board));
@@ -314,8 +327,8 @@ export default function KanbanPage() {
   const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
   const noOwnerCount = allCards.filter(c => !c.member_id).length;
   const boardCardCounts: Record<string, number> = {};
-  for (const b of BOARDS) {
-    boardCardCounts[b] = b === "geral" ? allCards.length : allCards.filter(c => c.board === b).length;
+  for (const b of boards) {
+    boardCardCounts[b.id] = b.id === "geral" ? allCards.length : allCards.filter(c => c.board === b.id).length;
   }
 
   const toggleHideDone = (v: boolean) => {
@@ -778,15 +791,16 @@ export default function KanbanPage() {
         </div>
       </div>
 
+      <BoardTabsBar
+        boards={boards}
+        activeBoard={activeBoard}
+        onActive={setActiveBoard}
+        cardCounts={boardCardCounts}
+        onReload={loadAllData}
+      />
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
-        <TabsList className="bg-secondary">
-          {BOARDS.map(b => (
-            <TabsTrigger key={b} value={b} className="capitalize gap-1.5">
-              {b}
-              <Badge variant="outline" className="text-[9px] h-4 min-w-[18px] justify-center px-1">{boardCardCounts[b] || 0}</Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <TabsList className="hidden" />
+
 
         <div className="mt-4">
           {loading ? (
@@ -1196,7 +1210,7 @@ export default function KanbanPage() {
                 <Select value={newBoard} onValueChange={setNewBoard}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {BOARDS.filter(b => b !== "geral").map(b => <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>)}
+                    {boards.filter(b => b.id !== "geral" && b.id !== "experts").map(b => <SelectItem key={b.id} value={b.id}>{b.emoji} {b.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

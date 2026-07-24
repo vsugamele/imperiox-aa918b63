@@ -23085,6 +23085,42 @@ export type Database = {
           },
         ]
       }
+      imphq_kanban_boards: {
+        Row: {
+          color: string | null
+          created_at: string
+          emoji: string | null
+          id: string
+          is_pinned: boolean
+          label: string
+          position: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          emoji?: string | null
+          id: string
+          is_pinned?: boolean
+          label: string
+          position?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          is_pinned?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_kanban_cards: {
         Row: {
           ai_generated: boolean | null
