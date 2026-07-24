@@ -863,9 +863,9 @@ export default function KanbanPage() {
                   </div>
                 );
               })}
-              {/* Add column button */}
+              {/* Add column button + templates */}
               {activeBoard !== "geral" && (
-                <div className="min-w-[200px] flex items-start pt-2">
+                <div className="min-w-[220px] flex items-start pt-2">
                   {showNewCol ? (
                     <div className="space-y-2 w-full">
                       <Input value={newColTitle} onChange={e => setNewColTitle(e.target.value)} placeholder="Nome da coluna" className="h-8 text-sm" autoFocus />
@@ -875,13 +875,62 @@ export default function KanbanPage() {
                       </div>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
-                      <Plus className="h-3 w-3" /> Coluna
-                    </Button>
+                    <div className="w-full space-y-1">
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
+                        <Plus className="h-3 w-3" /> Coluna
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5">
+                            <Sparkles className="h-3 w-3" /> Aplicar template
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-1" align="start">
+                          <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Modelos operacionais
+                          </div>
+                          {TEMPLATES.map((t: BoardTemplate) => (
+                            <button
+                              key={t.id}
+                              className="w-full text-left px-2 py-2 rounded hover:bg-muted flex items-start gap-2"
+                              onClick={async () => {
+                                if (!confirm(`Adicionar ${t.columns.length} colunas do template "${t.name}"?`)) return;
+                                const startPos = allColumns.filter(c => c.board === activeBoard).reduce((m, c) => Math.max(m, c.position), -1) + 1;
+                                const rows = t.columns.map((c, i) => ({ title: c.title, color: c.color, position: startPos + i, board: activeBoard }));
+                                const { error } = await supabase.from("imphq_kanban_columns").insert(rows);
+                                if (error) { toast.error("Erro ao aplicar template"); return; }
+                                toast.success(`Template "${t.name}" aplicado`);
+                                loadAllData();
+                              }}
+                            >
+                              <span className="text-base leading-none">{t.emoji}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold">{t.name}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{t.description}</div>
+                                <div className="flex gap-1 mt-1">
+                                  {t.columns.map((c, i) => (
+                                    <span key={i} className="h-1.5 w-3 rounded-sm" style={{ backgroundColor: c.color }} />
+                                  ))}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   )}
                 </div>
               )}
             </div>
+          ) : viewMode === "sheet" ? (
+            /* ====== SHEET (PLANILHA) VIEW ====== */
+            <KanbanSheetView
+              cards={filteredCards as any}
+              columns={displayColumns as any}
+              members={members}
+              projects={projects}
+              onReload={loadAllData}
+            />
           ) : (
             /* ====== LIST VIEW ====== */
             <div className="space-y-2">
