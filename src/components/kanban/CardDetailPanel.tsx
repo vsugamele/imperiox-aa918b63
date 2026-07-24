@@ -175,6 +175,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     loadChecklist(card.id);
     loadComments(card.id);
     loadAttachments(card.id);
+    loadCreatives(card.id);
     loadRelations(card.id);
     loadAllCards();
   }, [card]);
