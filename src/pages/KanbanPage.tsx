@@ -29,8 +29,16 @@ import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
 import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
 import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
 import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
+import { BoardTabsBar, type KanbanBoard } from "@/components/kanban/BoardTabsBar";
 
-const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
+const FALLBACK_BOARDS: KanbanBoard[] = [
+  { id: "geral",     label: "Geral",     emoji: "📋", color: "#71717a", position: 0, is_pinned: true },
+  { id: "agentes",   label: "Agentes",   emoji: "🤖", color: "#8b5cf6", position: 1 },
+  { id: "humanas",   label: "Humanas",   emoji: "👥", color: "#3b82f6", position: 2 },
+  { id: "criativos", label: "Criativos", emoji: "🎨", color: "#ec4899", position: 3 },
+  { id: "campanhas", label: "Campanhas", emoji: "🚀", color: "#f0b100", position: 4 },
+  { id: "experts",   label: "Experts",   emoji: "⭐", color: "#22c55e", position: 5, is_pinned: true },
+];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
 
 // Synonym map for smart merging in "geral" view
