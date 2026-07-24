@@ -19,11 +19,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users,
   Paperclip, CheckSquare, FolderOpen, MoreHorizontal, Pencil, LayoutGrid, List,
-  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff
+  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff,
+  Palette, Table as TableIcon, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { createCalendarEventForCard } from "@/lib/calendarSync";
+import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
+import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
+import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
+import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
