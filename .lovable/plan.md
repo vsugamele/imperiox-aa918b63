@@ -1,47 +1,44 @@
-## 1) Conectar Imagem ↔ Script
 
-O card **IMAGEM** é um nó principal (`MapNodeCard`) e só tem 2 pontos de conexão (topo/base) invisíveis; o **SCRIPT** é uma anotação (4 pontos). Por isso arrastar não funciona bem.
+## Ideia
+Hoje `/tarefas` é só uma central de tarefas/kanban/rotinas, e o dashboard editorial vive em `/dashboard` (rota escondida). O foco diário do operador precisa acontecer no mesmo lugar onde ele já entra pra bater tarefa — então a Central de Tarefas vira o **Cockpit da Empresa**: o pulso de vendas + a fila de decisões + as tarefas do dia, tudo numa tela.
 
-**Mudança em `src/components/funis/CompanyMapCanvas.tsx` (MapNodeCard):**
-- Substituir os 2 `<Handle>` atuais por um bloco de 4 handles (source+target sobrepostos em Top/Right/Bottom/Left), sempre visíveis com 50% de opacidade — mesmo padrão do `AnnotationHandles`.
-- Os handles usam a cor do nó (`data.color`).
+## O que muda
 
-Resultado: qualquer nó (imagem, WhatsApp, script, etc.) pode ser conectado em qualquer direção arrastando de um pontinho dourado/colorido.
+### 1. Nova página `/tarefas` — Cockpit + Foco
+Topo (Cockpit da empresa — recolhível):
+- `EditorialHeader` (receita hoje/MTD/projeção/ROAS/margem)
+- `ProjectSellingGrid` (projetos vendendo) + `DecisionQueue` (fila Imperius) lado a lado
+- `BlendedFunnelStrip` (funil 30d)
+- `OperationsFooter` (IA, conversas, tarefas vencidas, recuperação)
 
-## 2) Cronograma dentro do mapa
+Meio (Foco do dia — sempre visível):
+- Faixa "Hoje" com 3 blocos densos:
+  - **Tarefas para hoje** (vencidas + vence hoje, top 8, com quick-complete)
+  - **Ações Imperius pendentes** (ActionInbox compacto)
+  - **Hot leads (2h)** já vindo do `useProjectPulse` global
 
-Novo tipo de anotação **`schedule`** (card "Cronograma").
+Base (Central de Tarefas — mantém o que existe):
+- As abas atuais (Rotinas / Tarefas / Kanban / Calendário / Processos / Chat) continuam idênticas, dentro de um accordion "Gestão completa" que abre logo abaixo do foco do dia.
 
-**Estrutura de dados** (sem migração — usa `style` JSON existente):
-```
-kind: "schedule"
-text: "Rotina Diária de Conteúdo"    // título
-style: {
-  recurrence: "daily" | "weekly",
-  items: [
-    { time: "09:00", kind: "post",   label: "Post carrossel — dor do avatar" },
-    { time: "13:00", kind: "post",   label: "Post reels — solução" },
-    { time: "18:00", kind: "post",   label: "Post prova social" },
-    { time: "20:00", kind: "story",  label: "Story bastidor" },
-    { time: "20:05", kind: "story",  label: "Story enquete" },
-    { time: "20:10", kind: "story",  label: "Story CTA link" }
-  ]
-}
-```
+### 2. Sidebar & rotas
+- `AppSidebar`: item "Tarefas" vira **"Cockpit"** (ícone `LayoutDashboard`), ainda apontando pra `/tarefas`.
+- `/` (index) passa a redirecionar pra `/tarefas` em vez de `/imperius`.
+- `/dashboard` continua funcionando (para quem tem link salvo) mas some da sidebar; a versão clássica segue em `/dashboard-classic`.
 
-**Arquivos:**
+### 3. Preferência de densidade
+- Toggle no header do cockpit: **Compacto** (só foco do dia + tarefas) ↔ **Completo** (cockpit inteiro). Persistido em `localStorage` (`cockpit.density`).
+- Default: Completo no desktop, Compacto no mobile.
 
-`src/components/funis/MapAnnotationNodes.tsx`:
-- Adicionar `"schedule"` no tipo `AnnotationKind` e no mapa `annotationNodeTypes` / `kindToType` / defaults (w:280, h:340).
-- Novo `AnnotationScheduleNode` (usa `GeneratorShell` com ícone `CalendarClock`, accent `#3b82f6`):
-  - Cabeçalho editável (título + toggle diário/semanal).
-  - Lista de linhas `HH:MM · [ícone tipo] · texto` — cada linha editável in-place.
-  - Botão "+ item" no rodapé; botão "×" por linha.
-  - Ícones por tipo: `Camera` (post), `Circle` (story), `Video` (reel), `Send` (email), `MessageCircle` (WA).
+## Fora do escopo
+- Nenhuma mudança em lógica de negócio (finanças, Imperius, tarefas). Só reorganização de tela.
+- Não mexemos em `/dashboard-classic`, `/imperius`, nem no schema.
 
-`src/components/funis/CompanyMapCanvas.tsx`:
-- Adicionar `annotation_schedule: annotationNodeTypes.annotation_schedule` no `nodeTypes`.
-- Adicionar botão **"Cronograma"** no toolbar de anotações (perto do botão "Reel"), que cria o nó já com o exemplo acima pré-preenchido para o usuário editar.
-- Handler `onScheduleChange(id, items)` que atualiza `style.items` e salva em `imphq_company_map_annotations`.
+## Detalhes técnicos
+- Editar `src/pages/Tarefas.tsx`: envolver o conteúdo atual num `<Collapsible>` "Gestão completa"; adicionar acima o bloco Cockpit (importando os 4 componentes de `components/dashboard/cockpit/*`) e a faixa "Foco do dia".
+- Criar `src/components/dashboard/cockpit/TodayFocusStrip.tsx` com 3 colunas (tarefas de hoje via `imphq_tasks`, `ActionInbox` compacto, hot leads via `useProjectPulse` agregado).
+- Editar `src/components/AppSidebar.tsx`: renomear label "Tarefas" → "Cockpit", trocar ícone.
+- Editar `src/App.tsx`: `<Route index>` aponta para `/tarefas`.
+- Adicionar toggle de densidade (Shadcn `ToggleGroup`) no header da página.
 
-Sem mudanças no banco.
+## Entregável
+Ao entrar na plataforma, o operador cai direto no Cockpit: vê receita/ROAS/fila de decisão, o que precisa fazer hoje, e tem a central de tarefas completa a um clique de distância — sem trocar de página.

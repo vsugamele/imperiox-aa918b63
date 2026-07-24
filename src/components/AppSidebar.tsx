@@ -19,11 +19,11 @@ import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 // ── Nav items ──────────────────────────────────────────────────────────
 // Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
-  { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
+  { title: "Cockpit",          url: "/tarefas",    icon: LayoutDashboard },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
-  { title: "Tarefas",          url: "/tarefas",    icon: ListTodo },
+  { title: "Dashboard",        url: "/dashboard",  icon: Activity,        badge: "rag" as const },
   { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
 ];
 
