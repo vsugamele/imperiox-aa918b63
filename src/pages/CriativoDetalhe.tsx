@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, FolderInput, Heart, History, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Download, FolderInput, Heart, History, Link2, Link2Off, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 
@@ -34,6 +34,7 @@ interface Asset {
   exported_to_midia: boolean;
   created_at: string;
   image_provider?: string | null;
+  card_id?: string | null;
 }
 
 type ImgProvider = "lovable-gemini" | "openai-image";
@@ -53,6 +54,33 @@ export default function CriativoDetalhe() {
   const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
   const [exporting, setExporting] = useState(false);
   const [zipping, setZipping] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<Asset | null>(null);
+  const [cardOptions, setCardOptions] = useState<Array<{ id: string; titulo: string; board_id: string | null }>>([]);
+  const [cardSearch, setCardSearch] = useState("");
+
+  async function openLinkDialog(a: Asset) {
+    setLinkTarget(a);
+    setCardSearch("");
+    const { data } = await supabase
+      .from("imphq_kanban_cards")
+      .select("id, titulo, board_id")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setCardOptions((data as any) || []);
+  }
+
+  async function linkToCard(cardId: string | null) {
+    if (!linkTarget) return;
+    const { error } = await supabase
+      .from("imphq_creative_assets")
+      .update({ card_id: cardId } as any)
+      .eq("id", linkTarget.id);
+    if (error) { toast.error(error.message); return; }
+    setAssets((prev) => prev.map((x) => x.id === linkTarget.id ? { ...x, card_id: cardId } : x));
+    toast.success(cardId ? "Criativo vinculado ao card" : "Vínculo removido");
+    setLinkTarget(null);
+  }
+
 
   async function load() {
     if (!id) return;
@@ -321,6 +349,9 @@ export default function CriativoDetalhe() {
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => exportarParaMidia(a)} disabled={a.exported_to_midia || exporting} title="Enviar pra Mídias">
                     <FolderInput className={`h-4 w-4 ${a.exported_to_midia ? "text-primary" : ""}`} />
                   </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLinkDialog(a)} title={a.card_id ? "Vinculado a um card do Kanban" : "Vincular a card do Kanban"}>
+                    <Link2 className={`h-4 w-4 ${a.card_id ? "text-primary" : ""}`} />
+                  </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" asChild title="Download">
                     <a href={a.image_url} download target="_blank" rel="noreferrer">
                       <Download className="h-4 w-4" />
@@ -443,6 +474,46 @@ export default function CriativoDetalhe() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Kanban card */}
+      <Dialog open={!!linkTarget} onOpenChange={(o) => !o && setLinkTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" /> Vincular criativo a um card
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar card pelo título..."
+              value={cardSearch}
+              onChange={(e) => setCardSearch(e.target.value)}
+            />
+            <div className="max-h-80 overflow-y-auto space-y-1">
+              {cardOptions
+                .filter((c) => !cardSearch || c.titulo?.toLowerCase().includes(cardSearch.toLowerCase()))
+                .slice(0, 50)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => linkToCard(c.id)}
+                    className={`w-full text-left px-3 py-2 rounded border text-sm hover:border-primary/60 hover:bg-primary/5 ${linkTarget?.card_id === c.id ? "border-primary bg-primary/10" : "border-border/60"}`}
+                  >
+                    {c.titulo || "(sem título)"}
+                  </button>
+                ))}
+              {cardOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhum card encontrado.</p>
+              )}
+            </div>
+            {linkTarget?.card_id && (
+              <Button variant="outline" size="sm" onClick={() => linkToCard(null)} className="w-full gap-1">
+                <Link2Off className="h-3.5 w-3.5" /> Remover vínculo
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
