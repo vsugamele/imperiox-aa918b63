@@ -19,11 +19,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users,
   Paperclip, CheckSquare, FolderOpen, MoreHorizontal, Pencil, LayoutGrid, List,
-  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff
+  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff,
+  Palette, Table as TableIcon, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { createCalendarEventForCard } from "@/lib/calendarSync";
+import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
+import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
+import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
+import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
@@ -66,6 +71,8 @@ interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
   member_id?: string; project_id?: string;
+  metrics?: Record<string, any> | null;
+  status_color?: string | null;
 }
 
 interface Filters {
@@ -97,7 +104,7 @@ export default function KanbanPage() {
   const [filterMember, setFilterMember] = useState("all");
   const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", product: "all", deadline: "all" });
   const [dragCardId, setDragCardId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+  const [viewMode, setViewMode] = useState<"board" | "list" | "sheet">("board");
 
   // Column management
   const [renameCol, setRenameCol] = useState<KanbanColumn | null>(null);
@@ -579,6 +586,7 @@ export default function KanbanPage() {
               )}
             </div>
           </div>
+          <CardMetricsChips metrics={card.metrics} statusColor={card.status_color} compact />
         </CardContent>
       </Card>
     );
@@ -747,15 +755,25 @@ export default function KanbanPage() {
             variant={viewMode === "board" ? "secondary" : "ghost"}
             size="sm" className="h-8 px-2 rounded-r-none"
             onClick={() => setViewMode("board")}
+            title="Board"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm" className="h-8 px-2 rounded-l-none"
+            size="sm" className="h-8 px-2 rounded-none"
             onClick={() => setViewMode("list")}
+            title="Lista"
           >
             <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={viewMode === "sheet" ? "secondary" : "ghost"}
+            size="sm" className="h-8 px-2 rounded-l-none"
+            onClick={() => setViewMode("sheet")}
+            title="Planilha"
+          >
+            <TableIcon className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
@@ -784,12 +802,18 @@ export default function KanbanPage() {
                   <div
                     key={col.id}
                     className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] flex-1 snap-start`}
+                    style={col.color && !["#8b5cf6"].includes(col.color) ? { borderLeftColor: col.color, backgroundColor: hexToTint(col.color, 0.05) } : undefined}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >
-                    <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
+                    <div
+                      className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}
+                      style={col.color && !["#8b5cf6"].includes(col.color) ? { backgroundColor: hexToTint(col.color, 0.15) } : undefined}
+                    >
                       <div className="flex items-center gap-2">
-                        {config.icon}
+                        {col.color && !["#8b5cf6"].includes(col.color)
+                          ? <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                          : config.icon}
                         <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</h3>
                       </div>
                       <div className="flex items-center gap-1">
@@ -804,11 +828,23 @@ export default function KanbanPage() {
                                 <MoreHorizontal className="h-3 w-3" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1" align="end">
+                            <PopoverContent className="w-48 p-1" align="end">
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
                                 onClick={() => { setRenameCol(col); setRenameValue(col.title); }}>
                                 <Pencil className="h-3 w-3" /> Renomear
                               </button>
+                              <div className="px-2 py-1.5">
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                                  <Palette className="h-3 w-3" /> Cor
+                                </div>
+                                <ColumnColorMenu
+                                  currentColor={col.color}
+                                  onPick={async (hex) => {
+                                    await supabase.from("imphq_kanban_columns").update({ color: hex }).eq("id", col.id);
+                                    loadAllData();
+                                  }}
+                                />
+                              </div>
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
                                 onClick={() => { setDeleteCol(col); setMoveToColId(""); }}>
                                 <Trash2 className="h-3 w-3" /> Excluir
@@ -827,9 +863,9 @@ export default function KanbanPage() {
                   </div>
                 );
               })}
-              {/* Add column button */}
+              {/* Add column button + templates */}
               {activeBoard !== "geral" && (
-                <div className="min-w-[200px] flex items-start pt-2">
+                <div className="min-w-[220px] flex items-start pt-2">
                   {showNewCol ? (
                     <div className="space-y-2 w-full">
                       <Input value={newColTitle} onChange={e => setNewColTitle(e.target.value)} placeholder="Nome da coluna" className="h-8 text-sm" autoFocus />
@@ -839,13 +875,62 @@ export default function KanbanPage() {
                       </div>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
-                      <Plus className="h-3 w-3" /> Coluna
-                    </Button>
+                    <div className="w-full space-y-1">
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
+                        <Plus className="h-3 w-3" /> Coluna
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5">
+                            <Sparkles className="h-3 w-3" /> Aplicar template
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-1" align="start">
+                          <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Modelos operacionais
+                          </div>
+                          {TEMPLATES.map((t: BoardTemplate) => (
+                            <button
+                              key={t.id}
+                              className="w-full text-left px-2 py-2 rounded hover:bg-muted flex items-start gap-2"
+                              onClick={async () => {
+                                if (!confirm(`Adicionar ${t.columns.length} colunas do template "${t.name}"?`)) return;
+                                const startPos = allColumns.filter(c => c.board === activeBoard).reduce((m, c) => Math.max(m, c.position), -1) + 1;
+                                const rows = t.columns.map((c, i) => ({ title: c.title, color: c.color, position: startPos + i, board: activeBoard }));
+                                const { error } = await supabase.from("imphq_kanban_columns").insert(rows);
+                                if (error) { toast.error("Erro ao aplicar template"); return; }
+                                toast.success(`Template "${t.name}" aplicado`);
+                                loadAllData();
+                              }}
+                            >
+                              <span className="text-base leading-none">{t.emoji}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold">{t.name}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{t.description}</div>
+                                <div className="flex gap-1 mt-1">
+                                  {t.columns.map((c, i) => (
+                                    <span key={i} className="h-1.5 w-3 rounded-sm" style={{ backgroundColor: c.color }} />
+                                  ))}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   )}
                 </div>
               )}
             </div>
+          ) : viewMode === "sheet" ? (
+            /* ====== SHEET (PLANILHA) VIEW ====== */
+            <KanbanSheetView
+              cards={displayColumns.flatMap(col => cardsForCol(col)) as any}
+              columns={displayColumns as any}
+              members={members}
+              projects={projects}
+              onReload={loadAllData}
+            />
           ) : (
             /* ====== LIST VIEW ====== */
             <div className="space-y-2">
