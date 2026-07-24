@@ -513,7 +513,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                           className="w-full mt-1 h-7 text-xs text-muted-foreground"
                           onClick={async () => {
                             await supabase.from("imphq_empresa").update({ color: null } as any).eq("id", c.id);
-                            setContas(prev => prev.map(x => x.id === c.id ? { ...x, color: null } : x));
+                            onRefresh();
                           }}
                         >
                           Sem cor
