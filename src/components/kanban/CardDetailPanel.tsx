@@ -144,6 +144,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [creatives, setCreatives] = useState<any[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Relations
