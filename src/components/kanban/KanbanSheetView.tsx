@@ -257,7 +257,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
                       <TableCell className="py-1.5">
                         {isCol ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </TableCell>
-                      <TableCell colSpan={3} className="py-1.5">
+                      <TableCell colSpan={4} className="py-1.5">
                         <span className="text-xs font-semibold text-foreground">{g.label}</span>
                         <Badge variant="outline" className="ml-2 text-[10px] h-4 px-1.5">{g.rows.length}</Badge>
                       </TableCell>
