@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, FolderInput, Heart, History, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Download, FolderInput, Heart, History, Link2, Link2Off, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 
