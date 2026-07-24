@@ -104,7 +104,7 @@ export default function KanbanPage() {
   const [filterMember, setFilterMember] = useState("all");
   const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", product: "all", deadline: "all" });
   const [dragCardId, setDragCardId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+  const [viewMode, setViewMode] = useState<"board" | "list" | "sheet">("board");
 
   // Column management
   const [renameCol, setRenameCol] = useState<KanbanColumn | null>(null);
