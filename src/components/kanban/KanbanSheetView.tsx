@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Download, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Plus, Search } from "lucide-react";
 import { METRIC_FIELDS, formatMetric, autoStatusColor } from "./kanbanTemplates";
+import type { KanbanBoard } from "./BoardTabsBar";
 
 interface KanbanCard {
   id: string;
