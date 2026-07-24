@@ -787,15 +787,16 @@ export default function KanbanPage() {
         </div>
       </div>
 
+      <BoardTabsBar
+        boards={boards}
+        activeBoard={activeBoard}
+        onActive={setActiveBoard}
+        cardCounts={boardCardCounts}
+        onReload={loadAllData}
+      />
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
-        <TabsList className="bg-secondary">
-          {BOARDS.map(b => (
-            <TabsTrigger key={b} value={b} className="capitalize gap-1.5">
-              {b}
-              <Badge variant="outline" className="text-[9px] h-4 min-w-[18px] justify-center px-1">{boardCardCounts[b] || 0}</Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <TabsList className="hidden" />
+
 
         <div className="mt-4">
           {loading ? (
