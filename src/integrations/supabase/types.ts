@@ -20315,6 +20315,7 @@ export type Database = {
           angulo: string
           aprovado: boolean
           batch_id: string
+          card_id: string | null
           created_at: string
           edit_instruction: string | null
           exported_to_midia: boolean
@@ -20339,6 +20340,7 @@ export type Database = {
           angulo: string
           aprovado?: boolean
           batch_id: string
+          card_id?: string | null
           created_at?: string
           edit_instruction?: string | null
           exported_to_midia?: boolean
@@ -20363,6 +20365,7 @@ export type Database = {
           angulo?: string
           aprovado?: boolean
           batch_id?: string
+          card_id?: string | null
           created_at?: string
           edit_instruction?: string | null
           exported_to_midia?: boolean
@@ -21959,6 +21962,7 @@ export type Database = {
       imphq_funnel_node_copies: {
         Row: {
           asset_kind: string | null
+          card_id: string | null
           copies: Json
           created_at: string
           created_by: string | null
@@ -21971,6 +21975,7 @@ export type Database = {
         }
         Insert: {
           asset_kind?: string | null
+          card_id?: string | null
           copies?: Json
           created_at?: string
           created_by?: string | null
@@ -21983,6 +21988,7 @@ export type Database = {
         }
         Update: {
           asset_kind?: string | null
+          card_id?: string | null
           copies?: Json
           created_at?: string
           created_by?: string | null
@@ -22038,6 +22044,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           descricao: string | null
+          framework_tag: string | null
           id: string
           is_official: boolean
           nicho: string | null
@@ -22054,6 +22061,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descricao?: string | null
+          framework_tag?: string | null
           id?: string
           is_official?: boolean
           nicho?: string | null
@@ -22070,6 +22078,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           descricao?: string | null
+          framework_tag?: string | null
           id?: string
           is_official?: boolean
           nicho?: string | null
@@ -23088,34 +23097,40 @@ export type Database = {
       imphq_kanban_boards: {
         Row: {
           color: string | null
+          columns_config: Json | null
           created_at: string
           emoji: string | null
           id: string
           is_pinned: boolean
           label: string
           position: number
+          saved_views: Json | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           color?: string | null
+          columns_config?: Json | null
           created_at?: string
           emoji?: string | null
           id: string
           is_pinned?: boolean
           label: string
           position?: number
+          saved_views?: Json | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           color?: string | null
+          columns_config?: Json | null
           created_at?: string
           emoji?: string | null
           id?: string
           is_pinned?: boolean
           label?: string
           position?: number
+          saved_views?: Json | null
           updated_at?: string
           user_id?: string | null
         }
@@ -25731,13 +25746,16 @@ export type Database = {
       }
       imphq_skill_outputs: {
         Row: {
+          card_id: string | null
           created_at: string | null
           created_by: string | null
           extra_instructions: string | null
           feedback: string | null
           feedback_correction: string | null
+          funnel_node_id: string | null
           id: string
           model: string | null
+          outcome_score: number | null
           pipeline_id: string | null
           produto: string | null
           project_id: string | null
@@ -25745,15 +25763,19 @@ export type Database = {
           result: string
           skill_id: string
           skill_nome: string | null
+          studio_node_id: string | null
         }
         Insert: {
+          card_id?: string | null
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
           feedback?: string | null
           feedback_correction?: string | null
+          funnel_node_id?: string | null
           id?: string
           model?: string | null
+          outcome_score?: number | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
@@ -25761,15 +25783,19 @@ export type Database = {
           result: string
           skill_id: string
           skill_nome?: string | null
+          studio_node_id?: string | null
         }
         Update: {
+          card_id?: string | null
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
           feedback?: string | null
           feedback_correction?: string | null
+          funnel_node_id?: string | null
           id?: string
           model?: string | null
+          outcome_score?: number | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
@@ -25777,6 +25803,7 @@ export type Database = {
           result?: string
           skill_id?: string
           skill_nome?: string | null
+          studio_node_id?: string | null
         }
         Relationships: [
           {
@@ -25841,6 +25868,7 @@ export type Database = {
           id: string
           nome: string
           owner_id: string | null
+          pipeline: Json | null
           slug: string | null
           status: string
           system_prompt: string | null
@@ -25857,6 +25885,7 @@ export type Database = {
           id?: string
           nome: string
           owner_id?: string | null
+          pipeline?: Json | null
           slug?: string | null
           status?: string
           system_prompt?: string | null
@@ -25873,6 +25902,7 @@ export type Database = {
           id?: string
           nome?: string
           owner_id?: string | null
+          pipeline?: Json | null
           slug?: string | null
           status?: string
           system_prompt?: string | null
@@ -25972,6 +26002,7 @@ export type Database = {
           cost_actual: number | null
           created_at: string
           duration_ms: number | null
+          funnel_node_id: string | null
           id: string
           is_variant_winner: boolean
           output: Json
@@ -25995,6 +26026,7 @@ export type Database = {
           cost_actual?: number | null
           created_at?: string
           duration_ms?: number | null
+          funnel_node_id?: string | null
           id?: string
           is_variant_winner?: boolean
           output?: Json
@@ -26018,6 +26050,7 @@ export type Database = {
           cost_actual?: number | null
           created_at?: string
           duration_ms?: number | null
+          funnel_node_id?: string | null
           id?: string
           is_variant_winner?: boolean
           output?: Json
@@ -26287,6 +26320,7 @@ export type Database = {
           nicho: string
           nivel: string
           ordem: number | null
+          performance_score: number | null
           prompt_especifico: string
           prompt_negativo: string | null
           tags: string[] | null
@@ -26304,6 +26338,7 @@ export type Database = {
           nicho?: string
           nivel?: string
           ordem?: number | null
+          performance_score?: number | null
           prompt_especifico: string
           prompt_negativo?: string | null
           tags?: string[] | null
@@ -26321,6 +26356,7 @@ export type Database = {
           nicho?: string
           nivel?: string
           ordem?: number | null
+          performance_score?: number | null
           prompt_especifico?: string
           prompt_negativo?: string | null
           tags?: string[] | null
@@ -26331,10 +26367,13 @@ export type Database = {
       }
       imphq_studio_publications: {
         Row: {
+          body_id: string | null
           caption: string | null
           channel: string
           created_at: string
+          cta_id: string | null
           error: string | null
+          hook_id: string | null
           id: string
           media_kind: string | null
           media_url: string | null
@@ -26351,10 +26390,13 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          body_id?: string | null
           caption?: string | null
           channel?: string
           created_at?: string
+          cta_id?: string | null
           error?: string | null
+          hook_id?: string | null
           id?: string
           media_kind?: string | null
           media_url?: string | null
@@ -26371,10 +26413,13 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          body_id?: string | null
           caption?: string | null
           channel?: string
           created_at?: string
+          cta_id?: string | null
           error?: string | null
+          hook_id?: string | null
           id?: string
           media_kind?: string | null
           media_url?: string | null
