@@ -925,7 +925,7 @@ export default function KanbanPage() {
           ) : viewMode === "sheet" ? (
             /* ====== SHEET (PLANILHA) VIEW ====== */
             <KanbanSheetView
-              cards={filteredCards as any}
+              cards={displayColumns.flatMap(col => cardsForCol(col)) as any}
               columns={displayColumns as any}
               members={members}
               projects={projects}
