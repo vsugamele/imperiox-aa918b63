@@ -20809,6 +20809,7 @@ export type Database = {
           cloud_phone_id: string | null
           cloud_phone_provider: string | null
           cloud_phone_ref: string | null
+          color: string | null
           comprador: string | null
           created_at: string | null
           data_criacao_conta: string | null
@@ -20845,6 +20846,7 @@ export type Database = {
           cloud_phone_id?: string | null
           cloud_phone_provider?: string | null
           cloud_phone_ref?: string | null
+          color?: string | null
           comprador?: string | null
           created_at?: string | null
           data_criacao_conta?: string | null
@@ -20881,6 +20883,7 @@ export type Database = {
           cloud_phone_id?: string | null
           cloud_phone_provider?: string | null
           cloud_phone_ref?: string | null
+          color?: string | null
           comprador?: string | null
           created_at?: string | null
           data_criacao_conta?: string | null
