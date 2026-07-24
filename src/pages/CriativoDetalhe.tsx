@@ -476,6 +476,46 @@ export default function CriativoDetalhe() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Link to Kanban card */}
+      <Dialog open={!!linkTarget} onOpenChange={(o) => !o && setLinkTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" /> Vincular criativo a um card
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar card pelo título..."
+              value={cardSearch}
+              onChange={(e) => setCardSearch(e.target.value)}
+            />
+            <div className="max-h-80 overflow-y-auto space-y-1">
+              {cardOptions
+                .filter((c) => !cardSearch || c.titulo?.toLowerCase().includes(cardSearch.toLowerCase()))
+                .slice(0, 50)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => linkToCard(c.id)}
+                    className={`w-full text-left px-3 py-2 rounded border text-sm hover:border-primary/60 hover:bg-primary/5 ${linkTarget?.card_id === c.id ? "border-primary bg-primary/10" : "border-border/60"}`}
+                  >
+                    {c.titulo || "(sem título)"}
+                  </button>
+                ))}
+              {cardOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhum card encontrado.</p>
+              )}
+            </div>
+            {linkTarget?.card_id && (
+              <Button variant="outline" size="sm" onClick={() => linkToCard(null)} className="w-full gap-1">
+                <Link2Off className="h-3.5 w-3.5" /> Remover vínculo
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
