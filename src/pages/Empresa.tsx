@@ -372,7 +372,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
               : (statusText === "Pronto" ? "border-emerald-500/30 text-emerald-400" : statusText === "Aquecendo" ? "border-amber-500/30 text-amber-400" : statusText === "Banido" ? "border-red-500/30 text-red-400" : "");
             const title = tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}`;
             return (
-              <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2">
+              <div key={c.id} className="rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2" style={c.color ? { borderLeft: `3px solid ${c.color}`, backgroundColor: hexToTint(c.color, 0.06) } : undefined}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {c.foto_url ? (
