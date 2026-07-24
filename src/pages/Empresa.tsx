@@ -503,7 +503,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                         currentColor={c.color}
                         onPick={async (hex) => {
                           await supabase.from("imphq_empresa").update({ color: hex } as any).eq("id", c.id);
-                          setContas(prev => prev.map(x => x.id === c.id ? { ...x, color: hex } : x));
+                          onRefresh();
                         }}
                       />
                       {c.color && (
