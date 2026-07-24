@@ -1206,7 +1206,7 @@ export default function KanbanPage() {
                 <Select value={newBoard} onValueChange={setNewBoard}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {BOARDS.filter(b => b !== "geral").map(b => <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>)}
+                    {boards.filter(b => b.id !== "geral" && b.id !== "experts").map(b => <SelectItem key={b.id} value={b.id}>{b.emoji} {b.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
