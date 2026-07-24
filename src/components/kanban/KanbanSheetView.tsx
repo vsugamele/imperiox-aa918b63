@@ -46,6 +46,7 @@ interface Props {
   members: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
   boards?: KanbanBoard[];
+  activeBoard?: string;
   onReload: () => void;
   onOpenCard?: (card: KanbanCard) => void;
 }
@@ -73,7 +74,7 @@ const PRESETS: Array<{ id: string; label: string; test: (c: KanbanCard) => boole
     } },
 ];
 
-export function KanbanSheetView({ cards, columns, members, projects, boards = [], onReload, onOpenCard }: Props) {
+export function KanbanSheetView({ cards, columns, members, projects, boards = [], activeBoard, onReload, onOpenCard }: Props) {
   const [projectSearch, setProjectSearch] = useState("");
   const boardOptions = boards.filter((b) => b.id !== "geral" && b.id !== "experts");
   const [groupBy, setGroupBy] = useState<GroupKey>("column");
@@ -82,21 +83,53 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [activeView, setActiveView] = useState<string | null>(null);
 
-  const colName = (id: string) => columns.find((c) => c.id === id)?.title || "—";
-  const memberName = (id?: string) => members.find((m) => m.id === id)?.name || "—";
-  const projectName = (id?: string) => projects.find((p) => p.id === id)?.name || "—";
+  useEffect(() => {
+    if (!activeBoard) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("imphq_kanban_boards")
+        .select("saved_views")
+        .eq("id", activeBoard)
+        .maybeSingle();
+      const list = Array.isArray(data?.saved_views) ? (data!.saved_views as SavedView[]) : [];
+      setSavedViews(list);
+    })();
+  }, [activeBoard]);
 
-  const filtered = useMemo(() => {
-    let list = cards;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((c) => c.title.toLowerCase().includes(q) || (c.tags || []).some((t) => t.toLowerCase().includes(q)));
-    }
-    const p = PRESETS.find((x) => x.id === preset);
-    if (p) list = list.filter(p.test);
-    return list;
-  }, [cards, search, preset]);
+  const persistViews = async (next: SavedView[]) => {
+    if (!activeBoard) return;
+    setSavedViews(next);
+    const { error } = await (supabase as any)
+      .from("imphq_kanban_boards")
+      .update({ saved_views: next })
+      .eq("id", activeBoard);
+    if (error) toast.error("Erro ao salvar view");
+  };
+
+  const saveCurrentView = async () => {
+    const name = window.prompt("Nome da view:");
+    if (!name?.trim()) return;
+    const v: SavedView = { id: crypto.randomUUID(), name: name.trim(), groupBy, preset, search };
+    await persistViews([...savedViews, v]);
+    setActiveView(v.id);
+    toast.success("View salva");
+  };
+
+  const applyView = (v: SavedView) => {
+    setGroupBy(v.groupBy);
+    setPreset(v.preset);
+    setSearch(v.search);
+    setActiveView(v.id);
+  };
+
+  const removeView = async (id: string) => {
+    await persistViews(savedViews.filter((v) => v.id !== id));
+    if (activeView === id) setActiveView(null);
+  };
+
 
   const groups = useMemo(() => {
     if (groupBy === "none") return [{ key: "all", label: "Todos", rows: filtered }];
