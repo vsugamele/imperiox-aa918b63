@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Download, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, SquareArrowOutUpRight, Plus, Search } from "lucide-react";
 import { METRIC_FIELDS, formatMetric, autoStatusColor } from "./kanbanTemplates";
+import type { KanbanBoard } from "./BoardTabsBar";
 
 interface KanbanCard {
   id: string;
@@ -36,7 +37,9 @@ interface Props {
   columns: Column[];
   members: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
+  boards?: KanbanBoard[];
   onReload: () => void;
+  onOpenCard?: (card: KanbanCard) => void;
 }
 
 type GroupKey = "column" | "board" | "member" | "roi" | "priority" | "none";
@@ -62,7 +65,9 @@ const PRESETS: Array<{ id: string; label: string; test: (c: KanbanCard) => boole
     } },
 ];
 
-export function KanbanSheetView({ cards, columns, members, projects, onReload }: Props) {
+export function KanbanSheetView({ cards, columns, members, projects, boards = [], onReload, onOpenCard }: Props) {
+  const [projectSearch, setProjectSearch] = useState("");
+  const boardOptions = boards.filter((b) => b.id !== "geral" && b.id !== "experts");
   const [groupBy, setGroupBy] = useState<GroupKey>("column");
   const [preset, setPreset] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -233,6 +238,7 @@ export function KanbanSheetView({ cards, columns, members, projects, onReload }:
               <TableHead className="text-[10px] uppercase tracking-wider">Tarefa</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wider">Board</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider">Projeto</TableHead>
               {METRIC_FIELDS.map((m) => (
                 <TableHead key={m.key} className="text-[10px] uppercase tracking-wider text-right">{m.label}</TableHead>
               ))}
@@ -251,7 +257,7 @@ export function KanbanSheetView({ cards, columns, members, projects, onReload }:
                       <TableCell className="py-1.5">
                         {isCol ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </TableCell>
-                      <TableCell colSpan={3} className="py-1.5">
+                      <TableCell colSpan={4} className="py-1.5">
                         <span className="text-xs font-semibold text-foreground">{g.label}</span>
                         <Badge variant="outline" className="ml-2 text-[10px] h-4 px-1.5">{g.rows.length}</Badge>
                       </TableCell>
@@ -285,18 +291,86 @@ export function KanbanSheetView({ cards, columns, members, projects, onReload }:
                           />
                         </TableCell>
                         <TableCell className="py-1">
-                          <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onOpenCard?.(c)}
+                            className="group flex items-center gap-2 text-left w-full hover:text-primary"
+                          >
                             {dotColor && (
                               <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                                 dotColor === "green" ? "bg-success" : dotColor === "yellow" ? "bg-warning" : "bg-destructive"
                               }`} />
                             )}
                             <span className="text-xs">{c.title}</span>
-                          </div>
+                            <SquareArrowOutUpRight className="h-3 w-3 opacity-0 group-hover:opacity-60 shrink-0" />
+                          </button>
                         </TableCell>
                         <TableCell className="py-1 text-xs text-muted-foreground">{colName(c.column_id)}</TableCell>
                         <TableCell className="py-1">
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 capitalize">{c.board}</Badge>
+                          {boardOptions.length > 0 ? (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-[9px] px-1.5 py-0.5 rounded border border-border/60 hover:border-primary/60 capitalize">
+                                  {boards.find((b) => b.id === c.board)?.label || c.board}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48 p-1" align="start">
+                                {boardOptions.map((b) => (
+                                  <button
+                                    key={b.id}
+                                    onClick={() => updateField(c.id, { board: b.id })}
+                                    className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+                                  >
+                                    {b.emoji && <span>{b.emoji}</span>}
+                                    <span>{b.label}</span>
+                                    {c.board === b.id && <span className="ml-auto text-primary">✓</span>}
+                                  </button>
+                                ))}
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 capitalize">{c.board}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-1">
+                          <Popover onOpenChange={(o) => !o && setProjectSearch("")}>
+                            <PopoverTrigger asChild>
+                              <button className="text-xs text-muted-foreground hover:text-foreground truncate max-w-[160px]">
+                                {c.project_id ? projectName(c.project_id) : <span className="text-muted-foreground/40">— definir —</span>}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-1" align="start">
+                              <div className="flex items-center gap-1 px-1.5 py-1 border-b border-border/40 mb-1">
+                                <Search className="h-3 w-3 text-muted-foreground" />
+                                <input
+                                  placeholder="Buscar projeto…"
+                                  value={projectSearch}
+                                  onChange={(e) => setProjectSearch(e.target.value)}
+                                  className="flex-1 text-xs bg-transparent outline-none"
+                                />
+                              </div>
+                              <div className="max-h-64 overflow-auto">
+                                <button
+                                  onClick={() => updateField(c.id, { project_id: null })}
+                                  className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted text-muted-foreground"
+                                >
+                                  Sem projeto
+                                </button>
+                                {projects
+                                  .filter((p) => p.name.toLowerCase().includes(projectSearch.toLowerCase()))
+                                  .slice(0, 40)
+                                  .map((p) => (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => updateField(c.id, { project_id: p.id })}
+                                      className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+                                    >
+                                      <span className="truncate">{p.name}</span>
+                                      {c.project_id === p.id && <span className="ml-auto text-primary">✓</span>}
+                                    </button>
+                                  ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         {METRIC_FIELDS.map((m) => {
                           const val = c.metrics?.[m.key];
@@ -326,9 +400,47 @@ export function KanbanSheetView({ cards, columns, members, projects, onReload }:
                           );
                         })}
                         <TableCell className="py-1 text-xs text-muted-foreground">
-                          {c.due_date ? new Date(c.due_date).toLocaleDateString("pt-BR") : "—"}
+                          {editing?.id === c.id && editing?.field === "due_date" ? (
+                            <Input
+                              type="date"
+                              autoFocus
+                              defaultValue={c.due_date?.slice(0, 10) || ""}
+                              onBlur={(e) => { updateField(c.id, { due_date: e.target.value || null }); setEditing(null); }}
+                              className="h-6 text-xs w-32"
+                            />
+                          ) : (
+                            <button onClick={() => setEditing({ id: c.id, field: "due_date" })} className="hover:text-foreground">
+                              {c.due_date ? new Date(c.due_date).toLocaleDateString("pt-BR") : "—"}
+                            </button>
+                          )}
                         </TableCell>
-                        <TableCell className="py-1 text-xs text-muted-foreground">{memberName(c.member_id)}</TableCell>
+                        <TableCell className="py-1 text-xs text-muted-foreground">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="hover:text-foreground">
+                                {c.member_id ? memberName(c.member_id) : <span className="text-muted-foreground/40">—</span>}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-1" align="start">
+                              <button
+                                onClick={() => updateField(c.id, { member_id: null })}
+                                className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted text-muted-foreground"
+                              >
+                                Sem responsável
+                              </button>
+                              {members.map((m) => (
+                                <button
+                                  key={m.id}
+                                  onClick={() => updateField(c.id, { member_id: m.id })}
+                                  className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
+                                >
+                                  <span>{m.name}</span>
+                                  {c.member_id === m.id && <span className="ml-auto text-primary">✓</span>}
+                                </button>
+                              ))}
+                            </PopoverContent>
+                          </Popover>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -337,7 +449,7 @@ export function KanbanSheetView({ cards, columns, members, projects, onReload }:
             })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={METRIC_FIELDS.length + 6} className="text-center py-8 text-xs text-muted-foreground">
+                <TableCell colSpan={METRIC_FIELDS.length + 7} className="text-center py-8 text-xs text-muted-foreground">
                   Nenhum card encontrado com esse filtro
                 </TableCell>
               </TableRow>

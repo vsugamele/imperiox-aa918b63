@@ -943,7 +943,9 @@ export default function KanbanPage() {
               columns={displayColumns as any}
               members={members}
               projects={projects}
+              boards={boards}
               onReload={loadAllData}
+              onOpenCard={(c) => setEditCard({ ...(c as any) })}
             />
           ) : (
             /* ====== LIST VIEW ====== */
