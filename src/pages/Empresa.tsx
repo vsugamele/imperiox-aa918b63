@@ -492,6 +492,35 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 )}
 
                 <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Cor do card">
+                        <Palette className="h-3 w-3" style={c.color ? { color: c.color } : undefined} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="end">
+                      <ColumnColorMenu
+                        currentColor={c.color}
+                        onPick={async (hex) => {
+                          await supabase.from("imphq_empresa").update({ color: hex } as any).eq("id", c.id);
+                          setContas(prev => prev.map(x => x.id === c.id ? { ...x, color: hex } : x));
+                        }}
+                      />
+                      {c.color && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-1 h-7 text-xs text-muted-foreground"
+                          onClick={async () => {
+                            await supabase.from("imphq_empresa").update({ color: null } as any).eq("id", c.id);
+                            setContas(prev => prev.map(x => x.id === c.id ? { ...x, color: null } : x));
+                          }}
+                        >
+                          Sem cor
+                        </Button>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Farm da conta" onClick={() => setFarmDialog({ id: c.id })}>
                     <Sprout className="h-3 w-3" />
                   </Button>
