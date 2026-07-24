@@ -349,6 +349,9 @@ export default function CriativoDetalhe() {
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => exportarParaMidia(a)} disabled={a.exported_to_midia || exporting} title="Enviar pra Mídias">
                     <FolderInput className={`h-4 w-4 ${a.exported_to_midia ? "text-primary" : ""}`} />
                   </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLinkDialog(a)} title={a.card_id ? "Vinculado a um card do Kanban" : "Vincular a card do Kanban"}>
+                    <Link2 className={`h-4 w-4 ${a.card_id ? "text-primary" : ""}`} />
+                  </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" asChild title="Download">
                     <a href={a.image_url} download target="_blank" rel="noreferrer">
                       <Download className="h-4 w-4" />
