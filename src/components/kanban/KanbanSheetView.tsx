@@ -238,6 +238,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
               <TableHead className="text-[10px] uppercase tracking-wider">Tarefa</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wider">Board</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider">Projeto</TableHead>
               {METRIC_FIELDS.map((m) => (
                 <TableHead key={m.key} className="text-[10px] uppercase tracking-wider text-right">{m.label}</TableHead>
               ))}
