@@ -34,6 +34,7 @@ interface Asset {
   exported_to_midia: boolean;
   created_at: string;
   image_provider?: string | null;
+  card_id?: string | null;
 }
 
 type ImgProvider = "lovable-gemini" | "openai-image";
