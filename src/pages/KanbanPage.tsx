@@ -586,6 +586,7 @@ export default function KanbanPage() {
               )}
             </div>
           </div>
+          <CardMetricsChips metrics={card.metrics} statusColor={card.status_color} compact />
         </CardContent>
       </Card>
     );
