@@ -144,10 +144,22 @@ export default function ConversationList({
     () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
   );
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [colorFilter, setColorFilter] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("wa-color-filter") || "all" : "all")
+  );
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
+
+  const setColor = async (id: string, color: string | null) => {
+    try {
+      await supabase.from("imphq_wa_conversations").update({ color_override: color } as any).eq("id", id);
+      toast.success(color ? "Cor aplicada" : "Cor removida");
+    } catch (e: any) {
+      toast.error("Falha ao salvar cor: " + (e.message || e));
+    }
+  };
 
   const cycleSnoozeMode = () => {
     const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
