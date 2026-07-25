@@ -190,6 +190,26 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
 
   const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
   const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const reorderCards = async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    // Reordena dentro da lista completa preservando ordem global
+    const ordered = [...contas];
+    const from = ordered.findIndex(c => c.id === sourceId);
+    const to = ordered.findIndex(c => c.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = ordered.splice(from, 1);
+    ordered.splice(to, 0, moved);
+    // Otimista: atualiza posições e persiste
+    await Promise.all(
+      ordered.map((c, i) =>
+        supabase.from("imphq_empresa").update({ position: (i + 1) * 100 } as any).eq("id", c.id)
+      )
+    );
+    onRefresh();
+  };
 
   // Filtros
   const [filterProject, setFilterProject] = useState<string>("__all__");
