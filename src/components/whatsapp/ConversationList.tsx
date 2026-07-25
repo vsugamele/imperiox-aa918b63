@@ -191,7 +191,8 @@ export default function ConversationList({
       assignFilter === "all" ? true :
       assignFilter === "mine" ? s.assigned_to === myUserId :
       !s.assigned_to;
-    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign;
+    const matchColor = colorFilter === "all" || resolveConvColor(s as ConvForColor).key === colorFilter;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign && matchColor;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
