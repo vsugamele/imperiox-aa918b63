@@ -29,6 +29,9 @@ interface WaSession {
   jid_suffix?: string | null;
   snoozed_until?: string | null;
   assigned_to?: string | null;
+  status?: string | null;
+  handoff_at?: string | null;
+  color_override?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
