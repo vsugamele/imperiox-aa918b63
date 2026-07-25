@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMessageTime } from "@/lib/formatCompactTime";
 import MergeDuplicatesButton from "./MergeDuplicatesButton";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { CONV_COLOR_PRESETS, resolveConvColor, type ConvForColor } from "@/lib/conversationStatusColor";
+import { toast } from "sonner";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
