@@ -20824,6 +20824,7 @@ export type Database = {
           nicho: string | null
           nome: string
           observacoes_venda: string | null
+          position: number | null
           preco_alvo: number | null
           project_id: string | null
           pronta_venda: boolean | null
@@ -20861,6 +20862,7 @@ export type Database = {
           nicho?: string | null
           nome: string
           observacoes_venda?: string | null
+          position?: number | null
           preco_alvo?: number | null
           project_id?: string | null
           pronta_venda?: boolean | null
@@ -20898,6 +20900,7 @@ export type Database = {
           nicho?: string | null
           nome?: string
           observacoes_venda?: string | null
+          position?: number | null
           preco_alvo?: number | null
           project_id?: string | null
           pronta_venda?: boolean | null
