@@ -325,6 +325,30 @@ export default function ConversationList({
             </div>
           );
         })()}
+        {/* Filtro por cor/status */}
+        <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
+          {([
+            { k: "all", hex: "transparent", label: "Todas" },
+            { k: "interested", hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado" },
+            { k: "new", hex: CONV_COLOR_PRESETS.green.hex, label: "Nova" },
+            { k: "waiting", hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando" },
+            { k: "urgent", hex: CONV_COLOR_PRESETS.red.hex, label: "SLA" },
+            { k: "handoff", hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff" },
+            { k: "cold", hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio" },
+          ] as const).map(c => {
+            const active = colorFilter === c.k;
+            return (
+              <button
+                key={c.k}
+                onClick={() => { setColorFilter(c.k); try { localStorage.setItem("wa-color-filter", c.k); } catch {} }}
+                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground bg-muted/60 border-primary/40" : "text-muted-foreground bg-muted/20 border-border hover:bg-muted/50"}`}
+              >
+                {c.hex !== "transparent" && <span className="inline-block w-2 h-2 rounded-full" style={{ background: c.hex }} />}
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
         <MergeDuplicatesButton projectId={filterProject} />
       </div>
 
