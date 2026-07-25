@@ -20834,6 +20834,7 @@ export type Database = {
           revendedor_id: string | null
           seguidores: number | null
           sinais_risco: Json | null
+          status_auto_color: boolean | null
           status_venda: string | null
           tipo: string
           ultimo_alcance: number | null
@@ -20872,6 +20873,7 @@ export type Database = {
           revendedor_id?: string | null
           seguidores?: number | null
           sinais_risco?: Json | null
+          status_auto_color?: boolean | null
           status_venda?: string | null
           tipo?: string
           ultimo_alcance?: number | null
@@ -20910,6 +20912,7 @@ export type Database = {
           revendedor_id?: string | null
           seguidores?: number | null
           sinais_risco?: Json | null
+          status_auto_color?: boolean | null
           status_venda?: string | null
           tipo?: string
           ultimo_alcance?: number | null
@@ -28455,6 +28458,7 @@ export type Database = {
           audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
+          color_override: string | null
           contact_name: string | null
           conv_status: string | null
           conversation_summary: string | null
@@ -28518,6 +28522,7 @@ export type Database = {
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
+          color_override?: string | null
           contact_name?: string | null
           conv_status?: string | null
           conversation_summary?: string | null
@@ -28581,6 +28586,7 @@ export type Database = {
           audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
+          color_override?: string | null
           contact_name?: string | null
           conv_status?: string | null
           conversation_summary?: string | null

@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMessageTime } from "@/lib/formatCompactTime";
 import MergeDuplicatesButton from "./MergeDuplicatesButton";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { CONV_COLOR_PRESETS, resolveConvColor, type ConvForColor } from "@/lib/conversationStatusColor";
+import { toast } from "sonner";
 
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
@@ -26,6 +29,8 @@ interface WaSession {
   jid_suffix?: string | null;
   snoozed_until?: string | null;
   assigned_to?: string | null;
+  handoff_at?: string | null;
+  color_override?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
@@ -139,10 +144,22 @@ export default function ConversationList({
     () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
   );
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [colorFilter, setColorFilter] = useState<string>(
+    () => (typeof window !== "undefined" ? localStorage.getItem("wa-color-filter") || "all" : "all")
+  );
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
+
+  const setColor = async (id: string, color: string | null) => {
+    try {
+      await supabase.from("imphq_wa_conversations").update({ color_override: color } as any).eq("id", id);
+      toast.success(color ? "Cor aplicada" : "Cor removida");
+    } catch (e: any) {
+      toast.error("Falha ao salvar cor: " + (e.message || e));
+    }
+  };
 
   const cycleSnoozeMode = () => {
     const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
@@ -174,7 +191,8 @@ export default function ConversationList({
       assignFilter === "all" ? true :
       assignFilter === "mine" ? s.assigned_to === myUserId :
       !s.assigned_to;
-    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign;
+    const matchColor = colorFilter === "all" || resolveConvColor(s as ConvForColor).key === colorFilter;
+    return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign && matchColor;
   }).sort((a, b) => {
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
@@ -307,6 +325,30 @@ export default function ConversationList({
             </div>
           );
         })()}
+        {/* Filtro por cor/status */}
+        <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
+          {([
+            { k: "all", hex: "transparent", label: "Todas" },
+            { k: "interested", hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado" },
+            { k: "new", hex: CONV_COLOR_PRESETS.green.hex, label: "Nova" },
+            { k: "waiting", hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando" },
+            { k: "urgent", hex: CONV_COLOR_PRESETS.red.hex, label: "SLA" },
+            { k: "handoff", hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff" },
+            { k: "cold", hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio" },
+          ] as const).map(c => {
+            const active = colorFilter === c.k;
+            return (
+              <button
+                key={c.k}
+                onClick={() => { setColorFilter(c.k); try { localStorage.setItem("wa-color-filter", c.k); } catch {} }}
+                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground bg-muted/60 border-primary/40" : "text-muted-foreground bg-muted/20 border-border hover:bg-muted/50"}`}
+              >
+                {c.hex !== "transparent" && <span className="inline-block w-2 h-2 rounded-full" style={{ background: c.hex }} />}
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
         <MergeDuplicatesButton projectId={filterProject} />
       </div>
 
@@ -352,18 +394,22 @@ export default function ConversationList({
               const hasUnread = isUnreadSession(s);
               const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
+              const convColor = resolveConvColor(s as ConvForColor);
+              const useAccent = !isSelected && convColor.key !== "default";
               return (
+                <ContextMenu key={s.id}>
+                  <ContextMenuTrigger asChild>
                 <button
-                  key={s.id}
                   onClick={() => onSelect(s)}
                   className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
                     isSelected
                       ? "bg-accent border-l-primary"
-                      : hasUnread
+                      : hasUnread && convColor.key === "new"
                         ? "border-l-emerald-400 bg-emerald-500/10"
                         : "border-l-transparent"
                   }`}
-                  title={provLabel ? `Instância: ${provLabel}` : undefined}
+                  style={useAccent ? { borderLeftColor: convColor.hex, background: `${convColor.hex}10` } : undefined}
+                  title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
                     <Avatar className={`h-10 w-10 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/70" : ""}`}>
@@ -491,6 +537,33 @@ export default function ConversationList({
                     </p>
                   </div>
                 </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-56">
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger>
+                        <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: convColor.hex === "transparent" ? "#64748b" : convColor.hex }} />
+                        Cor da conversa
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="w-56">
+                        {Object.entries(CONV_COLOR_PRESETS).map(([key, p]) => (
+                          <ContextMenuItem key={key} onSelect={() => setColor(s.id, key)}>
+                            <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ background: p.hex }} />
+                            <span className="flex-1">{p.label}</span>
+                            {s.color_override === key && <span className="text-primary">✓</span>}
+                          </ContextMenuItem>
+                        ))}
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={() => setColor(s.id, null)}>
+                          Usar cor automática
+                        </ContextMenuItem>
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={() => onMarkUnread?.(s.id)}>
+                      Marcar como não lida
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </div>
