@@ -80,7 +80,11 @@ export default function Empresa() {
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
-    const { data } = await supabase.from("imphq_empresa").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("imphq_empresa")
+      .select("*")
+      .order("position", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false });
     setContas((data || []) as ContaEmpresa[]);
   };
 
