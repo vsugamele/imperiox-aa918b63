@@ -105,7 +105,7 @@ export default function WhatsApp() {
     setLoading(true);
     const sRes = await supabase
       .from("imphq_wa_conversations")
-      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until")
+      .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until, handoff_at, color_override")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
     setSessions(sRes.data as any[] || []);
