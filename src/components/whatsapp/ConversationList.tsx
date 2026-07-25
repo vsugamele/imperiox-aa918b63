@@ -537,6 +537,33 @@ export default function ConversationList({
                     </p>
                   </div>
                 </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-56">
+                    <ContextMenuSub>
+                      <ContextMenuSubTrigger>
+                        <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: convColor.hex === "transparent" ? "#64748b" : convColor.hex }} />
+                        Cor da conversa
+                      </ContextMenuSubTrigger>
+                      <ContextMenuSubContent className="w-56">
+                        {Object.entries(CONV_COLOR_PRESETS).map(([key, p]) => (
+                          <ContextMenuItem key={key} onSelect={() => setColor(s.id, key)}>
+                            <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ background: p.hex }} />
+                            <span className="flex-1">{p.label}</span>
+                            {s.color_override === key && <span className="text-primary">✓</span>}
+                          </ContextMenuItem>
+                        ))}
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={() => setColor(s.id, null)}>
+                          Usar cor automática
+                        </ContextMenuItem>
+                      </ContextMenuSubContent>
+                    </ContextMenuSub>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={() => onMarkUnread?.(s.id)}>
+                      Marcar como não lida
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </div>
