@@ -394,18 +394,22 @@ export default function ConversationList({
               const hasUnread = isUnreadSession(s);
               const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
+              const convColor = resolveConvColor(s as ConvForColor);
+              const useAccent = !isSelected && convColor.key !== "default";
               return (
+                <ContextMenu key={s.id}>
+                  <ContextMenuTrigger asChild>
                 <button
-                  key={s.id}
                   onClick={() => onSelect(s)}
                   className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
                     isSelected
                       ? "bg-accent border-l-primary"
-                      : hasUnread
+                      : hasUnread && convColor.key === "new"
                         ? "border-l-emerald-400 bg-emerald-500/10"
                         : "border-l-transparent"
                   }`}
-                  title={provLabel ? `Instância: ${provLabel}` : undefined}
+                  style={useAccent ? { borderLeftColor: convColor.hex, background: `${convColor.hex}10` } : undefined}
+                  title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
                     <Avatar className={`h-10 w-10 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/70" : ""}`}>
