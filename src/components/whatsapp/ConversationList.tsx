@@ -349,6 +349,41 @@ export default function ConversationList({
               </button>
             );
           })}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="shrink-0 h-6 w-6 rounded-md border border-border bg-muted/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground flex items-center justify-center"
+                title="O que significa cada cor?"
+                aria-label="Guia de cores"
+              >
+                <HelpCircle className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="end" className="w-72 bg-secondary/95 backdrop-blur-xl border-border leading-7">
+              <p className="text-sm font-medium mb-2">Guia de cores</p>
+              <ul className="space-y-1.5 text-xs">
+                {[
+                  { hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado", desc: "Falou em pix, valor, quer comprar" },
+                  { hex: CONV_COLOR_PRESETS.green.hex, label: "Nova", desc: "Mensagem não lida recebida" },
+                  { hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando", desc: "Sem resposta há 30min+" },
+                  { hex: CONV_COLOR_PRESETS.red.hex, label: "SLA crítico", desc: "Sem resposta há 2h+" },
+                  { hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff", desc: "IA passou pro humano" },
+                  { hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio / Silenciada", desc: "Inativa há 7 dias+ ou snoozed" },
+                ].map((c) => (
+                  <li key={c.label} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex }} />
+                    <div className="min-w-0">
+                      <p className="text-foreground font-medium">{c.label}</p>
+                      <p className="text-muted-foreground text-[11px]">{c.desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-muted-foreground mt-3 pt-2 border-t border-border">
+                Botão direito na conversa → <span className="text-foreground">Cor da conversa</span> para sobrescrever manualmente.
+              </p>
+            </PopoverContent>
+          </Popover>
         </div>
         <MergeDuplicatesButton projectId={filterProject} />
       </div>
