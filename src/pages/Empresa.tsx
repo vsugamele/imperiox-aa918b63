@@ -180,6 +180,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
   const [showDialog, setShowDialog] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
+  const [showProxyPassword, setShowProxyPassword] = useState(false);
+
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const viewKey = `empresa-view-${tipo}`;
   const [view, setView] = useState<"list" | "grid">(() => {
