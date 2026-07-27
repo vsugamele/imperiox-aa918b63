@@ -180,6 +180,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
   const [showDialog, setShowDialog] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
+  const [showProxyPassword, setShowProxyPassword] = useState(false);
+
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const viewKey = `empresa-view-${tipo}`;
   const [view, setView] = useState<"list" | "grid">(() => {
@@ -815,8 +817,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </div>
                 <div>
                   <Label className="text-xs">Senha</Label>
-                  <Input type="password" value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} />
+                  <div className="relative">
+                    <Input type={showProxyPassword ? "text" : "password"} value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} className="pr-10" />
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowProxyPassword(!showProxyPassword)}>
+                      {showProxyPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
+
               </div>
             </div>
 
