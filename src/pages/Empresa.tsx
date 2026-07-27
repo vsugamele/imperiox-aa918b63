@@ -815,8 +815,14 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </div>
                 <div>
                   <Label className="text-xs">Senha</Label>
-                  <Input type="password" value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} />
+                  <div className="relative">
+                    <Input type={showProxyPassword ? "text" : "password"} value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} className="pr-10" />
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowProxyPassword(!showProxyPassword)}>
+                      {showProxyPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
+
               </div>
             </div>
 
