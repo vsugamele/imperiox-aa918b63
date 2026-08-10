@@ -21351,6 +21351,7 @@ export type Database = {
       imphq_flow_executions: {
         Row: {
           automacao_id: string
+          channel_session_id: string | null
           created_at: string
           current_step: number
           error_message: string | null
@@ -21370,6 +21371,7 @@ export type Database = {
         }
         Insert: {
           automacao_id: string
+          channel_session_id?: string | null
           created_at?: string
           current_step?: number
           error_message?: string | null
@@ -21389,6 +21391,7 @@ export type Database = {
         }
         Update: {
           automacao_id?: string
+          channel_session_id?: string | null
           created_at?: string
           current_step?: number
           error_message?: string | null
