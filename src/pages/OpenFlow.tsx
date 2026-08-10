@@ -356,6 +356,10 @@ export default function OpenFlow() {
             </div>
           </div>
 
+          <X1TemplatesStrip existingNames={automacoes.map(a => a.nome)} onCreated={load} />
+
+
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(a => {
               const meta = triggerMeta(a.trigger_tipo);
