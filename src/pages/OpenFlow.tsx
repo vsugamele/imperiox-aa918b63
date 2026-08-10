@@ -35,6 +35,7 @@ import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
+import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
 
 
 
