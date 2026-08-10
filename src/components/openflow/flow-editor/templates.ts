@@ -279,16 +279,19 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
 
   // ─────────────────────────────────────────────────────────────
   // LINFAFLOW X1 (EN-US) — Messenger (Zernio) e Webchat do site
-  // Script fixo + IA nos pontos de decisão. Mídias entram como
-  // placeholders: {{video_hook}} {{video_mecanismo}} {{audio_ritual}}
-  // {{img_prova_1}} {{img_prova_2}} {{img_ingredientes}}
-  // {{link_advertorial}} {{link_checkout}}
+  // Engenharia high-ticket aplicada a ticket baixo: SPIN completo,
+  // amplificação de implicação, prova agrupada, trial close 0-10,
+  // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
+  // Mídias entram como placeholders:
+  // {{video_hook}} {{video_mecanismo}} {{audio_ritual}} {{audio_inercia}}
+  // {{img_prova_1}} {{img_prova_2}} {{img_prova_3}} {{img_ingredientes}}
+  // {{img_custo_comparativo}} {{link_advertorial}} {{link_checkout}}
   // ─────────────────────────────────────────────────────────────
   {
     id: "linfaflow-x1-messenger",
     nome: "LinfaFlow X1 — Messenger (Zernio) [EN-US]",
     descricao:
-      "Canal: Messenger. 7 estágios (hook → diagnóstico IA → reframe + vídeo → mecanismo em áudio → prova → objeção IA → fechamento). Copy em inglês.",
+      "Canal: Messenger. 11 estágios: hook → SPIN + track → implicação → reframe → mecanismo → prova agrupada → trial close 0-10 → future pacing → objeções → fechamento assumptivo → régua D+1/D+3/D+7/D+30.",
     trigger_tipo: "lead_novo",
     categoria: "x1-conversao",
     emoji: "🇺🇸",
@@ -300,9 +303,24 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       ),
       waitReply(180),
 
-      // 2. DIAGNÓSTICO (IA)
+      // 2. DIAGNÓSTICO SPIN + classificação de track
       ia(
-        "You are a warm, unhurried women's wellness consultant for LINFAFLOW (liquid botanical drops that support lymphatic flow, healthy circulation and daily fluid balance). Audience: US women 40-70. Language: American English, plain and conversational, short messages, no hype, no emojis spam.\n\nGoal of this stage: understand her situation before offering anything. Ask ONE question at a time and reflect her exact words back before the next one. Cover, in order: (a) how long it has been happening, (b) when it's worst (morning face vs evening legs vs bloating), (c) what her doctor said (most heard 'your labs are normal' or 'it's just aging'), (d) what she already tried (water pills, compression socks, lymphatic massage, leg elevation, dry brushing, detox teas).\n\nCompliance: never diagnose, never promise a cure, never mention weight loss. Say 'support' and 'help ease', never 'treat' or 'eliminate'. Do NOT send any link yet and do NOT pitch the product in this stage.",
+        `You are a warm, unhurried women's wellness consultant for LINFAFLOW (liquid botanical drops that support lymphatic flow, healthy circulation and daily fluid balance). Audience: US women 40-70. Language: American English, plain and conversational, short messages, no hype.
+
+Run a full SPIN sequence, ONE question per message, in this order, always mirroring her exact words back before the next question:
+- SITUATION: how long has it been happening, and when is it worst (morning face / evening legs / bloating)?
+- PROBLEM: what has it already cost her — clothes, shoes, rings, photos, plans she skipped?
+- IMPLICATION: what did her doctor say (most hear "your labs are normal"), and what has she already tried (water pills, compression socks, lymphatic drainage, leg elevation, dry brushing, detox teas)?
+- NEED-PAYOFF: "if there were a way to support the drainage itself instead of squeezing the fluid out, would that be worth 30 seconds a day?"
+
+Silently classify her into ONE track and adapt your pace for the rest of the conversation:
+- SKEPTIC (problem-aware): she doesn't know the lymphatic angle yet — go slower, teach first, never pitch early.
+- TRIED-EVERYTHING (solution-aware): she knows she needs help and already tried things — lead with what makes this a different category.
+- READY (product-aware): she already knows LINFAFLOW and is comparing — be short, factual, move to the offer faster.
+
+${X1_BANNED}
+
+Do NOT send any link and do NOT pitch the product in this stage.`,
         0,
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
@@ -310,61 +328,111 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       qualify(60, "linfaflow,x1-diagnostico", "qualificacao"),
       tag("linfaflow-x1"),
 
-      // 3. REFRAME + VÍDEO
+      // 3. AMPLIFICAÇÃO DA IMPLICAÇÃO
+      ia(
+        `She has answered the SPIN questions. One single message now, no pitch: amplify the implication using HER words. Ask, gently and without judgement, what another 12 months of exactly this would feel like — same mornings, same ankles, same "your labs are normal". End with an open question and wait. Never mention the product, the price or any link in this message.
+
+${X1_BANNED}`,
+        0
+      ),
+      waitReply(240),
+
+      // 4. REFRAME + VÍDEO
       wa(
-        "Thank you for being so open, {{nome}}. Here's the part almost nobody explains: normal labs don't mean normal drainage.\n\nThere's no standard test and no specialty that 'owns' the lymphatic system — so most women hear \"everything looks fine\" and go home with the same puffiness.",
+        "Thank you for being so open, {{nome}}. Here's the part almost nobody explains: normal labs don't mean normal drainage.\n\nThere's no standard test for lymphatic flow and no specialty that 'owns' it — so most women hear \"everything looks fine\" and go home with the same puffiness.",
         2
       ),
       wa("Watch this — 40 seconds, it'll click:\n{{video_hook}}", 1),
       aguardar(3),
 
-      // 4. MECANISMO (áudio)
+      // 5. MECANISMO (áudio)
       wa(
         "Compression, massage and leg elevation all move fluid from the outside. They help for a few hours. What they don't do is support the flow from the inside.",
         0
       ),
-      {
-        tipo: "audio",
-        template: "{{audio_ritual}}",
-        delay_min: 1,
-      } as Acao,
+      { tipo: "audio", template: "{{audio_ritual}}", delay_min: 1 } as Acao,
       wa(
-        "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
+        "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for daily balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
         0
       ),
       waitReply(360),
 
-      // 5. PROVA
-      wa("Here's what women in your exact situation reported 👇", 0),
+      // 6. PROVA AGRUPADA (social proof clustering)
+      wa("Let me show you three women who were exactly where you are 👇", 0),
       wa("{{img_prova_1}}", 0),
       wa("{{img_prova_2}}", 0),
+      wa("{{img_prova_3}}", 0),
+      wa("Diane, Marlene and Rosa — different ages, same complaint, same 30 seconds a day.", 0),
       wa("And this is what's actually inside the bottle — nothing exotic, just organized:\n{{img_ingredientes}}", 1),
       wa("Full story and the science behind it here: {{link_advertorial}}", 0),
       waitReply(360),
 
-      // 6. OBJEÇÃO (IA)
+      // 7. TRIAL CLOSE 0-10
       ia(
-        "She has now seen the reframe, the mechanism (audio) and the social proof for LINFAFLOW. Your job in this stage: surface and answer ONE objection per message, in American English, calm and specific. Never stack two objections in one message.\n\nPlaybook:\n- Price: compare with what she already spends — $80-$150 per lymphatic drainage session, $30-$150 per pair of compression socks, $2,000-$6,000 for a pneumatic pump. LINFAFLOW is one bottle = 30 days.\n- \"I already tried everything\": everything she tried works from the outside or forces water out. This supports the flow from the inside. Different category, not a stronger version of the same thing.\n- Skepticism: acknowledge it, don't argue. Point to the 30-day unconditional money-back guarantee — full refund, no questions, she doesn't even have to send the bottles back.\n- \"Let me think about it\": ask what specifically is still unclear, answer that one thing, then offer the link again once.\n- Medical concerns / medication: never advise. Tell her to check with her doctor and stay supportive.\n\nWhen she shows buying intent (asks about price, shipping, how to order, or says yes), send: {{link_checkout}} and stop selling. If she sends a photo or screenshot, read it and respond in context. Compliance: 'support' language only, no cure claims, no weight-loss claims.",
+        `Temperature read stage. Send ONE short message asking for a number, then branch.
+
+${X1_TRIAL_CLOSE}
+
+Stay in this stage until you have a number. Do not send any link before she is at 9-10 — when she is, hand over to the closing message. Chat-length messages only.
+
+${X1_BANNED}
+${X1_NEGOTIATION}`,
+        0
+      ),
+      waitReply(360),
+
+      // 8. FUTURE PACING
+      ia(
+        `One message of future pacing, built from the specific symptom SHE named earlier. Walk her through an ordinary morning three weeks from now: waking up, the mirror, the rings, the shoes, getting dressed without checking how bad it is today. Present tense, sensory, calm, no numbers, no promises — say "imagine" and "could feel like", never "you will". Close with a soft question. No link in this message.
+
+${X1_BANNED}`,
+        0
+      ),
+      waitReply(240),
+
+      // 9. OBJEÇÕES
+      ia(
+        `She has seen the reframe, the mechanism, the grouped proof, and she gave you a temperature number. Your job now: surface and answer objections, in American English, calm and specific, one per message.
+
+${X1_OBJECTIONS}
+
+If it helps, you may send the cost comparison image {{img_custo_comparativo}} once, when price is the objection.
+
+${X1_NEGOTIATION}
+${X1_BANNED}
+
+Disqualification: if she only ever pushes on price, asks for a discount before seeing any value, or is clearly outside the profile, tag her as disqualified, be polite, and stop selling — do not keep the sequence running.
+
+The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send {{link_checkout}} and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
         0,
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
       waitReply(720),
 
-      // 7. FECHAMENTO
+      // 10. FECHAMENTO ASSUMPTIVO
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
       notify("comercial"),
       wa(
-        "Here's your link, {{nome}}: {{link_checkout}}\n\nOne bottle = 30 days. 30-day unconditional guarantee: if your mornings don't feel different, you get a full refund — no questions, no need to return the bottles.\n\nAny question, I'm right here. 💜",
+        "Perfect, {{nome}} — so let's do this: do you want to start with one bottle for 30 days, or take the 3-bottle set so you don't have to think about reordering?\n\nHere's the link either way: {{link_checkout}}\n\n30-day unconditional guarantee: if your mornings don't feel different, you get a full refund — no questions, and you don't even have to send the bottles back. 💜",
         0
       ),
-      aguardar(720),
-      wa(
-        "{{nome}}, still thinking it over? Totally fine. Tell me the one thing holding you back and I'll be straight with you: {{link_checkout}}",
-        0
-      ),
+
+      // 11. RÉGUA D+1 / D+3 / D+7 / D+30
       aguardar(1440),
+      wa(
+        "{{nome}}, one thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. {{link_checkout}}",
+        0
+      ),
+      aguardar(2880),
+      { tipo: "audio", template: "{{audio_inercia}}", delay_min: 0 } as Acao,
+      aguardar(5760),
+      wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
+      aguardar(33120),
       ia(
-        "Final touch, 36h after the offer. She never replied. Send ONE short, no-pressure message in American English: name the specific symptom she told you about earlier, remind her the 30-day guarantee makes it risk-free, include {{link_checkout}} once, and make it clear this is the last message unless she replies. No urgency theatrics, no discount invention.",
+        `Day 30. She never bought and never replied to the last messages. Send ONE short reopening message with a completely new angle — not the same pitch. Use negative reverse: assume this probably isn't for her right now, mention the specific symptom she told you about a month ago, ask a genuine question about whether anything changed, and make clear this is your last message unless she replies. Include {{link_checkout}} once, at the end, casually. No urgency theatrics, no invented offer.
+
+${X1_BANNED}
+${X1_NEGOTIATION}`,
         0
       ),
       stop("compra_aprovada"),
@@ -374,7 +442,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
     id: "linfaflow-x1-webchat",
     nome: "LinfaFlow X1 — Webchat do site [EN-US]",
     descricao:
-      "Canal: Chat do site (advertorial / shop / reviews). Versão mais curta e rápida: quem já leu o advertorial cai direto no diagnóstico e na objeção.",
+      "Canal: Chat do site (advertorial / shop / reviews). Versão comprimida: SPIN rápido, prova agrupada, trial close 0-10 e objeções — para quem já está na página.",
     trigger_tipo: "lead_novo",
     categoria: "x1-conversao",
     emoji: "💬",
@@ -385,7 +453,15 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       ),
       waitReply(30),
       ia(
-        "You are the LINFAFLOW on-site assistant, talking to a US woman 40-70 who is ON the advertorial or shop page right now. American English, short messages (2-3 lines max — this is a chat widget), warm, zero hype.\n\nStage goal: qualify fast, because she is already in buying context. Ask at most 3 questions total, one at a time: main symptom, how long, what she already tried. Then mirror it back in one sentence using her own words and explain the reframe: normal labs don't mean normal drainage; compression, massage and leg elevation move fluid from the outside, LINFAFLOW supports the flow from the inside with 4 botanicals in liquid drops, 1 mL twice a day, a 30-second ritual.\n\nDo not send links in this stage. Compliance: 'support' language, no cure claims, no weight-loss claims.",
+        `You are the LINFAFLOW on-site assistant, talking to a US woman 40-70 who is ON the advertorial or shop page right now. American English, 2-3 lines per message max (this is a chat widget), warm, zero hype.
+
+She is already in buying context, so run a compressed SPIN: main symptom → what it has cost her → what her doctor said and what she already tried → need-payoff question. One question per message, at most four. Mirror her words back in one sentence, then deliver the reframe: labs measure blood, not drainage; compression, massage and elevation work from the outside; LINFAFLOW supports the flow from the inside with 4 botanicals in liquid drops, 1 mL twice a day, a 30-second ritual.
+
+Silently classify her as SKEPTIC, TRIED-EVERYTHING or READY and adapt the pace: skeptic gets teaching, tried-everything gets the "different category" framing, ready goes straight to the offer.
+
+${X1_BANNED}
+
+Do not send links in this stage.`,
         0,
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
@@ -393,10 +469,32 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       qualify(60, "linfaflow,x1-webchat", "qualificacao"),
       tag("linfaflow-x1-site"),
       wa("This is the 60-second version of why it works differently:\n{{video_mecanismo}}", 0),
-      wa("And here's what other women reported:\n{{img_prova_1}}", 0),
+      wa("And three women who were in the same spot:", 0),
+      wa("{{img_prova_1}}", 0),
+      wa("{{img_prova_2}}", 0),
+      wa("{{img_prova_3}}", 0),
       waitReply(60),
       ia(
-        "She is on the page and has seen the mechanism video and the proof. Answer ONE objection per message, American English, chat-length. Playbook: price (vs $80-$150 per drainage session, $30-$150 per compression socks, $2,000-$6,000 pneumatic pumps — one bottle = 30 days); 'already tried everything' (outside vs inside, different category); skepticism (30-day unconditional refund, no questions, no need to return the bottles); shipping/ordering questions (answer, then link). The moment she shows intent, send {{link_checkout}} and stop selling. If she asks something you truly can't answer, offer to have a human follow up and collect her best contact.",
+        `Temperature read, chat-length.
+
+${X1_TRIAL_CLOSE}
+
+${X1_BANNED}
+${X1_NEGOTIATION}`,
+        0
+      ),
+      waitReply(60),
+      ia(
+        `She is on the page, has seen the mechanism video, the grouped proof, and gave you a number. Answer objections one per message, chat-length.
+
+${X1_OBJECTIONS}
+
+You may send {{img_custo_comparativo}} once when price is the objection.
+
+${X1_NEGOTIATION}
+${X1_BANNED}
+
+Handle shipping and ordering questions directly, then send {{link_checkout}}. The moment she shows intent, send {{link_checkout}} and stop selling. If she only pushes on price, tag her as disqualified and stop. If you truly can't answer something, offer a human follow-up and collect her best contact.`,
         0,
         { ia_vision: true }
       ),
@@ -404,7 +502,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
       notify("comercial"),
       wa(
-        "Here's the page to get yours: {{link_checkout}}\nOne bottle = 30 days, and the 30-day guarantee means the whole thing is on us if it doesn't change your mornings.",
+        "So — one bottle for 30 days, or the 3-bottle set? Here's the page either way: {{link_checkout}}\nThe 30-day guarantee means the whole thing is on us if it doesn't change your mornings.",
         0
       ),
       stop("compra_aprovada"),
