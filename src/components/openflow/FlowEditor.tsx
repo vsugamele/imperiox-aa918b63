@@ -115,6 +115,8 @@ export interface Acao {
   tipo: string;
   template: string;
   delay_min: number;
+  /** Espera em segundos antes de enviar (ritmo de conversa). Somada ao delay_min. */
+  delay_sec?: number;
   personality?: string;
   condicao_tipo?: string;
   condicao_tempo_min?: number;
