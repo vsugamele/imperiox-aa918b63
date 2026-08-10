@@ -306,7 +306,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // amplificação de implicação, prova agrupada, trial close 0-10,
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
   // Mídias entram como placeholders:
-  // {{video_hook}} {{video_mecanismo}} https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_ritual.mp3 https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3
+  // Pendentes: {{video_hook}} {{video_mecanismo}} — áudios já publicados em storage x1/audio/ (voz Brian, EN-US)
   // {{img_prova_1}} {{img_prova_2}} {{img_prova_3}} {{img_ingredientes}}
   // {{img_custo_comparativo}} {{link_advertorial}} {{link_checkout}}
   // ─────────────────────────────────────────────────────────────
