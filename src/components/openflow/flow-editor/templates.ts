@@ -305,10 +305,9 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // Engenharia high-ticket aplicada a ticket baixo: SPIN completo,
   // amplificação de implicação, prova agrupada, trial close 0-10,
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
-  // Mídias entram como placeholders:
-  // Pendentes: {{video_hook}} {{video_mecanismo}} — áudios já publicados em storage x1/audio/ (voz Brian, EN-US)
-  // https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_ingredientes.jpg
-  // https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg https://imphafilliate.vercel.app/advertorial-a-hora https://imphafilliate.vercel.app/shop-linfaflow.html
+  // Mídias: áudios (x1/audio/) e imagens (x1/img/) já publicados no storage.
+  // Pendentes: {{video_hook}} {{video_mecanismo}}
+
   // ─────────────────────────────────────────────────────────────
   {
     id: "linfaflow-x1-messenger",
