@@ -2216,6 +2216,39 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_ai_artifacts: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string | null
+          payload: Json
+          program_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          program_id?: string | null
+          title?: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          program_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_authors: {
         Row: {
           avatar_url: string | null
@@ -25097,26 +25130,38 @@ export type Database = {
       imphq_push_subscriptions: {
         Row: {
           created_at: string
+          device_name: string | null
           endpoint: string
           id: string
           keys_auth: string
           keys_p256dh: string
+          last_seen_at: string
+          platform: string | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          device_name?: string | null
           endpoint: string
           id?: string
           keys_auth: string
           keys_p256dh: string
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          device_name?: string | null
           endpoint?: string
           id?: string
           keys_auth?: string
           keys_p256dh?: string
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
