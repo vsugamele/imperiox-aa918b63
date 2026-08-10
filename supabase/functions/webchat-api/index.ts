@@ -115,23 +115,40 @@ Deno.serve(async (req) => {
         meta: { page_url: body.page_url || null },
       });
 
-      // Dispara o fluxo vinculado (ou fluxos de canal webchat do projeto)
-      fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
-        body: JSON.stringify({
-          trigger_tipo: "webchat_mensagem_recebida",
-          project_id: widget.project_id,
-          automacao_id: widget.automacao_id || undefined,
-          lead_data: {
-            canal: "webchat",
-            channel_session_id: session.id,
-            nome: session.nome || "Visitante do site",
-            message_content: text,
-            mensagem_recebida: text,
-          },
-        }),
-      }).catch((e) => console.warn("[webchat-api] executor err", e?.message));
+      // Se já existe fluxo rodando nesta sessão, o agente de IA responde
+      // (e retoma o script no passo certo). Senão, dispara o fluxo.
+      const { data: activeExec } = await supa
+        .from("imphq_flow_executions")
+        .select("id")
+        .eq("channel_session_id", session.id)
+        .in("status", ["running", "waiting"])
+        .limit(1)
+        .maybeSingle();
+
+      if (activeExec) {
+        fetch(`${SUPABASE_URL}/functions/v1/channel-ai-reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+          body: JSON.stringify({ session_id: session.id, project_id: widget.project_id, message: text }),
+        }).catch((e) => console.warn("[webchat-api] ai-reply err", e?.message));
+      } else {
+        fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+          body: JSON.stringify({
+            trigger_tipo: "webchat_mensagem_recebida",
+            project_id: widget.project_id,
+            automacao_id: widget.automacao_id || undefined,
+            lead_data: {
+              canal: "webchat",
+              channel_session_id: session.id,
+              nome: session.nome || "Visitante do site",
+              message_content: text,
+              mensagem_recebida: text,
+            },
+          }),
+        }).catch((e) => console.warn("[webchat-api] executor err", e?.message));
+      }
 
       return json({ ok: true, session_id: session.id });
     }
