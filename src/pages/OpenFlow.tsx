@@ -706,6 +706,13 @@ export default function OpenFlow() {
         }}
       />
 
+      <X1TemplateLauncher
+        open={showX1Templates}
+        onOpenChange={setShowX1Templates}
+        projects={projects}
+        onCreated={load}
+      />
+
       <X1BuilderWizard
         open={showX1Wizard}
         onOpenChange={setShowX1Wizard}
