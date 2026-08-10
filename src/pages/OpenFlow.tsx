@@ -61,9 +61,20 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   { value: "trial_iniciado", label: "Trial Iniciado", icon: "🆓", color: "border-l-cyan-500", group: "Retenção" },
   { value: "whatsapp_mensagem_recebida", label: "Qualquer mensagem no WhatsApp", icon: "💬", color: "border-l-green-500", group: "WhatsApp" },
   { value: "whatsapp_palavra_chave", label: "Palavra-chave no WhatsApp", icon: "🔑", color: "border-l-green-600", group: "WhatsApp" },
+  { value: "messenger_mensagem_recebida", label: "Qualquer DM no Messenger", icon: "📨", color: "border-l-blue-500", group: "Outros canais" },
+  { value: "messenger_palavra_chave", label: "Palavra-chave no Messenger", icon: "🔑", color: "border-l-blue-600", group: "Outros canais" },
+  { value: "webchat_mensagem_recebida", label: "Mensagem no chat do site", icon: "🌐", color: "border-l-cyan-500", group: "Outros canais" },
+  { value: "webchat_sessao_iniciada", label: "Chat do site iniciado", icon: "✨", color: "border-l-cyan-400", group: "Outros canais" },
 ];
 
-const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp"];
+const CANAIS: { value: string; label: string; icon: string }[] = [
+  { value: "whatsapp", label: "WhatsApp", icon: "💬" },
+  { value: "messenger", label: "Messenger (Zernio)", icon: "📨" },
+  { value: "webchat", label: "Chat do site", icon: "🌐" },
+];
+
+const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp", "Outros canais"];
+
 
 
 interface Automacao {
