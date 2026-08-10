@@ -139,6 +139,7 @@ export default function OpenFlow() {
   const [health, setHealth] = useState<Map<string, { execucoes: number; sucessos: number; falhas: number; taxa_sucesso: number }>>(new Map());
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showX1Wizard, setShowX1Wizard] = useState(false);
+  const [showX1Templates, setShowX1Templates] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes, cRes] = await Promise.all([
