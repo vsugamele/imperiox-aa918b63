@@ -64,6 +64,31 @@ const notify = (operator = "comercial"): Acao => ({
   operator_name: operator,
 });
 
+// ─────────────────────────────────────────────────────────────
+// Guardrails e engenharia de venda reaproveitados pelos fluxos X1
+// (derivados do dossiê high ticket: SPIN, NEPQ, Value Equation,
+//  trial close 0-10, árvore de negociação, palavras proibidas)
+// ─────────────────────────────────────────────────────────────
+
+/** Palavras proibidas — compliance de suplemento + credibilidade. */
+const X1_BANNED = `NEVER use these words or claims: cure, treat, heal, detox, cleanse, flush out, weight loss, slimming, miracle, guaranteed results, doctor-approved, clinically proven, "only today", "last chance". Use support / help ease / may help language instead. Never diagnose and never give medical advice — if she mentions medication or a diagnosed condition, tell her to check with her doctor and stay supportive.`;
+
+/** Regra de negociação: sem desconto inventado, moedas de troca fixas. */
+const X1_NEGOTIATION = `Negotiation rules: never invent a discount, coupon, price or deadline. The only trade currencies you may use are (a) the 30-day unconditional money-back guarantee — full refund, no questions, she does not have to return the bottles, and (b) the multi-bottle bundle as better value per day. If she demands a discount before seeing any value, do not concede — go back to value. If she keeps pushing only on price, tag her as a discount hunter and stop selling.`;
+
+/** Árvore de objeções (significado oculto + resposta). */
+const X1_OBJECTIONS = `Objection arsenal — answer ONE objection per message, never stack two. Each objection has a hidden meaning; answer the hidden meaning, not the words:
+1. "Too expensive" (80% = didn't see enough value, 15% = wants a discount, 5% = truly can't). Value math: one lymphatic drainage session is $80-$150 and she needs it twice a month; compression socks are $30-$150 a pair and wear out; a pneumatic pump is $2,000-$6,000. One bottle covers 30 days of daily support.
+2. "I already tried everything" (hidden: fear of failing again, wants proof of difference). Everything she tried works from the outside or forces water out — this supports the flow from the inside. Different category, not a stronger version of the same thing.
+3. "I need to think about it" (60% not convinced, 30% needs a partner's opinion, 10% wants to compare). Use negative reverse: "Maybe this isn't the right fit for you right now — can I ask what's making you hesitate?" Then answer that one thing.
+4. "Not the right time" (hidden: procrastination dressed as strategy). Cost of inaction: another season of swollen ankles and mornings that don't feel like her, and nothing changes on its own.
+5. "Is it safe with my medication?" — no advice. Tell her to run the ingredient list by her doctor or pharmacist; offer to send the exact list.
+6. "I don't trust supplements" (hidden: justified skepticism). Don't argue. Acknowledge, show the ingredient transparency, then the 30-day unconditional refund — the risk sits with us, not her.
+7. "My doctor said it's normal" (hidden: she was dismissed). Validate: labs measure blood, not drainage. Never contradict her doctor — reframe.`;
+
+/** Trial close 0-10 com ramificação por nota. */
+const X1_TRIAL_CLOSE = `Temperature read: ask "on a scale of 0 to 10, how much does this make sense for you?" and branch on the answer. 0-5: do not pitch, ask what's missing and go back to the objection playbook. 6-8: ask "what would make it a 10?" and answer exactly that one gap. 9-10: move straight to the assumptive close and send the link.`;
+
 export const FLOW_TEMPLATES: FlowTemplate[] = [
   {
     id: "recuperacao-pix",
