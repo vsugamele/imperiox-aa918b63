@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -35,6 +35,7 @@ import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
+import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
 
 
 
@@ -138,6 +139,7 @@ export default function OpenFlow() {
   const [health, setHealth] = useState<Map<string, { execucoes: number; sucessos: number; falhas: number; taxa_sucesso: number }>>(new Map());
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showX1Wizard, setShowX1Wizard] = useState(false);
+  const [showX1Templates, setShowX1Templates] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes, cRes] = await Promise.all([
@@ -344,6 +346,9 @@ export default function OpenFlow() {
               </Select>
             </div>
             <div className="flex gap-2">
+              <Button onClick={() => setShowX1Templates(true)} variant="outline" className="border-white/10 hover:bg-white/5 font-semibold">
+                <Layers className="h-4 w-4 mr-2" /> Templates X1
+              </Button>
               <Button onClick={() => setShowX1Wizard(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
                 <Bot className="h-4 w-4 mr-2" /> Novo Fluxo X1
               </Button>
@@ -699,6 +704,13 @@ export default function OpenFlow() {
           });
           load();
         }}
+      />
+
+      <X1TemplateLauncher
+        open={showX1Templates}
+        onOpenChange={setShowX1Templates}
+        projects={projects}
+        onCreated={load}
       />
 
       <X1BuilderWizard
