@@ -729,7 +729,15 @@ Deno.serve(async (req) => {
               }
             }
           }
+
+          // Ritmo de conversa: espera curta em segundos (máx 20s), sempre inline
+          const delaySec = Math.min(Number(step.delay_sec || 0), 20);
+          if (delaySec > 0) {
+            const alreadyPaced = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            if (!alreadyPaced) await delay(delaySec * 1000);
+          }
         }
+
 
         try {
           // Update current step
