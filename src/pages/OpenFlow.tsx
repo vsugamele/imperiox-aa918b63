@@ -346,6 +346,9 @@ export default function OpenFlow() {
               </Select>
             </div>
             <div className="flex gap-2">
+              <Button onClick={() => setShowX1Templates(true)} variant="outline" className="border-white/10 hover:bg-white/5 font-semibold">
+                <Layers className="h-4 w-4 mr-2" /> Templates X1
+              </Button>
               <Button onClick={() => setShowX1Wizard(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
                 <Bot className="h-4 w-4 mr-2" /> Novo Fluxo X1
               </Button>
