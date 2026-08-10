@@ -241,8 +241,12 @@ Deno.serve(async (req) => {
 
     // Filter by project, product, campanha and tag_filtro
     const leadCampanha = lead_data?.campanha_id;
+    const leadCanal = lead_data?.canal || "whatsapp";
     const matched = (automacoes || []).filter((a: any) => {
+      // Canal do fluxo precisa bater com o canal de origem (whatsapp | messenger | webchat)
+      if ((a.canal || "whatsapp") !== leadCanal) return false;
       if (a.project_id && a.project_id !== project_id) return false;
+
       if (a.produto && lead_data?.produto) {
         if (a.produto.toLowerCase() !== lead_data.produto.toLowerCase()) return false;
       }
