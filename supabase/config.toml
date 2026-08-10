@@ -137,3 +137,9 @@ verify_jwt = false
 
 [functions.company-map-public]
 verify_jwt = false
+
+[functions.webchat-api]
+verify_jwt = false
+
+[functions.messenger-webhook]
+verify_jwt = false

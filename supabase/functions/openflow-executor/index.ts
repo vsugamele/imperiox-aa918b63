@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendToChannel } from "../_shared/channel-out.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -239,8 +241,12 @@ Deno.serve(async (req) => {
 
     // Filter by project, product, campanha and tag_filtro
     const leadCampanha = lead_data?.campanha_id;
+    const leadCanal = lead_data?.canal || "whatsapp";
     const matched = (automacoes || []).filter((a: any) => {
+      // Canal do fluxo precisa bater com o canal de origem (whatsapp | messenger | webchat)
+      if ((a.canal || "whatsapp") !== leadCanal) return false;
       if (a.project_id && a.project_id !== project_id) return false;
+
       if (a.produto && lead_data?.produto) {
         if (a.produto.toLowerCase() !== lead_data.produto.toLowerCase()) return false;
       }
@@ -528,8 +534,21 @@ Deno.serve(async (req) => {
         lead_data.fluxo = auto.nome || "";
       }
 
+      // ── Sessão de canal (Messenger / Chat do site). Quando presente, os blocos de
+      // mensagem são entregues pelo canal em vez do WhatsApp.
+      let channelSession: any = null;
+      if (lead_data?.channel_session_id) {
+        const { data: cs } = await supabase
+          .from("imphq_channel_sessions")
+          .select("*")
+          .eq("id", lead_data.channel_session_id)
+          .maybeSingle();
+        channelSession = cs || null;
+      }
+
       // Load lead details once for the execution of this automation
       let leadDb: any = null;
+
       if (lead_data?.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
@@ -1173,7 +1192,38 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── Canais alternativos (Messenger via Zernio / Chat do site): reaproveita os blocos
+          // de mensagem/IA do fluxo, mas entrega pela sessão de canal em vez do WhatsApp.
+          else if (
+            (step.tipo === "whatsapp" || step.tipo === "audio") &&
+            (channelSession || (auto as any).canal === "messenger" || (auto as any).canal === "webchat")
+          ) {
+            if (!channelSession) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Fluxo de canal sem sessão (channel_session_id ausente)";
+            } else {
+              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const stepMedia = (step as any).media;
+              const chRes = await sendToChannel(
+                supabase,
+                channelSession as any,
+                msgText,
+                stepMedia?.url || null,
+              );
+              stepResult.canal = channelSession.canal;
+              stepResult.message_preview = msgText.substring(0, 100);
+              stepResult.status = chRes.success ? "sent" : "error";
+              stepResult.response = chRes;
+              if (chRes.success) messagesSent++;
+              else {
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (${channelSession.canal}): ${chRes.error || "Falha no envio"}`);
+              }
+            }
+          }
+
           else if (step.tipo === "whatsapp") {
+
             const phone = lead_data?.phone || lead_data?.telefone;
             if (!phone) {
               stepResult.status = "skipped";

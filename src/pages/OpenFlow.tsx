@@ -34,6 +34,8 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
+import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
+
 
 
 const TRIGGERS: { value: string; label: string; icon: string; color: string; group: string }[] = [
@@ -61,15 +63,28 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   { value: "trial_iniciado", label: "Trial Iniciado", icon: "🆓", color: "border-l-cyan-500", group: "Retenção" },
   { value: "whatsapp_mensagem_recebida", label: "Qualquer mensagem no WhatsApp", icon: "💬", color: "border-l-green-500", group: "WhatsApp" },
   { value: "whatsapp_palavra_chave", label: "Palavra-chave no WhatsApp", icon: "🔑", color: "border-l-green-600", group: "WhatsApp" },
+  { value: "messenger_mensagem_recebida", label: "Qualquer DM no Messenger", icon: "📨", color: "border-l-blue-500", group: "Outros canais" },
+  { value: "messenger_palavra_chave", label: "Palavra-chave no Messenger", icon: "🔑", color: "border-l-blue-600", group: "Outros canais" },
+  { value: "webchat_mensagem_recebida", label: "Mensagem no chat do site", icon: "🌐", color: "border-l-cyan-500", group: "Outros canais" },
+  { value: "webchat_sessao_iniciada", label: "Chat do site iniciado", icon: "✨", color: "border-l-cyan-400", group: "Outros canais" },
 ];
 
-const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp"];
+const CANAIS: { value: string; label: string; icon: string }[] = [
+  { value: "whatsapp", label: "WhatsApp", icon: "💬" },
+  { value: "messenger", label: "Messenger (Zernio)", icon: "📨" },
+  { value: "webchat", label: "Chat do site", icon: "🌐" },
+];
+
+const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp", "Outros canais"];
+
 
 
 interface Automacao {
   id: string; project_id?: string; produto?: string; nome: string;
   trigger_tipo: string; acoes: Acao[]; ativo: boolean; created_at?: string;
+  canal?: string | null;
   provider_id?: string;
+
   quiet_start?: number | null; quiet_end?: number | null; dedupe_hours?: number | null;
   campanha_id?: string | null;
   tag_filtro?: string | null;
@@ -218,6 +233,7 @@ export default function OpenFlow() {
       produto: (form as any).produto || null,
       campanha_id: (form as any).campanha_id || null,
       tag_filtro: form.tag_filtro || null,
+      canal: (form as any).canal || "whatsapp",
     } as any).select("*").single();
     if (error) { toast.error(error.message); return; }
     toast.success("Automação criada!"); setShowNew(false); load();
@@ -227,7 +243,10 @@ export default function OpenFlow() {
   const saveAutomacao = async (a: Automacao, opts?: { silent?: boolean }) => {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: a.acoes as any, ativo: a.ativo,
+      canal: a.canal || "whatsapp",
       produto: a.produto, project_id: a.project_id, quiet_start: a.quiet_start, quiet_end: a.quiet_end,
+
+
       dedupe_hours: a.dedupe_hours, campanha_id: a.campanha_id, tag_filtro: a.tag_filtro,
       provider_id: a.provider_id, link_checkout: (a as any).link_checkout,
       stalled_hours: a.stalled_hours, stalled_operator: a.stalled_operator,
@@ -312,6 +331,8 @@ export default function OpenFlow() {
           <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Performance</TabsTrigger>
           <TabsTrigger value="roi" className="gap-2"><Zap className="h-4 w-4" /> ROI Global</TabsTrigger>
           <TabsTrigger value="midias" className="gap-2"><ImageIcon className="h-4 w-4" /> Mídias</TabsTrigger>
+          <TabsTrigger value="canais" className="gap-2"><MessageCircle className="h-4 w-4" /> Canais & Site</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="fluxos" className="space-y-6 pt-4">
@@ -405,6 +426,8 @@ export default function OpenFlow() {
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
         <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
+        <TabsContent value="canais"><WebchatWidgets projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+
       </Tabs>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -508,6 +531,14 @@ export default function OpenFlow() {
 
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3 bg-secondary/10 p-4 rounded-2xl border border-white/5">
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Nome do Fluxo</Label><Input value={editing.nome} onChange={e => setEditing({ ...editing, nome: e.target.value })} className="h-9 bg-background/50 border-white/10" /></div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Canal</Label>
+                    <Select value={editing.canal || "whatsapp"} onValueChange={v => setEditing({ ...editing, canal: v })}>
+                      <SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger>
+                      <SelectContent>{CANAIS.map(c => <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Projeto</Label><Select value={editing.project_id || "none"} onValueChange={v => setEditing({ ...editing, project_id: v === "none" ? undefined : v, produto: undefined })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="none">Todos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Trigger</Label><Select value={editing.trigger_tipo} onValueChange={v => setEditing({ ...editing, trigger_tipo: v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent className="max-h-[60vh]">{renderTriggerOptions()}</SelectContent></Select></div>
                   <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Produto</Label><Select value={editing.produto || "none"} onValueChange={v => setEditing({ ...editing, produto: v === "none" ? undefined : v })}><SelectTrigger className="h-9 bg-background/50 border-white/10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Todos</SelectItem>{allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>

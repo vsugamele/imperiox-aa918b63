@@ -18719,6 +18719,7 @@ export type Database = {
           acoes: Json | null
           ativo: boolean | null
           campanha_id: string | null
+          canal: string
           circuit_breaker_error_pct: number | null
           circuit_breaker_paused_at: string | null
           circuit_breaker_reason: string | null
@@ -18756,6 +18757,7 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          canal?: string
           circuit_breaker_error_pct?: number | null
           circuit_breaker_paused_at?: string | null
           circuit_breaker_reason?: string | null
@@ -18793,6 +18795,7 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          canal?: string
           circuit_breaker_error_pct?: number | null
           circuit_breaker_paused_at?: string | null
           circuit_breaker_reason?: string | null
@@ -19472,6 +19475,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_channel_messages: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          media_url: string | null
+          meta: Json
+          session_id: string
+          texto: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          id?: string
+          media_url?: string | null
+          meta?: Json
+          session_id: string
+          texto?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          media_url?: string | null
+          meta?: Json
+          session_id?: string
+          texto?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_channel_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_channel_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_channel_sessions: {
+        Row: {
+          avatar_url: string | null
+          canal: string
+          created_at: string
+          external_id: string
+          id: string
+          last_message_at: string
+          lead_id: string | null
+          meta: Json
+          nome: string | null
+          origin: string | null
+          project_id: string | null
+          updated_at: string
+          widget_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          canal?: string
+          created_at?: string
+          external_id: string
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          meta?: Json
+          nome?: string | null
+          origin?: string | null
+          project_id?: string | null
+          updated_at?: string
+          widget_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          canal?: string
+          created_at?: string
+          external_id?: string
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          meta?: Json
+          nome?: string | null
+          origin?: string | null
+          project_id?: string | null
+          updated_at?: string
+          widget_id?: string | null
+        }
+        Relationships: []
       }
       imphq_chat_messages: {
         Row: {
@@ -29673,6 +29762,51 @@ export type Database = {
           raw_message?: string | null
           sentiment?: string | null
           urgency?: string | null
+        }
+        Relationships: []
+      }
+      imphq_webchat_widgets: {
+        Row: {
+          allowed_origins: string[]
+          ativo: boolean
+          automacao_id: string | null
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+          project_id: string | null
+          public_key: string
+          saudacao: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_origins?: string[]
+          ativo?: boolean
+          automacao_id?: string | null
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          project_id?: string | null
+          public_key?: string
+          saudacao?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_origins?: string[]
+          ativo?: boolean
+          automacao_id?: string | null
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          project_id?: string | null
+          public_key?: string
+          saudacao?: string
+          titulo?: string
+          updated_at?: string
         }
         Relationships: []
       }
