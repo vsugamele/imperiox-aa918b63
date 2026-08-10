@@ -17,6 +17,12 @@ const wa = (template: string, delay_min = 0, extra: Partial<Acao> = {}): Acao =>
   ...extra,
 });
 
+/** Mídias já gravadas do fluxo LinfaFlow (áudios femininos EN-US + prints de prova). */
+const LF_BASE =
+  "https://storage.tynk.ai:443/tynk-type/public/workspaces/vsugamele@gmail.com/genius-imports/x8lpyyame82hoo8gxdacki97";
+const LF_AUDIO = [0, 1, 2, 3, 4, 5, 6].map((i) => `${LF_BASE}/audio-${i}.mp3`);
+const LF_IMG = [0, 1].map((i) => `${LF_BASE}/image-${i}.png`);
+
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
 /** Mensagem com espera em SEGUNDOS antes de enviar — ritmo de conversa real (Typebot-style). */
