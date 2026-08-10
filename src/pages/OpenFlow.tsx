@@ -36,6 +36,7 @@ import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
+import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
 
 
 
