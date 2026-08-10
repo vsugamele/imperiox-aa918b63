@@ -204,6 +204,50 @@ export function WebchatWidgets({ projects, automacoes }: Props) {
                   />
                 </div>
 
+                {/* Aparência / skin de WhatsApp */}
+                <div className="rounded-lg border border-white/10 bg-secondary/20 p-3 space-y-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Aparência da conversa</p>
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Tema</Label>
+                      <Select value={w.tema || "padrao"} onValueChange={v => patch(w.id, { tema: v })}>
+                        <SelectTrigger className="h-9 bg-secondary/40 border-white/10"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="padrao">Padrão (escuro)</SelectItem>
+                          <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Avatar (URL)</Label>
+                      <Input value={w.avatar_url || ""} onChange={e => patch(w.id, { avatar_url: e.target.value })} placeholder="https://…/foto.jpg" className="h-9 bg-secondary/40 border-white/10 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Subtítulo</Label>
+                      <Input value={w.subtitulo ?? "online"} onChange={e => patch(w.id, { subtitulo: e.target.value })} className="h-9 bg-secondary/40 border-white/10 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Som de mensagem</Label>
+                      <div className="flex h-9 items-center gap-2">
+                        <Switch checked={w.som !== false} onCheckedChange={v => patch(w.id, { som: v })} />
+                        <span className="text-xs text-muted-foreground">{w.som !== false ? "Ligado" : "Desligado"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Texto “digitando”</Label>
+                      <Input value={w.texto_digitando ?? "digitando..."} onChange={e => patch(w.id, { texto_digitando: e.target.value })} className="h-9 bg-secondary/40 border-white/10 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase text-muted-foreground">Texto “gravando áudio”</Label>
+                      <Input value={w.texto_gravando ?? "gravando audio..."} onChange={e => patch(w.id, { texto_gravando: e.target.value })} className="h-9 bg-secondary/40 border-white/10 text-xs" />
+                    </div>
+                  </div>
+                </div>
+
+
+
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-muted-foreground">Snippet de instalação</Label>
                   <div className="flex gap-2">
