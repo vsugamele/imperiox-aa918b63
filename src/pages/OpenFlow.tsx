@@ -231,6 +231,7 @@ export default function OpenFlow() {
       produto: (form as any).produto || null,
       campanha_id: (form as any).campanha_id || null,
       tag_filtro: form.tag_filtro || null,
+      canal: (form as any).canal || "whatsapp",
     } as any).select("*").single();
     if (error) { toast.error(error.message); return; }
     toast.success("Automação criada!"); setShowNew(false); load();
@@ -240,7 +241,8 @@ export default function OpenFlow() {
   const saveAutomacao = async (a: Automacao, opts?: { silent?: boolean }) => {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: a.acoes as any, ativo: a.ativo,
-      produto: a.produto, project_id: a.project_id, quiet_start: a.quiet_start, quiet_end: a.quiet_end,
+      canal: a.canal || "whatsapp",
+
       dedupe_hours: a.dedupe_hours, campanha_id: a.campanha_id, tag_filtro: a.tag_filtro,
       provider_id: a.provider_id, link_checkout: (a as any).link_checkout,
       stalled_hours: a.stalled_hours, stalled_operator: a.stalled_operator,
