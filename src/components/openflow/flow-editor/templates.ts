@@ -306,7 +306,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // amplificação de implicação, prova agrupada, trial close 0-10,
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
   // Mídias entram como placeholders:
-  // {{video_hook}} {{video_mecanismo}} {{audio_ritual}} {{audio_inercia}}
+  // {{video_hook}} {{video_mecanismo}} https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_ritual.mp3 https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3
   // {{img_prova_1}} {{img_prova_2}} {{img_prova_3}} {{img_ingredientes}}
   // {{img_custo_comparativo}} {{link_advertorial}} {{link_checkout}}
   // ─────────────────────────────────────────────────────────────
@@ -373,7 +373,7 @@ ${X1_BANNED}`,
         "Compression, massage and leg elevation all move fluid from the outside. They help for a few hours. What they don't do is support the flow from the inside.",
         0
       ),
-      { tipo: "audio", template: "{{audio_ritual}}", delay_min: 1 } as Acao,
+      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_ritual.mp3", delay_min: 1 } as Acao,
       wa(
         "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for daily balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
         0
@@ -447,7 +447,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         0
       ),
       aguardar(2880),
-      { tipo: "audio", template: "{{audio_inercia}}", delay_min: 0 } as Acao,
+      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
       aguardar(5760),
       wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
       aguardar(33120),
@@ -724,7 +724,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         0
       ),
       aguardar(2880),
-      { tipo: "audio", template: "{{audio_inercia}}", delay_min: 0 } as Acao,
+      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
       aguardar(5760),
       wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
       stop("compra_aprovada"),
