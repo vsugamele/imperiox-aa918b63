@@ -493,6 +493,7 @@ Deno.serve(async (req) => {
           automacao_id: auto.id,
           project_id,
           lead_id: lead_data?.lead_id || null,
+          channel_session_id: lead_data?.channel_session_id || null,
           trigger_tipo,
           status: "running",
           current_step: startStep,

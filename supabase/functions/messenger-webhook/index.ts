@@ -85,24 +85,41 @@ Deno.serve(async (req) => {
       meta: { message_id: messageId || null, event: payload?.event || null },
     });
 
-    // Dispara fluxos do OpenFlow com canal = messenger
-    const triggers = ["messenger_mensagem_recebida", "messenger_palavra_chave"];
-    for (const trigger of triggers) {
-      await fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+    // Se já existe fluxo rodando nesta sessão, o agente de IA responde e retoma o script.
+    const { data: activeExec } = await supa
+      .from("imphq_flow_executions")
+      .select("id")
+      .eq("channel_session_id", session.id)
+      .in("status", ["running", "waiting"])
+      .limit(1)
+      .maybeSingle();
+
+    if (activeExec) {
+      await fetch(`${SUPABASE_URL}/functions/v1/channel-ai-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
-        body: JSON.stringify({
-          trigger_tipo: trigger,
-          project_id: projectId,
-          lead_data: {
-            canal: "messenger",
-            channel_session_id: session.id,
-            nome: session.nome || "Lead Messenger",
-            message_content: text,
-            mensagem_recebida: text,
-          },
-        }),
-      }).catch((e) => console.warn("[messenger-webhook] executor err", e?.message));
+        body: JSON.stringify({ session_id: session.id, project_id: projectId, message: text }),
+      }).catch((e) => console.warn("[messenger-webhook] ai-reply err", e?.message));
+    } else {
+      // Dispara fluxos do OpenFlow com canal = messenger
+      const triggers = ["messenger_mensagem_recebida", "messenger_palavra_chave"];
+      for (const trigger of triggers) {
+        await fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+          body: JSON.stringify({
+            trigger_tipo: trigger,
+            project_id: projectId,
+            lead_data: {
+              canal: "messenger",
+              channel_session_id: session.id,
+              nome: session.nome || "Lead Messenger",
+              message_content: text,
+              mensagem_recebida: text,
+            },
+          }),
+        }).catch((e) => console.warn("[messenger-webhook] executor err", e?.message));
+      }
     }
 
     return new Response("OK", { status: 200, headers: corsHeaders });

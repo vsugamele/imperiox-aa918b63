@@ -1,0 +1,2 @@
+ALTER TABLE public.imphq_flow_executions ADD COLUMN IF NOT EXISTS channel_session_id uuid;
+CREATE INDEX IF NOT EXISTS idx_flow_exec_channel_session ON public.imphq_flow_executions (channel_session_id, status);
