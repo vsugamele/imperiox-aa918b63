@@ -525,7 +525,207 @@ Handle shipping and ordering questions directly, then send {{link_checkout}}. Th
       stop("compra_aprovada"),
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // LINFAFLOW X1 — CHAT WHATSAPP (skin no site) [EN-US]
+  // Adaptado do fluxo LinfaFlow do Typebot: os 9 estágios de venda
+  // (conexão → conscientização → curiosidade → mecanismo → benefícios →
+  //  prova social → oportunidade → riscos e perdas → fechamento $89),
+  // com o ritmo de mensagens curtas de 2-4s que faz parecer conversa real,
+  // e com a engenharia X1 por cima: SPIN, trial close 0-10, objeções e guardrails.
+  // Áudios e imagens já vêm com as mídias gravadas do export.
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: "linfaflow-x1-whatsapp",
+    nome: "LinfaFlow X1 — Chat WhatsApp no site [EN-US]",
+    descricao:
+      "Canal: Chat do site com skin de WhatsApp. 9 estágios em ritmo de conversa (2-4s por mensagem), com os 6 áudios e 2 imagens já gravados, IA no diagnóstico/objeções e fechamento em $89.",
+    trigger_tipo: "lead_novo",
+    categoria: "x1-conversao",
+    emoji: "🟢",
+    acoes: [
+      // ── 1. CONEXÃO
+      waSec("Hey 👋 Glad you're here.", 2),
+      waSec("I set aside something for people who end the day with heavy legs.", 2),
+      waSec("It's quick, simple, and built for daily comfort.", 3),
+      waSec("Before I send it, what should I call you?", 2),
+      waitReply(60),
+      waSec("Perfect, thanks.", 2),
+      waSec("I'll keep this practical, not overwhelming.", 3),
+      audioSec(LF_AUDIO[0], 2),
+      waSec("If you've been ignoring that tired, swollen feeling, you're not alone.", 3),
+      waSec("Let's make this easier from here.", 2),
+      tag("linfaflow-x1-site"),
+
+      // ── 2. CONSCIENTIZAÇÃO
+      waSec("Quick question, does this sound familiar?", 2),
+      waSec("By late afternoon, your socks feel tighter and your legs feel heavier.", 2),
+      waSec("That's usually the part people brush off.", 3),
+      waSec("But it slowly steals comfort from the whole day.", 2),
+      waSec("What is your biggest struggle with this?", 2),
+      waitReply(60),
+
+      // IA: SPIN comprimido + classificação de track (substitui o "Got it." cego do Typebot)
+      ia(
+        `You are a warm, unhurried women's wellness consultant for LINFAFLOW (liquid botanical drops that support lymphatic flow, healthy circulation and daily fluid balance). Audience: US women 40-70. American English, 1-2 short lines per message — this is a WhatsApp-style chat, so never write paragraphs.
+
+She just told you her biggest struggle with heaviness and swelling. Mirror her exact words back in one sentence, then run a compressed SPIN, ONE question per message, at most three more questions:
+- PROBLEM: what has it already cost her — shoes, socks, rings, photos, plans she skipped?
+- IMPLICATION: what did her doctor say (most hear "your labs are normal") and what has she already tried (compression socks, lymphatic drainage, elevating her legs, dry brushing, detox teas, water pills)?
+- NEED-PAYOFF: "if there were a way to support the drainage itself instead of squeezing the fluid out, would that be worth 30 seconds a day?"
+
+Silently classify her into ONE track and keep that pace for the rest of the chat:
+- SKEPTIC (problem-aware): teach first, never pitch early.
+- TRIED-EVERYTHING (solution-aware): lead with what makes this a different category.
+- READY (product-aware): be short and factual, move to the offer faster.
+
+${X1_BANNED}
+
+No links and no pitch in this stage.`,
+        0,
+        { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(120),
+      qualify(55, "linfaflow,x1-whatsapp-skin", "qualificacao"),
+
+      waSec("That pattern matters more than most people think.", 3),
+      waSec("When the same heaviness keeps showing up, your routine needs a different kind of support.", 2),
+      waSec("Not more guesswork. Not more random fixes.", 2),
+      waSec("Just something that fits real life.", 2),
+
+      // ── 3. CURIOSIDADE
+      waSec("Here's something most people never hear 💡", 2),
+      waSec("The issue is often not one big moment.", 3),
+      waSec("It's the buildup across the day.", 2),
+      waSec("That's why quick fixes usually disappoint.", 2),
+      waSec(LF_IMG[0], 2),
+      waSec("When support is timed well, the whole day feels different.", 4),
+      waSec("What would you most like to improve first?", 2),
+      waitReply(60),
+      waSec("That answer helps a lot.", 2),
+      audioSec(LF_AUDIO[1], 3),
+      waSec("Most people keep looking for the wrong solution because they focus only on the symptom.", 3),
+      waSec("LinfaFlow was built to change that approach.", 2),
+
+      // ── 4. MECANISMO
+      waSec("Labs measure blood. They don't measure drainage — there's no standard test for it.", 2),
+      waSec("It follows a simple daily support rhythm I call the Flow Reset Method.", 2),
+      waSec(
+        "4 botanicals organized by function: Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for daily balance. Liquid drops, 1 mL morning and night — a 30-second ritual.",
+        3
+      ),
+      waSec("{{video_mecanismo}}", 2),
+      waSec("That's the difference.", 12),
+      waSec("It's not about chasing trends.", 2),
+      waSec("It's about making the support feel natural enough to stick.", 2),
+      waSec("Have you tried anything before that felt too complicated or unrealistic?", 2),
+      waitReply(90),
+      waSec("That's exactly the frustration this was made to avoid.", 2),
+      audioSec(LF_AUDIO[2], 3),
+      waSec("Once the routine is easy, consistency gets a lot easier too.", 3),
+
+      // ── 5. BENEFÍCIOS
+      waSec("Imagine ending the day without that heavy, dragging feeling.", 2),
+      waSec("Shoes feel easier. Socks feel less tight. Walking feels smoother.", 3),
+      waSec("That's the kind of everyday comfort people want back.", 2),
+      waSec("If this worked well for you, what would your ideal day look like?", 2),
+      waitReply(90),
+
+      // Future pacing com as palavras dela
+      ia(
+        `One short message of future pacing, built from the specific symptom SHE named. Walk her through an ordinary morning three weeks from now — waking up, the mirror, the rings, the shoes — present tense, calm, sensory. Say "imagine" and "could feel like", never "you will". No numbers, no promises, no link. Close with a soft question. Max 3 lines.
+
+${X1_BANNED}`,
+        0
+      ),
+      waitReply(90),
+
+      // ── 6. PROVA SOCIAL (agrupada)
+      waSec("Look at this message I got yesterday 🔥", 2),
+      waSec(LF_IMG[1], 2),
+      waSec("She said the biggest surprise was how manageable it felt.", 4),
+      waSec("And she's not the only one 👇", 2),
+      waSec("{{img_prova_1}}", 0),
+      waSec("{{img_prova_2}}", 0),
+      waSec("{{img_prova_3}}", 0),
+      waSec("Different ages, same complaint, same 30 seconds a day.", 2),
+      waSec("Full story and what's inside the bottle: {{link_advertorial}}", 2),
+      waitReply(120),
+
+      // ── TRIAL CLOSE 0-10
+      ia(
+        `Temperature read, WhatsApp-chat length (1-2 lines per message).
+
+${X1_TRIAL_CLOSE}
+
+Stay here until you have a number. Do not send any link before she is at 9-10.
+
+${X1_BANNED}
+${X1_NEGOTIATION}`,
+        0
+      ),
+      waitReply(120),
+
+      // ── 7. OPORTUNIDADE
+      waSec("If you've been waiting for the right time, this is the cleanest path in.", 2),
+      waSec("You get the system, the structure and the support to begin without overthinking it.", 2),
+      waSec("That alone removes a lot of friction.", 2),
+      audioSec(LF_AUDIO[3], 3),
+      waSec("And friction is usually what keeps people stuck.", 2),
+
+      // ── 8. RISCOS E PERDAS
+      waSec("Honestly, waiting usually makes this harder.", 2),
+      waSec("Each week of ignoring the heaviness is another week of discomfort repeating.", 2),
+      waSec("And the longer it stays normal, the easier it is to keep putting it off.", 2),
+      audioSec(LF_AUDIO[4], 3),
+      waSec("I don't want you stuck in that loop.", 2),
+      waSec("This is where people usually say, \"I should have done this sooner.\"", 2),
+
+      // ── OBJEÇÕES
+      ia(
+        `She has seen the mechanism, the grouped proof and gave you a temperature number. Surface and answer objections now — ONE per message, WhatsApp-chat length, calm and specific.
+
+${X1_OBJECTIONS}
+
+You may send {{img_custo_comparativo}} once, only when price is the objection.
+
+${X1_NEGOTIATION}
+${X1_BANNED}
+
+The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send {{link_checkout}} and stop selling. If she only ever pushes on price, tag her as a discount hunter, be polite and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
+        0,
+        { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(240),
+
+      // ── 9. FECHAMENTO ($89)
+      qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
+      notify("comercial"),
+      waSec("I get it if you've been cautious.", 2),
+      waSec("You want something simple, useful and worth your time.", 2),
+      waSec("That's exactly why LinfaFlow is $89 for the full 30-day daily support system.", 2),
+      audioSec(LF_AUDIO[5], 3),
+      waSec(
+        "So — one bottle for 30 days, or the 3-bottle set so you don't have to think about reordering?\n\n👉 {{link_checkout}}\n\n30-day unconditional guarantee: if your mornings don't feel different, full refund, no questions, and you don't even have to send the bottles back.",
+        2
+      ),
+      waSec("If you're ready, take the step today. If not, no pressure at all.", 3),
+
+      // ── RÉGUA (o Typebot morre quando a aba fecha; aqui continua)
+      aguardar(1440),
+      wa(
+        "One thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. {{link_checkout}}",
+        0
+      ),
+      aguardar(2880),
+      { tipo: "audio", template: "{{audio_inercia}}", delay_min: 0 } as Acao,
+      aguardar(5760),
+      wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
+      stop("compra_aprovada"),
+    ],
+  },
 ];
+
 
 export function getTemplatesByTrigger(triggerTipo?: string): FlowTemplate[] {
   if (!triggerTipo) return FLOW_TEMPLATES;
