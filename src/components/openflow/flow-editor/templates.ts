@@ -5,7 +5,7 @@ export interface FlowTemplate {
   nome: string;
   descricao: string;
   trigger_tipo: string;
-  categoria: "recuperacao" | "boas-vindas" | "reativacao" | "nutricao" | "carrinho" | "onboarding" | "aquisicao";
+  categoria: "recuperacao" | "boas-vindas" | "reativacao" | "nutricao" | "carrinho" | "onboarding" | "aquisicao" | "x1-conversao";
   emoji: string;
   acoes: Acao[];
 }
