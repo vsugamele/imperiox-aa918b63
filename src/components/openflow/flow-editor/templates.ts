@@ -19,6 +19,23 @@ const wa = (template: string, delay_min = 0, extra: Partial<Acao> = {}): Acao =>
 
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
+/** Mensagem com espera em SEGUNDOS antes de enviar — ritmo de conversa real (Typebot-style). */
+const waSec = (template: string, delay_sec: number, extra: Partial<Acao> = {}): Acao => ({
+  tipo: "whatsapp",
+  template,
+  delay_min: 0,
+  delay_sec,
+  ...extra,
+});
+
+/** Áudio com espera em segundos. */
+const audioSec = (url: string, delay_sec = 2): Acao => ({
+  tipo: "audio",
+  template: url,
+  delay_min: 0,
+  delay_sec,
+});
+
 const ia = (prompt: string, delay_min = 0, extra: Partial<Acao> = {}): Acao => ({
   tipo: "ia_message",
   template: prompt,
