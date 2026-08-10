@@ -36,6 +36,7 @@ import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
+import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
 
 
 
@@ -355,6 +356,10 @@ export default function OpenFlow() {
               <Button onClick={() => setShowNew(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-bold"><Plus className="h-4 w-4 mr-2" /> Novo Fluxo</Button>
             </div>
           </div>
+
+          <X1TemplatesStrip existingNames={automacoes.map(a => a.nome)} onCreated={load} />
+
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(a => {

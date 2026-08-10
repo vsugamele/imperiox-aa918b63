@@ -77,9 +77,14 @@ function normalizeStep(step: any): any {
     // Message: editor uses 'template', executor expects 'mensagem'
     mensagem: step.mensagem || step.texto || step.template || "",
     // Delay: editor uses 'delay_min', executor expects 'delay_min'
-    delay_min: step.delay_min || step.minutos || step.delay || 1,
+    // Quando o passo define ritmo em segundos (delay_sec), NÃO forçamos 1 minuto.
+    delay_min: Number(step.delay_sec || 0) > 0
+      ? Number(step.delay_min || 0)
+      : (step.delay_min || step.minutos || step.delay || 1),
+    delay_sec: Number(step.delay_sec || 0),
   };
 }
+
 
 function replaceVariables(text: string, lead_data: any, leadDb: any): string {
   let result = text || "";
@@ -729,7 +734,15 @@ Deno.serve(async (req) => {
               }
             }
           }
+
+          // Ritmo de conversa: espera curta em segundos (máx 20s), sempre inline
+          const delaySec = Math.min(Number(step.delay_sec || 0), 20);
+          if (delaySec > 0) {
+            const alreadyPaced = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            if (!alreadyPaced) await delay(delaySec * 1000);
+          }
         }
+
 
         try {
           // Update current step

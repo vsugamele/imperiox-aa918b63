@@ -59,9 +59,16 @@ Deno.serve(async (req) => {
           titulo: widget.titulo,
           cor: widget.cor,
           saudacao: widget.saudacao,
+          tema: widget.tema || "padrao",
+          avatar_url: widget.avatar_url || null,
+          subtitulo: widget.subtitulo ?? "online",
+          som: widget.som !== false,
+          texto_digitando: widget.texto_digitando || "digitando...",
+          texto_gravando: widget.texto_gravando || "gravando audio...",
         },
       });
     }
+
 
     const visitorId = String(body.visitor_id || "");
     if (!visitorId || visitorId.length < 8) return json({ error: "visitor_id inválido" }, 400);
