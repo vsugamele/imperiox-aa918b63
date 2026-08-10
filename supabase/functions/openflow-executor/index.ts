@@ -1173,7 +1173,38 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── Canais alternativos (Messenger via Zernio / Chat do site): reaproveita os blocos
+          // de mensagem/IA do fluxo, mas entrega pela sessão de canal em vez do WhatsApp.
+          else if (
+            (step.tipo === "whatsapp" || step.tipo === "audio") &&
+            (channelSession || (auto as any).canal === "messenger" || (auto as any).canal === "webchat")
+          ) {
+            if (!channelSession) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Fluxo de canal sem sessão (channel_session_id ausente)";
+            } else {
+              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const stepMedia = (step as any).media;
+              const chRes = await sendToChannel(
+                supabase,
+                channelSession as any,
+                msgText,
+                stepMedia?.url || null,
+              );
+              stepResult.canal = channelSession.canal;
+              stepResult.message_preview = msgText.substring(0, 100);
+              stepResult.status = chRes.success ? "sent" : "error";
+              stepResult.response = chRes;
+              if (chRes.success) messagesSent++;
+              else {
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (${channelSession.canal}): ${chRes.error || "Falha no envio"}`);
+              }
+            }
+          }
+
           else if (step.tipo === "whatsapp") {
+
             const phone = lead_data?.phone || lead_data?.telefone;
             if (!phone) {
               stepResult.status = "skipped";
