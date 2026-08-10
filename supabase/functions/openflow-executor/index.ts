@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendToChannel } from "../_shared/channel-out.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
