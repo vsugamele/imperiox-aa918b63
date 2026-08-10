@@ -242,6 +242,8 @@ export default function OpenFlow() {
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: a.acoes as any, ativo: a.ativo,
       canal: a.canal || "whatsapp",
+      produto: a.produto, project_id: a.project_id, quiet_start: a.quiet_start, quiet_end: a.quiet_end,
+
 
       dedupe_hours: a.dedupe_hours, campanha_id: a.campanha_id, tag_filtro: a.tag_filtro,
       provider_id: a.provider_id, link_checkout: (a as any).link_checkout,
