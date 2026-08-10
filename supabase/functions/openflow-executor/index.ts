@@ -528,8 +528,21 @@ Deno.serve(async (req) => {
         lead_data.fluxo = auto.nome || "";
       }
 
+      // ── Sessão de canal (Messenger / Chat do site). Quando presente, os blocos de
+      // mensagem são entregues pelo canal em vez do WhatsApp.
+      let channelSession: any = null;
+      if (lead_data?.channel_session_id) {
+        const { data: cs } = await supabase
+          .from("imphq_channel_sessions")
+          .select("*")
+          .eq("id", lead_data.channel_session_id)
+          .maybeSingle();
+        channelSession = cs || null;
+      }
+
       // Load lead details once for the execution of this automation
       let leadDb: any = null;
+
       if (lead_data?.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
