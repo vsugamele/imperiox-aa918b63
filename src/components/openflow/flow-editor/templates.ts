@@ -307,8 +307,8 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
   // Mídias entram como placeholders:
   // Pendentes: {{video_hook}} {{video_mecanismo}} — áudios já publicados em storage x1/audio/ (voz Brian, EN-US)
-  // {{img_prova_1}} {{img_prova_2}} {{img_prova_3}} {{img_ingredientes}}
-  // {{img_custo_comparativo}} {{link_advertorial}} {{link_checkout}}
+  // https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_ingredientes.jpg
+  // https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg https://imphafilliate.vercel.app/advertorial-a-hora https://imphafilliate.vercel.app/shop-linfaflow.html
   // ─────────────────────────────────────────────────────────────
   {
     id: "linfaflow-x1-messenger",
@@ -382,12 +382,12 @@ ${X1_BANNED}`,
 
       // 6. PROVA AGRUPADA (social proof clustering)
       wa("Let me show you three women who were exactly where you are 👇", 0),
-      wa("{{img_prova_1}}", 0),
-      wa("{{img_prova_2}}", 0),
-      wa("{{img_prova_3}}", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
       wa("Diane, Marlene and Rosa — different ages, same complaint, same 30 seconds a day.", 0),
-      wa("And this is what's actually inside the bottle — nothing exotic, just organized:\n{{img_ingredientes}}", 1),
-      wa("Full story and the science behind it here: {{link_advertorial}}", 0),
+      wa("And this is what's actually inside the bottle — nothing exotic, just organized:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_ingredientes.jpg", 1),
+      wa("Full story and the science behind it here: https://imphafilliate.vercel.app/advertorial-a-hora", 0),
       waitReply(360),
 
       // 7. TRIAL CLOSE 0-10
@@ -419,14 +419,14 @@ ${X1_BANNED}`,
 
 ${X1_OBJECTIONS}
 
-If it helps, you may send the cost comparison image {{img_custo_comparativo}} once, when price is the objection.
+If it helps, you may send the cost comparison image https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once, when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
 
 Disqualification: if she only ever pushes on price, asks for a discount before seeing any value, or is clearly outside the profile, tag her as disqualified, be polite, and stop selling — do not keep the sequence running.
 
-The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send {{link_checkout}} and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
+The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send https://imphafilliate.vercel.app/shop-linfaflow.html and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
         0,
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
@@ -436,23 +436,23 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
       notify("comercial"),
       wa(
-        "Perfect, {{nome}} — so let's do this: do you want to start with one bottle for 30 days, or take the 3-bottle set so you don't have to think about reordering?\n\nHere's the link either way: {{link_checkout}}\n\n30-day unconditional guarantee: if your mornings don't feel different, you get a full refund — no questions, and you don't even have to send the bottles back. 💜",
+        "Perfect, {{nome}} — so let's do this: do you want to start with one bottle for 30 days, or take the 3-bottle set so you don't have to think about reordering?\n\nHere's the link either way: https://imphafilliate.vercel.app/shop-linfaflow.html\n\n30-day unconditional guarantee: if your mornings don't feel different, you get a full refund — no questions, and you don't even have to send the bottles back. 💜",
         0
       ),
 
       // 11. RÉGUA D+1 / D+3 / D+7 / D+30
       aguardar(1440),
       wa(
-        "{{nome}}, one thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. {{link_checkout}}",
+        "{{nome}}, one thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. https://imphafilliate.vercel.app/shop-linfaflow.html",
         0
       ),
       aguardar(2880),
       { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
       aguardar(5760),
-      wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
+      wa("A new one came in this week and it made me think of what you told me:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
       aguardar(33120),
       ia(
-        `Day 30. She never bought and never replied to the last messages. Send ONE short reopening message with a completely new angle — not the same pitch. Use negative reverse: assume this probably isn't for her right now, mention the specific symptom she told you about a month ago, ask a genuine question about whether anything changed, and make clear this is your last message unless she replies. Include {{link_checkout}} once, at the end, casually. No urgency theatrics, no invented offer.
+        `Day 30. She never bought and never replied to the last messages. Send ONE short reopening message with a completely new angle — not the same pitch. Use negative reverse: assume this probably isn't for her right now, mention the specific symptom she told you about a month ago, ask a genuine question about whether anything changed, and make clear this is your last message unless she replies. Include https://imphafilliate.vercel.app/shop-linfaflow.html once, at the end, casually. No urgency theatrics, no invented offer.
 
 ${X1_BANNED}
 ${X1_NEGOTIATION}`,
@@ -493,9 +493,9 @@ Do not send links in this stage.`,
       tag("linfaflow-x1-site"),
       wa("This is the 60-second version of why it works differently:\n{{video_mecanismo}}", 0),
       wa("And three women who were in the same spot:", 0),
-      wa("{{img_prova_1}}", 0),
-      wa("{{img_prova_2}}", 0),
-      wa("{{img_prova_3}}", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
+      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
       waitReply(60),
       ia(
         `Temperature read, chat-length.
@@ -512,12 +512,12 @@ ${X1_NEGOTIATION}`,
 
 ${X1_OBJECTIONS}
 
-You may send {{img_custo_comparativo}} once when price is the objection.
+You may send https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
 
-Handle shipping and ordering questions directly, then send {{link_checkout}}. The moment she shows intent, send {{link_checkout}} and stop selling. If she only pushes on price, tag her as disqualified and stop. If you truly can't answer something, offer a human follow-up and collect her best contact.`,
+Handle shipping and ordering questions directly, then send https://imphafilliate.vercel.app/shop-linfaflow.html. The moment she shows intent, send https://imphafilliate.vercel.app/shop-linfaflow.html and stop selling. If she only pushes on price, tag her as disqualified and stop. If you truly can't answer something, offer a human follow-up and collect her best contact.`,
         0,
         { ia_vision: true }
       ),
@@ -525,7 +525,7 @@ Handle shipping and ordering questions directly, then send {{link_checkout}}. Th
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
       notify("comercial"),
       wa(
-        "So — one bottle for 30 days, or the 3-bottle set? Here's the page either way: {{link_checkout}}\nThe 30-day guarantee means the whole thing is on us if it doesn't change your mornings.",
+        "So — one bottle for 30 days, or the 3-bottle set? Here's the page either way: https://imphafilliate.vercel.app/shop-linfaflow.html\nThe 30-day guarantee means the whole thing is on us if it doesn't change your mornings.",
         0
       ),
       stop("compra_aprovada"),
@@ -651,11 +651,11 @@ ${X1_BANNED}`,
       waSec(LF_IMG[1], 2),
       waSec("She said the biggest surprise was how manageable it felt.", 4),
       waSec("And she's not the only one 👇", 2),
-      waSec("{{img_prova_1}}", 0),
-      waSec("{{img_prova_2}}", 0),
-      waSec("{{img_prova_3}}", 0),
+      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
+      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
+      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
       waSec("Different ages, same complaint, same 30 seconds a day.", 2),
-      waSec("Full story and what's inside the bottle: {{link_advertorial}}", 2),
+      waSec("Full story and what's inside the bottle: https://imphafilliate.vercel.app/advertorial-a-hora", 2),
       waitReply(120),
 
       // ── TRIAL CLOSE 0-10
@@ -693,12 +693,12 @@ ${X1_NEGOTIATION}`,
 
 ${X1_OBJECTIONS}
 
-You may send {{img_custo_comparativo}} once, only when price is the objection.
+You may send https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once, only when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
 
-The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send {{link_checkout}} and stop selling. If she only ever pushes on price, tag her as a discount hunter, be polite and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
+The moment she shows real buying intent (asks price, shipping, how to order, or says yes), send https://imphafilliate.vercel.app/shop-linfaflow.html and stop selling. If she only ever pushes on price, tag her as a discount hunter, be polite and stop selling. If she sends a photo or screenshot, read it and answer in context.`,
         0,
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
@@ -712,7 +712,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       waSec("That's exactly why LinfaFlow is $89 for the full 30-day daily support system.", 2),
       audioSec(LF_AUDIO[5], 3),
       waSec(
-        "So — one bottle for 30 days, or the 3-bottle set so you don't have to think about reordering?\n\n👉 {{link_checkout}}\n\n30-day unconditional guarantee: if your mornings don't feel different, full refund, no questions, and you don't even have to send the bottles back.",
+        "So — one bottle for 30 days, or the 3-bottle set so you don't have to think about reordering?\n\n👉 https://imphafilliate.vercel.app/shop-linfaflow.html\n\n30-day unconditional guarantee: if your mornings don't feel different, full refund, no questions, and you don't even have to send the bottles back.",
         2
       ),
       waSec("If you're ready, take the step today. If not, no pressure at all.", 3),
@@ -720,13 +720,13 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       // ── RÉGUA (o Typebot morre quando a aba fecha; aqui continua)
       aguardar(1440),
       wa(
-        "One thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. {{link_checkout}}",
+        "One thing I forgot to say yesterday: the guarantee runs for 30 days, which is exactly how long one bottle lasts. So you're not deciding if it works — you're deciding to find out. https://imphafilliate.vercel.app/shop-linfaflow.html",
         0
       ),
       aguardar(2880),
       { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
       aguardar(5760),
-      wa("A new one came in this week and it made me think of what you told me:\n{{img_prova_3}}", 0),
+      wa("A new one came in this week and it made me think of what you told me:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
       stop("compra_aprovada"),
     ],
   },
