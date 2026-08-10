@@ -24,6 +24,12 @@ interface Widget {
   automacao_id: string | null;
   allowed_origins: string[];
   ativo: boolean;
+  tema?: string;
+  avatar_url?: string | null;
+  subtitulo?: string;
+  som?: boolean;
+  texto_digitando?: string;
+  texto_gravando?: string;
 }
 
 interface Props {
