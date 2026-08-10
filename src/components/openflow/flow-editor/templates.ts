@@ -251,6 +251,140 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
       stop("compra_aprovada"),
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // LINFAFLOW X1 (EN-US) — Messenger (Zernio) e Webchat do site
+  // Script fixo + IA nos pontos de decisão. Mídias entram como
+  // placeholders: {{video_hook}} {{video_mecanismo}} {{audio_ritual}}
+  // {{img_prova_1}} {{img_prova_2}} {{img_ingredientes}}
+  // {{link_advertorial}} {{link_checkout}}
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: "linfaflow-x1-messenger",
+    nome: "LinfaFlow X1 — Messenger (Zernio) [EN-US]",
+    descricao:
+      "Canal: Messenger. 7 estágios (hook → diagnóstico IA → reframe + vídeo → mecanismo em áudio → prova → objeção IA → fechamento). Copy em inglês.",
+    trigger_tipo: "lead_novo",
+    categoria: "x1-conversao",
+    emoji: "🇺🇸",
+    acoes: [
+      // 1. HOOK
+      wa(
+        "Hi {{nome}} 👋 Quick one before we start — which one bothers you more right now?\n\n1️⃣ Waking up with a puffy face and eyes\n2️⃣ Heavy, swollen legs by the end of the day\n\nJust reply 1 or 2 (or tell me if it's both).",
+        1
+      ),
+      waitReply(180),
+
+      // 2. DIAGNÓSTICO (IA)
+      ia(
+        "You are a warm, unhurried women's wellness consultant for LINFAFLOW (liquid botanical drops that support lymphatic flow, healthy circulation and daily fluid balance). Audience: US women 40-70. Language: American English, plain and conversational, short messages, no hype, no emojis spam.\n\nGoal of this stage: understand her situation before offering anything. Ask ONE question at a time and reflect her exact words back before the next one. Cover, in order: (a) how long it has been happening, (b) when it's worst (morning face vs evening legs vs bloating), (c) what her doctor said (most heard 'your labs are normal' or 'it's just aging'), (d) what she already tried (water pills, compression socks, lymphatic massage, leg elevation, dry brushing, detox teas).\n\nCompliance: never diagnose, never promise a cure, never mention weight loss. Say 'support' and 'help ease', never 'treat' or 'eliminate'. Do NOT send any link yet and do NOT pitch the product in this stage.",
+        0,
+        { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(360),
+      qualify(60, "linfaflow,x1-diagnostico", "qualificacao"),
+      tag("linfaflow-x1"),
+
+      // 3. REFRAME + VÍDEO
+      wa(
+        "Thank you for being so open, {{nome}}. Here's the part almost nobody explains: normal labs don't mean normal drainage.\n\nThere's no standard test and no specialty that 'owns' the lymphatic system — so most women hear \"everything looks fine\" and go home with the same puffiness.",
+        2
+      ),
+      wa("Watch this — 40 seconds, it'll click:\n{{video_hook}}", 1),
+      aguardar(3),
+
+      // 4. MECANISMO (áudio)
+      wa(
+        "Compression, massage and leg elevation all move fluid from the outside. They help for a few hours. What they don't do is support the flow from the inside.",
+        0
+      ),
+      {
+        tipo: "audio",
+        template: "{{audio_ritual}}",
+        delay_min: 1,
+      } as Acao,
+      wa(
+        "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
+        0
+      ),
+      waitReply(360),
+
+      // 5. PROVA
+      wa("Here's what women in your exact situation reported 👇", 0),
+      wa("{{img_prova_1}}", 0),
+      wa("{{img_prova_2}}", 0),
+      wa("And this is what's actually inside the bottle — nothing exotic, just organized:\n{{img_ingredientes}}", 1),
+      wa("Full story and the science behind it here: {{link_advertorial}}", 0),
+      waitReply(360),
+
+      // 6. OBJEÇÃO (IA)
+      ia(
+        "She has now seen the reframe, the mechanism (audio) and the social proof for LINFAFLOW. Your job in this stage: surface and answer ONE objection per message, in American English, calm and specific. Never stack two objections in one message.\n\nPlaybook:\n- Price: compare with what she already spends — $80-$150 per lymphatic drainage session, $30-$150 per pair of compression socks, $2,000-$6,000 for a pneumatic pump. LINFAFLOW is one bottle = 30 days.\n- \"I already tried everything\": everything she tried works from the outside or forces water out. This supports the flow from the inside. Different category, not a stronger version of the same thing.\n- Skepticism: acknowledge it, don't argue. Point to the 30-day unconditional money-back guarantee — full refund, no questions, she doesn't even have to send the bottles back.\n- \"Let me think about it\": ask what specifically is still unclear, answer that one thing, then offer the link again once.\n- Medical concerns / medication: never advise. Tell her to check with her doctor and stay supportive.\n\nWhen she shows buying intent (asks about price, shipping, how to order, or says yes), send: {{link_checkout}} and stop selling. If she sends a photo or screenshot, read it and respond in context. Compliance: 'support' language only, no cure claims, no weight-loss claims.",
+        0,
+        { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(720),
+
+      // 7. FECHAMENTO
+      qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
+      notify("comercial"),
+      wa(
+        "Here's your link, {{nome}}: {{link_checkout}}\n\nOne bottle = 30 days. 30-day unconditional guarantee: if your mornings don't feel different, you get a full refund — no questions, no need to return the bottles.\n\nAny question, I'm right here. 💜",
+        0
+      ),
+      aguardar(720),
+      wa(
+        "{{nome}}, still thinking it over? Totally fine. Tell me the one thing holding you back and I'll be straight with you: {{link_checkout}}",
+        0
+      ),
+      aguardar(1440),
+      ia(
+        "Final touch, 36h after the offer. She never replied. Send ONE short, no-pressure message in American English: name the specific symptom she told you about earlier, remind her the 30-day guarantee makes it risk-free, include {{link_checkout}} once, and make it clear this is the last message unless she replies. No urgency theatrics, no discount invention.",
+        0
+      ),
+      stop("compra_aprovada"),
+    ],
+  },
+  {
+    id: "linfaflow-x1-webchat",
+    nome: "LinfaFlow X1 — Webchat do site [EN-US]",
+    descricao:
+      "Canal: Chat do site (advertorial / shop / reviews). Versão mais curta e rápida: quem já leu o advertorial cai direto no diagnóstico e na objeção.",
+    trigger_tipo: "lead_novo",
+    categoria: "x1-conversao",
+    emoji: "💬",
+    acoes: [
+      wa(
+        "Hi! 👋 You're reading about LINFAFLOW — before you decide anything, tell me one thing: is it the morning puffiness, the heavy legs at night, or the bloating that bothers you most?",
+        0
+      ),
+      waitReply(30),
+      ia(
+        "You are the LINFAFLOW on-site assistant, talking to a US woman 40-70 who is ON the advertorial or shop page right now. American English, short messages (2-3 lines max — this is a chat widget), warm, zero hype.\n\nStage goal: qualify fast, because she is already in buying context. Ask at most 3 questions total, one at a time: main symptom, how long, what she already tried. Then mirror it back in one sentence using her own words and explain the reframe: normal labs don't mean normal drainage; compression, massage and leg elevation move fluid from the outside, LINFAFLOW supports the flow from the inside with 4 botanicals in liquid drops, 1 mL twice a day, a 30-second ritual.\n\nDo not send links in this stage. Compliance: 'support' language, no cure claims, no weight-loss claims.",
+        0,
+        { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(30),
+      qualify(60, "linfaflow,x1-webchat", "qualificacao"),
+      tag("linfaflow-x1-site"),
+      wa("This is the 60-second version of why it works differently:\n{{video_mecanismo}}", 0),
+      wa("And here's what other women reported:\n{{img_prova_1}}", 0),
+      waitReply(60),
+      ia(
+        "She is on the page and has seen the mechanism video and the proof. Answer ONE objection per message, American English, chat-length. Playbook: price (vs $80-$150 per drainage session, $30-$150 per compression socks, $2,000-$6,000 pneumatic pumps — one bottle = 30 days); 'already tried everything' (outside vs inside, different category); skepticism (30-day unconditional refund, no questions, no need to return the bottles); shipping/ordering questions (answer, then link). The moment she shows intent, send {{link_checkout}} and stop selling. If she asks something you truly can't answer, offer to have a human follow up and collect her best contact.",
+        0,
+        { ia_vision: true }
+      ),
+      waitReply(120),
+      qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
+      notify("comercial"),
+      wa(
+        "Here's the page to get yours: {{link_checkout}}\nOne bottle = 30 days, and the 30-day guarantee means the whole thing is on us if it doesn't change your mornings.",
+        0
+      ),
+      stop("compra_aprovada"),
+    ],
+  },
 ];
 
 export function getTemplatesByTrigger(triggerTipo?: string): FlowTemplate[] {
