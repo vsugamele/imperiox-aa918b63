@@ -29770,6 +29770,7 @@ export type Database = {
           allowed_origins: string[]
           ativo: boolean
           automacao_id: string | null
+          avatar_url: string | null
           cor: string
           created_at: string
           id: string
@@ -29777,6 +29778,11 @@ export type Database = {
           project_id: string | null
           public_key: string
           saudacao: string
+          som: boolean
+          subtitulo: string
+          tema: string
+          texto_digitando: string
+          texto_gravando: string
           titulo: string
           updated_at: string
         }
@@ -29784,6 +29790,7 @@ export type Database = {
           allowed_origins?: string[]
           ativo?: boolean
           automacao_id?: string | null
+          avatar_url?: string | null
           cor?: string
           created_at?: string
           id?: string
@@ -29791,6 +29798,11 @@ export type Database = {
           project_id?: string | null
           public_key?: string
           saudacao?: string
+          som?: boolean
+          subtitulo?: string
+          tema?: string
+          texto_digitando?: string
+          texto_gravando?: string
           titulo?: string
           updated_at?: string
         }
@@ -29798,6 +29810,7 @@ export type Database = {
           allowed_origins?: string[]
           ativo?: boolean
           automacao_id?: string | null
+          avatar_url?: string | null
           cor?: string
           created_at?: string
           id?: string
@@ -29805,6 +29818,11 @@ export type Database = {
           project_id?: string | null
           public_key?: string
           saudacao?: string
+          som?: boolean
+          subtitulo?: string
+          tema?: string
+          texto_digitando?: string
+          texto_gravando?: string
           titulo?: string
           updated_at?: string
         }
