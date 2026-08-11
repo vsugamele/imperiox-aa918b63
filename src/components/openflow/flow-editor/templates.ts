@@ -393,11 +393,11 @@ ${X1_BANNED}`,
 
       // 6. PROVA AGRUPADA (social proof clustering)
       wa("Let me show you three women who were exactly where you are 👇", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(X1_IMG.prova_1, 0),
+      wa(X1_IMG.prova_2, 0),
+      wa(X1_IMG.prova_3, 0),
       wa("Diane, Marlene and Rosa — different ages, same complaint, same 30 seconds a day.", 0),
-      wa("And this is what's actually inside the bottle — nothing exotic, just organized:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_ingredientes.jpg", 1),
+      wa(`And this is what's actually inside the bottle — nothing exotic, just organized:\n${X1_IMG.ingredientes}`, 1),
       wa("Full story and the science behind it here: https://imphafilliate.vercel.app/advertorial-a-hora", 0),
       waitReply(360),
 
