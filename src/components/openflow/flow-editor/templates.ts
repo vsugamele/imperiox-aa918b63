@@ -686,14 +686,13 @@ ${X1_NEGOTIATION}`,
       waSec("If you've been waiting for the right time, this is the cleanest path in.", 2),
       waSec("You get the system, the structure and the support to begin without overthinking it.", 2),
       waSec("That alone removes a lot of friction.", 2),
-      audioSec(LF_AUDIO[3], 3),
       waSec("And friction is usually what keeps people stuck.", 2),
 
       // ── 8. RISCOS E PERDAS
       waSec("Honestly, waiting usually makes this harder.", 2),
       waSec("Each week of ignoring the heaviness is another week of discomfort repeating.", 2),
       waSec("And the longer it stays normal, the easier it is to keep putting it off.", 2),
-      audioSec(LF_AUDIO[4], 3),
+      audioSec(X1_AUDIO.objecao_preco, 3),
       waSec("I don't want you stuck in that loop.", 2),
       waSec("This is where people usually say, \"I should have done this sooner.\"", 2),
 
