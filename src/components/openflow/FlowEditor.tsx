@@ -1169,9 +1169,39 @@ export function FlowEditor({
                             </p>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.tipo !== "ia_message" && acao.tipo !== "notify_operator" && acao.tipo !== "abrir_conversa" && acao.tipo !== "gpt_prompt" && acao.template && (
-                            <p className="text-[9px] text-muted-foreground truncate leading-snug">
-                              {acao.template}
-                            </p>
+                            (() => {
+                              const med = mediaFromText(acao.template);
+                              if (med?.kind === "image") {
+                                return (
+                                  <img
+                                    src={med.url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="mt-1 w-full h-16 object-cover rounded border border-border/50"
+                                  />
+                                );
+                              }
+                              if (med?.kind === "audio") {
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mt-1 w-full h-7"
+                                  />
+                                );
+                              }
+                              return (
+                                <p className="text-[9px] text-muted-foreground truncate leading-snug">
+                                  {acao.template}
+                                </p>
+                              );
+                            })()
+                          )}
+                          {hasMediaPlaceholder(acao.template) && (
+                            <Badge variant="secondary" className="text-[8px] mt-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                              ⚠️ mídia não resolvida
+                            </Badge>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.delay_min > 0 && (
                             <Badge variant="secondary" className="text-[8px] mt-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
