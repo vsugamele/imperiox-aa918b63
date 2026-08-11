@@ -569,7 +569,7 @@ Handle shipping and ordering questions directly, then send https://imphafilliate
       waitReply(60),
       waSec("Perfect, thanks.", 2),
       waSec("I'll keep this practical, not overwhelming.", 3),
-      audioSec(LF_AUDIO[0], 2),
+      audioSec(X1_AUDIO.tentei_tudo, 2),
       waSec("If you've been ignoring that tired, swollen feeling, you're not alone.", 3),
       waSec("Let's make this easier from here.", 2),
       tag("linfaflow-x1-site"),
