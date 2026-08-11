@@ -384,7 +384,7 @@ ${X1_BANNED}`,
         "Compression, massage and leg elevation all move fluid from the outside. They help for a few hours. What they don't do is support the flow from the inside.",
         0
       ),
-      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_ritual.mp3", delay_min: 1 } as Acao,
+      { tipo: "audio", template: X1_AUDIO.ritual, delay_min: 1 } as Acao,
       wa(
         "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for daily balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
         0
