@@ -17,11 +17,23 @@ const wa = (template: string, delay_min = 0, extra: Partial<Acao> = {}): Acao =>
   ...extra,
 });
 
-/** Mídias já gravadas do fluxo LinfaFlow (áudios femininos EN-US + prints de prova). */
-const LF_BASE =
-  "https://storage.tynk.ai:443/tynk-type/public/workspaces/vsugamele@gmail.com/genius-imports/x8lpyyame82hoo8gxdacki97";
-const LF_AUDIO = [0, 1, 2, 3, 4, 5, 6].map((i) => `${LF_BASE}/audio-${i}.mp3`);
-const LF_IMG = [0, 1].map((i) => `${LF_BASE}/image-${i}.png`);
+/** Mídias oficiais do funil LinfaFlow X1 — geradas e hospedadas no Supabase Storage. */
+const X1_BASE = "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media";
+const X1_AUDIO = {
+  ritual: `${X1_BASE}/x1/audio/audio_ritual.mp3`,
+  inercia: `${X1_BASE}/x1/audio/audio_inercia.mp3`,
+  objecao_preco: `${X1_BASE}/x1/audio/audio_objecao_preco.mp3`,
+  tentei_tudo: `${X1_BASE}/x1/audio/audio_tentei_tudo.mp3`,
+};
+const X1_IMG = {
+  prova_1: `${X1_BASE}/x1/img/img_prova_1.jpg`,
+  prova_2: `${X1_BASE}/x1/img/img_prova_2.jpg`,
+  prova_3: `${X1_BASE}/x1/img/img_prova_3.jpg`,
+  ingredientes: `${X1_BASE}/x1/img/img_ingredientes.jpg`,
+  custo_comparativo: `${X1_BASE}/x1/img/img_custo_comparativo.jpg`,
+  ritual: `${X1_BASE}/x1/img/img_ritual.jpg`,
+  garantia: `${X1_BASE}/x1/img/img_garantia.jpg`,
+};
 
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
