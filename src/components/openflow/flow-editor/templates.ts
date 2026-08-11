@@ -17,11 +17,23 @@ const wa = (template: string, delay_min = 0, extra: Partial<Acao> = {}): Acao =>
   ...extra,
 });
 
-/** Mídias já gravadas do fluxo LinfaFlow (áudios femininos EN-US + prints de prova). */
-const LF_BASE =
-  "https://storage.tynk.ai:443/tynk-type/public/workspaces/vsugamele@gmail.com/genius-imports/x8lpyyame82hoo8gxdacki97";
-const LF_AUDIO = [0, 1, 2, 3, 4, 5, 6].map((i) => `${LF_BASE}/audio-${i}.mp3`);
-const LF_IMG = [0, 1].map((i) => `${LF_BASE}/image-${i}.png`);
+/** Mídias oficiais do funil LinfaFlow X1 — geradas e hospedadas no Supabase Storage. */
+const X1_BASE = "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media";
+const X1_AUDIO = {
+  ritual: `${X1_BASE}/x1/audio/audio_ritual.mp3`,
+  inercia: `${X1_BASE}/x1/audio/audio_inercia.mp3`,
+  objecao_preco: `${X1_BASE}/x1/audio/audio_objecao_preco.mp3`,
+  tentei_tudo: `${X1_BASE}/x1/audio/audio_tentei_tudo.mp3`,
+};
+const X1_IMG = {
+  prova_1: `${X1_BASE}/x1/img/img_prova_1.jpg`,
+  prova_2: `${X1_BASE}/x1/img/img_prova_2.jpg`,
+  prova_3: `${X1_BASE}/x1/img/img_prova_3.jpg`,
+  ingredientes: `${X1_BASE}/x1/img/img_ingredientes.jpg`,
+  custo_comparativo: `${X1_BASE}/x1/img/img_custo_comparativo.jpg`,
+  ritual: `${X1_BASE}/x1/img/img_ritual.jpg`,
+  garantia: `${X1_BASE}/x1/img/img_garantia.jpg`,
+};
 
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
@@ -305,7 +317,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // Engenharia high-ticket aplicada a ticket baixo: SPIN completo,
   // amplificação de implicação, prova agrupada, trial close 0-10,
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
-  // Mídias: áudios (x1/audio/) e imagens (x1/img/) já publicados no storage.
+  // Usa as 7 imagens e 4 áudios oficiais hospedados no Supabase Storage.
   // Pendentes: {{video_hook}} {{video_mecanismo}}
 
   // ─────────────────────────────────────────────────────────────
@@ -349,6 +361,7 @@ Do NOT send any link and do NOT pitch the product in this stage.`,
       waitReply(360),
       qualify(60, "linfaflow,x1-diagnostico", "qualificacao"),
       tag("linfaflow-x1"),
+      { tipo: "audio", template: X1_AUDIO.tentei_tudo, delay_min: 0 } as Acao,
 
       // 3. AMPLIFICAÇÃO DA IMPLICAÇÃO
       ia(
@@ -372,7 +385,7 @@ ${X1_BANNED}`,
         "Compression, massage and leg elevation all move fluid from the outside. They help for a few hours. What they don't do is support the flow from the inside.",
         0
       ),
-      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_ritual.mp3", delay_min: 1 } as Acao,
+      { tipo: "audio", template: X1_AUDIO.ritual, delay_min: 1 } as Acao,
       wa(
         "That's the whole idea behind LINFAFLOW: 4 botanicals organized by complementary function — Cleavers to get things moving, Stillingia and Prickly Ash to help mobilize what feels stuck, Red Clover for daily balance. Liquid drops, 1 mL morning and night. A 30-second ritual. No capsules, no aggressive cleanse, no water pills.",
         0
@@ -381,11 +394,11 @@ ${X1_BANNED}`,
 
       // 6. PROVA AGRUPADA (social proof clustering)
       wa("Let me show you three women who were exactly where you are 👇", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(X1_IMG.prova_1, 0),
+      wa(X1_IMG.prova_2, 0),
+      wa(X1_IMG.prova_3, 0),
       wa("Diane, Marlene and Rosa — different ages, same complaint, same 30 seconds a day.", 0),
-      wa("And this is what's actually inside the bottle — nothing exotic, just organized:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_ingredientes.jpg", 1),
+      wa(`And this is what's actually inside the bottle — nothing exotic, just organized:\n${X1_IMG.ingredientes}`, 1),
       wa("Full story and the science behind it here: https://imphafilliate.vercel.app/advertorial-a-hora", 0),
       waitReply(360),
 
@@ -418,7 +431,7 @@ ${X1_BANNED}`,
 
 ${X1_OBJECTIONS}
 
-If it helps, you may send the cost comparison image https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once, when price is the objection.
+If it helps, you may send the cost comparison image ${X1_IMG.custo_comparativo} once, when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
@@ -430,6 +443,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
       waitReply(720),
+      { tipo: "audio", template: X1_AUDIO.objecao_preco, delay_min: 0 } as Acao,
 
       // 10. FECHAMENTO ASSUMPTIVO
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
@@ -446,9 +460,9 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         0
       ),
       aguardar(2880),
-      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
+      { tipo: "audio", template: X1_AUDIO.inercia, delay_min: 0 } as Acao,
       aguardar(5760),
-      wa("A new one came in this week and it made me think of what you told me:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(`A new one came in this week and it made me think of what you told me:\n${X1_IMG.prova_3}`, 0),
       aguardar(33120),
       ia(
         `Day 30. She never bought and never replied to the last messages. Send ONE short reopening message with a completely new angle — not the same pitch. Use negative reverse: assume this probably isn't for her right now, mention the specific symptom she told you about a month ago, ask a genuine question about whether anything changed, and make clear this is your last message unless she replies. Include https://imphafilliate.vercel.app/shop-linfaflow.html once, at the end, casually. No urgency theatrics, no invented offer.
@@ -492,9 +506,9 @@ Do not send links in this stage.`,
       tag("linfaflow-x1-site"),
       wa("This is the 60-second version of why it works differently:\n{{video_mecanismo}}", 0),
       wa("And three women who were in the same spot:", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(X1_IMG.prova_1, 0),
+      wa(X1_IMG.prova_2, 0),
+      wa(X1_IMG.prova_3, 0),
       waitReply(60),
       ia(
         `Temperature read, chat-length.
@@ -511,7 +525,7 @@ ${X1_NEGOTIATION}`,
 
 ${X1_OBJECTIONS}
 
-You may send https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once when price is the objection.
+You may send ${X1_IMG.custo_comparativo} once when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
@@ -533,12 +547,10 @@ Handle shipping and ordering questions directly, then send https://imphafilliate
 
   // ─────────────────────────────────────────────────────────────
   // LINFAFLOW X1 — CHAT WHATSAPP (skin no site) [EN-US]
-  // Adaptado do fluxo LinfaFlow do Typebot: os 9 estágios de venda
-  // (conexão → conscientização → curiosidade → mecanismo → benefícios →
-  //  prova social → oportunidade → riscos e perdas → fechamento $89),
-  // com o ritmo de mensagens curtas de 2-4s que faz parecer conversa real,
-  // e com a engenharia X1 por cima: SPIN, trial close 0-10, objeções e guardrails.
-  // Áudios e imagens já vêm com as mídias gravadas do export.
+  // 9 estágios de venda em ritmo de mensagens curtas (2-4s),
+  // com engenharia X1: SPIN, trial close 0-10, objeções e guardrails.
+  // Usa as 7 imagens e 4 áudios oficiais hospedados no Supabase Storage.
+  // Pendentes: {{video_hook}} {{video_mecanismo}}
   // ─────────────────────────────────────────────────────────────
   {
     id: "linfaflow-x1-whatsapp",
@@ -557,7 +569,7 @@ Handle shipping and ordering questions directly, then send https://imphafilliate
       waitReply(60),
       waSec("Perfect, thanks.", 2),
       waSec("I'll keep this practical, not overwhelming.", 3),
-      audioSec(LF_AUDIO[0], 2),
+      audioSec(X1_AUDIO.tentei_tudo, 2),
       waSec("If you've been ignoring that tired, swollen feeling, you're not alone.", 3),
       waSec("Let's make this easier from here.", 2),
       tag("linfaflow-x1-site"),
@@ -603,12 +615,12 @@ No links and no pitch in this stage.`,
       waSec("The issue is often not one big moment.", 3),
       waSec("It's the buildup across the day.", 2),
       waSec("That's why quick fixes usually disappoint.", 2),
-      waSec(LF_IMG[0], 2),
+      waSec(X1_IMG.ritual, 2),
       waSec("When support is timed well, the whole day feels different.", 4),
       waSec("What would you most like to improve first?", 2),
       waitReply(60),
       waSec("That answer helps a lot.", 2),
-      audioSec(LF_AUDIO[1], 3),
+      audioSec(X1_AUDIO.tentei_tudo, 3),
       waSec("Most people keep looking for the wrong solution because they focus only on the symptom.", 3),
       waSec("LinfaFlow was built to change that approach.", 2),
 
@@ -626,7 +638,7 @@ No links and no pitch in this stage.`,
       waSec("Have you tried anything before that felt too complicated or unrealistic?", 2),
       waitReply(90),
       waSec("That's exactly the frustration this was made to avoid.", 2),
-      audioSec(LF_AUDIO[2], 3),
+      audioSec(X1_AUDIO.ritual, 3),
       waSec("Once the routine is easy, consistency gets a lot easier too.", 3),
 
       // ── 5. BENEFÍCIOS
@@ -647,14 +659,13 @@ ${X1_BANNED}`,
 
       // ── 6. PROVA SOCIAL (agrupada)
       waSec("Look at this message I got yesterday 🔥", 2),
-      waSec(LF_IMG[1], 2),
+      waSec(X1_IMG.prova_1, 2),
       waSec("She said the biggest surprise was how manageable it felt.", 4),
       waSec("And she's not the only one 👇", 2),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      waSec(X1_IMG.prova_2, 0),
+      waSec(X1_IMG.prova_3, 0),
       waSec("Different ages, same complaint, same 30 seconds a day.", 2),
-      waSec("Full story and what's inside the bottle: https://imphafilliate.vercel.app/advertorial-a-hora", 2),
+      waSec(`Full story and what's inside the bottle: https://imphafilliate.vercel.app/advertorial-a-hora`, 2),
       waitReply(120),
 
       // ── TRIAL CLOSE 0-10
@@ -675,14 +686,13 @@ ${X1_NEGOTIATION}`,
       waSec("If you've been waiting for the right time, this is the cleanest path in.", 2),
       waSec("You get the system, the structure and the support to begin without overthinking it.", 2),
       waSec("That alone removes a lot of friction.", 2),
-      audioSec(LF_AUDIO[3], 3),
       waSec("And friction is usually what keeps people stuck.", 2),
 
       // ── 8. RISCOS E PERDAS
       waSec("Honestly, waiting usually makes this harder.", 2),
       waSec("Each week of ignoring the heaviness is another week of discomfort repeating.", 2),
       waSec("And the longer it stays normal, the easier it is to keep putting it off.", 2),
-      audioSec(LF_AUDIO[4], 3),
+      audioSec(X1_AUDIO.objecao_preco, 3),
       waSec("I don't want you stuck in that loop.", 2),
       waSec("This is where people usually say, \"I should have done this sooner.\"", 2),
 
@@ -709,7 +719,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       waSec("I get it if you've been cautious.", 2),
       waSec("You want something simple, useful and worth your time.", 2),
       waSec("That's exactly why LinfaFlow is $89 for the full 30-day daily support system.", 2),
-      audioSec(LF_AUDIO[5], 3),
+      waSec(X1_IMG.garantia, 2),
       waSec(
         "So — one bottle for 30 days, or the 3-bottle set so you don't have to think about reordering?\n\n👉 https://imphafilliate.vercel.app/shop-linfaflow.html\n\n30-day unconditional guarantee: if your mornings don't feel different, full refund, no questions, and you don't even have to send the bottles back.",
         2
@@ -723,9 +733,9 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         0
       ),
       aguardar(2880),
-      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
+      { tipo: "audio", template: X1_AUDIO.inercia, delay_min: 0 } as Acao,
       aguardar(5760),
-      wa("A new one came in this week and it made me think of what you told me:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(`A new one came in this week and it made me think of what you told me:\n${X1_IMG.prova_3}`, 0),
       stop("compra_aprovada"),
     ],
   },
