@@ -719,7 +719,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       waSec("I get it if you've been cautious.", 2),
       waSec("You want something simple, useful and worth your time.", 2),
       waSec("That's exactly why LinfaFlow is $89 for the full 30-day daily support system.", 2),
-      audioSec(LF_AUDIO[5], 3),
+      waSec(X1_IMG.garantia, 2),
       waSec(
         "So — one bottle for 30 days, or the 3-bottle set so you don't have to think about reordering?\n\n👉 https://imphafilliate.vercel.app/shop-linfaflow.html\n\n30-day unconditional guarantee: if your mornings don't feel different, full refund, no questions, and you don't even have to send the bottles back.",
         2
