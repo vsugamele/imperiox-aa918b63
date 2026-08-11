@@ -659,14 +659,13 @@ ${X1_BANNED}`,
 
       // ── 6. PROVA SOCIAL (agrupada)
       waSec("Look at this message I got yesterday 🔥", 2),
-      waSec(LF_IMG[1], 2),
+      waSec(X1_IMG.prova_1, 2),
       waSec("She said the biggest surprise was how manageable it felt.", 4),
       waSec("And she's not the only one 👇", 2),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      waSec("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      waSec(X1_IMG.prova_2, 0),
+      waSec(X1_IMG.prova_3, 0),
       waSec("Different ages, same complaint, same 30 seconds a day.", 2),
-      waSec("Full story and what's inside the bottle: https://imphafilliate.vercel.app/advertorial-a-hora", 2),
+      waSec(`Full story and what's inside the bottle: https://imphafilliate.vercel.app/advertorial-a-hora`, 2),
       waitReply(120),
 
       // ── TRIAL CLOSE 0-10
