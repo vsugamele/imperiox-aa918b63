@@ -361,6 +361,7 @@ Do NOT send any link and do NOT pitch the product in this stage.`,
       waitReply(360),
       qualify(60, "linfaflow,x1-diagnostico", "qualificacao"),
       tag("linfaflow-x1"),
+      { tipo: "audio", template: X1_AUDIO.tentei_tudo, delay_min: 0 } as Acao,
 
       // 3. AMPLIFICAÇÃO DA IMPLICAÇÃO
       ia(
