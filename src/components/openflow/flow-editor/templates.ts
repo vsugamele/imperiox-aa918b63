@@ -523,7 +523,7 @@ ${X1_NEGOTIATION}`,
 
 ${X1_OBJECTIONS}
 
-You may send https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once when price is the objection.
+You may send ${X1_IMG.custo_comparativo} once when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
