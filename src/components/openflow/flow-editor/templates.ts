@@ -317,7 +317,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   // Engenharia high-ticket aplicada a ticket baixo: SPIN completo,
   // amplificação de implicação, prova agrupada, trial close 0-10,
   // future pacing, árvore de objeções e régua D+1/D+3/D+7/D+30.
-  // Mídias: áudios (x1/audio/) e imagens (x1/img/) já publicados no storage.
+  // Usa as 7 imagens e 4 áudios oficiais hospedados no Supabase Storage.
   // Pendentes: {{video_hook}} {{video_mecanismo}}
 
   // ─────────────────────────────────────────────────────────────
