@@ -547,12 +547,10 @@ Handle shipping and ordering questions directly, then send https://imphafilliate
 
   // ─────────────────────────────────────────────────────────────
   // LINFAFLOW X1 — CHAT WHATSAPP (skin no site) [EN-US]
-  // Adaptado do fluxo LinfaFlow do Typebot: os 9 estágios de venda
-  // (conexão → conscientização → curiosidade → mecanismo → benefícios →
-  //  prova social → oportunidade → riscos e perdas → fechamento $89),
-  // com o ritmo de mensagens curtas de 2-4s que faz parecer conversa real,
-  // e com a engenharia X1 por cima: SPIN, trial close 0-10, objeções e guardrails.
-  // Áudios e imagens já vêm com as mídias gravadas do export.
+  // 9 estágios de venda em ritmo de mensagens curtas (2-4s),
+  // com engenharia X1: SPIN, trial close 0-10, objeções e guardrails.
+  // Usa as 7 imagens e 4 áudios oficiais hospedados no Supabase Storage.
+  // Pendentes: {{video_hook}} {{video_mecanismo}}
   // ─────────────────────────────────────────────────────────────
   {
     id: "linfaflow-x1-whatsapp",
