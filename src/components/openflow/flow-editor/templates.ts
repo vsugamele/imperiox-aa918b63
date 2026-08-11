@@ -638,7 +638,7 @@ No links and no pitch in this stage.`,
       waSec("Have you tried anything before that felt too complicated or unrealistic?", 2),
       waitReply(90),
       waSec("That's exactly the frustration this was made to avoid.", 2),
-      audioSec(LF_AUDIO[2], 3),
+      audioSec(X1_AUDIO.ritual, 3),
       waSec("Once the routine is easy, consistency gets a lot easier too.", 3),
 
       // ── 5. BENEFÍCIOS
