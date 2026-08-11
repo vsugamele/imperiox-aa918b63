@@ -504,9 +504,9 @@ Do not send links in this stage.`,
       tag("linfaflow-x1-site"),
       wa("This is the 60-second version of why it works differently:\n{{video_mecanismo}}", 0),
       wa("And three women who were in the same spot:", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_1.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_2.jpg", 0),
-      wa("https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(X1_IMG.prova_1, 0),
+      wa(X1_IMG.prova_2, 0),
+      wa(X1_IMG.prova_3, 0),
       waitReply(60),
       ia(
         `Temperature read, chat-length.
