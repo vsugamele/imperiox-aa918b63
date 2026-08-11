@@ -458,9 +458,9 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         0
       ),
       aguardar(2880),
-      { tipo: "audio", template: "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/audio/audio_inercia.mp3", delay_min: 0 } as Acao,
+      { tipo: "audio", template: X1_AUDIO.inercia, delay_min: 0 } as Acao,
       aguardar(5760),
-      wa("A new one came in this week and it made me think of what you told me:\nhttps://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_prova_3.jpg", 0),
+      wa(`A new one came in this week and it made me think of what you told me:\n${X1_IMG.prova_3}`, 0),
       aguardar(33120),
       ia(
         `Day 30. She never bought and never replied to the last messages. Send ONE short reopening message with a completely new angle — not the same pitch. Use negative reverse: assume this probably isn't for her right now, mention the specific symptom she told you about a month ago, ask a genuine question about whether anything changed, and make clear this is your last message unless she replies. Include https://imphafilliate.vercel.app/shop-linfaflow.html once, at the end, casually. No urgency theatrics, no invented offer.
