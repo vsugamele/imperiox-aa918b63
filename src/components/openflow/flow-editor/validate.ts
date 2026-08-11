@@ -46,6 +46,20 @@ export function validateFlow(acoes: Acao[]): FlowIssue[] {
         });
       }
     }
+
+    // Placeholder de mídia não resolvido ({{img_...}}, {{audio_...}}, {{video_...}})
+    {
+      const txt = (a.template || a.mensagem || a.corpo || a.conteudo || "").toString();
+      const m = txt.match(/\{\{(img|audio|video)_[a-z0-9_]+\}\}/i);
+      if (m) {
+        out.push({
+          stepIndex: i,
+          severity: "warn",
+          message: `Etapa ${i + 1}: mídia não resolvida (${m[0]}). Use "Sincronizar mídias X1" ou gere o arquivo.`,
+          field: "template",
+        });
+      }
+    }
     if (a.tipo === "email" && !a.assunto?.trim()) {
       out.push({ stepIndex: i, severity: "warn", message: `Etapa ${i + 1}: email sem assunto.`, field: "assunto" });
     }
