@@ -655,6 +655,20 @@ export function FlowEditor({
     onChange(updated);
   };
 
+  /** Extrai a 1ª URL de mídia de um texto (imagem/áudio/vídeo) para preview visual no nó. */
+  const mediaFromText = (text?: string): { url: string; kind: "image" | "audio" | "video" } | null => {
+    if (!text) return null;
+    const m = text.match(/https?:\/\/\S+\.(jpg|jpeg|png|webp|gif|mp3|ogg|m4a|wav|mp4|webm)(\?\S*)?/i);
+    if (!m) return null;
+    const ext = m[1].toLowerCase();
+    const kind = ["mp3", "ogg", "m4a", "wav"].includes(ext)
+      ? "audio"
+      : ["mp4", "webm"].includes(ext)
+        ? "video"
+        : "image";
+    return { url: m[0], kind };
+  };
+
   const renderPreview = (text: string) => {
     return text
       .replace(/\{\{nome\}\}/g, "João Silva")
