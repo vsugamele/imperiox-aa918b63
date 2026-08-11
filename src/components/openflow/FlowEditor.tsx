@@ -287,6 +287,33 @@ export function FlowEditor({
   const onChange = history.push;
   const issues = useMemo(() => validateFlow(acoes), [acoes]);
 
+  /** Passos que ainda têm placeholder de mídia ({{img_...}}, {{audio_...}}, {{video_...}}) */
+  const pendingMediaCount = useMemo(
+    () =>
+      acoes.filter((a) =>
+        ["template", "mensagem", "corpo", "conteudo"].some((f) => hasMediaPlaceholder((a as any)[f])),
+      ).length,
+    [acoes],
+  );
+
+  const handleSyncX1Media = () => {
+    const { acoes: next, fixed, pending } = syncX1Media(acoes);
+    if (fixed === 0) {
+      toast.info(
+        pending.length
+          ? `Nada para sincronizar. Ainda sem arquivo: ${pending.join(", ")}`
+          : "Nenhum placeholder de mídia encontrado",
+      );
+      return;
+    }
+    onChange(next);
+    toast.success(
+      `${fixed} passo(s) atualizados com as mídias reais` +
+        (pending.length ? ` — pendentes: ${pending.join(", ")}` : ""),
+    );
+  };
+
+
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
