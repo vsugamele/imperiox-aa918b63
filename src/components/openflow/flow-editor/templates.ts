@@ -430,7 +430,7 @@ ${X1_BANNED}`,
 
 ${X1_OBJECTIONS}
 
-If it helps, you may send the cost comparison image https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/whatsapp-media/x1/img/img_custo_comparativo.jpg once, when price is the objection.
+If it helps, you may send the cost comparison image ${X1_IMG.custo_comparativo} once, when price is the objection.
 
 ${X1_NEGOTIATION}
 ${X1_BANNED}
