@@ -443,6 +443,7 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
         { ia_vision: true, questioning_strategy: "consultivo_progressivo" }
       ),
       waitReply(720),
+      { tipo: "audio", template: X1_AUDIO.objecao_preco, delay_min: 0 } as Acao,
 
       // 10. FECHAMENTO ASSUMPTIVO
       qualify(85, "linfaflow,pronto-fechamento", "fechamento"),
