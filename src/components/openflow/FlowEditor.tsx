@@ -20,6 +20,7 @@ import { FlowEditorCanvas } from "./FlowEditorCanvas";
 import { FlowLivePreview } from "./FlowLivePreview";
 import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
+import { syncX1Media, hasMediaPlaceholder } from "./flow-editor/templates";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
 import { GuardrailsPanel } from "./GuardrailsPanel";
@@ -286,6 +287,33 @@ export function FlowEditor({
   const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
   const onChange = history.push;
   const issues = useMemo(() => validateFlow(acoes), [acoes]);
+
+  /** Passos que ainda têm placeholder de mídia ({{img_...}}, {{audio_...}}, {{video_...}}) */
+  const pendingMediaCount = useMemo(
+    () =>
+      acoes.filter((a) =>
+        ["template", "mensagem", "corpo", "conteudo"].some((f) => hasMediaPlaceholder((a as any)[f])),
+      ).length,
+    [acoes],
+  );
+
+  const handleSyncX1Media = () => {
+    const { acoes: next, fixed, pending } = syncX1Media(acoes);
+    if (fixed === 0) {
+      toast.info(
+        pending.length
+          ? `Nada para sincronizar. Ainda sem arquivo: ${pending.join(", ")}`
+          : "Nenhum placeholder de mídia encontrado",
+      );
+      return;
+    }
+    onChange(next);
+    toast.success(
+      `${fixed} passo(s) atualizados com as mídias reais` +
+        (pending.length ? ` — pendentes: ${pending.join(", ")}` : ""),
+    );
+  };
+
 
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -627,6 +655,20 @@ export function FlowEditor({
     onChange(updated);
   };
 
+  /** Extrai a 1ª URL de mídia de um texto (imagem/áudio/vídeo) para preview visual no nó. */
+  const mediaFromText = (text?: string): { url: string; kind: "image" | "audio" | "video" } | null => {
+    if (!text) return null;
+    const m = text.match(/https?:\/\/\S+\.(jpg|jpeg|png|webp|gif|mp3|ogg|m4a|wav|mp4|webm)(\?\S*)?/i);
+    if (!m) return null;
+    const ext = m[1].toLowerCase();
+    const kind = ["mp3", "ogg", "m4a", "wav"].includes(ext)
+      ? "audio"
+      : ["mp4", "webm"].includes(ext)
+        ? "video"
+        : "image";
+    return { url: m[0], kind };
+  };
+
   const renderPreview = (text: string) => {
     return text
       .replace(/\{\{nome\}\}/g, "João Silva")
@@ -789,6 +831,17 @@ export function FlowEditor({
             el?.scrollIntoView({ behavior: "smooth", block: "center" });
           }}
         />
+        {pendingMediaCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] font-bold text-amber-400 hover:text-amber-300"
+            title="Trocar placeholders {{img_...}} / {{audio_...}} pelas URLs reais das mídias X1"
+            onClick={handleSyncX1Media}
+          >
+            🖼️ Sincronizar mídias X1 ({pendingMediaCount})
+          </Button>
+        )}
         <TemplatePicker
           triggerTipo={triggerTipo}
           onApply={(novasAcoes) => {
@@ -1116,9 +1169,39 @@ export function FlowEditor({
                             </p>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.tipo !== "ia_message" && acao.tipo !== "notify_operator" && acao.tipo !== "abrir_conversa" && acao.tipo !== "gpt_prompt" && acao.template && (
-                            <p className="text-[9px] text-muted-foreground truncate leading-snug">
-                              {acao.template}
-                            </p>
+                            (() => {
+                              const med = mediaFromText(acao.template);
+                              if (med?.kind === "image") {
+                                return (
+                                  <img
+                                    src={med.url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="mt-1 w-full h-16 object-cover rounded border border-border/50"
+                                  />
+                                );
+                              }
+                              if (med?.kind === "audio") {
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mt-1 w-full h-7"
+                                  />
+                                );
+                              }
+                              return (
+                                <p className="text-[9px] text-muted-foreground truncate leading-snug">
+                                  {acao.template}
+                                </p>
+                              );
+                            })()
+                          )}
+                          {hasMediaPlaceholder(acao.template) && (
+                            <Badge variant="secondary" className="text-[8px] mt-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                              ⚠️ mídia não resolvida
+                            </Badge>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.delay_min > 0 && (
                             <Badge variant="secondary" className="text-[8px] mt-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
@@ -1442,8 +1525,43 @@ export function FlowEditor({
                                 <span>#{idx + 1}</span>
                               </div>
 
-                              {/* Audio Content mock */}
-                              {acao.tipo === "audio" ? (
+                              {/* Mídia real (URL no template) — preview visual */}
+                              {(() => {
+                                const med = mediaFromText(acao.template);
+                                if (!med) return null;
+                                if (med.kind === "image") {
+                                  return (
+                                    <img
+                                      src={med.url}
+                                      alt=""
+                                      loading="lazy"
+                                      className="w-full max-h-40 object-cover rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                if (med.kind === "video") {
+                                  return (
+                                    <video
+                                      src={med.url}
+                                      controls
+                                      preload="metadata"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full max-h-40 rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full h-8 my-1"
+                                  />
+                                );
+                              })()}
+
+                              {/* Audio Content mock (TTS por texto) */}
+                              {acao.tipo === "audio" && !mediaFromText(acao.template) ? (
                                 <div className="py-1.5 space-y-1">
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -1482,11 +1600,20 @@ export function FlowEditor({
                                     "{renderPreview(acao.template || "")}"
                                   </p>
                                 </div>
-                              ) : (
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
-                                  {renderPreview(acao.template || "")}
-                                </p>
-                              )}
+                              ) : acao.tipo !== "audio" ? (
+                                (() => {
+                                  const med = mediaFromText(acao.template);
+                                  const caption = renderPreview(acao.template || "")
+                                    .replace(med?.url || "", "")
+                                    .trim();
+                                  if (!caption) return null;
+                                  return (
+                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
+                                      {caption}
+                                    </p>
+                                  );
+                                })()
+                              ) : null}
 
                               {/* WhatsApp Timestamp and Single check */}
                               <div className="text-[7px] text-emerald-300 flex justify-end items-center gap-0.5 select-none leading-none pt-0.5">

@@ -35,6 +35,70 @@ const X1_IMG = {
   garantia: `${X1_BASE}/x1/img/img_garantia.jpg`,
 };
 
+/**
+ * Mapa único placeholder → URL real.
+ * Usado para sincronizar fluxos que foram salvos ANTES das mídias existirem
+ * (eles guardaram o texto literal `{{img_prova_1}}` no lugar da URL).
+ */
+export const X1_MEDIA: Record<string, { url: string; kind: "image" | "audio" }> = {
+  ...Object.fromEntries(
+    Object.entries(X1_IMG).map(([k, url]) => [`img_${k}`, { url, kind: "image" as const }]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(X1_AUDIO).map(([k, url]) => [`audio_${k}`, { url, kind: "audio" as const }]),
+  ),
+};
+
+/** Placeholders de mídia ainda não resolvidos (ex.: vídeos pendentes de gravação). */
+export const X1_MEDIA_PLACEHOLDER_RE = /\{\{(img|audio|video)_[a-z0-9_]+\}\}/gi;
+
+/** Detecta se um texto ainda tem placeholder de mídia. */
+export function hasMediaPlaceholder(text?: string): boolean {
+  if (!text) return false;
+  X1_MEDIA_PLACEHOLDER_RE.lastIndex = 0;
+  return X1_MEDIA_PLACEHOLDER_RE.test(text);
+}
+
+/**
+ * Substitui todos os placeholders conhecidos de mídia X1 pelas URLs reais.
+ * Retorna as ações novas e quantos passos foram corrigidos.
+ * Placeholders sem URL (vídeos) são preservados.
+ */
+export function syncX1Media(acoes: Acao[]): { acoes: Acao[]; fixed: number; pending: string[] } {
+  let fixed = 0;
+  const pending = new Set<string>();
+
+  const fixText = (txt?: string): string | undefined => {
+    if (!txt) return txt;
+    return txt.replace(/\{\{(img|audio|video)_[a-z0-9_]+\}\}/gi, (match) => {
+      const key = match.slice(2, -2);
+      const hit = X1_MEDIA[key];
+      if (hit) return hit.url;
+      pending.add(key);
+      return match;
+    });
+  };
+
+  const next = acoes.map((a) => {
+    const out: any = { ...a };
+    let changed = false;
+    for (const field of ["template", "mensagem", "corpo", "conteudo"] as const) {
+      const val = (a as any)[field];
+      if (typeof val === "string" && hasMediaPlaceholder(val)) {
+        const fixedVal = fixText(val);
+        if (fixedVal !== val) {
+          out[field] = fixedVal;
+          changed = true;
+        }
+      }
+    }
+    if (changed) fixed++;
+    return out as Acao;
+  });
+
+  return { acoes: next, fixed, pending: [...pending] };
+}
+
 const aguardar = (delay_min: number): Acao => ({ tipo: "aguardar", template: "", delay_min });
 
 /** Mensagem com espera em SEGUNDOS antes de enviar — ritmo de conversa real (Typebot-style). */
