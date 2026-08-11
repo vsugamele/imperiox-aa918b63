@@ -444,12 +444,21 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Safe JSON parse: Evolution/proxy pode devolver HTML (502/504, login page)
+      const safeJson = async (r: Response) => {
+        const txt = await r.text();
+        try { return JSON.parse(txt); } catch {
+          console.warn(`[instance_info] non-JSON (${r.status}):`, txt.slice(0, 120));
+          return null;
+        }
+      };
+
       // Get connection state
       const stateRes = await fetch(
         `${provider.api_url}/instance/connectionState/${encodeURIComponent(provider.instance_name)}`,
         { headers: { apikey: provider.api_key } }
-      );
-      const stateData = await stateRes.json();
+      ).catch(() => null);
+      const stateData = stateRes ? await safeJson(stateRes) : null;
 
       // Try to get instance info for the connected number
       let ownerNumber = null;
@@ -458,7 +467,7 @@ Deno.serve(async (req) => {
           `${provider.api_url}/instance/fetchInstances?instanceName=${encodeURIComponent(provider.instance_name)}`,
           { headers: { apikey: provider.api_key } }
         );
-        const infoData = await infoRes.json();
+        const infoData = await safeJson(infoRes);
         const inst = Array.isArray(infoData) ? infoData[0] : infoData;
         ownerNumber = inst?.instance?.owner || inst?.owner || null;
       } catch (e) {
