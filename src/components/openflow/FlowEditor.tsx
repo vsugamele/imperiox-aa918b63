@@ -1525,8 +1525,43 @@ export function FlowEditor({
                                 <span>#{idx + 1}</span>
                               </div>
 
-                              {/* Audio Content mock */}
-                              {acao.tipo === "audio" ? (
+                              {/* Mídia real (URL no template) — preview visual */}
+                              {(() => {
+                                const med = mediaFromText(acao.template);
+                                if (!med) return null;
+                                if (med.kind === "image") {
+                                  return (
+                                    <img
+                                      src={med.url}
+                                      alt=""
+                                      loading="lazy"
+                                      className="w-full max-h-40 object-cover rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                if (med.kind === "video") {
+                                  return (
+                                    <video
+                                      src={med.url}
+                                      controls
+                                      preload="metadata"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full max-h-40 rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full h-8 my-1"
+                                  />
+                                );
+                              })()}
+
+                              {/* Audio Content mock (TTS por texto) */}
+                              {acao.tipo === "audio" && !mediaFromText(acao.template) ? (
                                 <div className="py-1.5 space-y-1">
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -1565,11 +1600,11 @@ export function FlowEditor({
                                     "{renderPreview(acao.template || "")}"
                                   </p>
                                 </div>
-                              ) : (
+                              ) : acao.tipo !== "audio" && !mediaFromText(acao.template) ? (
                                 <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
                                   {renderPreview(acao.template || "")}
                                 </p>
-                              )}
+                              ) : null}
 
                               {/* WhatsApp Timestamp and Single check */}
                               <div className="text-[7px] text-emerald-300 flex justify-end items-center gap-0.5 select-none leading-none pt-0.5">
