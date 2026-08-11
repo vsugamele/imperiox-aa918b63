@@ -789,6 +789,17 @@ export function FlowEditor({
             el?.scrollIntoView({ behavior: "smooth", block: "center" });
           }}
         />
+        {pendingMediaCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] font-bold text-amber-400 hover:text-amber-300"
+            title="Trocar placeholders {{img_...}} / {{audio_...}} pelas URLs reais das mídias X1"
+            onClick={handleSyncX1Media}
+          >
+            🖼️ Sincronizar mídias X1 ({pendingMediaCount})
+          </Button>
+        )}
         <TemplatePicker
           triggerTipo={triggerTipo}
           onApply={(novasAcoes) => {
