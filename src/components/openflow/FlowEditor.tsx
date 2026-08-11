@@ -20,6 +20,7 @@ import { FlowEditorCanvas } from "./FlowEditorCanvas";
 import { FlowLivePreview } from "./FlowLivePreview";
 import { useFlowHistory } from "./flow-editor/useFlowHistory";
 import { validateFlow } from "./flow-editor/validate";
+import { syncX1Media, hasMediaPlaceholder } from "./flow-editor/templates";
 import { ValidationPanel } from "./flow-editor/ValidationPanel";
 import { TemplatePicker } from "./flow-editor/TemplatePicker";
 import { GuardrailsPanel } from "./GuardrailsPanel";
