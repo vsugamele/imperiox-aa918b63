@@ -1600,10 +1600,19 @@ export function FlowEditor({
                                     "{renderPreview(acao.template || "")}"
                                   </p>
                                 </div>
-                              ) : acao.tipo !== "audio" && !mediaFromText(acao.template) ? (
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
-                                  {renderPreview(acao.template || "")}
-                                </p>
+                              ) : acao.tipo !== "audio" ? (
+                                (() => {
+                                  const med = mediaFromText(acao.template);
+                                  const caption = renderPreview(acao.template || "")
+                                    .replace(med?.url || "", "")
+                                    .trim();
+                                  if (!caption) return null;
+                                  return (
+                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
+                                      {caption}
+                                    </p>
+                                  );
+                                })()
                               ) : null}
 
                               {/* WhatsApp Timestamp and Single check */}
