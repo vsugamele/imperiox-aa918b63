@@ -724,10 +724,10 @@ export default function LinfaFlowCareRoom() {
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       setDraft((current) => `${current ? `${current} ` : ""}${transcript}`.trim());
-      setAttachments((current) => [
+      setAttachments((current) => ([
         ...current,
         {
-          kind: "audio",
+          kind: "audio" as const,
           name: "live-voice-note",
           mime: "speech-recognition/browser",
           transcript,
