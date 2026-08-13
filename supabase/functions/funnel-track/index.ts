@@ -29,8 +29,12 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const {
       project_id,
+      project,
       session_id,
+      visitor_id,
       step,
+      event_type,
+      event_name,
       lead_id,
       utm_source,
       utm_medium,
@@ -46,7 +50,12 @@ Deno.serve(async (req) => {
       meta,
     } = body || {};
 
-    if (!project_id || !session_id || !step || !VALID_STEPS.has(step)) {
+    const normalizedProjectId = project_id || project;
+    const normalizedSessionId = session_id || visitor_id || crypto.randomUUID();
+    const rawStep = step || event_type || event_name;
+    const normalizedStep = normalizeStep(rawStep);
+
+    if (!normalizedProjectId || !normalizedStep) {
       return new Response(JSON.stringify({ error: "invalid_payload" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -68,10 +77,10 @@ Deno.serve(async (req) => {
     }
 
     const { error } = await supabase.from("imphq_funnel_events").insert({
-      project_id: String(project_id),
-      session_id: String(session_id),
+      project_id: String(normalizedProjectId),
+      session_id: String(normalizedSessionId),
       lead_id: lead_id ? String(lead_id) : null,
-      step,
+      step: normalizedStep,
       utm_source: utm_source || null,
       utm_medium: utm_medium || null,
       utm_campaign: utm_campaign || null,
@@ -106,3 +115,30 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+function normalizeStep(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const raw = value.trim();
+  if (VALID_STEPS.has(raw)) return raw;
+
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, string> = {
+    pageview: "vsl_view",
+    page_view: "vsl_view",
+    viewcontent: "vsl_view",
+    view_content: "vsl_view",
+    buttonclick: "vsl_cta_click",
+    button_click: "vsl_cta_click",
+    cta_click: "vsl_cta_click",
+    initiatecheckout: "checkout",
+    initiate_checkout: "checkout",
+    addtocart: "checkout",
+    add_to_cart: "checkout",
+    lead: "quiz",
+    leadcapture: "quiz",
+    lead_capture: "quiz",
+  };
+
+  const mapped = aliases[key];
+  return mapped && VALID_STEPS.has(mapped) ? mapped : null;
+}
