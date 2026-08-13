@@ -1,5 +1,11 @@
 # Sincronizar a Vercel com a versão atual do Lovable
 
+## Passo 0 — destravar o build (obrigatório antes de qualquer deploy)
+
+Existem 2 erros de TypeScript em `src/pages/LinfaFlowCareRoom.tsx` (linhas 692 e 727): o campo `kind` dos anexos está sendo inferido como `string` em vez de `"image" | "audio"`, então `setAttachments` rejeita o valor. Enquanto isso existir, o build da Vercel falha e nenhum deploy novo sobe — o que por si só já explicaria a Vercel estar atrasada.
+
+Correção: tipar explicitamente (`const kind: LeadAttachment["kind"] | null = ...`) e anotar o array literal como `LeadAttachment[]` nos dois `setAttachments`. Sem mudança de comportamento.
+
 ## Contexto
 
 O Lovable serve o código do projeto direto (preview instantâneo, publish em segundos). A Vercel só atualiza quando recebe um push no repositório Git e roda o próprio build. Se o repo não está recebendo os commits — ou o build falhou / aponta para outro branch — a Vercel continua servindo uma versão antiga. Cache de CDN + service worker (PWA) podem manter o bundle velho mesmo após um deploy correto.
