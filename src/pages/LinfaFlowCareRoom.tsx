@@ -682,7 +682,7 @@ export default function LinfaFlowCareRoom() {
     Array.from(files)
       .slice(0, 3)
       .forEach((file) => {
-        const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null;
+        const kind: LeadAttachment["kind"] | null = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null;
         if (!kind) return;
         const reader = new FileReader();
         reader.onload = () => {
