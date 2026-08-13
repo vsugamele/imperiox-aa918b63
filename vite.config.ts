@@ -8,6 +8,11 @@ import { visualizer } from "rollup-plugin-visualizer";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    // Build stamp so we can tell instantly which build a domain is serving
+    // (Lovable vs Vercel vs stale CDN/service-worker cache).
+    __APP_BUILD__: JSON.stringify(new Date().toISOString()),
+  },
   server: {
     host: "::",
     port: 8080,
