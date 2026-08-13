@@ -16143,6 +16143,38 @@ export type Database = {
         }
         Relationships: []
       }
+      guiadobuscador_page_views: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          post_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guiadobuscador_page_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guiadobuscador_pages: {
         Row: {
           content: string | null
@@ -23895,6 +23927,107 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_linfaflow_care_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          script_step: number | null
+          sender: string | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          script_step?: number | null
+          sender?: string | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          script_step?: number | null
+          sender?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_linfaflow_care_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_linfaflow_care_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_linfaflow_care_sessions: {
+        Row: {
+          automacao_id: string | null
+          checkout_clicked_at: string | null
+          checkout_url: string | null
+          contact: string | null
+          created_at: string
+          id: string
+          intake: Json
+          last_message_at: string | null
+          lead_id: string | null
+          name: string | null
+          project_id: string | null
+          public_token: string
+          score: number
+          script_step: number
+          source: string | null
+          stage: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          automacao_id?: string | null
+          checkout_clicked_at?: string | null
+          checkout_url?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          intake?: Json
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          project_id?: string | null
+          public_token?: string
+          score?: number
+          script_step?: number
+          source?: string | null
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          automacao_id?: string | null
+          checkout_clicked_at?: string | null
+          checkout_url?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          intake?: Json
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          project_id?: string | null
+          public_token?: string
+          score?: number
+          script_step?: number
+          source?: string | null
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_mapas_empresa: {
         Row: {
@@ -53704,6 +53837,39 @@ export type Database = {
       guiadobuscador_increment_views: {
         Args: { post_id: string }
         Returns: undefined
+      }
+      guiadobuscador_top_posts_views: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          period: number
+          post_id: string
+          slug: string
+          title: string
+          today: number
+          total_views: number
+          yesterday: number
+        }[]
+      }
+      guiadobuscador_track_page_view: {
+        Args: { p_path?: string; p_post_id?: string; p_session_id?: string }
+        Returns: undefined
+      }
+      guiadobuscador_visits_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          day: string
+          visits: number
+        }[]
+      }
+      guiadobuscador_visits_summary: {
+        Args: never
+        Returns: {
+          last30: number
+          last7: number
+          today: number
+          total: number
+          yesterday: number
+        }[]
       }
       handle_points_deduction: {
         Args: { points_to_deduct: number; user_uuid: string }
