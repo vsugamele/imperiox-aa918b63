@@ -43,7 +43,7 @@ if (isPreviewHost || isInIframe) {
   }
 } else if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw-push.js", { scope: "/" }).catch((err) => {
+    navigator.serviceWorker.register("/sw-push.js", { scope: "/", updateViaCache: "none" }).catch((err) => {
       console.warn("[push] service worker registration failed", err);
     });
   });
