@@ -1,35 +1,31 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-const VAPID_PUBLIC_KEY = "BLSx5jJeDYyBAq6dIN18oTfD0sv8JjSWGeQ0N8z0P74SJLrRcO_DMDFh9oPP5Yf0t0F-ZlciudxgCigyLQ3Toyo";
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
+import {
+  getPushStatus,
+  isPreviewRuntime,
+  isPushSupported,
+  subscribeCurrentDevice,
+  unsubscribeCurrentDevice,
+  type PushStatus,
+} from "@/lib/pushNotifications";
 
 export function PushOptIn() {
   const [supported, setSupported] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [status, setStatus] = useState<PushStatus>("unsupported");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const ok = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const ok = isPushSupported();
     setSupported(ok);
-    if (ok && Notification.permission === "granted") {
-      navigator.serviceWorker?.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => {
-          if (sub) setSubscribed(true);
-        });
-      });
-    }
+    if (!ok) return;
+
+    getPushStatus().then((next) => {
+      setStatus(next);
+      setSubscribed(next === "subscribed");
+    });
   }, []);
 
   const toggle = async () => {
@@ -37,63 +33,38 @@ export function PushOptIn() {
     setLoading(true);
     try {
       if (subscribed) {
-        const reg = await navigator.serviceWorker?.ready;
-        const sub = await reg?.pushManager.getSubscription();
-        if (sub) {
-          await sub.unsubscribe();
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            await supabase.from("imphq_push_subscriptions").delete().eq("user_id", user.id).eq("endpoint", sub.endpoint);
-          }
-        }
+        await unsubscribeCurrentDevice();
         setSubscribed(false);
-        toast.info("Notificações push desativadas");
+        setStatus("supported");
+        toast.info("Notificacoes push desativadas neste dispositivo");
       } else {
-        const perm = await Notification.requestPermission();
-        if (perm !== "granted") {
-          toast.error("Permissão de notificação negada");
-          setLoading(false);
-          return;
-        }
-        const reg = await navigator.serviceWorker?.ready;
-        if (!reg) { setLoading(false); return; }
-
-        const vapidKey = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) || VAPID_PUBLIC_KEY;
-
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
-        });
-        const json = sub.toJSON();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && json.endpoint && json.keys) {
-          await supabase.from("imphq_push_subscriptions").upsert({
-            user_id: user.id,
-            endpoint: json.endpoint,
-            keys_p256dh: json.keys.p256dh || "",
-            keys_auth: json.keys.auth || "",
-          }, { onConflict: "user_id,endpoint" });
-        }
+        await subscribeCurrentDevice();
         setSubscribed(true);
-        toast.success("Notificações push ativadas!");
+        setStatus("subscribed");
+        toast.success("Notificacoes push ativadas neste dispositivo");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Push opt-in error:", err);
-      toast.error("Erro ao configurar push");
+      const next = await getPushStatus();
+      setStatus(next);
+      setSubscribed(next === "subscribed");
+      toast.error(err?.message || "Erro ao configurar push");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  if (!supported) return null;
-
-  // Only hide in iframes (Lovable editor preview), not on the preview domain itself
-  const isInIframe = (() => {
-    try { return window.self !== window.top; } catch { return true; }
-  })();
-  if (isInIframe) return null;
+  if (!supported || isPreviewRuntime()) return null;
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} disabled={loading} className="h-8 w-8" title={subscribed ? "Desativar push" : "Ativar notificações push"}>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      disabled={loading || status === "denied"}
+      className="h-10 w-10 md:h-8 md:w-8"
+      title={subscribed ? "Desativar push neste dispositivo" : "Ativar notificacoes push"}
+    >
       {subscribed ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
     </Button>
   );

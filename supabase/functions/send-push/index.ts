@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({
       title,
       body: message || "",
-      icon: "/icons/icon-192x192.png",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
       url: url || "/",
     });
 

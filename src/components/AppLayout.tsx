@@ -12,6 +12,7 @@ import { ActionInbox } from "@/components/imperius/ActionInbox";
 import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
+import { MobilePushNudge } from "@/components/mobile/MobilePushNudge";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
@@ -35,6 +36,9 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   financas: { kicker: "Capital", title: "Finanças" },
   gerenciador: { kicker: "Mídia paga", title: "Gerenciador" },
   funis: { kicker: "Estrutura", title: "Funis" },
+  "funis/linfaflow-x1": { kicker: "Conversão", title: "LinfaFlow X1" },
+  "funis/linfaflow-x1-ready": { kicker: "Conversão", title: "LinfaFlow X1 Ready" },
+  "funis/linfaflow-care": { kicker: "Conversão", title: "LinfaFlow Care Room" },
   metas: { kicker: "Norte", title: "Metas" },
   cohort: { kicker: "Análise", title: "Cohort & LTV" },
   nutricao: { kicker: "E-mail", title: "Nutrição" },
@@ -65,8 +69,10 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
 
 function EditorialBreadcrumb() {
   const { pathname } = useLocation();
-  const first = pathname.split("/").filter(Boolean)[0] || "dashboard";
-  const meta = ROUTE_META[first] || { kicker: "Imperio HQ", title: first };
+  const parts = pathname.split("/").filter(Boolean);
+  const first = parts[0] || "dashboard";
+  const compound = parts.slice(0, 2).join("/");
+  const meta = ROUTE_META[compound] || ROUTE_META[first] || { kicker: "Imperio HQ", title: first };
   return (
     <div className="hidden md:flex items-baseline gap-2 min-w-0">
       <span className="text-[9px] uppercase tracking-[0.28em] text-gold/70 shrink-0">
@@ -152,6 +158,7 @@ export function AppLayout() {
 
             <div className="header-hairline" />
           </header>
+          {isMobile && <MobilePushNudge />}
           <main
             className="flex-1 overflow-auto p-3 md:p-6"
             style={{ paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : "max(0.75rem, env(safe-area-inset-bottom))" }}

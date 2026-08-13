@@ -85,6 +85,10 @@ const SaudeProdutos = lazy(() => import("./pages/SaudeProdutos"));
 const InteligenciaIA = lazy(() => import("./pages/InteligenciaIA"));
 const Atribuicao = lazy(() => import("./pages/Atribuicao"));
 const FunilSimulador = lazy(() => import("./pages/FunilSimulador"));
+const LinfaFlowX1 = lazy(() => import("./pages/LinfaFlowX1"));
+const LinfaFlowX1Ready = lazy(() => import("./pages/LinfaFlowX1Ready"));
+const LinfaFlowCareRoom = lazy(() => import("./pages/LinfaFlowCareRoom"));
+const LinfaFlowCareDashboard = lazy(() => import("./pages/LinfaFlowCareDashboard"));
 const OpenRouterCustos = lazy(() => import("./pages/OpenRouterCustos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -127,6 +131,9 @@ const App = () => (
               <Route path="/f/:formId" element={<FormPublic />} />
               <Route path="/w/:sessionId" element={<WebinarPublic />} />
               <Route path="/mapa/:token" element={<MapaPublico />} />
+              <Route path="/linfaflow-x1" element={<LinfaFlowX1 />} />
+              <Route path="/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />
+              <Route path="/linfaflow-care" element={<LinfaFlowCareRoom />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — Cockpit da Empresa (foco do dia + pulso) */}
                 <Route index element={<Navigate to="/tarefas?view=kanban" replace />} />
@@ -155,6 +162,10 @@ const App = () => (
                 <Route path="mentes" element={<Mentes />} />
                 <Route path="funis" element={<Funis />} />
                 <Route path="funis/simulador" element={<FunilSimulador />} />
+                <Route path="funis/linfaflow-x1" element={<LinfaFlowX1 />} />
+                <Route path="funis/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />
+                <Route path="funis/linfaflow-care" element={<LinfaFlowCareRoom />} />
+                <Route path="funis/linfaflow-care-dashboard" element={<LinfaFlowCareDashboard />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="openflow/agentes" element={<AgentesIA />} />
                 <Route path="openflow/agentes/:id" element={<AgenteEditor />} />

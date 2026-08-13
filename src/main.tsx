@@ -30,6 +30,12 @@ if (isPreviewHost || isInIframe) {
   if (typeof caches !== "undefined" && caches?.keys) {
     caches.keys().then((keys) => keys.forEach((k) => caches.delete(k).catch(() => {}))).catch(() => {});
   }
+} else if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw-push.js", { scope: "/" }).catch((err) => {
+      console.warn("[push] service worker registration failed", err);
+    });
+  });
 }
 
 // Auto-recover from stale chunk references after a deploy.

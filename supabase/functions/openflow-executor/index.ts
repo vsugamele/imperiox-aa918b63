@@ -106,7 +106,7 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
   }
   
   const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
-  const linkUrl = lead_data?.link || "";
+  const linkUrl = lead_data?.link || lead_data?.link_checkout || "";
   const nome = lead_data?.nome || leadDb?.name || "Lead";
   
   result = result
@@ -118,6 +118,7 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
     .replace(/\{\{produto\}\}/g, lead_data?.produto || leadDb?.produto || "")
     .replace(/\{\{telefone\}\}/g, phone)
     .replace(/\{\{link\}\}/g, linkUrl)
+    .replace(/\{\{link_checkout\}\}/g, linkUrl)
     .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
     .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || leadDb?.plataforma || "")
     .replace(/\{\{fluxo\}\}/g, lead_data?.fluxo || "");
@@ -388,6 +389,10 @@ Deno.serve(async (req) => {
       }
 
       // CRITICAL FIX: Read from 'acoes' (editor field) with fallback to 'etapas' (legacy)
+      if (auto.link_checkout) {
+        lead_data.link = lead_data?.link || auto.link_checkout;
+        lead_data.link_checkout = lead_data?.link_checkout || auto.link_checkout;
+      }
       const rawSteps = auto.acoes || auto.etapas || [];
       const steps = rawSteps.map(normalizeStep);
 

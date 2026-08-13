@@ -39,12 +39,14 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'Imperio HQ';
+  const targetUrl = data.url || '/';
   const options = {
     body: data.body || data.message || '',
-    icon: data.icon || '/icons/icon-192x192.png',
-    badge: data.badge || '/icons/icon-192x192.png',
-    data: { url: data.url || '/' },
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    data: { url: targetUrl },
     tag: data.tag,
+    renotify: Boolean(data.tag),
     requireInteraction: false,
   };
 
@@ -53,13 +55,15 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
+  const rawUrl = (event.notification.data && event.notification.data.url) || '/';
+  const url = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ('focus' in client) {
-          client.navigate(url).catch(() => {});
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === self.location.origin && 'focus' in client) {
+          if ('navigate' in client) client.navigate(url).catch(() => {});
           return client.focus();
         }
       }
