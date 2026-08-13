@@ -21,6 +21,9 @@ Internal conversion library for the web intake/chat flow. Lead-facing copy remai
 - "This often shows up slowly: different shoes, different clothes, fewer photos, and calling it a phase because explaining it feels exhausting."
 - "You cannot build a routine that depends on lying down when your day does not let you stop."
 - "Normal tests can make you feel like you have to prove what your body is already showing you by the end of the day."
+- "You are not asking to be sold to. You are asking to be heard about something no one has named yet."
+- "The hardest part is not the swelling. It is the slow retreat from photos, plans and shoes you used to love - and the way that retreat never gets announced."
+- "If your body is showing you something the labs did not, it deserves an answer that is not a guess in a white coat."
 
 ## Objections
 
@@ -49,3 +52,5 @@ Internal conversion library for the web intake/chat flow. Lead-facing copy remai
 - Standing-all-day lead: "This fits a real day because it does not depend on you stopping your shift to elevate your legs."
 - Body-confidence lead: "The first step is not perfection. It is getting back a little comfort and confidence with a simple routine."
 - Safety lead: "This should be reviewed before any supplement decision."
+- Standing-all-day lead: "A 30-second daily ritual that does not require stopping the workday. If you cannot lie down to elevate, you can still support the inside."
+- Hot lead: "Based on what you shared, the only thing left to test is the inside-support angle. One bottle is enough to know if it fits."

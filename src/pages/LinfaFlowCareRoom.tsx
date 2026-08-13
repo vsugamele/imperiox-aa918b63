@@ -55,6 +55,7 @@ type ChatMessage = {
   sender: "assistant" | "lead";
   text: string;
   source?: "openrouter" | "fallback" | "fallback_after_error" | "local";
+  voice_cache_key?: string;
   attachments?: LeadAttachment[];
   audio_url?: string;
   audio_kind?: "cached" | "personalized";
@@ -110,6 +111,107 @@ const defaultIntake: Intake = {
   photo_consent: true,
   contact_consent: false,
 };
+
+type CareDemo = {
+  id: string;
+  label: string;
+  subtitle: string;
+  intake: Intake;
+  scriptStep: number;
+  messages: ChatMessage[];
+};
+
+const careDemos: CareDemo[] = [
+  {
+    id: "maya",
+    label: "Maya, nurse on her feet",
+    subtitle: "High intent: standing all day, outside-in fixes, practical close.",
+    intake: {
+      ...defaultIntake,
+      name: "Maya Thompson",
+      concern: "My legs feel heavy by the end of a twelve-hour nursing shift and my socks leave deep marks.",
+      swelling_area: "Ankles and lower legs",
+      worst_time: "Evening, after standing",
+      triggers: "Standing for hours and heat",
+      timeline: "More than 6 months",
+      tried: "Compression socks and leg elevation",
+      impact: "Shoes feel tight and I have less energy after work",
+      contact: "maya@example.com",
+    },
+    scriptStep: 7,
+    messages: [
+      { sender: "assistant", source: "local", text: "You are not asking to be sold to. You are asking to be heard about something no one has named yet.", voice_cache_key: "linfaflow-empathy-line-1-v1" },
+      { sender: "lead", text: "I am a nurse and by the end of a twelve-hour shift my ankles are puffy and my socks leave deep marks." },
+      { sender: "assistant", source: "local", text: "That is a very specific daily pattern, Maya. You have a job that does not let you stop and elevate whenever your body asks for it. Before I suggest anything, what have you already tried?" },
+      { sender: "lead", text: "Compression socks, elevation when I get home, and massage. They help for a while but the next shift puts me right back where I started." },
+      { sender: "assistant", source: "local", text: "That makes sense. Those are outside-in tools, and it does not mean you failed when the same pattern returns once a real shift begins again. The reason I am asking about timing and what you tried is to see whether a simple inside-support routine fits your day better than another complicated protocol." },
+      { sender: "lead", text: "What would the routine actually look like?" },
+      { sender: "assistant", source: "local", text: "LinfaFlow is positioned as a liquid wellness ritual led by Cleavers, followed by Stillingia, Prickly Ash and Red Clover. The directions are 1 mL twice a day, so it is about a 30-second routine. It is not a diagnosis, medication, water pill, or replacement for medical care." },
+      { sender: "lead", text: "I could do that. I just do not want another thing that does not fit a shift." },
+      { sender: "assistant", source: "local", text: "A thirty second daily ritual that does not require stopping the workday. If you cannot lie down to elevate, you can still support the inside.", voice_cache_key: "linfaflow-close-standing-v1" },
+      { sender: "assistant", source: "local", text: `Based on the pattern you described, the simplest first step is one 30-day bottle. Track your sock marks, end-of-day heaviness, and how your shoes feel. Compare bundle value and guarantee terms at checkout before deciding. Secure checkout: ${checkoutUrl}` },
+    ],
+  },
+  {
+    id: "linda",
+    label: "Linda, normal tests but not normal life",
+    subtitle: "Recognition first: dismissed by labs, confidence impact, mechanism before offer.",
+    intake: {
+      ...defaultIntake,
+      name: "Linda Brooks",
+      concern: "My ankles swell, shoes get tight, and I avoid photos because I do not feel like myself.",
+      swelling_area: "Ankles and lower legs",
+      worst_time: "Evening after normal errands",
+      triggers: "Heat and long days on my feet",
+      timeline: "A year or more",
+      tried: "Compression socks, drainage massage, and cutting salt",
+      impact: "I avoid photos and make excuses for plans",
+      contact: "linda@example.com",
+    },
+    scriptStep: 7,
+    messages: [
+      { sender: "assistant", source: "local", text: "If your body is showing you something the labs did not, it deserves an answer that is not a guess in a white coat.", voice_cache_key: "linfaflow-empathy-line-3-v1" },
+      { sender: "lead", text: "My labs were normal, but by dinner my shoes are tight and my ankles look different. I feel silly bringing it up again." },
+      { sender: "assistant", source: "local", text: "You are not silly, Linda. Normal tests can be reassuring without explaining how your body feels at the end of a normal day. What changes most for you when the pattern is there?" },
+      { sender: "lead", text: "Photos, plans, and clothes. I have compression socks and have paid for drainage massage, but it all feels temporary." },
+      { sender: "assistant", source: "local", text: "That slow retreat is often the part nobody sees. You already put effort into outside-in options, so this is not about blaming you or promising a diagnosis. It is about testing a simpler daily routine that supports the inside angle alongside the practical things you already do." },
+      { sender: "lead", text: "How is LinfaFlow different from the random supplements I have seen?" },
+      { sender: "assistant", source: "local", text: "The product story is Cleavers first, then Stillingia, Prickly Ash, and Red Clover as complementary botanicals in a liquid routine. The goal is consistency: 1 mL twice daily for 30 days, not a harsh cleanse or a water-pill effect. If medication or a diagnosed condition is involved, the ingredient list should be reviewed with a doctor or pharmacist." },
+      { sender: "lead", text: "I would be willing to try something simple if I can start small." },
+      { sender: "assistant", source: "local", text: `Based on what you shared, one bottle is the cleanest 30-day test. Review the bundle options, directions, and guarantee terms at checkout, then choose the option that feels right for you. Secure checkout: ${checkoutUrl}` },
+    ],
+  },
+  {
+    id: "denise",
+    label: "Denise, skeptical after trying everything",
+    subtitle: "Objection-led: validates skepticism, explains fit, then makes a low-pressure pitch.",
+    intake: {
+      ...defaultIntake,
+      name: "Denise Walker",
+      concern: "My legs are heavy and puffy after travel and I am tired of buying things that do not last.",
+      swelling_area: "Feet and shoes",
+      worst_time: "After flights and long car rides",
+      triggers: "Travel, sitting, and heat",
+      timeline: "More than 3 months",
+      tried: "Compression socks, elevation, detox tea, and massage",
+      impact: "It changes travel plans and makes shoes uncomfortable",
+      contact: "denise@example.com",
+    },
+    scriptStep: 7,
+    messages: [
+      { sender: "assistant", source: "local", text: "You are not asking to be sold to. You are asking to be heard about something no one has named yet.", voice_cache_key: "linfaflow-empathy-line-1-v1" },
+      { sender: "lead", text: "I have tried socks, elevation, detox teas and massage. Travel makes my feet puffy and I do not want another supplement pitch." },
+      { sender: "assistant", source: "local", text: "That skepticism is earned, Denise. Nothing in this conversation requires you to believe a big promise. I want to separate what gave temporary outside relief from what could be realistic as a daily routine between travel days." },
+      { sender: "lead", text: "Why would drops be any different?" },
+      { sender: "assistant", source: "local", text: "They are not presented as a cure, a medication, or a quick detox. LinfaFlow is a liquid wellness ritual: Cleavers leads the formula, with Stillingia, Prickly Ash, and Red Clover in support. The practical test is 1 mL twice daily for 30 days while you track the situations you already notice, especially travel and tight shoes." },
+      { sender: "lead", text: "I still worry I will spend money and get nowhere." },
+      { sender: "assistant", source: "local", text: "That is a reasonable concern. Rather than asking for blind confidence, use the checkout to review the one-bottle and bundle options, the exact directions, and the guarantee terms. Then you can decide whether a 30-day routine test is worth it for your own pattern." },
+      { sender: "lead", text: "Okay, what would you start with?" },
+      { sender: "assistant", source: "local", text: "Based on what you shared, the only thing left to test is the inside support angle. One bottle is enough to know if it fits.", voice_cache_key: "linfaflow-close-hot-v1" },
+      { sender: "assistant", source: "local", text: `Start with one bottle if you want the clearest test. If you prefer to compare longer-routine value, review the bundle options at checkout. Secure checkout: ${checkoutUrl}` },
+    ],
+  },
+];
 
 const stageCopy: Record<RoomStage, { title: string; pt: string }> = {
   intake: {
@@ -378,13 +480,15 @@ const temperatureCopy: Record<LeadTemperature, { label: string; title: string; t
 
 function fallbackRecommendation(intake: Intake) {
   const name = intake.name.trim() || "there";
-  return `${name}, based on what you shared, I would not treat this as a random supplement decision.\n\nHere is your review summary:\nPattern: ${intake.concern}\nTiming and triggers: ${intake.worst_time}; ${intake.triggers}\nAlready tried: ${intake.tried}\nDaily impact: ${intake.impact}\n\nThat is why the best angle is a simple 30-day daily ritual, not another complicated routine. LinfaFlow is positioned as a liquid wellness ritual that supports lymphatic flow, healthy circulation and fluid balance. If you have a diagnosed condition or take medication, review the ingredient list with your doctor or pharmacist first.\n\nIf you want to start, the safest first step is one bottle for 30 days. If value per day matters more, choose a bundle at checkout.\n\nSecure checkout: ${checkoutUrl}`;
+  return `${name}, based on what you shared, I would not treat this as a random supplement decision.\n\nHere is your review summary:\nPattern: ${intake.concern}\nTiming and triggers: ${intake.worst_time}; ${intake.triggers}\nAlready tried: ${intake.tried}\nDaily impact: ${intake.impact}\n\nThe cleanest angle is a simple 30-day daily ritual, not another complicated routine. LinfaFlow is positioned as a liquid wellness ritual that supports lymphatic flow, healthy circulation and fluid balance. The ingredient line is led by Cleavers aerial parts, then Stillingia root, Prickly Ash bark and Red Clover blossom in that order. The routine is 1 mL twice a day and takes about 30 seconds.\n\nIf you have a diagnosed condition, take medication, are pregnant, or have sudden or severe swelling, review the ingredient list with your doctor or pharmacist first.\n\nThe safest first step is one bottle for 30 days. If daily value matters more, compare the bundle options, pricing, and guarantee terms at checkout.\n\nSecure checkout: ${checkoutUrl}`;
 }
 
 export default function LinfaFlowCareRoom() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const isAdminPreview = location.pathname.startsWith("/funis/");
+  const requestedDemoId = searchParams.get("demo");
+  const isDemoPreview = Boolean(requestedDemoId);
   const [careView, setCareView] = useState<CareView>("quiz");
   const [quizStep, setQuizStep] = useState(0);
   const [stage, setStage] = useState<RoomStage>("intake");
@@ -404,12 +508,18 @@ export default function LinfaFlowCareRoom() {
   const quizPersistRef = useRef<Promise<string | null> | null>(null);
   const [publicToken, setPublicToken] = useState("");
   const [persisted, setPersisted] = useState(false);
+  const [activeDemoId, setActiveDemoId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       sender: "assistant",
-      text: "Welcome. I will ask a few quick questions first so the guidance feels specific to you. You can also attach a photo or use voice if typing is easier.",
+      text: "Welcome. If you have been wondering whether the same daily pattern you keep noticing is something the normal tests simply do not explain, you are in the right place. I will ask a few quick questions first so the guidance feels specific to you. You can also attach a photo or use voice if typing is easier.",
     },
   ]);
+
+  useEffect(() => {
+    const demo = careDemos.find((item) => item.id === requestedDemoId);
+    if (demo) loadCareDemo(demo);
+  }, [requestedDemoId]);
 
   useEffect(() => {
     const resumeToken = searchParams.get("resume");
@@ -445,7 +555,7 @@ export default function LinfaFlowCareRoom() {
           {
             sender: "assistant",
             source: "local",
-            text: `Welcome back${savedIntake.name ? `, ${savedIntake.name.split(/\\s+/)[0]}` : ""}. I saved your place, so we can continue without starting over.`,
+            text: `Welcome back${savedIntake.name ? `, ${savedIntake.name.split(/\\s+/)[0]}` : ""}. I saved your place and the pattern you described. We can continue from where you stopped.`,
           },
         ]);
         setStage(data.stage === "offer" ? "offer" : "consult");
@@ -565,8 +675,9 @@ export default function LinfaFlowCareRoom() {
     window.speechSynthesis.speak(utterance);
   }
 
-  function shouldGenerateVoiceReply(text: string) {
-    if (!voiceRepliesRef.current) return false;
+  function shouldGenerateVoiceReply(text: string, preferredCacheKey = "") {
+    const isPriorityMoment = preferredCacheKey.startsWith("linfaflow-empathy-") || preferredCacheKey.startsWith("linfaflow-close-");
+    if (!voiceRepliesRef.current && !isPriorityMoment) return false;
     if (text.trim().length < 80) return false;
     return true;
   }
@@ -575,8 +686,57 @@ export default function LinfaFlowCareRoom() {
     return intake.name.trim().split(/\s+/)[0] || "there";
   }
 
-  function voicePlanForReply(text: string, step: number, nextStage: RoomStage) {
+  async function hydrateDemoAudio(demo: CareDemo) {
+    for (const message of demo.messages) {
+      if (message.sender !== "assistant" || !message.voice_cache_key) continue;
+      try {
+        const { data } = await supabase.functions.invoke("linfaflow-care-voice", {
+          body: { text: message.text, cache_key: message.voice_cache_key },
+        });
+        if (!data?.ok || !data?.audio_url) continue;
+        setMessages((current) => current.map((item) => (
+          item.text === message.text && item.voice_cache_key === message.voice_cache_key
+            ? { ...item, audio_url: data.audio_url, audio_kind: "cached" }
+            : item
+        )));
+      } catch {
+        // Demo review remains useful even if a signed audio URL cannot be generated.
+      }
+    }
+  }
+
+  function loadCareDemo(demo: CareDemo) {
+    setActiveDemoId(demo.id);
+    setIntake(demo.intake);
+    setScriptStep(demo.scriptStep);
+    setStage("offer");
+    setCareView("chat");
+    setDraft("");
+    setAttachments([]);
+    setSessionId("");
+    sessionIdRef.current = "";
+    setPublicToken("");
+    setPersisted(false);
+    setMessages(demo.messages.map((message) => ({ ...message })));
+    void hydrateDemoAudio(demo);
+  }
+
+  function cachedVoicePlan(cacheKey: string) {
+    const cacheLines: Record<string, string> = {
+      "linfaflow-empathy-line-1-v1": "You are not asking to be sold to. You are asking to be heard about something no one has named yet.",
+      "linfaflow-empathy-line-2-v1": "The hardest part is not the swelling. It is the slow retreat from photos, plans and shoes you used to love, and the way that retreat never gets announced.",
+      "linfaflow-empathy-line-3-v1": "If your body is showing you something the labs did not, it deserves an answer that is not a guess in a white coat.",
+      "linfaflow-close-standing-v1": "A thirty second daily ritual that does not require stopping the workday. If you cannot lie down to elevate, you can still support the inside.",
+      "linfaflow-close-hot-v1": "Based on what you shared, the only thing left to test is the inside support angle. One bottle is enough to know if it fits.",
+    };
+    const line = cacheLines[cacheKey];
+    return line ? { text: line, cacheKey, kind: "cached" as const } : null;
+  }
+
+  function voicePlanForReply(text: string, step: number, nextStage: RoomStage, preferredCacheKey = "") {
     const leadName = firstName();
+    const cachedPlan = cachedVoicePlan(preferredCacheKey);
+    if (cachedPlan) return cachedPlan;
     if (temperature === "red_flag") {
       return {
         text: `${leadName}, I want to be careful here. If swelling is sudden, one-sided, painful, red or hot, connected with chest symptoms, pregnancy, wounds, medication, or a diagnosed condition, this should be checked with a healthcare professional before thinking about any wellness routine.`,
@@ -646,9 +806,9 @@ export default function LinfaFlowCareRoom() {
     setVoiceReplies(next);
   }
 
-  async function attachVoiceReply(text: string, source: ChatMessage["source"], step = scriptStep, nextStage = stage) {
-    if (!shouldGenerateVoiceReply(text)) return;
-    const voicePlan = voicePlanForReply(text, step, nextStage);
+  async function attachVoiceReply(text: string, source: ChatMessage["source"], step = scriptStep, nextStage = stage, preferredCacheKey = "") {
+    if (!shouldGenerateVoiceReply(text, preferredCacheKey)) return;
+    const voicePlan = voicePlanForReply(text, step, nextStage, preferredCacheKey);
     try {
       const { data } = await supabase.functions.invoke("linfaflow-care-voice", {
         body: {
@@ -858,7 +1018,7 @@ export default function LinfaFlowCareRoom() {
           media: media && current.some((message) => message.media?.src === media.src) ? undefined : media,
         },
       ]);
-      attachVoiceReply(replyText, source, nextStep, nextCanClose ? "offer" : "consult");
+      attachVoiceReply(replyText, source, nextStep, nextCanClose ? "offer" : "consult", String(data?.voice_cache_key || ""));
     } catch {
       setAiSource("error");
       const replyText = nextCanClose
@@ -1357,6 +1517,26 @@ export default function LinfaFlowCareRoom() {
               <ShieldCheck className="h-4 w-4 text-emerald-700" />
               Private review
             </div>
+            {isDemoPreview && (
+              <div className="flex w-full flex-wrap items-center gap-2 border-t border-emerald-100 pt-3">
+                <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-700">Simulation</span>
+                {careDemos.map((demo) => (
+                  <button
+                    key={demo.id}
+                    type="button"
+                    onClick={() => loadCareDemo(demo)}
+                    className={`rounded-md border px-3 py-2 text-left text-xs transition ${
+                      activeDemoId === demo.id
+                        ? "border-emerald-500 bg-emerald-700 text-white"
+                        : "border-emerald-100 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-900"
+                    }`}
+                    title={demo.subtitle}
+                  >
+                    {demo.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {stage === "queue" && (

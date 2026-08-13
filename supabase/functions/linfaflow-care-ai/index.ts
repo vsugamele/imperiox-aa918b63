@@ -127,7 +127,6 @@ type PersuasionProfile = {
   proof_asset: string;
   close_frame: string;
   next_question: string;
-  voice_cache_key: string;
 };
 
 function buildPersuasionProfile(intake: Intake, latest = "", scriptStep = 0, canClose = false): PersuasionProfile {
@@ -212,16 +211,6 @@ function buildPersuasionProfile(intake: Intake, latest = "", scriptStep = 0, can
         ? "Ask what would make her feel comfortable trying a simple 30-day routine: proof, ingredients, usage, or fit."
         : "Ask when the pattern is worst and what it changes in her daily life.";
 
-  const voiceCacheKey = likelyObjection === "skepticism"
-    ? "linfaflow-objection-skepticism-v1"
-    : likelyObjection === "usage"
-      ? "linfaflow-usage-1ml-2x-daily-v1"
-      : likelyObjection === "ingredients_safety"
-        ? "linfaflow-ingredients-cleavers-safety-v1"
-        : triedExternal
-          ? "linfaflow-proof-outside-in-v1"
-          : "linfaflow-mechanism-cleavers-v1";
-
   return {
     avatar,
     avatar_reason: avatarReason,
@@ -232,8 +221,38 @@ function buildPersuasionProfile(intake: Intake, latest = "", scriptStep = 0, can
     proof_asset: proofAsset,
     close_frame: closeFrame,
     next_question: nextQuestion,
-    voice_cache_key: voiceCacheKey,
   };
+}
+
+function selectVoiceCacheKey(
+  intake: Intake,
+  latest: string,
+  scriptStep: number,
+  canClose: boolean,
+  profile: PersuasionProfile,
+  temperature: LeadTemperature,
+): string {
+  if (temperature === "red_flag") return "linfaflow-safety-red-flag-v1";
+
+  if (scriptStep <= 1) {
+    if (profile.avatar === "normal_tests_invisible") return "linfaflow-empathy-line-3-v1";
+    if (profile.avatar === "body_confidence_withdrawal") return "linfaflow-empathy-line-2-v1";
+    if (["mysterious_swelling", "standing_all_day", "silent_bloating"].includes(profile.avatar)) {
+      return "linfaflow-empathy-line-1-v1";
+    }
+  }
+
+  if (canClose || scriptStep >= 6) {
+    if (profile.avatar === "standing_all_day") return "linfaflow-close-standing-v1";
+    if (temperature === "hot") return "linfaflow-close-hot-v1";
+    return "linfaflow-close-guarantee-v1";
+  }
+
+  if (profile.likely_objection === "skepticism") return "linfaflow-objection-skepticism-v1";
+  if (profile.likely_objection === "ingredients_safety") return "linfaflow-ingredients-cleavers-safety-v1";
+  if (profile.likely_objection === "usage") return "linfaflow-usage-1ml-2x-daily-v1";
+  if (profile.avatar === "external_fix_prisoner") return "linfaflow-proof-outside-in-v1";
+  return "linfaflow-mechanism-cleavers-v1";
 }
 
 async function syncCareLead(params: {
@@ -624,7 +643,7 @@ function fallbackReply(intake: Intake, latest: string, scriptStep = 0, canClose 
     return `No problem. A photo is optional, and your answers are enough to continue the review.\n\nFrom what you shared, I will focus on timing, triggers, sock marks or tight shoes, what you already tried, and what it affects day to day.\n\nQuick check: when it is worst, is it mainly after standing, sitting, travel, heat, salty meals, or does it start when you wake up?`;
   }
   if (buyingIntent && canClose) {
-    return `${name}, based on what you shared, I would start with the simplest option: one bottle as a 30-day daily wellness ritual.\n\n${profile.emotional_mirror}\n\nYour assessment summary:\nPattern: ${intake.concern || "repeated heaviness, puffiness, or tightness"}\nTiming/triggers: ${intake.worst_time || "daily timing not specified"}; ${intake.triggers || "triggers not specified"}\nAlready tried: ${intake.tried || "outside-in fixes or general habits"}\nImpact: ${intake.impact || "daily comfort and confidence"}\n\nLinfaFlow is not a diagnosis, cure, medication or water pill. ${profile.mechanism_bridge}\n\nIf you have a diagnosed condition, take medication, are pregnant, or have sudden/severe swelling, review the ingredient list with your doctor or pharmacist first.\n\nSecure checkout: ${CHECKOUT_URL}`;
+    return `${name}, based on what you shared, I would start with the simplest option: one bottle as a 30-day daily wellness ritual.\n\n${profile.emotional_mirror}\n\nYour assessment summary:\nPattern: ${intake.concern || "repeated heaviness, puffiness, or tightness"}\nTiming/triggers: ${intake.worst_time || "daily timing not specified"}; ${intake.triggers || "triggers not specified"}\nAlready tried: ${intake.tried || "outside-in fixes or general habits"}\nImpact: ${intake.impact || "daily comfort and confidence"}\n\nLinfaFlow is not a diagnosis, cure, medication or water pill. ${profile.mechanism_bridge}\n\nThe formula is led by Cleavers aerial parts, then Stillingia root, Prickly Ash bark and Red Clover blossom in that order. The routine is 1 mL twice a day and takes about 30 seconds.\n\nIf you have a diagnosed condition, take medication, are pregnant, or have sudden or severe swelling, review the ingredient list with your doctor or pharmacist first.\n\nYou can compare the 3-bottle option, daily value, and guarantee terms at checkout before deciding.\n\nSecure checkout: ${CHECKOUT_URL}`;
   }
   if (buyingIntent && !canClose) {
     return `I can show you the checkout, but I do not want to rush you into the wrong decision.\n\n${profile.emotional_mirror}\n\nBefore that, one quick check: ${profile.next_question}`;
@@ -656,6 +675,7 @@ Deno.serve(async (req) => {
     const stage = temperature === "red_flag" && requestedStage === "offer" ? "consult" : requestedStage;
     const sessionId = typeof body?.session_id === "string" ? body.session_id : null;
     const persuasionProfile = buildPersuasionProfile(intake, latest, scriptStep, canClose);
+    const voiceCacheKey = selectVoiceCacheKey(intake, latest, scriptStep, canClose, persuasionProfile, temperature);
 
     if (body?.action === "resume_session") {
       const resume = await resumePublicSession(String(body?.public_token || ""));
@@ -716,6 +736,7 @@ Deno.serve(async (req) => {
         public_token: session.publicToken,
         lead_temperature: temperature,
         persuasion_profile: persuasionProfile,
+        voice_cache_key: voiceCacheKey,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -733,6 +754,7 @@ Deno.serve(async (req) => {
         public_token: session.publicToken,
         lead_temperature: temperature,
         persuasion_profile: persuasionProfile,
+        voice_cache_key: voiceCacheKey,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -816,6 +838,7 @@ Mechanism bridge: ${persuasionProfile.mechanism_bridge}
 Safe proof asset: ${persuasionProfile.proof_asset}
 Close frame: ${persuasionProfile.close_frame}
 Best next question/CTA: ${persuasionProfile.next_question}
+Recommended voice cache key: ${voiceCacheKey}
 
 Latest lead message: ${latest}`;
 
@@ -873,6 +896,7 @@ Latest lead message: ${latest}`;
         public_token: session.publicToken,
         lead_temperature: temperature,
         persuasion_profile: persuasionProfile,
+        voice_cache_key: voiceCacheKey,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -880,6 +904,10 @@ Latest lead message: ${latest}`;
     const buyingIntent = /\b(price|order|buy|checkout|cost|purchase)\b/i.test(latest);
     let reply = data?.choices?.[0]?.message?.content?.trim() || fallbackReply(intake, latest, scriptStep, canClose, persuasionProfile);
     reply = reply
+      .replace(/\b(cures?|treats?|heals?|fixes?)\b/gi, "supports")
+      .replace(/\b(guaranteed to|will definitely)\b/gi, "intended to")
+      .replace(/\b(clinical(?:ly)? proven|clinically tested|proven)\b/gi, "not established for this individual")
+      .replace(/\bFDA[- ]approved\b/gi, "not presented as FDA-approved")
       .replace(/designed to support/gi, "positioned as a routine that supports")
       .replace(/lymphatic flow throughout the day/gi, "lymphatic flow as part of a daily wellness routine");
     if (!canClose) {
@@ -901,6 +929,7 @@ Latest lead message: ${latest}`;
       public_token: session.publicToken,
       lead_temperature: temperature,
       persuasion_profile: persuasionProfile,
+      voice_cache_key: voiceCacheKey,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("[linfaflow-care-ai] error", error?.message || error);
