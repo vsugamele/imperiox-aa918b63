@@ -682,7 +682,7 @@ export default function LinfaFlowCareRoom() {
     Array.from(files)
       .slice(0, 3)
       .forEach((file) => {
-        const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null;
+        const kind: LeadAttachment["kind"] | null = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null;
         if (!kind) return;
         const reader = new FileReader();
         reader.onload = () => {
@@ -724,15 +724,15 @@ export default function LinfaFlowCareRoom() {
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       setDraft((current) => `${current ? `${current} ` : ""}${transcript}`.trim());
-      setAttachments((current) => [
+      setAttachments((current) => ([
         ...current,
         {
-          kind: "audio",
+          kind: "audio" as const,
           name: "live-voice-note",
           mime: "speech-recognition/browser",
           transcript,
         },
-      ].slice(-3));
+      ] satisfies LeadAttachment[]).slice(-3));
     };
     recognitionRef.current = recognition;
     recognition.start();

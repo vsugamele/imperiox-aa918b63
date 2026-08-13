@@ -17,9 +17,20 @@ const isInIframe = (() => {
 const host = window.location.hostname;
 // Only nuke SW in Lovable editor preview hosts — NOT on the published domain,
 // otherwise push notifications never reach the user's phone.
+// Vercel preview/deploy hosts are included: they get frequent rebuilds and a
+// lingering SW there is the usual reason a "deployed" version still looks old.
 const isPreviewHost =
   host.includes("id-preview--") ||
-  host.includes("lovableproject.com");
+  host.includes("lovableproject.com") ||
+  host.endsWith(".vercel.app");
+
+// Build stamp — read it in the console (`__APP_BUILD__`) to know which build is live.
+try {
+  (window as any).__APP_BUILD__ = __APP_BUILD__;
+  console.info(`[build] ${__APP_BUILD__} @ ${host}`);
+} catch {
+  /* noop */
+}
 
 if (isPreviewHost || isInIframe) {
   // Unregister any existing service worker.
@@ -32,7 +43,7 @@ if (isPreviewHost || isInIframe) {
   }
 } else if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw-push.js", { scope: "/" }).catch((err) => {
+    navigator.serviceWorker.register("/sw-push.js", { scope: "/", updateViaCache: "none" }).catch((err) => {
       console.warn("[push] service worker registration failed", err);
     });
   });
