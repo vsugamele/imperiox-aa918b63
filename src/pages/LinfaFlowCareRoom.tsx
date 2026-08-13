@@ -732,7 +732,7 @@ export default function LinfaFlowCareRoom() {
           mime: "speech-recognition/browser",
           transcript,
         },
-      ].slice(-3));
+      ] satisfies LeadAttachment[]).slice(-3));
     };
     recognitionRef.current = recognition;
     recognition.start();
