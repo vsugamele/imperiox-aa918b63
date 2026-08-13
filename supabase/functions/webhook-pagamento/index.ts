@@ -21,6 +21,51 @@ const CAPI_EVENT_MAP: Record<string, string> = {
   visualizacao_conteudo: "ViewContent",
 };
 
+const QUERY_EVENT_MAP: Record<string, string> = {
+  Lead: "lead_capturado",
+  InitiateCheckout: "inicio_checkout",
+  ViewContent: "visualizacao_conteudo",
+  Purchase: "compra_aprovada",
+};
+
+function normalizeProjectParam(projectId: string | null): string | null {
+  if (!projectId) return projectId;
+  return projectId.split("?")[0] || null;
+}
+
+function recoverMalformedQueryParams(url: URL): URLSearchParams {
+  const recovered = new URLSearchParams(url.searchParams);
+  const projectParam = url.searchParams.get("project");
+  const malformedQuery = projectParam?.includes("?") ? projectParam.split("?").slice(1).join("?") : "";
+  if (malformedQuery) {
+    const extraParams = new URLSearchParams(malformedQuery);
+    extraParams.forEach((value, key) => {
+      if (!recovered.has(key)) recovered.set(key, value);
+    });
+  }
+  return recovered;
+}
+
+function buildQueryPayload(params: URLSearchParams): Record<string, any> {
+  const body: Record<string, any> = {};
+  params.forEach((value, key) => {
+    if (key === "project") return;
+    body[key] = value;
+  });
+
+  const rawEvent = body.event || body.ct || body.evento || body.event_type;
+  if (rawEvent) body.evento = QUERY_EVENT_MAP[String(rawEvent)] || String(rawEvent).toLowerCase();
+
+  const payout = body.payout || body.sale_payout || body.commission || body.valor;
+  if (payout !== undefined) body.valor = String(payout).replace(",", ".");
+
+  const clickId = body.click_id || body.sub1;
+  if (clickId) body.xc = clickId;
+
+  body.plataforma = body.plataforma || "ClickFlare";
+  return body;
+}
+
 async function sendCAPIEvent(
   fbToken: string,
   fbPixelId: string,
@@ -562,9 +607,10 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     );
 
     const url = new URL(req.url);
-    const queryProjectId = url.searchParams.get("project");
-    // Allow overriding event type via query param (e.g. ?event=Lead)
-    const queryEvent = url.searchParams.get("event");
+    const queryParams = recoverMalformedQueryParams(url);
+    const queryProjectId = normalizeProjectParam(queryParams.get("project"));
+    // Allow overriding event type via query param (e.g. ?event=Lead or ?ct=Purchase)
+    const queryEvent = queryParams.get("event") || queryParams.get("ct");
 
     // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
@@ -573,13 +619,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
-      const eventMap: Record<string, string> = {
-        Lead: "lead_capturado",
-        InitiateCheckout: "inicio_checkout",
-        ViewContent: "visualizacao_conteudo",
-        Purchase: "compra_aprovada",
-      };
-      evento = eventMap[queryEvent] || queryEvent.toLowerCase();
+      evento = QUERY_EVENT_MAP[queryEvent] || queryEvent.toLowerCase();
     }
 
     projectId = queryProjectId;
@@ -1711,9 +1751,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   try {
-    const body = await req.json();
     const url = new URL(req.url);
-    const projectIdInit = url.searchParams.get("project");
+    const queryParams = recoverMalformedQueryParams(url);
+    const projectIdInit = normalizeProjectParam(queryParams.get("project"));
+    let body: any;
+    if (req.method === "GET") {
+      body = buildQueryPayload(queryParams);
+    } else {
+      body = await req.json();
+    }
     // dispara em background (não bloqueia o response)
     // @ts-ignore — EdgeRuntime existe no runtime do Supabase
     EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
