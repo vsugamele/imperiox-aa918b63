@@ -95,6 +95,9 @@ type QuizCompanion = {
   imageAlt?: string;
 };
 
+const checkoutUrl =
+  "https://cc.linfaflow.com/dtcnew/checkout.php?hid=b2lkPW9mZl8wMDQyMzQ2JmFpZD1hZmZfNjgyMTM3NyZ1aWQ9YmxfNjY2ODExMQ%3D%3D&affid=aff_6821377";
+
 const defaultIntake: Intake = {
   name: "",
   concern: "",
@@ -385,8 +388,6 @@ const quizCompanions: Partial<Record<IntakeTextKey, QuizCompanion>> = {
   },
 };
 
-const checkoutUrl =
-  "https://cc.linfaflow.com/dtcnew/checkout.php?hid=b2lkPW9mZl8wMDQyMzQ2JmFpZD1hZmZfNjgyMTM3NyZ1aWQ9YmxfNjY2ODExMQ%3D%3D&affid=aff_6821377";
 const SESSION_KEY = "linfaflow-care-session-id";
 
 const scriptSteps: Array<{ id: ScriptStepId; label: string; pt: string }> = [
