@@ -323,7 +323,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "impact",
     eyebrow: "What it costs you",
     question: "What does this affect most day to day?",
-    helper: "This is where the conversation becomes personal enough to sell later.",
+    helper: "Tell me what you would like back in your day. That matters more than the symptom alone.",
     placeholder: "Example: shoes, confidence, photos, comfort...",
     options: ["Shoes feel tight", "I avoid photos of my legs", "I feel older than I am", "It changes my plans"],
   },
