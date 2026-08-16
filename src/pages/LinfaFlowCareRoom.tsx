@@ -307,7 +307,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "timeline",
     eyebrow: "How long",
     question: "How long has this been happening?",
-    helper: "Repeated patterns convert differently from a one-off bad day.",
+    helper: "Knowing how long it has been going on helps me read your pattern.",
     placeholder: "Example: more than 6 months...",
     options: ["A few weeks", "More than 3 months", "More than 6 months", "A year or more"],
   },
