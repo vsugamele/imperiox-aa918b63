@@ -624,12 +624,15 @@ export default function LinfaFlowCareRoom() {
 
   function completeQuiz() {
     void trackQuizProgress(intake, quizStep, "completed");
-    setCareView("preparing");
+    // O lead vai direto para o chat: o resumo aparece como primeira bolha do assistente.
+    setCareView("chat");
+    setIsAiThinking(true);
     window.setTimeout(() => {
-      setCareView("chat");
+      setIsAiThinking(false);
       startQueue();
-    }, 2400);
+    }, 800);
   }
+
 
   async function trackQuizProgress(nextIntake: Intake, step: number, quizStatus: "answered" | "step_completed" | "completed") {
     const previousPersist = quizPersistRef.current;
