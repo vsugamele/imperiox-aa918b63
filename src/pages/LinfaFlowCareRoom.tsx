@@ -1272,25 +1272,12 @@ export default function LinfaFlowCareRoom() {
               </motion.div>
             </AnimatePresence>
 
-            <div className="mt-4 rounded-md border border-emerald-100 bg-white p-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-700">Private review</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    Your answers are shaping a more personal conversation.
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    The assistant will use this to summarize your pattern before recommending any next step.
-                  </p>
-                </div>
+            {temperature === "red_flag" && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                Some of what you shared may need medical guidance first. I will organize your notes and will not recommend a wellness routine as the first step.
               </div>
-              {temperature === "red_flag" && (
-                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-                  This may need medical guidance first. The conversation will organize your notes and pause selling.
-                </div>
-              )}
-            </div>
+            )}
+
           </section>
 
           <div className="sticky bottom-0 -mx-4 border-t border-emerald-100 bg-[#f5fbf8]/95 px-4 py-3 backdrop-blur">
