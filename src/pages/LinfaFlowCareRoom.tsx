@@ -307,7 +307,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "timeline",
     eyebrow: "How long",
     question: "How long has this been happening?",
-    helper: "Repeated patterns convert differently from a one-off bad day.",
+    helper: "Knowing how long it has been going on helps me read your pattern.",
     placeholder: "Example: more than 6 months...",
     options: ["A few weeks", "More than 3 months", "More than 6 months", "A year or more"],
   },
@@ -315,7 +315,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "tried",
     eyebrow: "What you tried",
     question: "What have you already tried?",
-    helper: "This lets the assistant position LinfaFlow against outside-in fixes without dismissing them.",
+    helper: "Nothing you tried was wrong. I just need to know it before suggesting anything.",
     placeholder: "Example: compression socks, elevation, massage...",
     options: ["Compression socks", "Leg elevation", "Lymphatic drainage or massage", "Water pills or detox teas"],
   },
@@ -323,7 +323,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "impact",
     eyebrow: "What it costs you",
     question: "What does this affect most day to day?",
-    helper: "This is where the conversation becomes personal enough to sell later.",
+    helper: "Tell me what you would like back in your day. That matters more than the symptom alone.",
     placeholder: "Example: shoes, confidence, photos, comfort...",
     options: ["Shoes feel tight", "I avoid photos of my legs", "I feel older than I am", "It changes my plans"],
   },
@@ -331,7 +331,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "red_flags",
     eyebrow: "Safety check",
     question: "Any sudden or severe warning signs?",
-    helper: "If yes, the flow pauses selling and recommends medical evaluation first.",
+    helper: "If any of these apply, I will point you to medical evaluation first.",
     placeholder: "Example: no sudden one-sided swelling, chest pain, wounds, or severe pain.",
     options: [
       "No sudden one-sided swelling, chest pain, wounds, or severe pain.",
@@ -374,13 +374,14 @@ const quizCompanions: Partial<Record<IntakeTextKey, QuizCompanion>> = {
   tried: {
     eyebrow: "Your history counts",
     title: "You should not have to repeat the same temporary fixes.",
-    text: "The conversation uses what you have already tried so the next step can address the pattern, not dismiss your effort.",
+    text: "I will take what you already tried into account, so the next step addresses your pattern instead of dismissing your effort.",
   },
   impact: {
     eyebrow: "The real reason",
     title: "Comfort, confidence and daily plans all count.",
-    text: "This answer helps the assistant speak to the moment you want back, rather than reducing everything to a symptom checklist.",
+    text: "This helps me talk about the moment you want back, not just a symptom checklist.",
   },
+
   red_flags: {
     eyebrow: "Safety first",
     title: "Some patterns deserve medical attention before a wellness routine.",
@@ -624,12 +625,15 @@ export default function LinfaFlowCareRoom() {
 
   function completeQuiz() {
     void trackQuizProgress(intake, quizStep, "completed");
-    setCareView("preparing");
+    // O lead vai direto para o chat: o resumo aparece como primeira bolha do assistente.
+    setCareView("chat");
+    setIsAiThinking(true);
     window.setTimeout(() => {
-      setCareView("chat");
+      setIsAiThinking(false);
       startQueue();
-    }, 2400);
+    }, 800);
   }
+
 
   async function trackQuizProgress(nextIntake: Intake, step: number, quizStatus: "answered" | "step_completed" | "completed") {
     const previousPersist = quizPersistRef.current;
@@ -1268,25 +1272,12 @@ export default function LinfaFlowCareRoom() {
               </motion.div>
             </AnimatePresence>
 
-            <div className="mt-4 rounded-md border border-emerald-100 bg-white p-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-700">Private review</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    Your answers are shaping a more personal conversation.
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    The assistant will use this to summarize your pattern before recommending any next step.
-                  </p>
-                </div>
+            {temperature === "red_flag" && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                Some of what you shared may need medical guidance first. I will organize your notes and will not recommend a wellness routine as the first step.
               </div>
-              {temperature === "red_flag" && (
-                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-                  This may need medical guidance first. The conversation will organize your notes and pause selling.
-                </div>
-              )}
-            </div>
+            )}
+
           </section>
 
           <div className="sticky bottom-0 -mx-4 border-t border-emerald-100 bg-[#f5fbf8]/95 px-4 py-3 backdrop-blur">
@@ -1510,9 +1501,12 @@ export default function LinfaFlowCareRoom() {
             <div>
               <div className="flex items-center gap-2 text-emerald-700">
                 <MessageCircle className="h-4 w-4" />
-                <p className="text-xs uppercase tracking-[0.2em]">Lead web experience</p>
+                <p className="text-xs uppercase tracking-[0.2em]">{isAdminPreview ? "Lead web experience" : "Private consultation"}</p>
               </div>
-              <h2 className="mt-1 font-display text-2xl italic text-slate-950">{stageCopy[stage].title}</h2>
+              <h2 className="mt-1 font-display text-2xl italic text-slate-950">
+                {isAdminPreview ? stageCopy[stage].title : "LinfaFlow Care review"}
+              </h2>
+
             </div>
             <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-500">
               <ShieldCheck className="h-4 w-4 text-emerald-700" />
