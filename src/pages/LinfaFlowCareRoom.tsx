@@ -1501,9 +1501,12 @@ export default function LinfaFlowCareRoom() {
             <div>
               <div className="flex items-center gap-2 text-emerald-700">
                 <MessageCircle className="h-4 w-4" />
-                <p className="text-xs uppercase tracking-[0.2em]">Lead web experience</p>
+                <p className="text-xs uppercase tracking-[0.2em]">{isAdminPreview ? "Lead web experience" : "Private consultation"}</p>
               </div>
-              <h2 className="mt-1 font-display text-2xl italic text-slate-950">{stageCopy[stage].title}</h2>
+              <h2 className="mt-1 font-display text-2xl italic text-slate-950">
+                {isAdminPreview ? stageCopy[stage].title : "LinfaFlow Care review"}
+              </h2>
+
             </div>
             <div className="flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-500">
               <ShieldCheck className="h-4 w-4 text-emerald-700" />
