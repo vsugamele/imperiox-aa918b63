@@ -374,13 +374,14 @@ const quizCompanions: Partial<Record<IntakeTextKey, QuizCompanion>> = {
   tried: {
     eyebrow: "Your history counts",
     title: "You should not have to repeat the same temporary fixes.",
-    text: "The conversation uses what you have already tried so the next step can address the pattern, not dismiss your effort.",
+    text: "I will take what you already tried into account, so the next step addresses your pattern instead of dismissing your effort.",
   },
   impact: {
     eyebrow: "The real reason",
     title: "Comfort, confidence and daily plans all count.",
-    text: "This answer helps the assistant speak to the moment you want back, rather than reducing everything to a symptom checklist.",
+    text: "This helps me talk about the moment you want back, not just a symptom checklist.",
   },
+
   red_flags: {
     eyebrow: "Safety first",
     title: "Some patterns deserve medical attention before a wellness routine.",
