@@ -315,7 +315,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "tried",
     eyebrow: "What you tried",
     question: "What have you already tried?",
-    helper: "This lets the assistant position LinfaFlow against outside-in fixes without dismissing them.",
+    helper: "Nothing you tried was wrong. I just need to know it before suggesting anything.",
     placeholder: "Example: compression socks, elevation, massage...",
     options: ["Compression socks", "Leg elevation", "Lymphatic drainage or massage", "Water pills or detox teas"],
   },
