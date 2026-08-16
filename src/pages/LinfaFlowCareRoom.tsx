@@ -331,7 +331,7 @@ const quizQuestions: QuizQuestion[] = [
     key: "red_flags",
     eyebrow: "Safety check",
     question: "Any sudden or severe warning signs?",
-    helper: "If yes, the flow pauses selling and recommends medical evaluation first.",
+    helper: "If any of these apply, I will point you to medical evaluation first.",
     placeholder: "Example: no sudden one-sided swelling, chest pain, wounds, or severe pain.",
     options: [
       "No sudden one-sided swelling, chest pain, wounds, or severe pain.",
