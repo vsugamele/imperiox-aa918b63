@@ -35,6 +35,40 @@ const X1_IMG = {
   garantia: `${X1_BASE}/x1/img/img_garantia.jpg`,
 };
 
+/** Mídias oficiais do funil SlimSoda X1 — chat conversacional com Dana Whitfield.
+ *  Hospedadas no Vercel (Slim-Soda01/chat-x1/) por enquanto; pra espelhar no Supabase
+ *  storage no mesmo path do LinfaFlow: whatsapp-media/slimsoda/x1/audio/*.mp3 e img/*.webp
+ *  Aponta SLIMSODA_BASE pra URL real quando subir. */
+const SLIMSODA_BASE = "https://slim-soda01.vercel.app/chat-x1";
+const SLIMSODA_AUDIO = {
+  dana_intro:          `${SLIMSODA_BASE}/audio/dana-intro.mp3`,
+  dana_confession:     `${SLIMSODA_BASE}/audio/dana-confession.mp3`,
+  dana_mechanism:      `${SLIMSODA_BASE}/audio/dana-mechanism.mp3`,       // fallback
+  dana_mechanism_eatless:   `${SLIMSODA_BASE}/audio/dana-mechanism-eatless.mp3`,
+  dana_mechanism_foodnoise: `${SLIMSODA_BASE}/audio/dana-mechanism-foodnoise.mp3`,
+  dana_mechanism_hormones:  `${SLIMSODA_BASE}/audio/dana-mechanism-hormones.mp3`,
+  dana_mechanism_kids:      `${SLIMSODA_BASE}/audio/dana-mechanism-kids.mp3`,
+  dana_reciprocity:    `${SLIMSODA_BASE}/audio/dana-reciprocity.mp3`,
+  dana_loss_aversion:  `${SLIMSODA_BASE}/audio/dana-loss-aversion.mp3`,  // fallback
+  dana_loss_aversion_eatless:   `${SLIMSODA_BASE}/audio/dana-loss-aversion-eatless.mp3`,
+  dana_loss_aversion_foodnoise: `${SLIMSODA_BASE}/audio/dana-loss-aversion-foodnoise.mp3`,
+  dana_loss_aversion_hormones:  `${SLIMSODA_BASE}/audio/dana-loss-aversion-hormones.mp3`,
+  dana_loss_aversion_kids:      `${SLIMSODA_BASE}/audio/dana-loss-aversion-kids.mp3`,
+  dana_cta:            `${SLIMSODA_BASE}/audio/dana-cta.mp3`,
+  testimonial_linda:   `${SLIMSODA_BASE}/audio/testimonial-linda.mp3`,
+  testimonial_marlene: `${SLIMSODA_BASE}/audio/testimonial-marlene.mp3`,
+  testimonial_diane:   `${SLIMSODA_BASE}/audio/testimonial-diane.mp3`,
+};
+const SLIMSODA_IMG = {
+  sisters:           `${SLIMSODA_BASE}/images/slimsoda_adv2_02_sisters.webp`,
+  quadrant:          `${SLIMSODA_BASE}/images/slimsoda_adv2_06_four_ways.webp`,
+  rachel_kitchen:    `${SLIMSODA_BASE}/images/slimsoda_adv2_09_rachel_ba_kitchen.webp`,
+  testimonial_linda: `${SLIMSODA_BASE}/images/slimsoda_new_testimonial_1.webp`,
+  testimonial_marlene: `${SLIMSODA_BASE}/images/slimsoda_new_testimonial_2.webp`,
+  testimonial_diane: `${SLIMSODA_BASE}/images/slimsoda_new_testimonial_3.webp`,
+  price_compare:     `${SLIMSODA_BASE}/images/slimsoda_adv2_16_price_compare.webp`,
+};
+
 /**
  * Mapa único placeholder → URL real.
  * Usado para sincronizar fluxos que foram salvos ANTES das mídias existirem
@@ -46,6 +80,12 @@ export const X1_MEDIA: Record<string, { url: string; kind: "image" | "audio" }> 
   ),
   ...Object.fromEntries(
     Object.entries(X1_AUDIO).map(([k, url]) => [`audio_${k}`, { url, kind: "audio" as const }]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(SLIMSODA_IMG).map(([k, url]) => [`slimsoda_${k}`, { url, kind: "image" as const }]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(SLIMSODA_AUDIO).map(([k, url]) => [`slimsoda_${k}`, { url, kind: "audio" as const }]),
   ),
 };
 
@@ -187,6 +227,33 @@ const X1_OBJECTIONS = `Objection arsenal — answer ONE objection per message, n
 
 /** Trial close 0-10 com ramificação por nota. */
 const X1_TRIAL_CLOSE = `Temperature read: ask "on a scale of 0 to 10, how much does this make sense for you?" and branch on the answer. 0-5: do not pitch, ask what's missing and go back to the objection playbook. 6-8: ask "what would make it a 10?" and answer exactly that one gap. 9-10: move straight to the assumptive close and send the link.`;
+
+// ─────────────────────────────────────────────────────────────
+// Guardrails do funil SlimSoda X1 — chat conversacional Dana
+// (baking soda + ginger + berberine, ticket baixo $24.99 B1G1)
+// ─────────────────────────────────────────────────────────────
+
+/** Palavras proibidas — FDA compliance + credibilidade. */
+const SLIMSODA_BANNED = `NEVER use these words or claims: cure, treat, heal, FDA approved, doctor recommended, medically proven, clinical study, "guaranteed to work", "lose X pounds in Y days", before/after with specific numbers, "this will". Use support / help / "many women report" / "showed" language instead. Never diagnose and never give medical advice — if she mentions a medical condition or medication, tell her to check with her doctor and stay supportive. The 93% DPP-4 figure refers specifically to in-vitro gingerol blocking the DPP-4 enzyme, not to weight loss.`;
+
+/** Regra de negociação — sem desconto, $24.99 B1G1 é fixo, 60-day guarantee. */
+const SLIMSODA_NEGOTIATION = `Pricing is FIXED at $24.99 for two tubs (Buy 1 Get 1 Free). Never invent a discount, coupon, bundle upgrade, or deadline. The only trade currencies you may use are (a) the 60-day empty-tub money-back guarantee — full refund, no questions, no restocking fee, she uses the whole tub, and (b) the free shipping. If she demands a discount before seeing any value, do not concede — go back to the value equation (3 ingredients in the right order, vs $1,000/month Ozempic). If she keeps pushing only on price, tag her as a discount hunter and stop selling.`;
+
+/** Árvore de objeções SlimSoda. */
+const SLIMSODA_OBJECTIONS = `Objection arsenal — answer ONE objection per message, never stack two. Each objection has a hidden meaning; answer the hidden meaning, not the words:
+1. "I already tried baking soda and it did nothing" (hidden: didn't see the order, missing context). DIY fails because the ratio, dose and form matter — grocery ginger has almost no gingerol, cheap berberine is barely absorbed, baking soda dosing is knife-edge. Three together, in the right order, is what makes it work. This is the celebrity capsule dose, not a Pinterest recipe.
+2. "Is it safe with my medication?" — no advice. Tell her to run the ingredient list by her doctor; offer to send the exact list. Stay warm.
+3. "I've tried Ozempic / Wegovy and it came back" (hidden: tired of the yo-yo, wants a non-drug option). The shots cost up to $1,000/month forever and weight comes back when you stop. SlimSoda is $24.99 once for two tubs, the switch flips, you keep it.
+4. "It probably doesn't work" (hidden: justified skepticism from past failures). Acknowledge. Then the 60-day empty-tub guarantee: she uses the whole tub, sends it back empty if it didn't work, full refund, no questions. The risk sits with us, not her.
+5. "I need to think about it" (60% not convinced, 30% needs a partner's opinion, 10% wants to compare). Use negative reverse: "Maybe this isn't the right fit for you right now — can I ask what's making you hesitate?" Then answer that one thing.
+6. "My doctor said it's just aging / menopause" (hidden: she was dismissed). Validate: doctors measure blood, not the metabolic switch. Three ingredients, in the right order, can restart it. Never contradict her doctor — reframe.
+7. "I don't trust supplements" (hidden: justified skepticism from a noisy industry). Don't argue. Acknowledge, show the ingredient transparency (3 named, doses listed), then the 60-day empty-tub refund — the risk sits with us, not her.`;
+
+/** Trial close 0-10 — mesmo padrão LinfaFlow, contextualizado pra SlimSoda. */
+const SLIMSODA_TRIAL_CLOSE = `Temperature read: ask "on a scale of 0 to 10, how much does this make sense for you?" and branch on the answer. 0-5: do not pitch, ask what's missing and go back to the objection playbook. 6-8: ask "what would make it a 10?" and answer exactly that one gap. 9-10: move straight to the assumptive close and send the link. Always frame the offer as a 60-day audition, not a purchase — she decides after she finishes the tub.`;
+
+/** URL de checkout fixa — NUNCA inventar outra. */
+const SLIMSODA_CHECKOUT_URL = "https://slimsodapowder.com/cc2/dtc/pay/checkout.php?package=3bottles&hid=b2lkPW9mZl81MDU4NzI1JmFpZD1hZmZfNjgyMTM3NyZ1aWQ9YmxfMDM4MDIyMg%3D%3D&affid=aff_6821377";
 
 export const FLOW_TEMPLATES: FlowTemplate[] = [
   {
@@ -799,7 +866,255 @@ The moment she shows real buying intent (asks price, shipping, how to order, or 
       aguardar(2880),
       { tipo: "audio", template: X1_AUDIO.inercia, delay_min: 0 } as Acao,
       aguardar(5760),
-      wa(`A new one came in this week and it made me think of what you told me:\n${X1_IMG.prova_3}`, 0),
+      wa(`A new one came in this week and it made me think of what she told me:\n${X1_IMG.prova_3}`, 0),
+      stop("compra_aprovada"),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // SLIMSODA X1 — CHAT CONVERSACIONAL DANA (EN-US)
+  // LP conversacional estilo WhatsApp. 11 nós, 25+ técnicas de
+  // conversão aplicadas, 4 variants por frustração (eat_less_gain,
+  // food_noise, hormones, after_kids) e 3 variants por idade
+  // (testemunhas Linda 63, Marlene 67, Diane 71).
+  //
+  // Assets: SLIMSODA_AUDIO (17 TTS clips voz feminina) +
+  // SLIMSODA_IMG (11 webp) + SLIMSODA_CHECKOUT_URL.
+  //
+  // Compatível com o chat-x1 deployed em slim-soda01.vercel.app/chat-x1/.
+  // Pendentes: migração dos assets pro Supabase storage (mesmo padrão X1).
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: "slimsoda-x1-conversational",
+    nome: "SlimSoda X1 — Chat Conversacional Dana [EN-US]",
+    descricao:
+      "Canal: Chat LP com skin WhatsApp/Messenger. 11 nós com 4 variants por frustração e 3 por idade. Áudio pré-gravado (Dana, voz feminina) + texto complementar + LLM bounded nas objeções. Fixa: $24.99 B1G1, 60-day empty-tub guarantee.",
+    trigger_tipo: "lead_novo",
+    categoria: "x1-conversao",
+    emoji: "🥤",
+    acoes: [
+      // ── 1. WELCOME (áudio + texto) ──
+      audioSec(SLIMSODA_AUDIO.dana_intro, 2),
+      waSec("I'm the formulator behind all those viral baking soda videos — the original recipe, not the copycat.", 2),
+      waSec("Before I tell you how it works, I want to understand you first.", 2),
+      waSec("A few quick questions, then I'll show you the recipe nobody else is sharing.", 3),
+      tag("slimsoda-x1"),
+
+      // ── 2. QUALIFYING 1: AGE ──
+      waSec("First — what's your age? Just so I can tell you the right story.", 2),
+      waitReply(60),
+      qualify(20, "slimsoda,x1-qualificado", "qualificacao"),
+
+      // ── 2b. QUALIFYING 2: FRUSTRATION (ramificada) ──
+      ia(
+        `You are Dana, a warm sister-figure formulator in her late 50s. She just told you her age. Mirror it back in one warm sentence, then ask the frustration question. American English, 1-2 short lines, WhatsApp-style chat.
+
+Next question: "What's the worst part of where you are right now?" with these 4 quick-reply options:
+- I eat less and still gain
+- Constant food noise / hunger
+- Hormones / menopause
+- After kids / pregnancy
+
+Store her choice in state.frustration. End with the quick-reply buttons, no link, no pitch.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false, questioning_strategy: "consultivo_progressivo" }
+      ),
+      waitReply(120),
+      qualify(40, "slimsoda,x1-diagnostico", "qualificacao"),
+
+      // ── 2c. QUALIFYING 3: GLP-1 ──
+      ia(
+        `She picked a frustration. Mirror it in one sentence ("That is the thing I hear most from women your age"), then ask the next question — short, chat-length:
+
+"Have you tried Ozempic, Wegovy, or any of the injections?" with options:
+- Yes — and stopped
+- Yes — still on it
+- No — too expensive
+- No — scared of it
+
+Store her choice in state.glp1. Quick replies, no link.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false }
+      ),
+      waitReply(90),
+
+      // ── 2d. QUALIFYING 4: WEIGHT ──
+      ia(
+        `One more question. Chat-length, warm, quick-reply format:
+
+"Last one. How much weight do you want to lose?" with options:
+- 5-10 kg
+- 10-20 kg
+- 20+ kg
+
+Store in state.weight. Then move to the personalized hook — do NOT pitch yet.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false }
+      ),
+      waitReply(90),
+      qualify(60, "slimsoda,x1-pronto-hook", "qualificacao"),
+
+      // ── 3. PERSONALIZED HOOK (4 variants by frustration) ──
+      ia(
+        `She's answered all 4 qualifying questions. She has state.frustration, state.age, state.glp1, state.weight. Send ONE short message — the personalized hook, branched by frustration:
+
+- eat_less_gain: "That is the number one thing I hear from women who eat like a bird and still gain. I know — you've probably tried cutting calories, even tried the celebrity capsule. None of it worked because of the order. Let me show you why eating less was never going to fix this."
+- food_noise: "The food noise is the worst part. I know. It is not willpower. It is a switch in your gut. You've probably tried everything short of this. Let me show you how I flipped mine — and how Rachel's did too."
+- hormones: "After 40, after babies, after menopause — the switch gets stuck. It is not your hormones being broken. It is one specific signal that stopped. You've probably been told it's 'just age.' It isn't. Let me show you how to restart it."
+- after_kids: "I made this for the sister version of you. Three kids in, body you don't recognize, doctors telling you to eat less. You've probably tried the gym, the shakes, even the injections. Same story Rachel lived. Let me show you what actually worked."
+
+Always reference her specific state (age, weight, glp1) in one short sentence first. Chat-length, 2-3 lines. No link, no price, no pitch.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false, questioning_strategy: "personalized_hook" }
+      ),
+      waitReply(120),
+
+      // ── 4. CONFESSION (áudio + texto + imagem) ──
+      audioSec(SLIMSODA_AUDIO.dana_confession, 3),
+      waSec("I'm going to tell you something I've never said publicly.", 2),
+      waSec("I was wrong about something for twenty years.", 2),
+      waSec("What I found out that night changed everything — and ended up in the formula that's in all those videos you keep seeing.", 3),
+      wa(SLIMSODA_IMG.sisters, 1),
+      waitReply(60),
+
+      // ── 5. MECHANISM (4 variants by frustration) ──
+      ia(
+        `Now the mechanism. Branched by state.frustration. Send the matching audio (use the URL from SLIMSODA_AUDIO.dana_mechanism_<variant>) right BEFORE the text. Audio is a short 8-10s hook. Text is the complementary expansion.
+
+- eat_less_gain: play dana_mechanism_eatless. Then text: "It's not about eating less. It's about the order. Baking soda wakes dormant gut cells. Ginger protects the hormone that tells your body it's full. Berberine flips the switch from STORE to BURN. That's why eating less never worked. The order is the secret. Sound about right?"
+- food_noise: play dana_mechanism_foodnoise. Then: "The noise quiets when the switch flips. Three ingredients — in the right order. Baking soda wakes the cells that respond to your fullness hormone. Ginger blocks the enzyme that's stealing it — by ninety-three percent. Berberine flips the switch from STORE to BURN. The first morning, you feel it."
+- hormones: play dana_mechanism_hormones. Then: "Your hormone isn't broken. It's being destroyed. An enzyme called DPP-4 is eating it before your body can use it. Ginger blocks that enzyme — by ninety-three percent. Baking soda wakes the cells. Berberine flips the switch. Three ingredients, in order, every morning. Sound fair?"
+- after_kids: play dana_mechanism_kids. Then: "Your body remembers the version of you that was thinner. It's still in there. Wake the cells with baking soda. Protect the hormone with ginger. Flip the switch with berberine. Three ingredients, in the right order, in the right amounts. The first week, the noise quiets. By week three, you're back."
+
+ALWAYS use the matching variant audio + text. Never use the fallback dana_mechanism unless state.frustration is unknown.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false, audio_url: SLIMSODA_AUDIO.dana_mechanism_eatless }  // hint ao runtime pra tocar áudio
+      ),
+      ia(
+        `Play the matching mechanism audio for state.frustration (eatless / foodnoise / hormones / kids) right before sending the expansion text. Always include the audio first, then the text below it.`,
+        0
+      ),
+      waitReply(60),
+
+      // ── 6. RECIPROCITY (áudio) ──
+      audioSec(SLIMSODA_AUDIO.dana_reciprocity, 2),
+      waSec("Look, I gave away the recipe for free. The celebrities made billions.", 2),
+      waSec("I'm not asking you to pay for the secret.", 2),
+      waSec("I'm asking you to try the version that's done right. That's it.", 3),
+      waitReply(60),
+
+      // ── 7. TESTIMONIAL (3 variants by age) ──
+      ia(
+        `Testimonial stage. Branched by state.age. Audio is a real woman telling her story in her own voice; text is a short caption + caption image.
+
+- age 55-70: play dana_testimonial_linda. Text: "Hear it from Linda in her own voice." Image: SLIMSODA_IMG.testimonial_linda. Caption: "Linda, 63 — Asheville, NC · 22 pounds down"
+- age 70+: play dana_testimonial_diane. Text: "Hear it from Diane in her own voice." Image: SLIMSODA_IMG.testimonial_diane. Caption: "Diane, 71 — Mesa, AZ · tried the shots, gained it all back"
+- age 30-45 OR 45-55: play dana_testimonial_marlene. Text: "Hear it from Marlene in her own voice." Image: SLIMSODA_IMG.testimonial_marlene. Caption: "Marlene, 67 — Dublin, GA · the jeans buttoned"
+
+Audio is the primary hook. Text is just a caption. Never use the wrong testimonial for the wrong age bracket.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false, audio_url: SLIMSODA_AUDIO.testimonial_linda }
+      ),
+      waitReply(60),
+
+      // ── 8. PROOF SISTERS (Rachel 41 lbs) ──
+      wa(SLIMSODA_IMG.rachel_kitchen, 0),
+      waSec("I gave my sister Rachel the same formula. She lost 41 pounds.", 3),
+      waSec("No diet. No gym. Just one scoop a day.", 2),
+      waSec('She texted me the photo above and said: "Dana, the noise is gone."', 3),
+      waSec("If you're still reading this, you're not ready to give up. You're just ready to do it right.", 3),
+      waitReply(60),
+
+      // ── 9. LOSS AVERSION (4 variants by frustration) ──
+      ia(
+        `Loss aversion stage. Branched by state.frustration. Play the matching audio FIRST (8s hook), then the text expansion (emotional weight + future cost).
+
+- eat_less_gain: play dana_loss_aversion_eatless. Then: "You've done the work. You cut the calories. You watched what you ate. And the number still went up. That's not a willpower problem — that's the switch stuck on STORE. Six months from now, you could be free of that — or still wondering why nothing works. I don't want that for you."
+- food_noise: play dana_loss_aversion_foodnoise. Then: "That constant pull — the one that never turns off, even when you're full. I know. It's not hunger. It's the switch. Six months from now, you could have it quiet — or you could still be fighting it every hour. I know which one I want for you."
+- hormones: play dana_loss_aversion_hormones. Then: "After 40, after menopause, after the kids — your doctor said it's just age. It isn't. The switch is stuck on STORE, not broken. Six months from now, you could have it back — or still blaming your age. You know that's not what it is."
+- after_kids: play dana_loss_aversion_kids. Then: "Three kids in. Body you don't recognize. Photos you avoid. I made this for the version of you that was before. Six months from now, you could be back in the photo with them — or still hiding from the camera. You decide."
+
+Then close with a micro-commitment quick-reply: "I don't want to wait" → next.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false, audio_url: SLIMSODA_AUDIO.dana_loss_aversion_eatless }
+      ),
+      waitReply(60),
+
+      // ── 10. FUTURE PACE ──
+      ia(
+        `Future pacing, 1-2 short messages. Picture herself 90 days from now — the food noise is gone, she wakes up lighter, she's in the photo with her kids again. "Picture yourself 90 days from now." "A return to yourself." Close with the quick-reply "I'm in — show me" → ask_anything.
+
+${SLIMSODA_BANNED}`,
+        0,
+        { ia_vision: false }
+      ),
+      waitReply(60),
+
+      // ── 11. ASK ANYTHING (LLM bounded) ──
+      ia(
+        `She's seen the hook, the mechanism, the reciprocity, the testimonial, the proof, the loss aversion, and the future pace. Her temperature is high.
+
+Now: let her ask anything, but with a clear bound. Answer briefly (1-3 sentences), use the techniques, reference her specific state (age, frustration, glp1, weight) when relevant. Then ALWAYS end with a clear next-step prompt: "Here's the offer →" or "Want to see it?" or similar.
+
+Maximum 2 free-text turns per session — after that, just show the offer and stop selling. Don't get stuck in a chat loop.
+
+${SLIMSODA_BANNED}
+${SLIMSODA_NEGOTIATION}`,
+        0,
+        { ia_vision: false, questioning_strategy: "ask_anything_bounded" }
+      ),
+      waitReply(120),
+
+      // ── 12. OFFER ($24.99 B1G1 + state-based callback) ──
+      audioSec(SLIMSODA_AUDIO.dana_cta, 2),
+      waSec("I made this for women like you. You're the kind of woman who takes action when she sees something real.", 2),
+      waSec("No risk on you.", 2),
+
+      // Offer com callback por frustration + age note
+      ia(
+        `Offer stage. Use state-based callback — the same one in the chat-x1 SCRIPT. Send the price comparison image SLIMSODA_IMG.price_compare, then the offer card. End with the checkout link.
+
+- eat_less_gain callback: "For you — eating like a bird and still gaining — this is the recipe."
+- food_noise callback: "For the food noise that never quiets — this is what finally turns it off."
+- hormones callback: "For the post-40, post-menopause switch that's stuck on STORE — this flips it back."
+- after_kids callback: "For the body you don't recognize after kids — this is what works."
+
+If state.age is 55-70, append "(at 55-70, this works even faster)".
+
+Then show the stack:
+- 2 tubs (60-84 day supply): $119.98
+- Free shipping: $9.99
+- 60-day empty-tub money-back guarantee: included
+- TODAY: $24.99
+
+CTA: "YES — SEND MY 2 TUBS ($24.99) →" with the SLIMSODA_CHECKOUT_URL.
+
+Identity reinforcement before: "You're the kind of woman who takes action when she sees something real."
+Urgency: "⏰ Launch price — when the free-tub run is gone, it goes to $59.99/tub."
+
+${SLIMSODA_BANNED}
+${SLIMSODA_NEGOTIATION}`,
+        0,
+        { ia_vision: false, audio_url: SLIMSODA_AUDIO.dana_cta }
+      ),
+
+      // ── 13. CLOSE: qualifica + tag + stop ──
+      qualify(85, "slimsoda,pronto-fechamento,x1-conversacional", "fechamento"),
+      notify("comercial"),
       stop("compra_aprovada"),
     ],
   },
