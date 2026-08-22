@@ -53841,13 +53841,18 @@ export type Database = {
       guiadobuscador_top_posts_views: {
         Args: { p_days?: number; p_limit?: number }
         Returns: {
-          period: number
+          period_page_views: number
+          period_unique_visitors: number
           post_id: string
           slug: string
           title: string
-          today: number
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
           total_views: number
-          yesterday: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
         }[]
       }
       guiadobuscador_track_page_view: {
@@ -53858,17 +53863,23 @@ export type Database = {
         Args: { p_days?: number }
         Returns: {
           day: string
-          visits: number
+          page_views: number
+          unique_visitors: number
         }[]
       }
       guiadobuscador_visits_summary: {
         Args: never
         Returns: {
-          last30: number
-          last7: number
-          today: number
-          total: number
-          yesterday: number
+          last30_page_views: number
+          last30_unique_visitors: number
+          last7_page_views: number
+          last7_unique_visitors: number
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
         }[]
       }
       handle_points_deduction: {
