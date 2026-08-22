@@ -69,6 +69,8 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   { value: "messenger_palavra_chave", label: "Palavra-chave no Messenger", icon: "🔑", color: "border-l-blue-600", group: "Outros canais" },
   { value: "webchat_mensagem_recebida", label: "Mensagem no chat do site", icon: "🌐", color: "border-l-cyan-500", group: "Outros canais" },
   { value: "webchat_sessao_iniciada", label: "Chat do site iniciado", icon: "✨", color: "border-l-cyan-400", group: "Outros canais" },
+  { value: "webhook_externo", label: "Webhook externo (Zernio, n8n, Make)", icon: "🔗", color: "border-l-violet-500", group: "Outros canais" },
+
 ];
 
 const CANAIS: { value: string; label: string; icon: string }[] = [
