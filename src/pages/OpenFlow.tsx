@@ -443,6 +443,8 @@ export default function OpenFlow() {
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
         <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
         <TabsContent value="canais"><WebchatWidgets projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+        <TabsContent value="webhooks" className="pt-4"><InboundWebhooks projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+
 
       </Tabs>
 
