@@ -21792,6 +21792,57 @@ export type Database = {
           },
         ]
       }
+      imphq_flow_webhooks: {
+        Row: {
+          ativo: boolean
+          automacao_id: string | null
+          created_at: string
+          evento: string | null
+          field_map: Json
+          id: string
+          last_event_id: string | null
+          last_payload: Json | null
+          last_received_at: string | null
+          nome: string
+          project_id: string | null
+          token: string
+          total_recebidos: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          automacao_id?: string | null
+          created_at?: string
+          evento?: string | null
+          field_map?: Json
+          id?: string
+          last_event_id?: string | null
+          last_payload?: Json | null
+          last_received_at?: string | null
+          nome?: string
+          project_id?: string | null
+          token?: string
+          total_recebidos?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          automacao_id?: string | null
+          created_at?: string
+          evento?: string | null
+          field_map?: Json
+          id?: string
+          last_event_id?: string | null
+          last_payload?: Json | null
+          last_received_at?: string | null
+          nome?: string
+          project_id?: string | null
+          token?: string
+          total_recebidos?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_flows: {
         Row: {
           edges: Json | null

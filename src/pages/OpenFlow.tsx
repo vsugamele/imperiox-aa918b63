@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -35,6 +35,8 @@ import { X1BuilderWizard } from "@/components/openflow/X1BuilderWizard";
 import { X1Checklist } from "@/components/openflow/flow-editor/X1Checklist";
 import { AIGenerateDialog } from "@/components/openflow/AIGenerateDialog";
 import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
+import { InboundWebhooks } from "@/components/openflow/InboundWebhooks";
+
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
 import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
 
@@ -69,6 +71,8 @@ const TRIGGERS: { value: string; label: string; icon: string; color: string; gro
   { value: "messenger_palavra_chave", label: "Palavra-chave no Messenger", icon: "🔑", color: "border-l-blue-600", group: "Outros canais" },
   { value: "webchat_mensagem_recebida", label: "Mensagem no chat do site", icon: "🌐", color: "border-l-cyan-500", group: "Outros canais" },
   { value: "webchat_sessao_iniciada", label: "Chat do site iniciado", icon: "✨", color: "border-l-cyan-400", group: "Outros canais" },
+  { value: "webhook_externo", label: "Webhook externo (Zernio, n8n, Make)", icon: "🔗", color: "border-l-violet-500", group: "Outros canais" },
+
 ];
 
 const CANAIS: { value: string; label: string; icon: string }[] = [
@@ -335,6 +339,8 @@ export default function OpenFlow() {
           <TabsTrigger value="roi" className="gap-2"><Zap className="h-4 w-4" /> ROI Global</TabsTrigger>
           <TabsTrigger value="midias" className="gap-2"><ImageIcon className="h-4 w-4" /> Mídias</TabsTrigger>
           <TabsTrigger value="canais" className="gap-2"><MessageCircle className="h-4 w-4" /> Canais & Site</TabsTrigger>
+          <TabsTrigger value="webhooks" className="gap-2"><Link2 className="h-4 w-4" /> Webhooks de Entrada</TabsTrigger>
+
 
         </TabsList>
 
@@ -437,6 +443,8 @@ export default function OpenFlow() {
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
         <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
         <TabsContent value="canais"><WebchatWidgets projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+        <TabsContent value="webhooks" className="pt-4"><InboundWebhooks projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+
 
       </Tabs>
 

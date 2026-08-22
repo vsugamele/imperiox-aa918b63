@@ -100,7 +100,13 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string 
   whatsapp_mensagem_recebida: { label: "Mensagem recebida no WhatsApp", icon: "💬", group: "WhatsApp" },
   whatsapp_palavra_chave: { label: "Palavra-chave no WhatsApp", icon: "🔑", group: "WhatsApp" },
   whatsapp_primeira_mensagem: { label: "Primeira mensagem do lead (WA)", icon: "🆕", group: "WhatsApp" },
+  messenger_mensagem_recebida: { label: "Qualquer DM no Messenger", icon: "📨", group: "Outros canais" },
+  messenger_palavra_chave: { label: "Palavra-chave no Messenger", icon: "🔑", group: "Outros canais" },
+  webchat_mensagem_recebida: { label: "Mensagem no chat do site", icon: "🌐", group: "Outros canais" },
+  webchat_sessao_iniciada: { label: "Chat do site iniciado", icon: "✨", group: "Outros canais" },
+  webhook_externo: { label: "Webhook externo (Zernio, n8n, Make)", icon: "🔗", group: "Outros canais" },
 };
+
 
 const DYNAMIC_VARS = [
   { var: "{{nome}}", label: "Nome" },
