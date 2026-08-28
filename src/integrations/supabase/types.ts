@@ -53623,6 +53623,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      areamembrojp_home_public: { Args: never; Returns: Json }
       areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
       areamembrojp_link_legacy_for_user: {
         Args: { _user_id: string }
