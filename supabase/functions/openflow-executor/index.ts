@@ -1608,7 +1608,7 @@ Deno.serve(async (req) => {
                     project_id,
                     event_name: "email_sent",
                     page_url: "",
-                    data: {
+                    event_data: {
                       to_email: toEmail,
                       template_name: `inline: ${finalSubject.substring(0, 50)}`,
                       status: resendRes.ok ? "sent" : "error",
@@ -1717,7 +1717,7 @@ Deno.serve(async (req) => {
                 .from("imphq_events")
                 .select("id")
                 .eq("event_name", "email_opened")
-                .filter("data->>to_email", "eq", toEmail)
+                .filter("event_data->>to_email", "eq", toEmail)
                 .gt("created_at", flowStartTime)
                 .limit(1);
               if (openEvents && openEvents.length > 0) {
