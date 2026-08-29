@@ -775,13 +775,19 @@ Deno.serve(async (req) => {
           searchPhones.push("55" + cleanPhone);
         }
 
-        const { data: leadData } = await supabase
-          .from("imphq_leads")
-          .select("*")
-          .eq("project_id", project_id)
-          .in("phone", searchPhones)
-          .maybeSingle();
-        lead = leadData;
+        // Reaproveita o lead já carregado no início do handler (evita 2ª leitura
+        // de imphq_leads por mensagem recebida)
+        if (leadRow) {
+          lead = leadRow;
+        } else {
+          const { data: leadData } = await supabase
+            .from("imphq_leads")
+            .select("*")
+            .eq("project_id", project_id)
+            .in("phone", searchPhones)
+            .maybeSingle();
+          lead = leadData;
+        }
 
         if (lead) {
           const aiProfile = lead.data?.ai_profile || {};

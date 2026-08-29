@@ -49,6 +49,9 @@ Deno.serve(async (req) => {
   }
 
   let payload: any = null;
+  // Guardado fora do try para o catch atualizar o log por id (evita varredura
+  // completa da tabela com filtro em payload->>id, que não é indexado)
+  let logRowId: string | null = null;
   try {
     payload = await req.json();
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
@@ -92,6 +95,7 @@ Deno.serve(async (req) => {
       payload,
       processed: false,
     }).select("id").maybeSingle();
+    logRowId = (logEntry as any)?.id ?? null;
 
     // === COMMENT EVENTS (comment.received etc) ===
     if (typeof payload.event === "string" && payload.event.startsWith("comment.")) {
@@ -563,7 +567,9 @@ Deno.serve(async (req) => {
     // Write error to log row if it exists
     try {
       const supaForErr = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).filter("payload->>id", "eq", payload?.id || "");
+      if (logRowId) {
+        await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).eq("id", logRowId);
+      }
     } catch (dbErr: any) {
       console.error("[zernio-webhook] Error updating error log in DB:", dbErr.message);
     }
