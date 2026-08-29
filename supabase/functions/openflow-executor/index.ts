@@ -560,10 +560,12 @@ Deno.serve(async (req) => {
       // Load lead details once for the execution of this automation
       let leadDb: any = null;
 
+      const LEAD_COLS = "id, nome, email, phone, project_id, funil_id, plataforma, status, score, tags, total_gasto, data, campanha_id, lead_memory, awareness_level, ultimo_interesse, nivel_qualificacao, dor_principal, objecao_atual, created_at, updated_at";
+
       if (lead_data?.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
-          .select("*")
+          .select(LEAD_COLS)
           .eq("id", lead_data.lead_id)
           .maybeSingle();
         leadDb = l;
