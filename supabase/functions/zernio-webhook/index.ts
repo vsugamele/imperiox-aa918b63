@@ -62,14 +62,24 @@ Deno.serve(async (req) => {
       || null;
 
     if (earlyMessageId) {
-      const { data: dup } = await supa
-        .from("imphq_ig_webhook_logs")
-        .select("id")
-        .eq("event_type", `zernio_${payload.event || "unknown"}`)
-        .or(`payload->data->message->>id.eq.${earlyMessageId},payload->message->>id.eq.${earlyMessageId}`)
-        .eq("processed", true)
-        .limit(1)
-        .maybeSingle();
+      // Usa índices de expressão em payload->data->message->>id e payload->message->>id.
+      // Uma query por caminho (o .or misto não usa índice) + janela de 2 dias.
+      const since = new Date(Date.now() - 2 * 86400_000).toISOString();
+      const dupQuery = (path: string) =>
+        supa
+          .from("imphq_ig_webhook_logs")
+          .select("id")
+          .eq(path, earlyMessageId)
+          .eq("processed", true)
+          .gte("created_at", since)
+          .limit(1)
+          .maybeSingle();
+
+      const [d1, d2] = await Promise.all([
+        dupQuery("payload->data->message->>id"),
+        dupQuery("payload->message->>id"),
+      ]);
+      const dup = d1.data || d2.data;
       if (dup) {
         console.log(`[zernio-webhook] Duplicate messageId ${earlyMessageId} — skipping`);
         return new Response("OK (duplicate)", { status: 200 });
