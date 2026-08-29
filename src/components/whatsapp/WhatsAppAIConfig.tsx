@@ -319,7 +319,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     try {
       const { data, error } = await supabase
         .from("imphq_wa_knowledge")
-        .select("*")
+        .select("id, project_id, pergunta, resposta, source, score_uso, aprovada, answered, conversation_id, lead_id, created_at, updated_at, last_applied_at")
         .eq("project_id", projectId)
         .eq("aprovada", false)
         .eq("source", "lead_unanswered")
