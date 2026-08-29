@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       if (exec.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
-          .select("id, name, email, phone, telefone, produto, plataforma, lead_memory")
+          .select("id, nome, email, phone, plataforma, tags, lead_memory")
           .eq("id", exec.lead_id)
           .maybeSingle();
         leadDb = l;
