@@ -65,7 +65,7 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
   
   const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
   const linkUrl = lead_data?.link || "";
-  const nome = lead_data?.nome || leadDb?.name || "Lead";
+  const nome = lead_data?.nome || leadDb?.nome || leadDb?.name || "Lead";
   
   result = result
     .replace(/\{\{nome\}\}/g, nome)
@@ -123,9 +123,11 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fetch all automations to map them
+    const neededAutoIds = Array.from(new Set(executions.map((e: any) => e.automacao_id).filter(Boolean)));
     const { data: automacoes, error: autoErr } = await supabase
       .from("imphq_automacoes")
-      .select("id, nome, stalled_hours, stalled_operator, follow_up_hours, follow_up_template, acoes, provider_id");
+      .select("id, nome, stalled_hours, stalled_operator, follow_up_hours, follow_up_template, provider_id")
+      .in("id", neededAutoIds);
 
     if (autoErr) {
       console.error("[wa-behavioral-triggers] Error fetching automations:", autoErr);
@@ -152,7 +154,7 @@ Deno.serve(async (req) => {
       if (exec.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
-          .select("*")
+          .select("id, nome, email, phone, plataforma, tags, lead_memory")
           .eq("id", exec.lead_id)
           .maybeSingle();
         leadDb = l;
@@ -167,7 +169,7 @@ Deno.serve(async (req) => {
 
         if (hoursDiff >= auto.stalled_hours) {
           const opName = auto.stalled_operator || "todos";
-          const leadName = leadDb?.name || "Lead";
+          const leadName = leadDb?.nome || leadDb?.name || "Lead";
           const notificationMsg = `⚠️ ALERTA: O lead ${leadName} está parado na etapa ${exec.current_step} do fluxo "${auto.nome}" há mais de ${auto.stalled_hours} horas.`;
 
           let targetUserIds: string[] = [];
