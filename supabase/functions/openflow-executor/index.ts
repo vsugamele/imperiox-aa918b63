@@ -581,7 +581,7 @@ Deno.serve(async (req) => {
           }
           const { data: l } = await supabase
             .from("imphq_leads")
-            .select("*")
+            .select(LEAD_COLS)
             .eq("project_id", project_id)
             .in("phone", searchPhones)
             .maybeSingle();
