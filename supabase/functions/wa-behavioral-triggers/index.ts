@@ -65,7 +65,7 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
   
   const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
   const linkUrl = lead_data?.link || "";
-  const nome = lead_data?.nome || leadDb?.name || "Lead";
+  const nome = lead_data?.nome || leadDb?.nome || leadDb?.name || "Lead";
   
   result = result
     .replace(/\{\{nome\}\}/g, nome)
