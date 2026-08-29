@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         project_id: failures[0].project_id || "system",
         event_name: "wa_health_check_failed",
         page_url: "",
-        data: { failures, checked_at: new Date().toISOString(), total_providers: providers.length },
+        event_data: { failures, checked_at: new Date().toISOString(), total_providers: providers.length },
       });
 
       // Filtra só falhas com alertas ativos
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
                 project_id: f.project_id || "system",
                 event_name: "wa_health_alert_sent",
                 page_url: "",
-                data: { instance_name: f.instance, severity: f.severity, sent_to: "ipcompanidigital@gmail.com" },
+                event_data: { instance_name: f.instance, severity: f.severity, sent_to: "ipcompanidigital@gmail.com" },
               }))
             );
           }
@@ -231,7 +231,7 @@ async function tryAutoReconnect(
       project_id: provider.project_id || "system",
       event_name: "wa_auto_reconnect_attempt",
       page_url: "",
-      data: { instance_name: provider.instance_name, previous_state: state, result, ok: res.ok },
+      event_data: { instance_name: provider.instance_name, previous_state: state, result, ok: res.ok },
     });
 
     return { attempted: true, result };

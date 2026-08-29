@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       project_id,
       event_name: "email_sent",
       page_url: "",
-      data: eventData,
+      event_data: eventData,
     });
 
     if (!resendRes.ok) {

@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     if (exec?.automacao_id) {
       const { data: auto } = await supabase
         .from("imphq_automacoes")
-        .select("id, nome, acoes, etapas")
+        .select("id, nome, acoes")
         .eq("id", exec.automacao_id)
         .maybeSingle();
       if (auto) {

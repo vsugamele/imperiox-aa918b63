@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
           console.log(`[wa-ai-reply] Active flow execution found: ${activeExec.id}, step: ${activeExec.current_step}`);
           const { data: automacao } = await supabase
             .from("imphq_automacoes")
-            .select("id, nome, acoes, etapas")
+            .select("id, nome, acoes")
             .eq("id", activeExec.automacao_id)
             .single();
             
