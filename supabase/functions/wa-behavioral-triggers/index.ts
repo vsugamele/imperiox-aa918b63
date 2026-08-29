@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
 
         if (hoursDiff >= auto.stalled_hours) {
           const opName = auto.stalled_operator || "todos";
-          const leadName = leadDb?.name || "Lead";
+          const leadName = leadDb?.nome || leadDb?.name || "Lead";
           const notificationMsg = `⚠️ ALERTA: O lead ${leadName} está parado na etapa ${exec.current_step} do fluxo "${auto.nome}" há mais de ${auto.stalled_hours} horas.`;
 
           let targetUserIds: string[] = [];
