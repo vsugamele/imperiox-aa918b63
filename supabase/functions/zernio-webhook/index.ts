@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
       payload,
       processed: false,
     }).select("id").maybeSingle();
+    logRowId = (logEntry as any)?.id ?? null;
 
     // === COMMENT EVENTS (comment.received etc) ===
     if (typeof payload.event === "string" && payload.event.startsWith("comment.")) {
