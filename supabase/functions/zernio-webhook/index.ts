@@ -49,6 +49,9 @@ Deno.serve(async (req) => {
   }
 
   let payload: any = null;
+  // Guardado fora do try para o catch atualizar o log por id (evita varredura
+  // completa da tabela com filtro em payload->>id, que não é indexado)
+  let logRowId: string | null = null;
   try {
     payload = await req.json();
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
