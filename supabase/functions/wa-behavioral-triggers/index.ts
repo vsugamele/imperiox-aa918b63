@@ -123,9 +123,11 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fetch all automations to map them
+    const neededAutoIds = Array.from(new Set(executions.map((e: any) => e.automacao_id).filter(Boolean)));
     const { data: automacoes, error: autoErr } = await supabase
       .from("imphq_automacoes")
-      .select("id, nome, stalled_hours, stalled_operator, follow_up_hours, follow_up_template, acoes, provider_id");
+      .select("id, nome, stalled_hours, stalled_operator, follow_up_hours, follow_up_template, provider_id")
+      .in("id", neededAutoIds);
 
     if (autoErr) {
       console.error("[wa-behavioral-triggers] Error fetching automations:", autoErr);
