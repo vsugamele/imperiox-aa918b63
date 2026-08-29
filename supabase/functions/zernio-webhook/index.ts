@@ -567,7 +567,9 @@ Deno.serve(async (req) => {
     // Write error to log row if it exists
     try {
       const supaForErr = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).filter("payload->>id", "eq", payload?.id || "");
+      if (logRowId) {
+        await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).eq("id", logRowId);
+      }
     } catch (dbErr: any) {
       console.error("[zernio-webhook] Error updating error log in DB:", dbErr.message);
     }
