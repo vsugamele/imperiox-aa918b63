@@ -22693,6 +22693,7 @@ export type Database = {
           ai_active: boolean | null
           ai_paused: boolean | null
           ai_paused_reason: string | null
+          ai_paused_until: string | null
           conversation_summary: string | null
           created_at: string
           follow_up_sent_at: string | null
@@ -22716,6 +22717,7 @@ export type Database = {
           ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          ai_paused_until?: string | null
           conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
@@ -22739,6 +22741,7 @@ export type Database = {
           ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          ai_paused_until?: string | null
           conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
