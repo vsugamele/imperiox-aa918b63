@@ -23141,6 +23141,39 @@ export type Database = {
           },
         ]
       }
+      imphq_ig_webhook_logs_archive: {
+        Row: {
+          account_id: string | null
+          archived_at: string
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          processed: boolean | null
+        }
+        Insert: {
+          account_id?: string | null
+          archived_at?: string
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id: string
+          payload?: Json | null
+          processed?: boolean | null
+        }
+        Update: {
+          account_id?: string | null
+          archived_at?: string
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
       imphq_integration_credentials: {
         Row: {
           created_at: string
@@ -53958,6 +53991,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      imphq_archive_webhook_logs: { Args: never; Returns: Json }
       imphq_train_lead_scoring_model: { Args: never; Returns: Json }
       increment_ab_variant_conversion: {
         Args: { p_variant_id: string }
