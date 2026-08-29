@@ -52,7 +52,11 @@ export function useFlowStats(flowIds: string[]) {
     };
 
     run();
-    const t = setInterval(run, 60_000);
+    const t = setInterval(() => {
+      // Evita polling quando a aba está em background (reduz carga no Postgres)
+      if (typeof document !== "undefined" && document.hidden) return;
+      run();
+    }, 180_000);
     return () => { cancelled = true; clearInterval(t); };
   }, [flowIds.join(",")]);
 
