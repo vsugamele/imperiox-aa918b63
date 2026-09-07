@@ -26,6 +26,13 @@ function bubble(text, user = false) {
 function show(decision) {
   state = decision.state;
   decision.messages.forEach(m => bubble(m));
+  $('choices').replaceChildren();
+  if (state.status === 'active') (decision.choices || []).forEach(label => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.dataset.message = label; button.textContent = label;
+    button.addEventListener('click', () => send(label));
+    $('choices').append(button);
+  });
   $('stage-label').textContent = config.stages[state.stageIndex].title;
   $('source').textContent = sources[decision.source];
   $('action').textContent = actions[decision.action];

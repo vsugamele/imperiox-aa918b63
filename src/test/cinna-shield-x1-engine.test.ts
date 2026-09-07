@@ -23,7 +23,7 @@ describe("Cinna Shield script and AI", () => {
     const result = await decide(c, { eventId: "q", message });
     expect(result.action).toBe("hold");
     expect(result.state.stageIndex).toBe(0);
-    expect(result.messages[result.messages.length - 1]).toBe(c.stages[0].question);
+    if (result.intent !== "timing") expect(result.messages[result.messages.length - 1]).toBe(c.stages[0].question);
   });
   it.each(["Stop", "Please unsubscribe me", "I want a human"])("halts persistently on %s", async message => {
     const c = config();
@@ -96,6 +96,18 @@ describe("Cinna Shield script and AI", () => {
     const c = config();
     const result = await decide(c, { eventId: "finish", message: "Finish here", state: { ...initialState(c), stageIndex: 8 } });
     expect(result.action).toBe("complete");
+  });
+  it.each(["Just exploring", "Comparing options", "A simpler routine"])("acknowledges context choice %s without collecting personal data", async message => {
+    const c = config(); const stage = c.stages[1];
+    const result = await decide(c, { eventId: "context", message, state: { ...initialState(c), stageIndex: 1 } });
+    expect(result.action).toBe("advance");
+    expect(result.messages[0]).toBe(stage.choices?.find(choice => choice.label === message)?.acknowledgement);
+    expect(JSON.stringify(result.state)).not.toContain(message);
+  });
+  it.each([["It's too expensive", "budget"], ["I need to think about it", "timing"]])("answers %s without pushing the pending question", async (message, intent) => {
+    const result = await decide(config(), { eventId: "objection", message });
+    expect(result.intent).toBe(intent); expect(result.action).toBe("hold");
+    expect(result.messages).toHaveLength(1); expect(result.state.stageIndex).toBe(0);
   });
   it.each(["https://example.com/cinna", "https://a.example.com", "http://merchant.com", "https://a.test", "https://a.invalid", "https://127.0.0.1", "https://user:pass@merchant.com"])("rejects checkout %s", url => expect(validCheckout(url)).toBe(false));
   it("rejects missing approved price and a broken stage", () => {

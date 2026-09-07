@@ -1,5 +1,5 @@
 /** CSX1.1: pure, channel-independent conversation policy. No network or storage. */
-export type Intent = "answer" | "question" | "price" | "buy" | "trust" | "shipping" | "ingredients" | "medical" | "stop" | "human";
+export type Intent = "answer" | "question" | "price" | "budget" | "timing" | "buy" | "trust" | "shipping" | "ingredients" | "medical" | "stop" | "human";
 export interface Stage {
   id: string;
   title: string;
@@ -7,6 +7,7 @@ export interface Stage {
   messages: string[];
   question: string;
   input: "name" | "free" | "confirm";
+  choices?: { label: string; acknowledgement: string }[];
 }
 export interface Config {
   product: "cinna-shield";
@@ -34,9 +35,10 @@ export interface Decision {
   source: "script" | "rules" | "ai" | "fallback";
   stageId: string;
   warning?: string;
+  choices?: string[];
 }
 export type Classifier = (request: { message: string; question: string; allowedIntents: readonly Intent[] }) => Promise<unknown>;
-const intents: readonly Intent[] = ["answer", "question", "price", "buy", "trust", "shipping", "ingredients", "medical", "stop", "human"];
+const intents: readonly Intent[] = ["answer", "question", "price", "budget", "timing", "buy", "trust", "shipping", "ingredients", "medical", "stop", "human"];
 const record = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
 
@@ -58,6 +60,7 @@ export function parseConfig(value: unknown): Config {
         !["name", "free", "confirm"].includes(String(stage.input)) ||
         !Array.isArray(stage.messages) || !stage.messages.length || !stage.messages.every(text) ||
         !Array.isArray(stage.sourceGroups) || !stage.sourceGroups.every(text)) throw new Error("Invalid stage");
+    if (stage.choices !== undefined && (!Array.isArray(stage.choices) || stage.choices.length > 4 || !stage.choices.every(c => record(c) && text(c.label) && text(c.acknowledgement)))) throw new Error("Invalid choices");
   }
   if (new Set(value.stages.map(s => s.id)).size !== 9) throw new Error("Duplicate stage");
   const offer = value.offer;
@@ -86,6 +89,8 @@ export function detectIntent(message: string, stage: Stage): Intent | null {
   if (/\b(unsubscribe|stop messaging|stop sending|leave me alone|opt out|nao me mande|pare de|cancelar mensagens)\b/.test(m) || /^(stop|parar|pare|cancel|sair)[.! ]*$/.test(m)) return "stop";
   if (/\b(human|real person|agent|atendente|humano|pessoa real)\b/.test(m)) return "human";
   if (/\b(medication|medicine|insulin|metformin|diagnos\w*|cure|treat\w*|pregnan\w*|diabet\w*|medicamento|remedio|gravida|insulina|metformina|blood sugar|glicemia)\b/.test(m)) return "medical";
+  if (/\b(too expensive|expensive|can't afford|cannot afford|budget|caro|sem dinheiro)\b/.test(m)) return "budget";
+  if (/\b(think about it|sleep on it|maybe later|not ready|not now|pensar|depois)\b/.test(m)) return "timing";
   if (/\b(don'?t|do not|not ready|not now|no thanks|nao quero|nao vou|not interested|maybe later)\b/.test(m) || /^(no|nope|nah|nao)[.! ]*$/.test(m)) return "question";
   if (/\b(price|cost|how much|preco|quanto custa|expensive|caro)\b/.test(m)) return "price";
   if (/\b(buy|purchase|checkout|order now|send.{0,10}link|comprar|manda.{0,10}link|quero o link)\b/.test(m)) return "buy";
@@ -114,9 +119,11 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   const emitStage = (s: Stage) => [...s.messages, s.question];
   if (!input.message.trim()) {
     if (previous.revision !== 0) throw new Error("Empty message");
-    return { ...base, messages: emitStage(stage), action: "start", intent: "start", source: "script" };
+    return { ...base, messages: emitStage(stage), action: "start", intent: "start", source: "script", choices: stage.choices?.map(c => c.label) };
   }
+  const choice = stage.choices?.find(c => c.label.toLowerCase() === input.message.trim().toLowerCase());
   let intent = detectIntent(input.message, stage);
+  if (choice && (intent === null || intent === "question")) intent = "answer";
   let source: Decision["source"] = "rules";
   let warning: string | undefined;
   if ((intent === null || intent === "question") && classify) {
@@ -150,8 +157,9 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     }
     state.stageIndex++;
     const next = config.stages[state.stageIndex];
-    return { state, stageId: next.id, messages: emitStage(next), action: "advance", intent, source, warning };
+    return { state, stageId: next.id, messages: [...(choice ? [choice.acknowledgement] : []), ...emitStage(next)], action: "advance", intent, source, warning, choices: next.choices?.map(c => c.label) };
   }
   const reply = intent === "price" && config.offer.approved ? `The approved offer is ${config.offer.priceLabel}.` : config.replies[intent];
-  return { ...base, messages: [reply, stage.question], action: "hold", intent, source, warning };
+  const pauseWithoutPrompt = intent === "budget" || intent === "timing" || intent === "medical";
+  return { ...base, messages: pauseWithoutPrompt ? [reply] : [reply, stage.question], action: "hold", intent, source, warning, choices: pauseWithoutPrompt ? [] : stage.choices?.map(c => c.label) };
 }

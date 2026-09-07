@@ -1,6 +1,6 @@
 {
   "product": "cinna-shield",
-  "version": "csx1.1-reviewed-draft",
+  "version": "csx1.2-conversation-review",
   "language": "en-US",
   "offer": {
     "approved": false,
@@ -8,14 +8,16 @@
     "priceLabel": null
   },
   "replies": {
-    "question": "I'm here to help you explore Cinna Shield. I don't have a confirmed answer to that yet. You can ask for a person, or say ‘continue’ to see the next part.",
-    "price": "I don't have a confirmed current price or package to quote yet. I'd rather check the actual offer than give you an outdated number.",
-    "trust": "It's reasonable to check before buying. The product label, seller details and actual purchase terms should be available for you to review. I don't have verified customer testimonials to share here yet.",
-    "shipping": "Delivery options, shipping charges and arrival dates still need to be confirmed for this offer. I can't promise a date or free shipping.",
-    "ingredients": "The product materials describe Ceylon cinnamon extract and MCT in a capsule formula. For the full ingredient list, quantities and directions, please check the current label before ordering.",
+    "question": "Let me make sure I answer the right thing. Is your question about the formula, the price, or delivery? You can also ask for a person.",
+    "price": "You want the number before the long explanation — fair. The current package and total aren't confirmed here yet, so I won't quote the old price. Say 'human' if you'd like help checking the offer.",
+    "trust": "Fair question. An ad alone isn't enough to judge a product. Check the label, who's taking the payment, and the written purchase terms. If any of those are unclear, ask for them before ordering.",
+    "shipping": "Delivery can make a difference to the decision. I don't have confirmed shipping costs or dates for this offer yet. Say 'human' if that's the detail you need before going further.",
+    "ingredients": "The product brief describes Ceylon cinnamon extract with MCT in a capsule formula. For the exact amounts and full ingredient list, the current label is the reference. Is there a particular ingredient you're checking?",
     "medical": "I can't tell you whether this supplement is suitable for a medical condition or compatible with medication. Please check the product label with your clinician or pharmacist before deciding.",
     "stop": "Understood. This automated conversation is stopped.",
-    "human": "I've paused the automated conversation. A member of the team will need to take over."
+    "human": "I've paused the automated conversation. A member of the team will need to take over.",
+    "budget": "If it doesn't fit your budget, there's no reason to stretch it. The useful comparison is the full package and total cost, including shipping. Want a person to help check those details?",
+    "timing": "Of course. Is there a detail you still want answered, or would you rather leave it here? You can say 'stop' and end the conversation."
   },
   "stages": [
     {
@@ -27,10 +29,10 @@
         "GRUPO 1. CONEXAO (3)"
       ],
       "messages": [
-        "Hey, glad you're here. I'm Cinna Shield's virtual assistant.",
-        "I can walk you through the product and help you find the information you need before deciding."
+        "Hi — I'm Cinna Shield's virtual assistant.",
+        "Wondering what's in it, what makes it different, or what it costs? We can start with the part that matters to you."
       ],
-      "question": "What should I call you? You can also say ‘continue’ without sharing your name.",
+      "question": "What should I call you? Or say 'continue' and we'll get straight to it.",
       "input": "name"
     },
     {
@@ -40,11 +42,24 @@
         "GRUPO 2. CONSCIENTIZACAO"
       ],
       "messages": [
-        "Before I walk you through everything, let me ask one thing.",
-        "What would make this conversation useful for you? We can focus on the product, your questions, or the offer."
+        "Before I send you a whole explanation, what brought you here?"
       ],
-      "question": "Are you exploring the product, comparing options, or looking for the current offer?",
-      "input": "free"
+      "question": "Are you just exploring, comparing options, or looking for a simpler routine?",
+      "input": "free",
+      "choices": [
+        {
+          "label": "Just exploring",
+          "acknowledgement": "Then let's start with the short version. You can decide whether you want more detail."
+        },
+        {
+          "label": "Comparing options",
+          "acknowledgement": "Then let's focus on what you can actually compare: the ingredients, the format and the purchase terms."
+        },
+        {
+          "label": "A simpler routine",
+          "acknowledgement": "Then the practical details matter: what the product is, how it's presented and whether it fits the routine you want."
+        }
+      ]
     },
     {
       "id": "curiosity",
@@ -55,10 +70,10 @@
         "GRUPO 3. CURIOSIDADE (3)"
       ],
       "messages": [
-        "Here is a useful distinction: the ingredient name is only part of the picture.",
-        "The formula, format and directions help you compare what you are actually buying."
+        "Cinna Shield is presented as a capsule formula built around Ceylon cinnamon extract and MCT.",
+        "That is the starting point. The next useful question is what those ingredients mean for the product you're considering."
       ],
-      "question": "Would you like to go through what to check first?",
+      "question": "Want the quick ingredient breakdown?",
       "input": "confirm"
     },
     {
@@ -70,10 +85,10 @@
         "GRUPO 4. MECANISMO (3)"
       ],
       "messages": [
-        "The Cinna Shield materials describe a capsule formula built around Ceylon cinnamon extract and MCT.",
-        "That gives us a starting point for comparison. The full label is where to check the ingredient quantities and directions."
+        "The brief identifies the cinnamon as Ceylon cinnamon — Cinnamomum verum — and lists MCT alongside it.",
+        "For quantities and directions, use the full product label. I won't turn an ingredient list into a promise about your results."
       ],
-      "question": "Is there a product detail you want to check, or shall we continue?",
+      "question": "Anything you want to ask about the formula, or shall we keep going?",
       "input": "free"
     },
     {
@@ -83,10 +98,10 @@
         "GRUPO 5. BENEFICIOS"
       ],
       "messages": [
-        "A routine only makes sense if it fits your day.",
-        "When comparing products, think about the format, the directions and whether you have the information you need to use it appropriately."
+        "Now for the everyday part: it comes in a capsule format.",
+        "If a simpler routine is what you're after, the directions and serving size are worth checking before deciding. Easy to understand matters as much as easy to buy."
       ],
-      "question": "Would you like to see what to check before trusting an offer?",
+      "question": "Shall we look at what would help you feel comfortable with the purchase?",
       "input": "confirm"
     },
     {
@@ -98,10 +113,10 @@
         "GRUPO 6. PROVA SOCIAL (3)"
       ],
       "messages": [
-        "I would want something concrete before deciding, too.",
-        "Start with the product label, who is selling it and the purchase terms. Those are useful things to check before relying on a testimonial."
+        "Before spending money, you should be able to see exactly what you're getting.",
+        "A clear label and written purchase terms give you something concrete to check. A polished testimonial isn't a substitute for that."
       ],
-      "question": "What's the main thing you want clarified before considering the offer?",
+      "question": "What's the main thing holding you back: trust, the cost, or wanting more time?",
       "input": "free"
     },
     {
@@ -111,10 +126,10 @@
         "GRUPO 7. OPORTUNIDADE"
       ],
       "messages": [
-        "If Cinna Shield interests you, the next step is straightforward: review the package, the total price and the purchase terms together.",
-        "You can ask about any of those before deciding."
+        "If the product interests you, let's put the offer in one place: the package, total price, delivery and return terms.",
+        "Those are the details to settle before payment. You can ask for the price now without finishing the rest of this chat."
       ],
-      "question": "Shall we go over the decision, or would you prefer a person to check the offer?",
+      "question": "Would you like to keep going, or ask about the offer first?",
       "input": "confirm"
     },
     {
@@ -126,10 +141,10 @@
         "GRUPO 8. RISCOS E PERDAS (3)"
       ],
       "messages": [
-        "You can take a moment to decide.",
-        "If you still have a question, let us handle that first. If it is not for you, there is no pressure to go further."
+        "You don't need to make the decision while a question is still hanging over it.",
+        "Ask it here. If you'd rather think it over, that's fine too."
       ],
-      "question": "Would you like to move to the final step?",
+      "question": "Ready for the next step, or is there something else you want to clear up?",
       "input": "confirm"
     },
     {
@@ -141,10 +156,10 @@
         "GRUPO 9. FECHAMENTO (3)"
       ],
       "messages": [
-        "That's the overview. If you'd like to order, I'll check whether an approved checkout is available.",
-        "If you prefer to leave it here, no problem."
+        "If you want to go ahead, ask for the purchase link.",
+        "I'll share it only when the current offer is confirmed. If you need a person first, just say so."
       ],
-      "question": "Would you like the purchase link, a person to help, or to finish here?",
+      "question": "Purchase link, a person, or finish here?",
       "input": "free"
     }
   ]

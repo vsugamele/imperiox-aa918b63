@@ -43,6 +43,7 @@ if (process.argv.includes("--once")) {
   const page = await readFile(resolve(directory, "simulator.html"));
   const script = await readFile(resolve(directory, "simulator.js"));
   const style = await readFile(resolve(directory, "simulator.css"));
+  const productReference = await readFile(resolve(directory, "product-reference.png"));
   const respond = (res, status, body) => {
     res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     res.end(JSON.stringify(body));
@@ -53,7 +54,7 @@ if (process.argv.includes("--once")) {
     res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     if (req.headers.host !== `127.0.0.1:${port}` || (req.headers.origin && req.headers.origin !== origin)) return respond(res, 403, { error: "Local access only" });
     if (req.method === "GET") {
-      const assets = { "/": [page, "text/html; charset=utf-8"], "/simulator.js": [script, "text/javascript; charset=utf-8"], "/simulator.css": [style, "text/css; charset=utf-8"] };
+      const assets = { "/": [page, "text/html; charset=utf-8"], "/simulator.js": [script, "text/javascript; charset=utf-8"], "/simulator.css": [style, "text/css; charset=utf-8"], "/product-reference.png": [productReference, "image/png"] };
       if (req.url === "/api/config") return respond(res, 200, { product: config.product, stages: config.stages.map(s => ({ id: s.id, title: s.title })), version: config.version, aiEnabled, offerEnabled: config.offer.approved, connected: false });
       if (req.url === "/favicon.ico") { res.writeHead(204); return res.end(); }
       const asset = assets[req.url];
