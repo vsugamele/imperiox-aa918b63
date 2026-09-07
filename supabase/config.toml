@@ -147,3 +147,6 @@ verify_jwt = false
 [functions.openflow-webhook]
 verify_jwt = false
 
+
+[functions.cinna-shield-x1]
+verify_jwt = true

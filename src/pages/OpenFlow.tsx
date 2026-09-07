@@ -316,6 +316,7 @@ export default function OpenFlow() {
     <div className="container mx-auto p-4 lg:p-8 space-y-8 animate-in fade-in duration-500">
       <div className="flex items-start justify-between gap-4">
         <PageHeader title="OpenFlow" subtitle="Editor visual de réguas de recuperação e automação" icon={Zap} />
+        <Button variant="outline" size="sm" onClick={() => navigate("/openflow/cinna-shield")}>Cinna Shield · conferir fluxo X1</Button>
         <Button onClick={() => navigate("/openflow/agentes")} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
           <Bot className="h-4 w-4 mr-2" /> Agentes IA
         </Button>

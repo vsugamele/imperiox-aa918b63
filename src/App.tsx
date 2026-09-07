@@ -29,6 +29,7 @@ const Financas = lazyWithRetry(() => import("./pages/Financas"));
 const MarketIntel = lazyWithRetry(() => import("./pages/MarketIntel"));
 const Mentes = lazyWithRetry(() => import("./pages/Mentes"));
 const Funis = lazyWithRetry(() => import("./pages/Funis"));
+const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldX1"));
 const OpenFlow = lazyWithRetry(() => import("./pages/OpenFlow"));
 const AgentesIA = lazyWithRetry(() => import("./pages/AgentesIA"));
 const AgenteEditor = lazyWithRetry(() => import("./pages/AgenteEditor"));
@@ -168,6 +169,7 @@ const App = () => (
                 <Route path="funis/linfaflow-care" element={<LinfaFlowCareRoom />} />
                 <Route path="funis/linfaflow-care-dashboard" element={<LinfaFlowCareDashboard />} />
                 <Route path="openflow" element={<OpenFlow />} />
+                <Route path="openflow/cinna-shield" element={<CinnaShieldX1 />} />
                 <Route path="openflow/agentes" element={<AgentesIA />} />
                 <Route path="openflow/agentes/:id" element={<AgenteEditor />} />
                 <Route path="docs" element={<Docs />} />

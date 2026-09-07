@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@cinna/engine": "./engine.ts",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.99.1"
+  }
+}
