@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+
+const origin = `http://127.0.0.1:${Number(process.env.CINNA_X1_PORT || 4318)}`;
+const post = async (path, body, headers = {}) => {
+  const response = await fetch(`${origin}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+  return { status: response.status, body: await response.json() };
+};
+const config = await (await fetch(`${origin}/api/config`)).json();
+assert.equal(config.connected, false);
+assert.equal(config.stages.length, 9);
+const start = await post("/api/session", {});
+assert.equal(start.status, 200);
+const sessionId = start.body.sessionId;
+const event = { sessionId, revision: start.body.decision.state.revision, eventId: randomUUID(), message: "How much does it cost?" };
+const first = await post("/api/message", event);
+assert.equal(first.status, 200);
+assert.equal(first.body.decision.action, "hold");
+assert.equal(first.body.decision.state.stageIndex, 0);
+const replay = await post("/api/message", event);
+assert.equal(replay.body.replay, true);
+assert.deepEqual(replay.body.decision, first.body.decision);
+assert.equal((await post("/api/message", { ...event, message: "Continue" })).status, 409);
+assert.equal((await post("/api/message", { ...event, eventId: randomUUID(), message: "Continue" })).status, 409);
+const next = { ...event, eventId: randomUUID(), revision: first.body.decision.state.revision, message: "Continue" };
+const concurrent = await Promise.all([post("/api/message", next), post("/api/message", { ...next, eventId: randomUUID() })]);
+assert.deepEqual(concurrent.map(r => r.status).sort(), [200, 409]);
+const advanced = concurrent.find(r => r.status === 200);
+assert.equal(advanced.body.decision.state.stageIndex, 1);
+const stopped = await post("/api/message", { ...event, eventId: randomUUID(), revision: advanced.body.decision.state.revision, message: "Stop" });
+assert.equal(stopped.body.decision.action, "stop");
+const after = await post("/api/message", { ...event, eventId: randomUUID(), revision: stopped.body.decision.state.revision, message: "Continue" });
+assert.equal(after.body.decision.action, "ignored");
+assert.deepEqual(after.body.decision.messages, []);
+assert.equal((await post("/api/session", {}, { Origin: "https://untrusted.invalid" })).status, 403);
+assert.equal((await post("/api/message", { sessionId: "foreign", message: "Continue", eventId: randomUUID() })).status, 404);
+assert.equal((await post("/api/message", { ...event, eventId: randomUUID(), message: "x".repeat(9000) })).status, 413);
+process.stdout.write("HTTP verified: session, holds, replay, event binding, revision, concurrency, stop, origin, isolation and size. No Meta messages sent.\n");

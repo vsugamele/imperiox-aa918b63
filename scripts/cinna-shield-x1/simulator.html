@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cinna Shield · Atendimento x1</title><link rel="stylesheet" href="/simulator.css"><script src="/simulator.js" defer></script></head>
+<body>
+<header><a class="brand" href="/">Império <span>/ Cinna Shield</span></a><span class="local">Ambiente local · sem envios reais</span></header>
+<main>
+  <aside class="flow"><div class="intro"><p>Roteiro + inteligência</p><h1>Cinna Shield</h1><p>Uma conversa. Nove etapas.<br>Espaço para responder de verdade.</p></div><h2>Sequência de atendimento</h2><ol id="stages"></ol><p class="footnote">Versão de revisão. Textos adaptados do export; original preservado.</p></aside>
+  <section class="workspace" aria-label="Simulador de atendimento">
+    <div class="toolbar"><div><h2>Teste a conversa</h2><p>Escreva como um cliente. O roteiro está em inglês.</p></div><button id="reset" type="button">Nova conversa</button></div>
+    <div class="channel"><label for="channel">Visualizar canal</label><select id="channel"><option>Instagram</option><option>Facebook Messenger</option></select><span id="ai-status">Verificando IA…</span></div>
+    <div id="messages" role="log" aria-label="Mensagens da conversa" aria-live="polite"></div>
+    <div class="try"><span>Experimentar:</span><button type="button" data-message="How much does it cost?">Preço antes da hora</button><button type="button" data-message="Is this a scam?">Objeção de confiança</button><button type="button" data-message="I want to buy">Comprar</button><button type="button" data-message="I want a human">Atendente</button><button type="button" data-message="Stop">Parar</button></div>
+    <form id="composer"><label class="sr-only" for="message">Sua mensagem</label><input id="message" placeholder="Digite uma resposta ou dúvida…" maxlength="2000" autocomplete="off" required><button id="send" type="submit">Enviar <span aria-hidden="true">↗</span></button></form>
+    <div class="continuation"><button id="continue" type="button" data-message="Continue">Continuar roteiro</button><span>As perguntas não avançam a etapa.</span></div>
+    <p id="error" role="alert"></p>
+    <section class="decision" aria-label="Última decisão"><div><span>Etapa atual</span><strong id="stage-label">—</strong></div><div><span>Resposta por</span><strong id="source">—</strong></div><div><span>Decisão</span><strong id="action">—</strong></div></section>
+    <p id="warning" role="status"></p>
+    <details><summary>Estado da integração</summary><p>Instagram e Messenger são opções de visualização neste teste. Não há conexão com contas nem envio de mensagens. A oferta está bloqueada até confirmar checkout e condições. Áudios, vídeo e depoimentos do export aguardam revisão. Conversas de teste ficam na memória deste servidor e expiram após duas horas de inatividade.</p><p>Quando configurada, a IA recebe a mensagem digitada para classificar a intenção. Use exemplos de teste, sem dados pessoais reais.</p></details>
+  </section>
+</main>
+</body></html>

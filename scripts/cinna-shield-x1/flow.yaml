@@ -1,0 +1,151 @@
+{
+  "product": "cinna-shield",
+  "version": "csx1.1-reviewed-draft",
+  "language": "en-US",
+  "offer": {
+    "approved": false,
+    "checkoutUrl": null,
+    "priceLabel": null
+  },
+  "replies": {
+    "question": "I'm here to help you explore Cinna Shield. I don't have a confirmed answer to that yet. You can ask for a person, or say ‘continue’ to see the next part.",
+    "price": "I don't have a confirmed current price or package to quote yet. I'd rather check the actual offer than give you an outdated number.",
+    "trust": "It's reasonable to check before buying. The product label, seller details and actual purchase terms should be available for you to review. I don't have verified customer testimonials to share here yet.",
+    "shipping": "Delivery options, shipping charges and arrival dates still need to be confirmed for this offer. I can't promise a date or free shipping.",
+    "ingredients": "The product materials describe Ceylon cinnamon extract and MCT in a capsule formula. For the full ingredient list, quantities and directions, please check the current label before ordering.",
+    "medical": "I can't tell you whether this supplement is suitable for a medical condition or compatible with medication. Please check the product label with your clinician or pharmacist before deciding.",
+    "stop": "Understood. This automated conversation is stopped.",
+    "human": "I've paused the automated conversation. A member of the team will need to take over."
+  },
+  "stages": [
+    {
+      "id": "connection",
+      "title": "Conexão",
+      "sourceGroups": [
+        "GRUPO 1. CONEXAO",
+        "GRUPO 1. CONEXAO (2)",
+        "GRUPO 1. CONEXAO (3)"
+      ],
+      "messages": [
+        "Hey, glad you're here. I'm Cinna Shield's virtual assistant.",
+        "I can walk you through the product and help you find the information you need before deciding."
+      ],
+      "question": "What should I call you? You can also say ‘continue’ without sharing your name.",
+      "input": "name"
+    },
+    {
+      "id": "awareness",
+      "title": "Conscientização",
+      "sourceGroups": [
+        "GRUPO 2. CONSCIENTIZACAO"
+      ],
+      "messages": [
+        "Before I walk you through everything, let me ask one thing.",
+        "What would make this conversation useful for you? We can focus on the product, your questions, or the offer."
+      ],
+      "question": "Are you exploring the product, comparing options, or looking for the current offer?",
+      "input": "free"
+    },
+    {
+      "id": "curiosity",
+      "title": "Curiosidade",
+      "sourceGroups": [
+        "GRUPO 3. CURIOSIDADE",
+        "GRUPO 3. CURIOSIDADE (2)",
+        "GRUPO 3. CURIOSIDADE (3)"
+      ],
+      "messages": [
+        "Here is a useful distinction: the ingredient name is only part of the picture.",
+        "The formula, format and directions help you compare what you are actually buying."
+      ],
+      "question": "Would you like to go through what to check first?",
+      "input": "confirm"
+    },
+    {
+      "id": "mechanism",
+      "title": "Mecanismo",
+      "sourceGroups": [
+        "GRUPO 4. MECANISMO",
+        "GRUPO 4. MECANISMO (2)",
+        "GRUPO 4. MECANISMO (3)"
+      ],
+      "messages": [
+        "The Cinna Shield materials describe a capsule formula built around Ceylon cinnamon extract and MCT.",
+        "That gives us a starting point for comparison. The full label is where to check the ingredient quantities and directions."
+      ],
+      "question": "Is there a product detail you want to check, or shall we continue?",
+      "input": "free"
+    },
+    {
+      "id": "benefits",
+      "title": "Benefícios",
+      "sourceGroups": [
+        "GRUPO 5. BENEFICIOS"
+      ],
+      "messages": [
+        "A routine only makes sense if it fits your day.",
+        "When comparing products, think about the format, the directions and whether you have the information you need to use it appropriately."
+      ],
+      "question": "Would you like to see what to check before trusting an offer?",
+      "input": "confirm"
+    },
+    {
+      "id": "proof",
+      "title": "Prova",
+      "sourceGroups": [
+        "GRUPO 6. PROVA SOCIAL",
+        "GRUPO 6. PROVA SOCIAL (2)",
+        "GRUPO 6. PROVA SOCIAL (3)"
+      ],
+      "messages": [
+        "I would want something concrete before deciding, too.",
+        "Start with the product label, who is selling it and the purchase terms. Those are useful things to check before relying on a testimonial."
+      ],
+      "question": "What's the main thing you want clarified before considering the offer?",
+      "input": "free"
+    },
+    {
+      "id": "opportunity",
+      "title": "Oportunidade",
+      "sourceGroups": [
+        "GRUPO 7. OPORTUNIDADE"
+      ],
+      "messages": [
+        "If Cinna Shield interests you, the next step is straightforward: review the package, the total price and the purchase terms together.",
+        "You can ask about any of those before deciding."
+      ],
+      "question": "Shall we go over the decision, or would you prefer a person to check the offer?",
+      "input": "confirm"
+    },
+    {
+      "id": "decision",
+      "title": "Decisão sem pressão",
+      "sourceGroups": [
+        "GRUPO 8. RISCOS E PERDAS",
+        "GRUPO 8. RISCOS E PERDAS (2)",
+        "GRUPO 8. RISCOS E PERDAS (3)"
+      ],
+      "messages": [
+        "You can take a moment to decide.",
+        "If you still have a question, let us handle that first. If it is not for you, there is no pressure to go further."
+      ],
+      "question": "Would you like to move to the final step?",
+      "input": "confirm"
+    },
+    {
+      "id": "close",
+      "title": "Fechamento",
+      "sourceGroups": [
+        "GRUPO 9. FECHAMENTO",
+        "GRUPO 9. FECHAMENTO (2)",
+        "GRUPO 9. FECHAMENTO (3)"
+      ],
+      "messages": [
+        "That's the overview. If you'd like to order, I'll check whether an approved checkout is available.",
+        "If you prefer to leave it here, no problem."
+      ],
+      "question": "Would you like the purchase link, a person to help, or to finish here?",
+      "input": "free"
+    }
+  ]
+}
