@@ -39,6 +39,7 @@ import { InboundWebhooks } from "@/components/openflow/InboundWebhooks";
 
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
 import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
+import { CinnaCloudFlowCard } from "@/components/openflow/CinnaCloudFlowCard";
 
 
 
@@ -369,6 +370,7 @@ export default function OpenFlow() {
 
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(filterProject === "__all__" || filterProject === "cinna-shield") && <CinnaCloudFlowCard />}
             {filtered.map(a => {
               const meta = triggerMeta(a.trigger_tipo);
               const stats = health.get(a.id);
