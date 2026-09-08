@@ -94,7 +94,7 @@
   {
     "id": "cinna-awareness-message-1",
     "tipo": "whatsapp",
-    "template": "Would you like me to explain the supplement? If so, say 'Tell me about the product'.",
+    "template": "Would you like me to explain what the supplement is?",
     "delay_min": 0
   },
   {

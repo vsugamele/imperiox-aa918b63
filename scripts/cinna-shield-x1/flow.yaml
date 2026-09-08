@@ -44,7 +44,7 @@
       "messages": [
         "You don't have to decide on anything now. We can look at the information that matters to you first."
       ],
-      "question": "Would you like me to explain the supplement? If so, say 'Tell me about the product'.",
+      "question": "Would you like me to explain what the supplement is?",
       "input": "confirm",
       "choices": [
         {

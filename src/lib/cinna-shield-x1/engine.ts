@@ -25,6 +25,7 @@ export interface State {
   revision: number;
   status: "active" | "stopped" | "human" | "complete";
   checkoutSent: boolean;
+  awaitingProductConsent?: boolean;
   processedEventIds: string[];
 }
 export interface Input { eventId: string; message: string; state?: State; }
@@ -36,6 +37,7 @@ export interface Decision {
   source: "script" | "rules" | "ai" | "fallback";
   stageId: string;
   warning?: string;
+  permissionPrompt?: boolean;
   choices?: string[];
 }
 export type Classifier = (request: { message: string; question: string; allowedIntents: readonly Intent[] }) => Promise<unknown>;
@@ -88,6 +90,7 @@ export function validateState(value: unknown, config: Config): asserts value is 
   if (!record(value) || value.product !== config.product || value.version !== config.version ||
       !Number.isInteger(value.stageIndex) || Number(value.stageIndex) < 0 || Number(value.stageIndex) >= config.stages.length ||
       !Number.isInteger(value.revision) || Number(value.revision) < 0 || typeof value.checkoutSent !== "boolean" ||
+      (value.awaitingProductConsent !== undefined && typeof value.awaitingProductConsent !== "boolean") ||
       !["active", "stopped", "human", "complete"].includes(String(value.status)) ||
       !Array.isArray(value.processedEventIds) || value.processedEventIds.length > 1000 || !value.processedEventIds.every(text)) throw new Error("Invalid or incompatible state");
 }
@@ -124,9 +127,11 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   if (state.processedEventIds.length >= 1000) throw new Error("Session event limit reached");
   state.processedEventIds.push(input.eventId);
   state.revision++;
+  if (config.consultative) state.awaitingProductConsent = false;
   const emitStage = (s: Stage) => [...s.messages, s.question];
   if (!input.message.trim()) {
     if (previous.revision !== 0) throw new Error("Empty message");
+    if (config.consultative && stage.id === "awareness" && stage.input === "confirm") state.awaitingProductConsent = true;
     return { ...base, messages: emitStage(stage), action: "start", intent: "start", source: "script", choices: stage.choices?.map(c => c.label) };
   }
   const normalized = input.message.trim().toLowerCase();
@@ -150,8 +155,14 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   let intent = detectIntent(input.message, stage);
   if (choice && (intent === null || intent === "question")) intent = "answer";
   const permissionStep = Boolean(config.consultative && stage.id === "awareness" && stage.input === "confirm");
-  const explicitPermission = /^(?:yes[,! ]*)?(?:please )?(?:tell me about|explain|show me|i want to (?:know|learn) about) (?:the |this |your )?(?:product|supplement)[.! ]*$/i.test(normalized);
-  if (permissionStep) intent = explicitPermission ? "answer" : (intent === "answer" || intent === "buy" || intent === null ? "question" : intent);
+  const explicitPermission = /^(?:yes[,! ]*)?(?:(?:can|could|would) you )?(?:please )?(?:tell me about|explain|show me|i want to (?:know|learn) about) (?:the |this |your )?(?:product|supplement)[.!? ]*$/i.test(normalized);
+  if (config.consultative && stage.id === "connection" && explicitPermission) intent = "answer";
+  const affirmative = /^(yes|yes please|sure|ok|okay|please do|go ahead|continue|sim|pode|pode sim)[.! ]*$/i.test(normalized);
+  if (permissionStep && affirmative && !previous.awaitingProductConsent) {
+    state.awaitingProductConsent = true;
+    return { ...base, messages: [stage.question], action: "hold", intent: "question", source: "rules", permissionPrompt: true, choices: stage.choices?.map(c => c.label) };
+  }
+  if (permissionStep) intent = explicitPermission || (affirmative && previous.awaitingProductConsent) ? "answer" : (intent === "answer" || intent === "buy" || intent === null ? "question" : intent);
   if (config.consultative && intent === "buy" && state.stageIndex <= config.stages.findIndex(s => s.id === "awareness")) intent = "question";
   if (config.consultative && intent === "medical") intent = "question";
   if (config.consultative && /\b(worried|scared|anxious|diabet\w*|blood sugar|glucose)\b/i.test(normalized) && intent !== "stop" && intent !== "human") intent = "question";
@@ -189,6 +200,7 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     }
     state.stageIndex++;
     const next = config.stages[state.stageIndex];
+    if (config.consultative && next.id === "awareness" && next.input === "confirm") state.awaitingProductConsent = true;
     return { state, stageId: next.id, messages: [...(choice ? [choice.acknowledgement] : []), ...emitStage(next)], action: "advance", intent, source, warning, choices: next.choices?.map(c => c.label) };
   }
   const reply = intent === "price" && config.offer.approved ? `The approved offer is ${config.offer.priceLabel}.` : config.replies[intent];

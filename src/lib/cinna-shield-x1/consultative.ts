@@ -17,7 +17,7 @@ export const acknowledgements = {
 const questions = {
   clarify: "Which part would you like me to explain?",
   concern: "What would you most like to understand?",
-  permission: 'If you would like to hear about the product, you can say "Tell me about the product".',
+  permission: "We can also look at the supplement whenever you feel ready.",
   none: "",
 } as const;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -26,7 +26,7 @@ const identity = /\b(are you (an? )?(ai|bot|human|doctor|nurse|real person)|who 
 /** Facts are rendered verbatim from the pinned policy, never generated or paraphrased. */
 export async function composeConsultativeReply(config: Config, decision: Decision, incoming: string,
   history: ConsultativeMessage[], compose: ConsultativeComposer): Promise<string[] | null> {
-  if (!config.consultative || !["hold", "advance"].includes(decision.action) || identity.test(incoming)) return null;
+  if (!config.consultative || decision.permissionPrompt || !["hold", "advance"].includes(decision.action) || identity.test(incoming)) return null;
   const advance = decision.action === "advance";
   if (!advance && decision.intent !== "question" && decision.intent !== "medical") return null;
   const beforeProduct = config.stages.findIndex(s => s.id === decision.stageId) <= config.stages.findIndex(s => s.id === "awareness");

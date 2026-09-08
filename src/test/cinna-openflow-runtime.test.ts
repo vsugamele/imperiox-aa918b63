@@ -205,6 +205,26 @@ describe("Ana contextual native channel handler", () => {
     expect(test.ai.mock.calls.filter(([request]) => request.tag === "cinna-native-consultative")).toHaveLength(1);
     expect(test.send).toHaveBeenCalledTimes(1); expect(test.fetchMock).not.toHaveBeenCalled();
   });
+  it("does not commit consent when delivering the permission question fails", async () => {
+    const test = app("yes", 1, true); const runtime = readCinnaRuntime(test.execution.step_results)!;
+    runtime.state.stageIndex = 1; runtime.state.awaitingProductConsent = false;
+    test.execution.current_step = runtime.snapshot.waitSteps[1];
+    test.execution.step_results = writeCinnaRuntime([], runtime);
+    expect((await test.invoke()).status).toBe(502);
+    const persisted = test.execution.step_results as { runtime?: { state: { awaitingProductConsent?: boolean } } }[];
+    expect(persisted.find(row => row.runtime)?.runtime?.state.awaitingProductConsent).toBe(false);
+    expect((await test.invoke()).status).toBe(500);
+    expect(test.send).toHaveBeenCalledTimes(1); expect(test.fetchMock).not.toHaveBeenCalled();
+  });
+  it("deduplicates a delivered permission question without interpreting the same yes twice", async () => {
+    const test = app("yes", -1, true); const runtime = readCinnaRuntime(test.execution.step_results)!;
+    runtime.state.stageIndex = 1; runtime.state.awaitingProductConsent = false;
+    test.execution.current_step = runtime.snapshot.waitSteps[1];
+    test.execution.step_results = writeCinnaRuntime([], runtime);
+    expect((await test.invoke()).status).toBe(200); expect((await test.invoke()).status).toBe(200);
+    expect(readCinnaRuntime(test.execution.step_results)?.state.awaitingProductConsent).toBe(true);
+    expect(test.send).toHaveBeenCalledTimes(1); expect(test.fetchMock).not.toHaveBeenCalled();
+  });
   it("never invokes AI for a personal suitability request", async () => {
     const test = app("Can I take this with insulin?", -1, true);
     expect((await test.invoke()).status).toBe(200); expect(test.ai).not.toHaveBeenCalled();

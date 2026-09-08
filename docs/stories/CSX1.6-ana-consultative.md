@@ -12,6 +12,8 @@ Mudança: configuração opcional `consultative` na policy contém persona Ana e
 
 Etapa awareness aguarda permissão explícita antes de apresentar o produto em curiosity. Para configurações consultivas, confirmação não é inferida de uma resposta ambígua pela IA. Urgência, pedido de orientação clínica individual e interrupção têm precedência sobre venda. Perguntas educativas gerais podem receber explicações fundamentadas; não se promete que o suplemento trata a condição relatada. Persona não inventa credenciais ou identidade humana e responde com transparência se perguntada.
 
+Revisão de UX antes do patch final: não exigir uma frase decorada. `State.awaitingProductConsent` opcional marca quando a pergunta de apresentação foi emitida. Um yes direto responde a ela; outro hold limpa o marcador. Um yes ambíguo após outra dúvida reapresenta a pergunta e marca `Decision.permissionPrompt`, impedindo substituição pelo compositor. Frases explícitas de interesse continuam aceitas; snapshots antigos sem marcador continuam válidos. Backend e QA revisam essa regra antes da implementação.
+
 Validação estrutural independente: quality_backend propôs compositor posterior à decisão e snippets no snapshot; quality_chat revisou consentimento, emissão única e ausência de CTA clínico. Configurações antigas continuam compatíveis. Não há migration, ativação de canal, inclusão de preço/checkout ou geração de áudio nesta mudança.
 
 ## Critérios e testes

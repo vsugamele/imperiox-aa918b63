@@ -2,7 +2,7 @@
 
 ## O que mudou
 
-O roteiro operacional continua no OpenFlow do Império. A abertura apresenta Ana, do atendimento, sem marca na primeira mensagem. A conversa começa pelo motivo do contato; apresentação comercial exige o pedido explícito `Tell me about the product` na etapa de permissão. As nove etapas e os 35 IDs de ações foram preservados.
+O roteiro operacional continua no OpenFlow do Império. A abertura apresenta Ana, do atendimento, sem marca na primeira mensagem. A conversa começa pelo motivo do contato; um sim após a pergunta de apresentação permite continuar. Dúvidas no meio invalidam a permissão pendente e levam a uma confirmação natural; não é preciso decorar uma frase. As nove etapas e os 35 IDs de ações foram preservados.
 
 A IA recebe até oito mensagens recentes e seleciona acolhimento, textos aprovados e uma pergunta. Ela não escreve alegações clínicas livres nem altera o cursor ou checkout. FAQs de preço, frete, composição e objeções preservam respostas configuradas. Se o modelo falhar ou devolver IDs inválidos, permanece a resposta aprovada de fallback. A primeira espera no editor permite revisar os textos aprovados; mudanças valem para novas execuções, preservando snapshots em andamento.
 
@@ -10,7 +10,7 @@ Urgências reconhecidas e pedidos de orientação individual sobre medicamento/a
 
 ## Verificação
 
-- 347 testes em 53 arquivos passaram, incluindo regressões do legado, composição, consentimento, eventos duplicados, envio parcial e autenticação do diagnóstico.
+- 358 testes em 53 arquivos passaram na revisão final, incluindo regressões do legado, composição, consentimento natural, dúvidas comerciais, eventos duplicados, envio parcial e autenticação do diagnóstico.
 - Build passou; avisos existentes de tamanho de chunks e import misto permanecem.
 - Deno verificou channel-ai-reply, openflow-executor e cinna-shield-x1 com seus imports reais.
 - Revisão independente PASS após corrigir pedido por pessoa real, ordem dos sintomas e acolhimento livre.
@@ -49,4 +49,8 @@ Comparação otimista da automação confirmou exatamente uma atualização em 2
 
 Diagnóstico com modelo real: preocupação geral retornou contextual=true e acolhimento com informação geral; permissão avançou à etapa2; medicamento e emergência retornaram human. Todos sent=false,sem criação de sessão ou envio a canal.
 
-Revisão final encontrou falso positivo em perguntas sobre usar PayPal/consultar ingredientes. Patch restrito ao regex, espelho e regressões:77 testes focados passaram, incluindo manutenção da proteção para insulina e adequação pessoal. Aguardando publicação do patch e conferência final Lovable.
+Patch ab3bd22d corrigiu falso positivo em perguntas sobre usar PayPal/consultar ingredientes; Vercel READY dpl_31zpDesiamRwrkbNT44jindoas3a e Edge15/465/5 confirmadas.
+
+Ajuste final de UX: State.awaitingProductConsent opcional aceita sim natural só após a pergunta de apresentação. Hold/identidade limpam o marcador, reask determinístico não é substituído pelo compositor, confirmação depende de entrega/persistência e deduplicação. Também reconhece pergunta direta sobre o suplemento como interesse, evitando loop no acolhimento. 116 testes focados passaram antes dos gates finais. Sem alteração de tabelas.
+
+A pergunta natural foi atualizada com comparação do conteúdo anterior em 2026-09-08 18:24:10.38402 UTC, preservando os demais campos do registro. Gates finais:358 testes, build, lint dos arquivos alterados e Deno passaram; publicação final será registrada após confirmação.
