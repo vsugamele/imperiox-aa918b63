@@ -53,4 +53,10 @@ Patch ab3bd22d corrigiu falso positivo em perguntas sobre usar PayPal/consultar 
 
 Ajuste final de UX: State.awaitingProductConsent opcional aceita sim natural só após a pergunta de apresentação. Hold/identidade limpam o marcador, reask determinístico não é substituído pelo compositor, confirmação depende de entrega/persistência e deduplicação. Também reconhece pergunta direta sobre o suplemento como interesse, evitando loop no acolhimento. 116 testes focados passaram antes dos gates finais. Sem alteração de tabelas.
 
-A pergunta natural foi atualizada com comparação do conteúdo anterior em 2026-09-08 18:24:10.38402 UTC, preservando os demais campos do registro. Gates finais:358 testes, build, lint dos arquivos alterados e Deno passaram; publicação final será registrada após confirmação.
+A pergunta natural foi atualizada com comparação do conteúdo anterior em 2026-09-08 18:24:10.38402 UTC, preservando os demais campos do registro. Gates finais:358 testes, build, typecheck app/node, lint dos arquivos alterados e Deno passaram.
+
+Código final5c1a5708e2803b4174be91d83b734f147a280b55 publicado. Vercel READY dpl_5SYsoLp7RVmCE5UajyUdNGX14CWy, rota HTTP200. Funções channel-ai-reply16/openflow-executor466/cinna-shield-x1 6 ACTIVE com JWTfalse/false/true preservado; código dos bundles reais conferido com awaitingProductConsent presente.
+
+Lovable confirmou `Your website was updated`. Conferência autenticada da rota nativa: abertura da Ana,35/35blocos,Fluxo válido,primeiro wait Acolhimento e seis pares de identificador/texto aprovado visíveis para edição. Aba deixada aberta no primeiro wait. Sem ativação de canal ou envio a clientes.
+
+Próximos passos operacionais: confirmar oferta/checkout e conectar/testar canal antes de ativar. Diagnóstico interno real já exercitou o modelo; este não substitui teste ponta a ponta de entrega Meta, ainda não conectado neste fluxo.

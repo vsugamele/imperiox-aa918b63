@@ -26,7 +26,7 @@ Validação estrutural independente: quality_backend propôs compositor posterio
 - [x] Verificar urgência/medicação, identidade, consentimento, pergunta única e ausência de duplicação.
 - [x] Validar lint, typecheck, testes, build e Deno nos handlers alterados.
 - [x] Atualizar uma automação real com comparação otimista, preservando layout e oferta.
-- [ ] Publicar código e confirmar dados/tela no Império.
+- [x] Publicar código e confirmar dados/tela no Império.
 
 ## Fontes e limites
 
