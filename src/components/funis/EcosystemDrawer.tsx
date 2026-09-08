@@ -1,3 +1,7 @@
+import { record, type Product, type ProjectData } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import type { ReactNode } from "react";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -13,54 +17,53 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   projectId: string;
   projectName?: string;
-  produto?: any;
-  briefing?: any;
+  produto?: Product;
+  briefing?: ProjectData;
   onProjectReload?: () => void | Promise<void>;
 }
 
 export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, produto, briefing, onProjectReload }: Props) {
   const [tab, setTab] = useState("flows");
-  const [flows, setFlows] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
+  const [flows, setFlows] = useState<Pick<Tables<"imphq_automacoes">, "id" | "nome" | "ativo" | "trigger_tipo" | "updated_at" | "project_id">[]>([]);
+  const [sites, setSites] = useState<Pick<Tables<"imphq_sites">, "id" | "url" | "titulo" | "tipo">[]>([]);
   const [kpis, setKpis] = useState<{ vendas7d: number; receita7d: number; leads7d: number; quentes: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [auditUrl, setAuditUrl] = useState("");
   const [auditing, setAuditing] = useState(false);
-  const [auditResult, setAuditResult] = useState<any>(null);
+  const [auditResult, setAuditResult] = useState<{ score?: number; veredito?: string; issues: string[]; quick_wins: string[] } | null>(null);
   const [genAvatar, setGenAvatar] = useState(false);
 
   const avatar = briefing?.avatar || briefing?.avatars_por_produto || null;
-  const produtoLinks: any[] = (produto?.links_meta || produto?.links || []) as any[];
+  const links = produto?.links_meta || produto?.links;
+  const produtoLinks = Array.isArray(links) ? links.map(value => { const link = record(value); return { ...link, url: typeof link.url === "string" ? link.url : "", label: typeof link.label === "string" ? link.label : "", tipo: typeof link.tipo === "string" ? link.tipo : "" }; }) : [];
 
   useEffect(() => {
     if (!open || !projectId) return;
     setLoading(true);
     (async () => {
       const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-      const sb: any = supabase;
-      const queries: PromiseLike<any>[] = [
-        sb.from("imphq_automacoes")
+      const [aut, sit, ven, lead] = await Promise.all([
+        supabase.from("imphq_automacoes")
           .select("id, nome, ativo, trigger_tipo, updated_at, project_id")
           .eq("project_id", projectId)
           .order("ativo", { ascending: false })
           .order("updated_at", { ascending: false })
           .limit(100),
 
-        sb.from("imphq_project_sites").select("id, url, label, tipo").eq("project_id", projectId).limit(20),
-        sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("data_venda", since),
-        sb.from("imphq_leads").select("id, score").eq("project_id", projectId).gte("created_at", since),
-      ];
-      const [aut, sit, ven, lead] = await Promise.all(queries);
-      setFlows((aut.data as any) || []);
-      setSites((sit.data as any) || []);
-      const vendas = ((ven.data as any) || []).filter((v: any) => (v.status || "").toLowerCase().includes("aprov") || (v.status || "").toLowerCase().includes("paid"));
-      const receita = vendas.reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
-      const leads = ((lead.data as any) || []);
+        supabase.from("imphq_project_sites").select("site:imphq_sites(id,url,titulo,tipo)").eq("projeto_id", projectId).limit(20),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("data_venda", since),
+        supabase.from("imphq_leads").select("id, score").eq("project_id", projectId).gte("created_at", since),
+      ]);
+      setFlows(aut.data || []);
+      setSites((sit.data || []).flatMap(row=>row.site ? [row.site] : []));
+      const vendas = (ven.data || []).filter((v) => (v.status || "").toLowerCase().includes("aprov") || (v.status || "").toLowerCase().includes("paid"));
+      const receita = vendas.reduce((s: number, v) => s + Number(v.valor || 0), 0);
+      const leads = (lead.data || []);
       setKpis({
         vendas7d: vendas.length,
         receita7d: receita,
         leads7d: leads.length,
-        quentes: leads.filter((l: any) => Number(l.score || 0) >= 70).length,
+        quentes: leads.filter((l) => Number(l.score || 0) >= 70).length,
       });
       setLoading(false);
     })();
@@ -75,11 +78,14 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
         body: { url, project_id: projectId, produto, avatar },
       });
       if (error) throw error;
-      if (!(data as any)?.success) throw new Error((data as any)?.error || "Falha");
-      setAuditResult((data as any).audit);
+      const response = record(data);
+      if (!response.success) throw new Error(typeof response.error === "string" ? response.error : "Falha");
+      const audit = record(response.audit);
+      const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+      setAuditResult({ score: typeof audit.score === "number" ? audit.score : undefined, veredito: typeof audit.veredito === "string" ? audit.veredito : undefined, issues: strings(audit.issues), quick_wins: strings(audit.quick_wins) });
       toast.success("Página auditada");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao auditar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao auditar");
     } finally {
       setAuditing(false);
     }
@@ -95,8 +101,8 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
       if (error) throw error;
       toast.success("Avatar gerado");
       await onProjectReload?.();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar avatar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar avatar");
     } finally {
       setGenAvatar(false);
     }
@@ -205,10 +211,10 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                 <p className="text-xs text-muted-foreground">Nenhuma página cadastrada.</p>
               ) : (
                 <div className="space-y-1">
-                  {sites.map((s: any) => (
+                  {sites.map((s) => (
                     <div key={s.id} className="flex items-center justify-between gap-2 rounded border border-border/40 bg-secondary/20 px-2 py-1.5">
                       <div className="min-w-0">
-                        <p className="text-xs text-foreground truncate">{s.label || s.tipo || s.url}</p>
+                        <p className="text-xs text-foreground truncate">{s.titulo || s.tipo || s.url}</p>
                         <p className="text-[10px] text-muted-foreground truncate">{s.url}</p>
                       </div>
                       <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => { setAuditUrl(s.url); runPageAudit(s.url); }}>
@@ -216,7 +222,7 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
                       </Button>
                     </div>
                   ))}
-                  {produtoLinks.map((l: any, k: number) => (
+                  {produtoLinks.map((l, k: number) => (
                     <div key={`pl-${k}`} className="flex items-center justify-between gap-2 rounded border border-border/40 bg-secondary/20 px-2 py-1.5">
                       <div className="min-w-0">
                         <p className="text-xs text-foreground truncate">{l.label || l.tipo || l.url}</p>
@@ -248,7 +254,7 @@ export function EcosystemDrawer({ open, onOpenChange, projectId, projectName, pr
   );
 }
 
-function KpiCard({ label, value, accent = "text-foreground" }: { label: string; value: any; accent?: string }) {
+function KpiCard({ label, value, accent = "text-foreground" }: { label: string; value: ReactNode; accent?: string }) {
   return (
     <div className="rounded-md border border-border/40 bg-secondary/20 p-3">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>

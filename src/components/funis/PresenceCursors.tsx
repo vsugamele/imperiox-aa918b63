@@ -1,7 +1,9 @@
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { record } from "@/lib/funis-data";
 import { useEffect, useRef, useState } from "react";
 import { useReactFlow, useStore } from "@xyflow/react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 
 type Cursor = { x: number; y: number; name: string; color: string; ts: number };
 
@@ -17,7 +19,7 @@ export function PresenceCursors({ mapId }: { mapId: string }) {
   const { user } = useAuth();
   const { screenToFlowPosition, flowToScreenPosition } = useReactFlow();
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const lastSent = useRef(0);
   // subscribe to viewport changes so cursors reproject on pan/zoom
   useStore((s) => `${s.transform[0]}:${s.transform[1]}:${s.transform[2]}`);
@@ -25,8 +27,7 @@ export function PresenceCursors({ mapId }: { mapId: string }) {
   useEffect(() => {
     if (!mapId || !user) return;
     const name =
-      (user.user_metadata as any)?.full_name ||
-      (user.user_metadata as any)?.name ||
+      [record(user.user_metadata).full_name, record(user.user_metadata).name].find((value): value is string => typeof value === "string" && !!value) ||
       user.email?.split("@")[0] ||
       "Você";
     const color = colorFor(user.id);

@@ -13,9 +13,9 @@ interface Props {
 
 export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange }: Props) {
   const [loading, setLoading] = useState(true);
-  const [sales, setSales] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [sales, setSales] = useState<Parameters<typeof buildRecoveryBuckets>[0]["vendas"]>([]);
+  const [leads, setLeads] = useState<Parameters<typeof buildRecoveryBuckets>[0]["leads"]>([]);
+  const [logs, setLogs] = useState<Parameters<typeof buildRecoveryBuckets>[0]["logs"]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +38,7 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
       if (cancelled) return;
       setSales(salesRes.data || []);
       setLeads(leadsRes.data || []);
-      setLogs((logsRes.data || []).filter((log: any) => !!log.created_at));
+      setLogs((logsRes.data || []).filter((log) => !!log.created_at));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -51,8 +51,8 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
       .reduce((sum, bucket) => sum + bucket.totalValue, 0);
 
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    const recoveredLogs = logs.filter((log: any) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
-    const recoveredValue = recoveredLogs.reduce((sum: number, log: any) => sum + (Number(log.valor) || 0), 0);
+    const recoveredLogs = logs.filter((log) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
+    const recoveredValue = recoveredLogs.reduce((sum: number, log) => sum + (Number(log.valor) || 0), 0);
 
     return { currentRisk, recoveredValue, recoveredCount: recoveredLogs.length };
   }, [sales, leads, logs]);

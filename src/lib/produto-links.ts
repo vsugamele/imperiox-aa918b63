@@ -36,30 +36,35 @@ export const PRIORIDADES: { value: ProductLinkPrioridade; label: string; tone: s
 ];
 
 /** Aceita formato antigo (string[]) ou novo (ProductLink[]) e devolve normalizado. */
-export function normalizeProductLinks(produto: any): ProductLink[] {
-  if (!produto) return [];
+export function normalizeProductLinks(produto: unknown): ProductLink[] {
+  if (!produto || typeof produto !== "object") return [];
+  if (!("links" in produto)) {
+    return "link" in produto && typeof produto.link === "string" && produto.link
+      ? [{ url: produto.link, tipo: "outro", prioridade_ia: "alternativo", ativo: true }]
+      : [];
+  }
   const raw = produto.links;
   if (!Array.isArray(raw)) {
-    if (typeof produto.link === "string" && produto.link) {
+    if ("link" in produto && typeof produto.link === "string" && produto.link) {
       return [{ url: produto.link, tipo: "outro", prioridade_ia: "alternativo", ativo: true }];
     }
     return [];
   }
   return raw
-    .map((l: any): ProductLink | null => {
+    .map((l: unknown): ProductLink | null => {
       if (typeof l === "string") {
         if (!l) return null;
         return { url: l, tipo: "outro", prioridade_ia: "alternativo", ativo: true };
       }
-      if (l && typeof l === "object" && typeof l.url === "string") {
+      if (l && typeof l === "object" && "url" in l && typeof l.url === "string") {
         return {
           url: l.url,
-          label: l.label || "",
-          tipo: l.tipo || "outro",
-          observacao: l.observacao || "",
-          prioridade_ia: l.prioridade_ia || "alternativo",
-          contexto_ia: Array.isArray(l.contexto_ia) ? l.contexto_ia : [],
-          ativo: l.ativo !== false,
+          label: "label" in l && typeof l.label === "string" ? l.label : "",
+          tipo: "tipo" in l ? LINK_TIPOS.find((t) => t.value === l.tipo)?.value ?? "outro" : "outro",
+          observacao: "observacao" in l && typeof l.observacao === "string" ? l.observacao : "",
+          prioridade_ia: "prioridade_ia" in l ? PRIORIDADES.find((p) => p.value === l.prioridade_ia)?.value ?? "alternativo" : "alternativo",
+          contexto_ia: "contexto_ia" in l && Array.isArray(l.contexto_ia) ? l.contexto_ia.filter((c): c is string => typeof c === "string") : [],
+          ativo: !("ativo" in l) || l.ativo !== false,
         };
       }
       return null;
@@ -86,7 +91,7 @@ export function pickBestLink(
 }
 
 /** Texto compacto pra injetar em prompts de IA. */
-export function formatLinksForPrompt(produto: any): string {
+export function formatLinksForPrompt(produto: unknown): string {
   const links = normalizeProductLinks(produto);
   if (links.length === 0) return "(sem links)";
   return links

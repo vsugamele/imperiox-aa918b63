@@ -45,8 +45,9 @@ async function sendIgDM(
       console.error(`[ig-closer] Graph API ${res.status}: ${err.slice(0, 150)}`);
     }
     return res.ok;
-  } catch (e: any) {
-    console.error("[ig-closer] sendIgDM error:", e.message);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[ig-closer] sendIgDM error:", eMessage);
     return false;
   }
 }
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
           .is("provider_id", null)
           .limit(1);
 
-        const aiCfg = aiConfigs?.[0] || {};
+        const aiCfg: {personality?:string|null;tone?:string|null;expert_persona?:string|null;product_focus?:string|null;payment_link?:string|null;closer_mode_enabled?:boolean|null} = aiConfigs?.[0] || {};
         if (aiCfg.closer_mode_enabled === false) {
           results.skipped++;
           await supabase.from("imphq_leads").update({ ig_closer_sent_at: new Date().toISOString() }).eq("id", lead.id);
@@ -230,9 +231,10 @@ MISSÃO: UMA mensagem curta de fechamento que:
         results.sent++;
         await new Promise((r) => setTimeout(r, 800));
 
-      } catch (leadErr: any) {
-        console.error(`[ig-closer] Erro ${lead.ig_participant_id}:`, leadErr.message);
-        results.errors.push(`${lead.ig_participant_id}: ${leadErr.message}`);
+      } catch (leadErr) {
+    const leadErrMessage = leadErr instanceof Error ? leadErr.message : leadErr && typeof leadErr === "object" && "message" in leadErr && typeof leadErr.message === "string" ? leadErr.message : undefined;
+        console.error(`[ig-closer] Erro ${lead.ig_participant_id}:`, leadErrMessage);
+        results.errors.push(`${lead.ig_participant_id}: ${leadErrMessage}`);
       }
     }
 
@@ -241,9 +243,10 @@ MISSÃO: UMA mensagem curta de fechamento que:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[ig-closer] Fatal:", e.message);
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[ig-closer] Fatal:", eMessage);
+    return new Response(JSON.stringify({ ok: false, error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

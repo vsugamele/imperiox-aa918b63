@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import { z } from "zod";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { diagnosisSchema } from "@/components/assistente/diagnosis-schema";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,38 +21,42 @@ export default function Assistente() {
   const [projects, setProjects] = useState<Array<{ id: string; nome: string }>>([]);
   const [pid, setPid] = useState<string | undefined>();
   const [area, setArea] = useState<Area>("campanhas");
-  const [results, setResults] = useState<Record<Area, any>>({} as any);
+  const [results, setResults] = useState<Partial<Record<Area, z.infer<typeof diagnosisSchema>>>>({});
   const [loading, setLoading] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id,name,is_archived,status").order("name")
+    supabase.from("imphq_projects").select("id,name,is_archived,data").order("name")
       .then(({ data }) => {
-        const list = ((data || []) as any[]).filter((p) => !p.is_archived);
+        const list = (data || []).filter((p) => !p.is_archived);
         // priorizar 'vendendo'
-        list.sort((a, b) => (a.status === "vendendo" ? -1 : 1) - (b.status === "vendendo" ? -1 : 1));
+        list.sort((a, b) => (jsonText(jsonFields(a.data).status) === "vendendo" ? -1 : 1) - (jsonText(jsonFields(b.data).status) === "vendendo" ? -1 : 1));
         setProjects(list.map((p) => ({ id: p.id, nome: p.name })));
-        if (!pid && list[0]) setPid(list[0].id);
+        if (list[0]) setPid(previous => previous || list[0].id);
       });
   }, []);
 
-  const load = async (force = false) => {
+  const load = useCallback(async (force = false) => {
     if (!pid) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("assistente-diagnose", {
+      const { data, error } = await supabase.functions.invoke<Json>("assistente-diagnose", {
         body: { project_id: pid, area: "all", force },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
-      const map: any = {};
-      (data.results || []).forEach((r: any) => { map[r.area] = r; });
+      if (error || jsonFields(data).error) throw new Error(jsonText(jsonFields(data).error) || error?.message);
+      const map: Partial<Record<Area, z.infer<typeof diagnosisSchema>>> = {};
+      const incoming = jsonFields(data).results;
+      for (const result of Array.isArray(incoming) ? incoming : []) {
+        const resultArea = jsonText(jsonFields(result).area);
+        if (resultArea === "campanhas" || resultArea === "lancamento" || resultArea === "nutricao") map[resultArea] = diagnosisSchema.parse(result);
+      }
       setResults(map);
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally { setLoading(false); }
-  };
+  }, [pid]);
 
-  useEffect(() => { if (pid) load(false); }, [pid]);
+  useEffect(() => { if (pid) load(false); }, [pid, load]);
 
   const current = results[area];
 
@@ -103,14 +112,14 @@ export default function Assistente() {
                 <Card className="bg-secondary/30">
                   <CardContent className="p-5">
                     <h3 className="font-serif text-lg mb-3">O que falta</h3>
-                    <ChecklistPanel items={current.checklist || []} />
+                    <ChecklistPanel items={(current.checklist || []).map(item => ({ key: item.key, label: item.label, weight: item.weight, done: item.done }))} />
                   </CardContent>
                 </Card>
                 <Card className="bg-secondary/30">
                   <CardContent className="p-5 space-y-4">
                     <div>
                       <h3 className="font-serif text-lg mb-3">O que melhorar</h3>
-                      <DiagnosticPanel gargalos={current.gargalos || []} />
+                      <DiagnosticPanel gargalos={(current.gargalos || []).map(item => ({ titulo: item.titulo, desc: item.desc, impacto: item.impacto }))} />
                     </div>
                     <div className="pt-3 border-t border-border/40">
                       <Button className="w-full gap-1.5" onClick={() => setWizardOpen(true)}>

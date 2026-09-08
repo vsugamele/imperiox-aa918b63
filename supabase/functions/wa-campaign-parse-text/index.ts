@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireUser } from "../_shared/require-auth.ts";
 
@@ -100,15 +101,15 @@ Sua tarefa:
     const data = await res.json();
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsRaw = toolCall?.function?.arguments || "{}";
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(argsRaw); } catch { parsed = {}; }
-    const steps: any[] = Array.isArray(parsed.steps) ? parsed.steps : [];
+    const steps = z.object({steps:z.array(z.object({day_label:z.unknown(),day_offset:z.unknown(),send_time:z.unknown(),content:z.unknown()}).passthrough()).optional()}).passthrough().parse(parsed).steps || [];
 
     // Normalize defensively
     const normalized = steps
-      .map((s: any) => ({
+      .map((s) => ({
         day_label: String(s.day_label || ""),
-        day_offset: Number.isInteger(s.day_offset) ? s.day_offset : 0,
+        day_offset: typeof s.day_offset === "number" && Number.isInteger(s.day_offset) ? s.day_offset : 0,
         send_time: typeof s.send_time === "string" && /^\d{1,2}:\d{2}/.test(s.send_time)
           ? s.send_time.padStart(5, "0").slice(0, 5)
           : "09:00",
@@ -124,8 +125,9 @@ Sua tarefa:
     return new Response(JSON.stringify({ ok: true, steps: normalized }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

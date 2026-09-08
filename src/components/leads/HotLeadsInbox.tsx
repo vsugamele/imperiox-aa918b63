@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ interface Lead {
   score?: number | null;
   total_gasto?: number | string | null;
   updated_at?: string | null;
-  data?: any;
+  data?: Json;
   project_id?: string | null;
 }
 
@@ -44,7 +45,7 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   // Carrega predições e últimos contatos para os leads visíveis
-  const loadAux = async () => {
+  const loadAux = useCallback(async () => {
     setRefreshing(true);
     const ids = leads.map((l) => l.id);
     if (ids.length === 0) { setRefreshing(false); return; }
@@ -52,11 +53,11 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
     try {
       // Predições
       const { data: preds } = await supabase
-        .from("imphq_lead_predictions" as any)
-        .select("lead_id, probability")
+        .from("imphq_lead_predictions")
+        .select("lead_id, conversion_probability")
         .in("lead_id", ids);
       const pmap: Record<string, number> = {};
-      (preds || []).forEach((p: any) => { if (p?.lead_id) pmap[p.lead_id] = parseFloat(p.probability) || 0; });
+      (preds || []).forEach((p) => { if (p?.lead_id) pmap[p.lead_id] = (p.conversion_probability || 0) / 100; });
       setPredictions(pmap);
 
       // Últimos contatos (activity log)
@@ -67,7 +68,7 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
         .order("created_at", { ascending: false })
         .limit(500);
       const cmap: Record<string, string> = {};
-      (acts || []).forEach((a: any) => {
+      (acts || []).forEach((a) => {
         if (a?.lead_id && !cmap[a.lead_id]) cmap[a.lead_id] = a.created_at;
       });
       setContacted(cmap);
@@ -76,9 +77,9 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [leads]);
 
-  useEffect(() => { loadAux(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [leads.length]);
+  useEffect(() => { loadAux(); }, [loadAux]);
 
   const ranked: (HotLeadResult & { lead: Lead })[] = useMemo(() => {
     const results = leads.map((lead) => {

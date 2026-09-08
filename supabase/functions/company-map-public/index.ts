@@ -43,16 +43,16 @@ Deno.serve(async (req) => {
     const [nodesRes, edgesRes, annRes] = await Promise.all([
       sb.from("imphq_company_map_nodes").select("*").eq("map_id", map.id),
       sb.from("imphq_company_map_edges").select("id, source_id, target_id, source_kind, target_kind, style, label").eq("map_id", map.id),
-      sb.from("imphq_company_map_annotations" as any).select("*").eq("map_id", map.id),
+      sb.from("imphq_company_map_annotations").select("*").eq("map_id", map.id),
     ]);
 
-    const nodes = (nodesRes.data || []).map((n: any) => {
-      const safe: any = {};
+    const nodes = (nodesRes.data || []).map((n: Record<string, unknown>) => {
+      const safe: Record<string, unknown> = {};
       for (const f of NODE_SAFE_FIELDS) safe[f] = n[f] ?? null;
       // hide checklist items but keep counts
       const checklist = Array.isArray(n.checklist) ? n.checklist : [];
       safe.checklist_total = checklist.length;
-      safe.checklist_done = checklist.filter((c: any) => c?.done).length;
+      safe.checklist_done = checklist.filter((c: unknown) => c && typeof c === "object" && "done" in c && c.done).length;
       return safe;
     });
 
@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
       edges: edgesRes.data || [],
       annotations: annRes.data || [],
     });
-  } catch (e: any) {
-    return json({ error: e?.message || "Erro" }, 500);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return json({ error: eMessage || "Erro" }, 500);
   }
 });

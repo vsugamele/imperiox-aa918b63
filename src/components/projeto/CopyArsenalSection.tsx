@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,14 +26,14 @@ interface Props {
   arsenal: Record<string, string | string[]>;
   onChange: (updated: Record<string, string | string[]>) => void;
   projectId?: string;
-  produtos?: any[];
+  produtos?: Json[];
   onMecanismoGenerated?: (mecanismo: string) => void;
   onContextoGenerated?: (contexto: string) => void;
 }
 
 export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = [], onMecanismoGenerated, onContextoGenerated }: Props) {
   const productNames = useMemo(() => {
-    return Array.isArray(produtos) ? produtos.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
+    return Array.isArray(produtos) ? produtos.map(p => jsonText(jsonFields(p).nome) || jsonText(jsonFields(p).name) || "").filter(Boolean) : [];
   }, [produtos]);
 
   // Default to the first product (index "0") so product_index always reaches the backend
@@ -45,7 +48,7 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
     if (productNames.length > 0 && selectedProductIndex === "__all__") {
       setSelectedProductIndex("0");
     }
-  }, [productNames.length]);
+  }, [productNames.length, selectedProductIndex]);
 
   const getVariations = (key: string): string[] => {
     const val = arsenal[key];
@@ -87,40 +90,44 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
   const selectedProductEmpty = useMemo(() => {
     if (selectedProductIndex === "__all__" || !Array.isArray(produtos)) return false;
     const idx = parseInt(selectedProductIndex);
-    const prod = produtos[idx];
+    const prod = jsonFields(produtos[idx]);
     if (!prod) return false;
     const hasContext = prod.mecanismo_unico || prod.contexto || prod.briefing ||
-      prod.checkout_urls?.length || (prod.links && Object.values(prod.links).some(Boolean));
+      (Array.isArray(prod.checkout_urls) ? prod.checkout_urls.length : 0) || (prod.links && Object.values(jsonFields(prod.links)).some(Boolean));
     return !hasContext;
   }, [selectedProductIndex, produtos]);
 
-  const applyArsenalResult = (data: any) => {
-    console.log("[Arsenal] AI response:", data);
+  const applyArsenalResult = (response: Json) => {
+    const data = jsonFields(response);
+    const generated = jsonFields(data.arsenal);
     if (data?.error) {
-      toast.error(data.error);
+      toast.error(jsonText(data.error) || "Erro ao gerar arsenal");
       return;
     }
-    if (!data?.arsenal || Object.keys(data.arsenal).length === 0) {
+    if (!data?.arsenal || Object.keys(generated).length === 0) {
       toast.error("A IA não retornou um arsenal válido. Tente novamente.");
       return;
     }
     const newArsenal = { ...arsenal };
     let filled = 0;
     let skipped = 0;
-    for (const key of Object.keys(data.arsenal)) {
+    for (const key of Object.keys(generated)) {
       if (key === "mecanismo_unico" || key === "contexto") continue; // handled by parent
       const existing = getVariations(key);
       const hasContent = existing.some((v: string) => typeof v === "string" && v.trim().length > 0);
       if (!hasContent) {
-        newArsenal[key] = data.arsenal[key];
+        const value = generated[key];
+        if (typeof value === "string") newArsenal[key] = value;
+        else if (Array.isArray(value)) newArsenal[key] = value.filter((v): v is string => typeof v === "string");
+        else continue;
         filled++;
       } else {
         skipped++;
       }
     }
     onChange(newArsenal);
-    if (data.arsenal.mecanismo_unico && onMecanismoGenerated) onMecanismoGenerated(data.arsenal.mecanismo_unico);
-    if (data.arsenal.contexto && onContextoGenerated) onContextoGenerated(data.arsenal.contexto);
+    if (jsonText(generated.mecanismo_unico) && onMecanismoGenerated) onMecanismoGenerated(jsonText(generated.mecanismo_unico));
+    if (jsonText(generated.contexto) && onContextoGenerated) onContextoGenerated(jsonText(generated.contexto));
 
     if (filled > 0 && skipped > 0) {
       toast.success(`Arsenal gerado: ${filled} bloco(s) preenchido(s), ${skipped} já tinha conteúdo`);
@@ -136,7 +143,7 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
     setGenerating(true);
     try {
       const extraUrls = extraUrl.trim() ? [extraUrl.trim()] : [];
-      const body: any = {
+      const body: Record<string, Json> = {
         project_id: projectId,
         action: "generate_copy_arsenal",
       };
@@ -144,15 +151,15 @@ export function CopyArsenalSection({ arsenal, onChange, projectId, produtos = []
       if (extraUrls.length > 0) body.extra_urls = extraUrls;
       if (briefingExtra.trim()) body.briefing_extra = briefingExtra.trim();
 
-      const { data, error } = await supabase.functions.invoke("openflow-ai", { body });
+      const { data, error } = await supabase.functions.invoke<Json>("openflow-ai", { body });
       if (error) throw error;
       applyArsenalResult(data);
       setDialogOpen(false);
       setExtraUrl("");
       setBriefingExtra("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Arsenal] generate error:", err);
-      toast.error(err?.message || "Erro ao gerar arsenal");
+      toast.error(errorMessage(err) || "Erro ao gerar arsenal");
     } finally {
       setGenerating(false);
     }

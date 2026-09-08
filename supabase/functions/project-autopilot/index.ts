@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+const inputSchema = z.object({ nome: z.string(), nicho: z.string().nullish(), url_concorrente: z.string().nullish(), preset: z.string().nullish(), skills: z.array(z.string()).nullish() }).passthrough();
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -41,7 +44,7 @@ const PIPELINES: Record<string, { slug: string; label: string }[]> = {
   ],
 };
 
-function resolvePipeline(input: any): { slug: string; label: string }[] {
+function resolvePipeline(input: z.infer<typeof inputSchema>): { slug: string; label: string }[] {
   const preset = (input?.preset as string) || "essencial";
   if (Array.isArray(input?.skills) && input.skills.length > 0) {
     return input.skills.map((slug: string) => ({ slug, label: slug }));
@@ -59,7 +62,7 @@ async function fetchSkillPrompt(slug: string): Promise<{ id: string; system_prom
     .select("id, nome, system_prompt")
     .eq("slug", slug)
     .maybeSingle();
-  if (data?.system_prompt) return data as any;
+  if (data?.system_prompt) return data;
   // fallback by ilike on nome
   const { data: data2 } = await supabase
     .from("imphq_skills")
@@ -67,7 +70,7 @@ async function fetchSkillPrompt(slug: string): Promise<{ id: string; system_prom
     .ilike("nome", `%${slug.replace(/-/g, " ")}%`)
     .limit(1)
     .maybeSingle();
-  return (data2 as any) ?? null;
+  return data2 ?? null;
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, model = "google/gemini-2.5-flash"): Promise<string> {
@@ -117,7 +120,7 @@ async function scrapeCompetitor(url: string): Promise<string | null> {
   }
 }
 
-async function extractAssets(produto: string, nicho: string, accumulated: Record<string, string>): Promise<any> {
+async function extractAssets(produto: string, nicho: string, accumulated: Record<string, string>): Promise<unknown> {
   const ctx = Object.entries(accumulated)
     .map(([slug, txt]) => `### ${slug}\n${txt.slice(0, 4000)}`)
     .join("\n\n");
@@ -161,7 +164,7 @@ async function extractAssets(produto: string, nicho: string, accumulated: Record
   }
 }
 
-async function runAutopilot(runId: string, projectId: string, input: any) {
+async function runAutopilot(runId: string, projectId: string, input: z.infer<typeof inputSchema>) {
   try {
     const { nome, nicho, url_concorrente } = input;
     const pipeline = resolvePipeline(input);
@@ -236,9 +239,10 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
           extra_instructions: `[autopilot run ${runId}]`,
           pipeline_id: runId,
         });
-      } catch (err: any) {
+      } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
         stepsState[i].status = "failed";
-        stepsState[i].error = err.message ?? String(err);
+        stepsState[i].error = errMessage ?? String(err);
         await updateRun(runId, { steps: stepsState });
         // continue with next skill
       }
@@ -251,7 +255,7 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
       .eq("id", projectId)
       .maybeSingle();
 
-    const currentData = (project?.data as any) ?? {};
+    const currentData = z.object({ briefing: z.object({ nicho: z.string().nullish() }).passthrough().nullish(), concorrentes: z.array(z.unknown()).nullish() }).passthrough().parse(project?.data ?? {});
     const currentBriefing = currentData.briefing ?? {};
     const currentConcorrentes = Array.isArray(currentData.concorrentes) ? currentData.concorrentes : [];
 
@@ -283,9 +287,10 @@ async function runAutopilot(runId: string, projectId: string, input: any) {
       current_step: pipeline.length,
       assets: assets ?? null,
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[autopilot] fatal", err);
-    await updateRun(runId, { status: "failed", error: err.message ?? String(err) });
+    await updateRun(runId, { status: "failed", error: errMessage ?? String(err) });
   }
 }
 
@@ -305,7 +310,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      const startPipeline = resolvePipeline(input);
+      const checkedInput = inputSchema.parse(input);
+      const startPipeline = resolvePipeline(checkedInput);
       const { data: run, error } = await supabase
         .from("imphq_autopilot_runs")
         .insert({
@@ -322,8 +328,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       // Background execution
-      // @ts-ignore EdgeRuntime
-      EdgeRuntime.waitUntil(runAutopilot(run.id, project_id, input));
+      // Keep background execution alive after returning the run id.
+      EdgeRuntime.waitUntil(runAutopilot(run.id, project_id, checkedInput));
 
       return new Response(JSON.stringify({ run_id: run.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -334,8 +340,9 @@ Deno.serve(async (req) => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message ?? String(err) }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    return new Response(JSON.stringify({ error: errMessage ?? String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

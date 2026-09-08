@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Loader2 } from "lucide-react";
@@ -58,7 +59,7 @@ export function AudioRecorder({ onTranscript, disabled }: Props) {
           return s + 1;
         });
       }, 1000);
-    } catch (e: any) {
+    } catch {
       toast.error("Sem permissão de microfone");
     }
   };
@@ -99,14 +100,15 @@ export function AudioRecorder({ onTranscript, disabled }: Props) {
         body: form,
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Falha na transcrição");
+        const j: unknown = await res.json().catch(() => ({}));
+        throw new Error((j && typeof j === "object" && "error" in j && typeof j.error === "string" ? j.error : "Falha na transcrição"));
       }
-      const j = await res.json();
-      if (j.text?.trim()) onTranscript(j.text.trim());
+      const j: unknown = await res.json();
+      const transcript = j && typeof j === "object" && "text" in j && typeof j.text === "string" ? j.text.trim() : "";
+      if (transcript) onTranscript(transcript);
       else toast.error("Não entendi o áudio");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao transcrever");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao transcrever");
     } finally {
       setTranscribing(false);
     }

@@ -8,6 +8,10 @@ import {
   TrendingDown, ExternalLink, Loader2, Brain,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { LucideIcon } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 type SuggestionKind =
@@ -30,7 +34,7 @@ interface Suggestion {
   title: string;              // ex: "Reabordar PIX gerado há 3h"
   reason: string;             // contexto
   suggested_action: string;   // ação concreta
-  context: Record<string, any>;
+  context: { [key: string]: Json | undefined };
   created_at: string;         // referência do evento
 }
 
@@ -43,28 +47,36 @@ async function buildSuggestions(): Promise<Suggestion[]> {
   // 1. PIX/Boleto gerado há 2-48h sem venda aprovada
   const { data: intents } = await supabase
     .from("imphq_vendas")
-    .select("id, project_id, lead_id, status, last_intent_at, valor, produto_nome, comprador_nome, comprador_telefone, created_at")
-    .neq("status", "aprovado")
-    .gte("last_intent_at", hAgo(48))
-    .lt("last_intent_at", hAgo(2))
-    .order("last_intent_at", { ascending: false })
+    .select("id, project_id, lead_id, status, data, valor, produto_nome, nome, created_at")
+    .in("status", ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente"])
+    .gte("data->>last_intent_at", hAgo(48))
+    .lt("data->>last_intent_at", hAgo(2))
+    .order("data->>last_intent_at", { ascending: false })
     .limit(30);
 
-  (intents || []).forEach((v: any) => {
-    const hoursAgo = Math.round((now - new Date(v.last_intent_at).getTime()) / 3600_000);
+  const leadIds = [...new Set((intents || []).flatMap(v => v.lead_id ? [v.lead_id] : []))];
+  const { data: intentLeads } = leadIds.length
+    ? await supabase.from("imphq_leads").select("id,nome,phone").in("id", leadIds)
+    : { data: [] };
+  const contacts = new Map((intentLeads || []).map(lead => [lead.id, lead]));
+  (intents || []).forEach((v) => {
+    const intentAt = jsonText(jsonFields(v.data).last_intent_at);
+    if (!intentAt || !Number.isFinite(Date.parse(intentAt))) return;
+    const contact = contacts.get(v.lead_id);
+    const hoursAgo = Math.round((now - new Date(intentAt).getTime()) / 3600_000);
     out.push({
       id: `pix-${v.id}`,
       kind: "pix_pending",
       priority: 95 - hoursAgo,
       lead_id: v.lead_id,
       project_id: v.project_id,
-      contact_name: v.comprador_nome || "Lead",
-      phone: v.comprador_telefone,
+      contact_name: contact?.nome || v.nome || "Lead",
+      phone: contact?.phone,
       title: `PIX/Boleto gerado há ${hoursAgo}h sem pagamento`,
       reason: `${v.produto_nome || "Produto"} · R$ ${v.valor || 0}`,
       suggested_action: "Reabordar com urgência sutil (escassez/garantia)",
       context: v,
-      created_at: v.last_intent_at,
+      created_at: intentAt,
     });
   });
 
@@ -78,12 +90,13 @@ async function buildSuggestions(): Promise<Suggestion[]> {
     .limit(30);
 
   for (const lead of hot || []) {
-    const phone = (lead as any).phone?.replace(/\D/g, "");
+    const phone = lead.phone?.replace(/\D/g, "");
     if (!phone) continue;
     const { data: lastMsg } = await supabase
       .from("imphq_wa_messages")
       .select("created_at, direction")
-      .ilike("from_number", `%${phone.slice(-10)}%`)
+      .in("direction", ["outgoing", "out"])
+      .ilike("phone", `%${phone.slice(-10)}%`)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -94,9 +107,9 @@ async function buildSuggestions(): Promise<Suggestion[]> {
       kind: "hot_cooling",
       priority: Math.min(90, (lead.score || 80)),
       lead_id: lead.id,
-      project_id: (lead as any).project_id,
+      project_id: lead.project_id,
       contact_name: lead.nome || "Lead quente",
-      phone: (lead as any).phone,
+      phone: lead.phone,
       title: `Lead quente esfriando · score ${lead.score}`,
       reason: `Sem contato há ${lastTs ? Math.round((now - lastTs) / 3600_000) + "h" : "muito tempo"}`,
       suggested_action: "Mensagem pessoal de retomada + oferta principal",
@@ -108,17 +121,18 @@ async function buildSuggestions(): Promise<Suggestion[]> {
   // 3. Conversas abertas com último inbound > 1h e sem outbound depois
   const { data: convs } = await supabase
     .from("imphq_wa_conversations")
-    .select("id, project_id, lead_id, contact_name, phone, last_message_at, last_inbound_at, last_outbound_at, ai_paused")
+    .select("id, project_id, lead_id, contact_name, phone, last_message_at, last_incoming_at, last_message_direction, ai_paused_until, ia_ativa")
     .neq("status", "closed")
-    .lt("last_inbound_at", hAgo(1))
-    .gte("last_inbound_at", hAgo(24))
-    .order("last_inbound_at", { ascending: false })
+    .in("last_message_direction", ["incoming", "in"])
+    .lt("last_incoming_at", hAgo(1))
+    .gte("last_incoming_at", hAgo(24))
+    .order("last_incoming_at", { ascending: false })
     .limit(30);
 
-  (convs || []).forEach((c: any) => {
-    const inboundT = new Date(c.last_inbound_at).getTime();
-    const outboundT = c.last_outbound_at ? new Date(c.last_outbound_at).getTime() : 0;
-    if (outboundT > inboundT) return;
+  (convs || []).forEach((c) => {
+    if (!c.last_incoming_at) return;
+    const inboundT = new Date(c.last_incoming_at).getTime();
+    if (!Number.isFinite(inboundT)) return;
     const hoursAgo = Math.round((now - inboundT) / 3600_000);
     out.push({
       id: `await-${c.id}`,
@@ -130,10 +144,10 @@ async function buildSuggestions(): Promise<Suggestion[]> {
       contact_name: c.contact_name || c.phone,
       phone: c.phone,
       title: `Cliente aguarda resposta há ${hoursAgo}h`,
-      reason: c.ai_paused ? "IA pausada — humano deve assumir" : "Sem resposta automática registrada",
+      reason: (c.ia_ativa === false || (c.ai_paused_until && Date.parse(c.ai_paused_until) > now)) ? "IA pausada — humano deve assumir" : "Sem resposta automática registrada",
       suggested_action: "Responder agora ou reativar IA",
       context: c,
-      created_at: c.last_inbound_at,
+      created_at: c.last_incoming_at,
     });
   });
 
@@ -147,7 +161,7 @@ async function buildSuggestions(): Promise<Suggestion[]> {
     .in("pitch_followup_stage", [0, 1, 2])
     .limit(30);
 
-  (pitches || []).forEach((p: any) => {
+  (pitches || []).forEach((p) => {
     const hoursAgo = Math.round((now - new Date(p.last_pitch_at).getTime()) / 3600_000);
     out.push({
       id: `pitch-${p.id}`,
@@ -180,7 +194,7 @@ async function buildSuggestions(): Promise<Suggestion[]> {
 }
 
 // ── UI ───────────────────────────────────────────────────────────────────────
-const KIND_META: Record<SuggestionKind, { icon: any; color: string; label: string }> = {
+const KIND_META: Record<SuggestionKind, { icon: LucideIcon; color: string; label: string }> = {
   pix_pending:    { icon: DollarSign,   color: "text-emerald-400 border-emerald-500/30", label: "PIX pendente" },
   hot_cooling:    { icon: Flame,        color: "text-orange-400 border-orange-500/30",   label: "Hot esfriando" },
   awaiting_reply: { icon: Clock,        color: "text-amber-400 border-amber-500/30",     label: "Aguardando" },
@@ -199,8 +213,8 @@ export default function ImperiusSuggestionsTab() {
     try {
       const data = await buildSuggestions();
       setItems(data);
-    } catch (e: any) {
-      toast.error("Falha ao carregar sugestões: " + (e?.message || e));
+    } catch (e) {
+      toast.error("Falha ao carregar sugestões: " + errorMessage(e));
       setItems([]);
     } finally {
       setLoading(false);
@@ -218,7 +232,7 @@ export default function ImperiusSuggestionsTab() {
   async function generateAiCopy(s: Suggestion) {
     setAiLoading(s.id);
     try {
-      const { data, error } = await supabase.functions.invoke("imperius-copilot", {
+      const { data, error } = await supabase.functions.invoke<Json>("imperius-copilot", {
         body: {
           mode: "next_action_copy",
           context: {
@@ -233,9 +247,10 @@ export default function ImperiusSuggestionsTab() {
         },
       });
       if (error) throw error;
-      const txt = (data as any)?.message || (data as any)?.text || "—";
+      const fields = jsonFields(data);
+      const txt = jsonText(fields.message) || jsonText(fields.text) || "—";
       setAiTexts((prev) => ({ ...prev, [s.id]: txt }));
-    } catch (e: any) {
+    } catch (e) {
       // Fallback heurístico
       const fallback = `Oi ${s.contact_name?.split(" ")[0] || ""}, tudo bem? ${s.suggested_action}`;
       setAiTexts((prev) => ({ ...prev, [s.id]: fallback }));

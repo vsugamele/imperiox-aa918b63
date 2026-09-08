@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 export interface CanvasBlockType {
   id: string;
   label: string;
@@ -5,7 +6,7 @@ export interface CanvasBlockType {
   desc: string;
   kind: "image" | "video" | "audio" | "prompt" | "avatar" | "publish" | "modeling" | "storyboard" | "media";
   color: string;
-  defaultConfig?: Record<string, any>;
+  defaultConfig?: Record<string, Json>;
 }
 
 export const CANVAS_BLOCKS: CanvasBlockType[] = [
@@ -96,7 +97,7 @@ export const TEMPLATES: {
   key: string;
   name: string;
   description: string;
-  nodes: { tipo: string; position: { x: number; y: number }; config?: any; titulo?: string }[];
+  nodes: { tipo: string; position: { x: number; y: number }; config?: Record<string, Json>; titulo?: string }[];
   edges: { from: number; to: number }[];
 }[] = [
   {

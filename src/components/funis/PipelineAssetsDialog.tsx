@@ -1,15 +1,15 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Target, Film, Mail, User, Zap, Compass } from "lucide-react";
+import { Sparkles, Target, Film, Mail, User, Zap, Compass, type LucideIcon } from "lucide-react";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  assets?: Record<string, any> | null;
+  assets?: Record<string, unknown> | null;
 }
 
-const SECTIONS: Array<{ key: string; label: string; icon: any }> = [
+const SECTIONS: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: "avatar", label: "Avatar", icon: User },
   { key: "mecanismo_unico", label: "Mecanismo Único", icon: Zap },
   { key: "posicionamento", label: "Posicionamento", icon: Compass },
@@ -18,7 +18,7 @@ const SECTIONS: Array<{ key: string; label: string; icon: any }> = [
   { key: "emails", label: "Sequência de E-mails", icon: Mail },
 ];
 
-function renderValue(v: any) {
+function renderValue(v: unknown) {
   if (v == null) return null;
   if (typeof v === "string") return <p className="text-sm whitespace-pre-wrap leading-7 text-foreground/90">{v}</p>;
   if (Array.isArray(v)) {

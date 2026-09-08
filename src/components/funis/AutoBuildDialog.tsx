@@ -1,3 +1,4 @@
+import { record, parseEtapa, type Etapa } from "@/lib/funis-data";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,13 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   projectId?: string;
   funilId: string;
-  onApplied: (etapas: any[]) => void;
+  onApplied: (etapas: Etapa[]) => void;
 }
 
 export function AutoBuildDialog({ open, onOpenChange, projectId, funilId, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [detected, setDetected] = useState<any>(null);
+  const [detected, setDetected] = useState<Record<string, number> | null>(null);
   const [projectName, setProjectName] = useState("");
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function AutoBuildDialog({ open, onOpenChange, projectId, funilId, onAppl
         .then(({ data, error }) => {
           if (error) toast.error(error.message);
           else {
-            setDetected(data?.detected || null);
+            setDetected(Object.fromEntries(Object.entries(record(record(data).detected)).flatMap(([key, value]) => typeof value === "number" ? [[key, value]] : [])));
             setProjectName(data?.project_name || "");
           }
         })
@@ -47,7 +48,8 @@ export function AutoBuildDialog({ open, onOpenChange, projectId, funilId, onAppl
       toast.error(error.message);
       return;
     }
-    onApplied(data?.etapas || []);
+    const etapas: unknown = data?.etapas;
+    onApplied(Array.isArray(etapas) ? etapas.map(parseEtapa) : []);
     toast.success(`Funil montado com ${data?.etapas?.length || 0} etapas`);
     onOpenChange(false);
   };

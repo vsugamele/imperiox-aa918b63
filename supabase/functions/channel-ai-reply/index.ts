@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const stepSchema = z.object({ tipo: z.string().nullish(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), url: z.string().nullish() }).passthrough();
 // channel-ai-reply — agente de resposta para canais não-WhatsApp (Messenger via Zernio, Webchat do site).
 // Responde perguntas fora do script, manda o link de checkout quando há intenção de compra
 // e retoma o fluxo do OpenFlow no passo correto (wait_reply / input_capture).
@@ -17,7 +19,7 @@ const BUY_INTENT = [
 
 const BANNED = ["cure", "cures", "heal disease", "guaranteed results", "miracle", "fda approved"];
 
-function findLink(steps: any[], kind: "checkout" | "advertorial"): string | null {
+function findLink(steps: z.infer<typeof stepSchema>[], kind: "checkout" | "advertorial"): string | null {
   const needle = kind === "checkout" ? /(shop|checkout|cart|buy)/i : /(advertorial|article|journal)/i;
   for (const s of steps || []) {
     const txt = `${s?.mensagem || ""} ${s?.template || ""} ${s?.texto || ""} ${s?.url || ""}`;
@@ -57,8 +59,8 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    let steps: any[] = [];
-    let activeStep: any = null;
+    let steps: z.infer<typeof stepSchema>[] = [];
+    let activeStep: z.infer<typeof stepSchema> | null = null;
     let automacaoNome = "";
     if (exec?.automacao_id) {
       const { data: auto } = await supabase
@@ -68,7 +70,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (auto) {
         automacaoNome = auto.nome || "";
-        steps = (auto.acoes || auto.etapas || []) as any[];
+        steps = z.array(stepSchema).parse(auto.acoes || []);
         activeStep = steps[exec.current_step] || null;
       }
     }
@@ -80,7 +82,7 @@ Deno.serve(async (req) => {
       .eq("session_id", sessionId)
       .order("created_at", { ascending: false })
       .limit(14);
-    const history = (hist || []).reverse().map((m: any) => ({
+    const history = (hist || []).reverse().map((m) => ({
       role: m.direction === "in" ? "user" : "assistant",
       content: String(m.texto || "").slice(0, 900),
     }));
@@ -126,7 +128,7 @@ Deno.serve(async (req) => {
     }
     if (!reply) reply = isEn ? "One sec — let me check that for you." : "Um instante, já verifico isso pra você.";
 
-    const sent = await sendToChannel(supabase, session as any, reply);
+    const sent = await sendToChannel(supabase, session, reply);
 
     // ── Retoma o fluxo quando o passo ativo estava esperando resposta ──────
     let resumed = false;
@@ -155,7 +157,7 @@ Deno.serve(async (req) => {
             mensagem_recebida: incoming,
           },
         }),
-      }).catch((e: any) => console.error("[channel-ai-reply] resume error:", e?.message));
+      }).catch((e: unknown) => console.error("[channel-ai-reply] resume error:", e instanceof Error ? e.message : String(e)));
       resumed = true;
     }
 

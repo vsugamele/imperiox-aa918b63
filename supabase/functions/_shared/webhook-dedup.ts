@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText, record } from "./value.ts";
 // Idempotência para webhooks: usa a tabela imphq_webhook_dedup com UNIQUE (source, event_id).
 // Retorna true se o evento é novo (pode processar), false se já foi processado.
 //
@@ -7,7 +9,7 @@
 //   if (!isNew) return json({ status: "duplicate" }, 200);
 
 export async function markWebhookProcessed(
-  sb: any,
+  sb: SupabaseClient,
   source: string,
   eventId: string | null | undefined,
 ): Promise<boolean> {
@@ -19,11 +21,11 @@ export async function markWebhookProcessed(
   });
   if (!error) return true;
   // 23505 = unique_violation → já processado
-  if ((error as any).code === "23505" || /duplicate|unique/i.test(String((error as any).message))) {
+  if (error.code === "23505" || /duplicate|unique/i.test(String(error.message))) {
     console.log(`[webhook-dedup] evento duplicado ignorado: ${source}/${eventId}`);
     return false;
   }
   // Erro inesperado: loga e deixa passar (fail-open) pra não travar entrega
-  console.warn(`[webhook-dedup] insert falhou (${source}/${eventId}):`, (error as any).message);
+  console.warn(`[webhook-dedup] insert falhou (${source}/${eventId}):`, error.message);
   return true;
 }

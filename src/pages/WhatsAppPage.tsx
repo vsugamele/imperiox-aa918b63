@@ -1,3 +1,8 @@
+import { groupHubMessages, type HubMessage } from "@/components/whatsapp/hub-conversations";
+import { record } from "@/lib/funis-data";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
@@ -40,31 +45,21 @@ interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
-interface WaSession {
-  id: string; phone: string; contact_name: string | null;
-  session: string; project_id: string; status: string;
-  message_count: number; metadata: any; created_at: string;
-  provider_id: string | null;
-  last_message?: string | null;
-  updated_at?: string;
-  last_message_at?: string | null;
-  unread_count?: number;
-  last_message_direction?: string | null;
-  ai_paused_until?: string | null;
-  assigned_to?: string | null;
-}
+type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override">;
+type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled">;
+type HubSession = Pick<Tables<"wa_hub_iso_sessions">, "id" | "session_key" | "tenant_id" | "status">;
 
 let waRefCache: {
   ts: number;
   projects: { id: string; name: string }[];
-  providers: any[];
+  providers: WaProvider[];
   templates: WaTemplate[];
 } = { ts: 0, projects: [], providers: [], templates: [] };
 
 export default function WhatsApp() {
   const [sessions, setSessions] = useState<WaSession[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<WaProvider[]>([]);
   const [templates, setTemplates] = useState<WaTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterProject, setFilterProject] = useState(() => localStorage.getItem("wa.filterProject") || "all");
@@ -75,7 +70,7 @@ export default function WhatsApp() {
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<any>(null);
+  const [editingProvider, setEditingProvider] = useState<WaProvider | null>(null);
   const [showBulk, setShowBulk] = useState(false);
   const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes" | "conversao">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
@@ -108,7 +103,7 @@ export default function WhatsApp() {
       .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until, handoff_at, color_override")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
-    setSessions(sRes.data as any[] || []);
+    setSessions(sRes.data || []);
     setLoading(false);
   }, []);
 
@@ -126,8 +121,8 @@ export default function WhatsApp() {
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
     const projectsData = pRes.data || [];
-    const providersData = (provRes.data as any[]) || [];
-    const templatesData = (tRes.data as any[]) || [];
+    const providersData = provRes.data || [];
+    const templatesData = tRes.data || [];
     waRefCache = { ts: now, projects: projectsData, providers: providersData, templates: templatesData };
     setProjects(projectsData);
     setProviders(providersData);
@@ -167,14 +162,14 @@ export default function WhatsApp() {
   useEffect(() => {
     const ch = supabase
       .channel("wa-msgs-rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_messages" }, (payload) => {
-        const m: any = payload.new;
+      .on<Tables<"imphq_wa_messages">>("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_messages" }, (payload) => {
+        const m = payload.new;
         setSessions(prev => {
           const idx = prev.findIndex(s => s.id === m.conversation_id);
           if (idx === -1) {
             // Conversa ainda não está na lista → buscar e prepend
             supabase.from("imphq_wa_conversations").select("*").eq("id", m.conversation_id).maybeSingle().then(({ data }) => {
-              if (data) setSessions(curr => curr.some(s => s.id === data.id) ? curr : [data as any, ...curr]);
+              if (data) setSessions(curr => curr.some(s => s.id === data.id) ? curr : [data, ...curr]);
             });
             return prev;
           }
@@ -191,12 +186,12 @@ export default function WhatsApp() {
           return [updated, ...rest];
         });
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
-        const c: any = payload.new;
+      .on<Tables<"imphq_wa_conversations">>("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c = payload.new;
         setSessions(prev => prev.some(s => s.id === c.id) ? prev : [c, ...prev]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
-        const c: any = payload.new;
+      .on<Tables<"imphq_wa_conversations">>("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_wa_conversations" }, (payload) => {
+        const c = payload.new;
         setSessions(prev => {
           const merged = prev.map(s => s.id === c.id ? { ...s, ...c } : s);
           return merged.sort((a, b) => {
@@ -212,23 +207,25 @@ export default function WhatsApp() {
 
   // Marca como lida ao selecionar
   const markRead = useCallback(async (id: string) => {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 0 } : s));
-    await supabase.from("imphq_wa_conversations")
-      .update({ unread_count: 0, last_read_at: new Date().toISOString() } as any)
+    const { error } = await supabase.from("imphq_wa_conversations")
+      .update({ unread_count: 0, last_read_at: new Date().toISOString() })
       .eq("id", id);
+    if (error) { toast.error("Não foi possível marcar como lida."); return; }
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 0 } : s));
   }, []);
 
   // Marca como não lida novamente
   const markUnread = useCallback(async (id: string) => {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 1 } : s));
     const session = sessions.find(s => s.id === id);
     const lastMsgTime = session?.last_message_at ? new Date(session.last_message_at).getTime() : Date.now();
     const olderReadTime = new Date(lastMsgTime - 10000).toISOString();
 
-    await supabase.from("imphq_wa_conversations")
-      .update({ unread_count: 1, last_read_at: olderReadTime } as any)
+    const { error } = await supabase.from("imphq_wa_conversations")
+      .update({ unread_count: 1, last_read_at: olderReadTime })
       .eq("id", id);
 
+    if (error) { toast.error("Não foi possível marcar como não lida."); return; }
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 1 } : s));
     setSelectedSession(null);
     toast.success("Conversa marcada como não lida");
   }, [sessions]);
@@ -273,7 +270,7 @@ export default function WhatsApp() {
   // Auto-sync avatars for visible conversations missing avatar_url (batch, by provider)
   useEffect(() => {
     if (loading || sessions.length === 0 || providers.length === 0) return;
-    const missing = sessions.filter(s => !(s as any).avatar_url && s.provider_id).slice(0, 30);
+    const missing = sessions.filter(s => !s.avatar_url && s.provider_id).slice(0, 30);
     if (missing.length === 0) return;
     // Group by provider_id
     const byProvider = new Map<string, string[]>();
@@ -295,8 +292,8 @@ export default function WhatsApp() {
         .select("id, avatar_url").in("id", missing.map(s => s.id));
       if (data) {
         setSessions(prev => prev.map(s => {
-          const u = (data as any[]).find(d => d.id === s.id);
-          return u?.avatar_url ? { ...s, avatar_url: u.avatar_url } as any : s;
+          const u = data.find(d => d.id === s.id);
+          return u?.avatar_url ? { ...s, avatar_url: u.avatar_url } : s;
         }));
       }
     })();
@@ -319,7 +316,7 @@ export default function WhatsApp() {
       .eq("phone", cleanedPhone)
       .maybeSingle();
 
-    let err: any = null;
+    let err: PostgrestError | Error | null = null;
     if (existing) {
       // 2. Se já existe, atualiza os dados
       const { error } = await supabase
@@ -329,8 +326,8 @@ export default function WhatsApp() {
           session: form.session || `session-${Date.now()}`,
           status: "active",
           provider_id: provider?.id || null,
-          metadata: { default_message: form.default_message } as any,
-        } as any)
+          metadata: { default_message: form.default_message },
+        })
         .eq("id", existing.id);
       err = error;
     } else {
@@ -344,8 +341,8 @@ export default function WhatsApp() {
           session: form.session || `session-${Date.now()}`,
           project_id: form.project_id, status: "active",
           provider_id: provider?.id || null,
-          metadata: { default_message: form.default_message } as any,
-        } as any);
+          metadata: { default_message: form.default_message },
+        });
       err = error;
     }
 
@@ -442,7 +439,7 @@ export default function WhatsApp() {
                 providers={providers}
                 selectedId={selectedSession?.id || null}
                 loading={loading}
-                onSelect={(s) => { setSelectedSession(s); setChatTab("chat"); markRead(s.id); }}
+                onSelect={(s) => { const session = sessions.find(row => row.id === s.id); if (!session) return; setSelectedSession(session); setChatTab("chat"); markRead(session.id); }}
                 onNewSession={() => setShowNew(true)}
                 filterProject={filterProject}
                 onFilterProject={setFilterProject}
@@ -461,8 +458,8 @@ export default function WhatsApp() {
                   {/* Chat header */}
                   <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
                     <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                      {(selectedSession as any).avatar_url ? (
-                        <img src={(selectedSession as any).avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+                      {selectedSession.avatar_url ? (
+                        <img src={selectedSession.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
                       ) : (
                         <MessageSquare className="h-4 w-4 text-primary" />
                       )}
@@ -473,7 +470,7 @@ export default function WhatsApp() {
                         📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
                         {selectedProvider && (
                           <span className="ml-1.5 text-[10px] opacity-70">
-                            · via {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from)}
+                            · via {selectedProvider.display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from)}
                           </span>
                         )}
                       </p>
@@ -490,7 +487,7 @@ export default function WhatsApp() {
                           const newPausedUntil = isAiPaused ? null : new Date(Date.now() + 30 * 60 * 1000).toISOString();
                           const { error } = await supabase
                             .from("imphq_wa_conversations")
-                            .update({ ai_paused_until: newPausedUntil } as any)
+                            .update({ ai_paused_until: newPausedUntil })
                             .eq("id", selectedSession.id);
                           
                           if (error) {
@@ -538,10 +535,10 @@ export default function WhatsApp() {
                       {selectedProvider && (
                         <Badge variant="outline" className="text-[9px] flex items-center gap-1.5" title={selectedProvider.instance_name || ""}>
                           <span className="inline-block w-2 h-2 rounded-full" style={{ background: `hsl(${[...selectedProvider.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360}, 65%, 55%)` }} />
-                          {(selectedProvider as any).display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : "Twilio")}
+                          {selectedProvider.display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : "Twilio")}
                         </Badge>
                       )}
-                      <Tabs value={chatTab} onValueChange={(v) => setChatTab(v as any)}>
+                      <Tabs value={chatTab} onValueChange={(v) => { if (v === "chat" || v === "qrcode" || v === "info") setChatTab(v); }}>
                         <TabsList className="h-7">
                           <TabsTrigger value="chat" className="text-[10px] h-6 px-2">Chat</TabsTrigger>
                           {selectedProvider?.provider === "evolution" && (
@@ -750,16 +747,16 @@ export default function WhatsApp() {
 }
 
 // ── Hub Conversations (kept inline, simplified) ──
-function HubConversations({ projects, providers }: { projects: any[]; providers: any[] }) {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  const [hubSessions, setHubSessions] = useState<any[]>([]);
+function HubConversations({ projects, providers }: { projects: { id: string; name: string }[]; providers: WaProvider[] }) {
+  const [messages, setMessages] = useState<HubMessage[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Pick<Tables<"imphq_wa_conversations">, "id" | "phone" | "project_id" | "provider_id"> | null>(null);
+  const [hubSessions, setHubSessions] = useState<HubSession[]>([]);
   const [hubFilterProject, setHubFilterProject] = useState("all");
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
 
   useEffect(() => {
     Promise.all([
-      supabase.from("imphq_wa_messages").select("id, phone, content, created_at, project_id").order("created_at", { ascending: false }).limit(100),
+      supabase.from("imphq_wa_messages").select("id, phone, content, created_at, project_id, conversation_id").order("created_at", { ascending: false }).limit(100),
       supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
     ]).then(([msgRes, hubRes]) => {
       setMessages(msgRes.data || []);
@@ -770,58 +767,42 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
   const connectedCount = hubSessions.filter(s => s.status === "connected").length;
 
   const grouped = useMemo(() => {
-    const map = new Map<string, { phone: string; lastMsg: string; lastAt: string; count: number; projectId: string }>();
-    messages.forEach(m => {
-      const key = m.phone;
-      if (!key) return;
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, { phone: key, lastMsg: m.content?.slice(0, 60) || "", lastAt: m.created_at, count: 1, projectId: m.project_id || "" });
-      } else {
-        existing.count++;
-        if (m.created_at > existing.lastAt) { existing.lastAt = m.created_at; existing.lastMsg = m.content?.slice(0, 60) || ""; }
-      }
-    });
-    let result = Array.from(map.values()).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+    let result = groupHubMessages(messages);
     if (hubFilterProject !== "all") result = result.filter(g => g.projectId === hubFilterProject);
     return result;
   }, [messages, hubFilterProject]);
 
-  if (selectedPhone) {
-    const provider = providers[0] || null;
+  if (selectedConversation) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedPhone(null)}>← Voltar</Button>
-        <h2 className="text-lg font-semibold text-primary">Chat: {selectedPhone}</h2>
+        <Button variant="ghost" size="sm" onClick={() => setSelectedConversation(null)}>← Voltar</Button>
+        <h2 className="text-lg font-semibold text-primary">Chat: {selectedConversation.phone}</h2>
         <Card className="bg-card border-border h-[500px]">
-          <ChatView conversationId={selectedPhone} phone={selectedPhone} projectId={grouped.find(g => g.phone === selectedPhone)?.projectId || ""} providerId={provider?.id || null} />
+          <ChatView conversationId={selectedConversation.id} phone={selectedConversation.phone} projectId={selectedConversation.project_id || ""} providerId={selectedConversation.provider_id} />
         </Card>
       </div>
     );
   }
 
-  const deleteHubSession = async (session: any) => {
-    await Promise.all([
+  const deleteHubSession = async (session: HubSession) => {
+    const results = await Promise.all([
       supabase.from("wa_hub_iso_events").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
       supabase.from("wa_hub_iso_commands").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
     ]);
-    await supabase.from("wa_hub_iso_sessions").delete().eq("id", session.id);
+    if (results.some(result => result.error)) { toast.error("Não foi possível limpar os dados da sessão."); return false; }
+    const { error } = await supabase.from("wa_hub_iso_sessions").delete().eq("id", session.id);
+    if (error) { toast.error("Não foi possível remover a sessão."); return false; }
     setHubSessions(prev => prev.filter(s => s.id !== session.id));
     toast.success(`Sessão ${session.session_key} removida`);
+    return true;
   };
 
   const cleanOfflineSessions = async () => {
     const offline = hubSessions.filter(s => s.status !== "connected");
     if (offline.length === 0) { toast.info("Nenhuma sessão offline"); return; }
-    for (const s of offline) {
-      await Promise.all([
-        supabase.from("wa_hub_iso_events").delete().eq("tenant_id", s.tenant_id).eq("session_key", s.session_key),
-        supabase.from("wa_hub_iso_commands").delete().eq("tenant_id", s.tenant_id).eq("session_key", s.session_key),
-      ]);
-      await supabase.from("wa_hub_iso_sessions").delete().eq("id", s.id);
-    }
-    setHubSessions(prev => prev.filter(s => s.status === "connected"));
-    toast.success(`${offline.length} sessão(ões) offline removida(s)`);
+    let removed = 0;
+    for (const session of offline) { if (await deleteHubSession(session)) removed++; }
+    if (removed) toast.success(`${removed} sessão(ões) offline removida(s)`);
   };
 
   return (
@@ -863,7 +844,12 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
       {grouped.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {grouped.map(g => (
-            <Card key={g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={() => setSelectedPhone(g.phone)}>
+            <Card key={g.conversationId || g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={async () => {
+              if (!g.conversationId) { toast.error("Esta mensagem não possui conversa vinculada."); return; }
+              const { data, error } = await supabase.from("imphq_wa_conversations").select("id, phone, project_id, provider_id").eq("id", g.conversationId).maybeSingle();
+              if (error || !data) { toast.error("Não foi possível abrir a conversa vinculada."); return; }
+              setSelectedConversation(data);
+            }}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
@@ -889,7 +875,7 @@ function HubConversations({ projects, providers }: { projects: any[]; providers:
 }
 
 // ── Evolution Status Card ──
-function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: any) => void }) {
+function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: WaProvider; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: WaProvider) => void }) {
   const [status, setStatus] = useState<string>("loading");
   const [number, setNumber] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -928,7 +914,7 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
       const data = await res.json();
       if (data.success) { toast.success(`${data.imported} contato(s) importado(s), ${data.skipped} já existente(s)`); onSynced(); }
       else toast.error(data.error || "Erro ao sincronizar");
-    } catch (err: any) { toast.error("Falha: " + err.message); }
+    } catch (err: unknown) { toast.error("Falha: " + errorMessage(err)); }
     setSyncing(false);
   };
 
@@ -947,7 +933,7 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
         toast.success(`${data.imported} mensagens · ${data.conversations_created} conversas novas`);
         onSynced();
       } else toast.error(data.error || "Erro ao importar histórico");
-    } catch (err: any) { toast.error("Falha: " + err.message); }
+    } catch (err: unknown) { toast.error("Falha: " + errorMessage(err)); }
     setImportingMsgs(false);
   };
 
@@ -956,9 +942,9 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-api?action=restart_instance", { body: { provider_id: provider.id } });
       if (error) throw error;
-      if ((data as any)?.success) { toast.success("Reconectando — abra o QR Code para escanear"); setTimeout(fetchStatus, 1500); }
+      if (record(data).success) { toast.success("Reconectando — abra o QR Code para escanear"); setTimeout(fetchStatus, 1500); }
       else toast.error("Falha ao reconectar");
-    } catch (err: any) { toast.error("Erro: " + err.message); }
+    } catch (err: unknown) { toast.error("Erro: " + errorMessage(err)); }
     setRestarting(false);
   };
 
@@ -966,9 +952,9 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-api?action=delete_instance", { body: { provider_id: provider.id } });
       if (error) throw error;
-      if ((data as any)?.success) { toast.success("Provider removido"); onSynced(); }
+      if (record(data).success) { toast.success("Provider removido"); onSynced(); }
       else toast.error("Falha ao remover");
-    } catch (err: any) { toast.error("Erro: " + err.message); }
+    } catch (err: unknown) { toast.error("Erro: " + errorMessage(err)); }
     setConfirmDelete(false);
   };
 
@@ -996,8 +982,8 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : isConnected ? <Wifi className="h-4 w-4 text-emerald-400" /> : <WifiOff className="h-4 w-4 text-destructive" />}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-xs truncate">{(provider as any).display_name || provider.instance_name}</span>
-              {(provider as any).display_name && <span className="text-[10px] text-muted-foreground/70 truncate">({provider.instance_name})</span>}
+              <span className="font-medium text-xs truncate">{provider.display_name || provider.instance_name}</span>
+              {provider.display_name && <span className="text-[10px] text-muted-foreground/70 truncate">({provider.instance_name})</span>}
               <Badge variant="outline" className="text-[9px] gap-1 bg-primary/10 text-primary border-primary/30">
                 <FolderOpen className="h-2.5 w-2.5" /> {projectName}
               </Badge>
@@ -1087,13 +1073,13 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
 }
 
 // ── Controle de alertas de queda por instância ──
-function AlertControls({ provider, onChanged }: { provider: any; onChanged: () => void }) {
+function AlertControls({ provider, onChanged }: { provider: WaProvider; onChanged: () => void }) {
   const enabled = provider.health_alerts_enabled !== false;
   const mutedUntil = provider.health_alerts_muted_until ? new Date(provider.health_alerts_muted_until) : null;
   const isMuted = mutedUntil && mutedUntil.getTime() > Date.now();
   const active = enabled && !isMuted;
 
-  const update = async (patch: any, msg: string) => {
+  const update = async (patch: TablesUpdate<"imphq_wa_providers">, msg: string) => {
     const { error } = await supabase.from("imphq_wa_providers").update(patch).eq("id", provider.id);
     if (error) { toast.error(error.message); return; }
     toast.success(msg);
@@ -1136,7 +1122,7 @@ function AlertControls({ provider, onChanged }: { provider: any; onChanged: () =
 }
 
 // ── Meta Cloud Status Card (Oficial API) ──
-function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: any; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: any) => void }) {
+function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: WaProvider; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: WaProvider) => void }) {
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1161,14 +1147,14 @@ function MetaCloudStatusCard({ provider, projectName, projects, onSynced, onEdit
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-api?action=delete_instance", { body: { provider_id: provider.id } });
       if (error) throw error;
-      if ((data as any)?.success) {
+      if (record(data).success) {
         toast.success("Provider Oficial Meta removido");
         onSynced();
       } else {
         toast.error("Falha ao remover");
       }
-    } catch (err: any) {
-      toast.error("Erro ao remover: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao remover: " + errorMessage(err));
     }
     setConfirmDelete(false);
   };

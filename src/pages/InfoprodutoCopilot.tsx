@@ -1,6 +1,9 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { readRecord, record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -160,7 +163,7 @@ const PHASES: Phase[] = [
 
 export default function InfoprodutoCopilot() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">, "id" | "name" | "icon" | "data" | "avatar">[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("none");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -211,25 +214,25 @@ export default function InfoprodutoCopilot() {
 
     const proj = projects.find((p) => p.id === selectedProjectId);
     if (proj) {
-      const d = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
-      const av = proj.avatar || {};
+      const d = readRecord(proj.data);
+      const av = readRecord(proj.avatar);
       
       // Load existing data from projects and see if we have infoproduto structure in data.infoproduto
-      const info = d.infoproduto || {};
+      const info = record(d.infoproduto);
       
       const loadedDossier: InfoprodutoDossier = {
-        nome: info.nome || d.produto || proj.name || "",
-        nicho: info.nicho || d.briefing?.nicho || d.category || "",
-        preco: info.preco || d.precos?.principal || "",
-        pesquisa: info.pesquisa || "",
-        avatar: info.avatar || av.retrato || "",
-        produto: info.produto || "",
-        oferta: info.oferta || d.produtos_bonus || "",
-        salesPage: info.salesPage || "",
-        vsl: info.vsl || d.copy_arsenal?.vsl_hook || "",
-        webinar: info.webinar || "",
-        criativos: info.criativos || d.copy_arsenal?.ad_angles || "",
-        emails: info.emails || "",
+        nome: String(info.nome || d.produto || proj.name || ""),
+        nicho: String(info.nicho || record(d.briefing).nicho || d.category || ""),
+        preco: String(info.preco || record(d.precos).principal || ""),
+        pesquisa: String(info.pesquisa || ""),
+        avatar: String(info.avatar || av.retrato || ""),
+        produto: String(info.produto || ""),
+        oferta: String(info.oferta || d.produtos_bonus || ""),
+        salesPage: String(info.salesPage || ""),
+        vsl: String(info.vsl || record(d.copy_arsenal).vsl_hook || ""),
+        webinar: String(info.webinar || ""),
+        criativos: String(info.criativos || record(d.copy_arsenal).ad_angles || ""),
+        emails: String(info.emails || ""),
       };
       
       setDossier(loadedDossier);
@@ -379,8 +382,8 @@ Não invente outras chaves no JSON. Garanta que a string de content contenha que
       const cleanedReply = reply.replace(/```json-infoproduto[\s\S]*?```/g, "").trim();
 
       setMessages((prev) => [...prev, { role: "assistant", content: cleanedReply }]);
-    } catch (e: any) {
-      toast.error("Erro na comunicação com a IA: " + (e.message || "tente novamente"));
+    } catch (e: unknown) {
+      toast.error("Erro na comunicação com a IA: " + (errorMessage(e) || "tente novamente"));
       setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Erro ao obter resposta. Verifique a conexão com a Edge Function." }]);
     } finally {
       setSending(false);
@@ -470,23 +473,23 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
     setSavingProject(true);
     try {
       const proj = projects.find(p => p.id === selectedProjectId);
-      const currentData = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
-      const currentAvatar = proj.avatar || {};
+      const currentData = readRecord(proj.data);
+      const currentAvatar = readRecord(proj.avatar);
 
       // Merge values into the project schema
       const updatedData = {
         ...currentData,
         produto: dossier.nome,
         precos: {
-          ...currentData.precos,
+          ...record(currentData.precos),
           principal: dossier.preco,
         },
         branding: {
-          ...currentData.branding,
+          ...record(currentData.branding),
           nicho: dossier.nicho
         },
         briefing: {
-          ...currentData.briefing,
+          ...record(currentData.briefing),
           nicho: dossier.nicho
         },
         // Save the raw infoproduto copy structure in the JSON for recovery
@@ -515,8 +518,8 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       const { error: projError } = await supabase
         .from("imphq_projects")
         .update({
-          data: updatedData,
-          avatar: updatedAvatar
+          data: toJson(updatedData),
+          avatar: toJson(updatedAvatar)
         })
         .eq("id", selectedProjectId);
 
@@ -545,16 +548,16 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
         // Insert new documents
         const { error: docsError } = await supabase
           .from("imphq_docs")
-          .insert(docsToInsert as any);
+          .insert(docsToInsert);
 
         if (docsError) throw docsError;
       }
       
       // Update local state
-      setProjects(prev => prev.map(p => p.id === selectedProjectId ? { ...p, data: updatedData, avatar: updatedAvatar } : p));
+      setProjects(prev => prev.map(p => p.id === selectedProjectId ? { ...p, data: toJson(updatedData), avatar: toJson(updatedAvatar) } : p));
       toast.success("Dossiê e documentos salvos e sincronizados com o projeto com sucesso!");
-    } catch (e: any) {
-      toast.error("Erro ao sincronizar com o projeto: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao sincronizar com o projeto: " + errorMessage(e));
     } finally {
       setSavingProject(false);
     }
@@ -616,7 +619,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       });
 
       if (docsToInsert.length > 0) {
-        await supabase.from("imphq_docs").insert(docsToInsert as any);
+        await supabase.from("imphq_docs").insert(docsToInsert).throwOnError();
       }
 
       toast.success("Novo projeto criado e sincronizado!");
@@ -624,8 +627,8 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
       setNewProjectName("");
       await loadProjects();
       setSelectedProjectId(newId);
-    } catch (e: any) {
-      toast.error("Erro ao criar projeto: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao criar projeto: " + errorMessage(e));
     } finally {
       setSavingProject(false);
     }

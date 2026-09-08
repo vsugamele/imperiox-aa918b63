@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -50,8 +51,8 @@ export function WaBriefingCard() {
         }, { onConflict: "user_id" });
       if (error) throw error;
       toast.success("Briefing WhatsApp salvo");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao salvar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao salvar");
     } finally {
       setSaving(false);
     }
@@ -69,8 +70,8 @@ export function WaBriefingCard() {
       const { data: resp, error: err2 } = await supabase.functions.invoke(`daily-briefing-wa?force=true&user_id=${userId}`, { body: {} });
       if (err2 || error) throw (err2 || error);
       toast.success("Briefing enviado para o seu WhatsApp");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao enviar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao enviar");
     } finally {
       setSending(false);
     }

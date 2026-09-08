@@ -1,3 +1,6 @@
+import { record, toJson } from "@/lib/funis-data";
+import { z } from "zod";
+import { errorMessage } from "@/lib/error-message";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,12 +80,12 @@ export function RoteirosTab() {
         body: { prompt, mode: "editorial" },
       });
       if (error) throw error;
-      const r = (data as any)?.refined || (data as any)?.prompt;
-      if (!r) throw new Error("Refinador não retornou texto");
+      const r = record(data).refined || record(data).prompt;
+      if (typeof r !== "string" || !r) throw new Error("Refinador não retornou texto");
       setRefined(r);
       toast.success("Refinado pela IA");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao refinar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao refinar");
     } finally {
       setRefining(false);
     }
@@ -102,11 +105,12 @@ export function RoteirosTab() {
         body: { hook: output, contexto },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setScore(data as any);
-      toast.success(`Hook avaliado: ${(data as any)?.score ?? "?"} / 100`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao avaliar hook");
+      if (record(data).error) throw new Error(String(record(data).error));
+      const score=z.object({score:z.number(),breakdown:z.record(z.number()),veredito:z.string(),diagnostico:z.string(),sugestao:z.string()}).parse(data);
+      setScore({score:score.score,breakdown:score.breakdown,veredito:score.veredito,diagnostico:score.diagnostico,sugestao:score.sugestao});
+      toast.success(`Hook avaliado: ${score.score ?? "?"} / 100`);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao avaliar hook");
     } finally {
       setScoring(false);
     }
@@ -123,13 +127,13 @@ export function RoteirosTab() {
         nome,
         plataforma: "roteiro",
         prompt_text: output,
-        campos: { __type: "roteiro", templateId, values, projectId, productName } as any,
+        campos: toJson({ __type: "roteiro", templateId, values, projectId, productName }),
         tags: ["roteiro", template.categoria.toLowerCase()],
-      } as any);
+      });
       if (error) throw error;
       toast.success("Salvo no Cofre");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao salvar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao salvar");
     } finally {
       setSaving(false);
     }

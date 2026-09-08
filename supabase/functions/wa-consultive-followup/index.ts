@@ -4,6 +4,10 @@
 // e não há rejeição clara no histórico.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(value: unknown) { const message = record(value).message; return typeof message === "string" ? message : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -29,10 +33,11 @@ const TOUCH_WINDOWS = [
   { touch: 3, minH: 72, maxH: 168, angle: "downsell" },
 ];
 
-function inBusinessHours(cfg: any, now: Date): boolean {
+function inBusinessHours(config: unknown, now: Date): boolean {
+  const cfg = record(config);
   // Config esperada: { start: "09", end: "20", tz: "America/Sao_Paulo", days: [1..5] }
   // Se não houver config, default 9-20 seg-sab horário BR.
-  const brNow = new Date(now.toLocaleString("en-US", { timeZone: cfg?.tz || "America/Sao_Paulo" }));
+  const brNow = new Date(now.toLocaleString("en-US", { timeZone: typeof cfg.tz === "string" && cfg.tz || "America/Sao_Paulo" }));
   const h = brNow.getHours();
   const day = brNow.getDay(); // 0=dom
   const start = Number(cfg?.start ?? 9);
@@ -43,9 +48,9 @@ function inBusinessHours(cfg: any, now: Date): boolean {
 
 async function generateCopy(
   angle: string,
-  lead: any,
+  lead: { nome?: string | null } | null,
   produto: string | null,
-  projeto: any,
+  projeto: { name?: string | null; avatar?: unknown; brand_kit?: unknown } | null,
 ): Promise<string> {
   const nome = String(lead?.nome || "").split(" ")[0] || "";
   const fallbacks: Record<string, string> = {
@@ -56,9 +61,9 @@ async function generateCopy(
   const fallback = fallbacks[angle] || fallbacks.duvida;
   if (!LOVABLE_API_KEY) return fallback;
 
-  const brand = projeto?.brand_kit || {};
+  const brand = record(projeto?.brand_kit);
   const tom = brand?.tom_de_voz || "consultivo, próximo, sem pressão";
-  const persona = projeto?.avatar?.nome || "consultor";
+  const persona = record(projeto?.avatar).nome || "consultor";
   const contextos: Record<string, string> = {
     duvida: "toque consultivo de reengajamento — pergunte se ficou alguma dúvida específica",
     objecao_preco: "quebra suave de objeção de preço/tempo — ofereça alternativa (parcelamento ou produto mais leve)",
@@ -84,7 +89,7 @@ async function generateCopy(
   }
 }
 
-async function findActiveProvider(supabase: any, projectId: string | null) {
+async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string | null) {
   if (projectId) {
     const { data } = await supabase.from("imphq_wa_providers").select("*")
       .eq("project_id", projectId).eq("is_active", true)
@@ -121,7 +126,7 @@ Deno.serve(async (req) => {
     }
 
     let sent = 0, skipped = 0;
-    const details: any[] = [];
+    const details: { conv: string; touch: number; ok: boolean }[] = [];
 
     for (const conv of convs) {
       try {
@@ -130,7 +135,7 @@ Deno.serve(async (req) => {
         const hoursSince = (nowMs - lastAt) / 3600000;
 
         // Determina qual toque cabe agora
-        const state = (conv as any).followup_state || {};
+        const state = record(conv.followup_state);
         const lastTouch = Number(state.last_touch || 0);
         const nextWindow = TOUCH_WINDOWS.find(w => w.touch === lastTouch + 1);
         if (!nextWindow) { skipped++; continue; }
@@ -152,13 +157,13 @@ Deno.serve(async (req) => {
           .eq("conversation_id", conv.id)
           .order("created_at", { ascending: false }).limit(20);
 
-        const hasIncomingAfter = (recent || []).some((m: any) =>
+        const hasIncomingAfter = (recent || []).some((m) =>
           m.direction === "incoming" && new Date(m.created_at).getTime() > lastAt
         );
         if (hasIncomingAfter) { skipped++; continue; }
 
-        const incomings = (recent || []).filter((m: any) => m.direction === "incoming").slice(0, 5);
-        const rejected = incomings.some((m: any) =>
+        const incomings = (recent || []).filter((m) => m.direction === "incoming").slice(0, 5);
+        const rejected = incomings.some((m) =>
           REJECTION_PATTERNS.some(rx => rx.test(String(m.content || "")))
         );
         if (rejected) {
@@ -175,9 +180,9 @@ Deno.serve(async (req) => {
         const projectId = conv.project_id || lead?.project_id;
         const { data: projeto } = projectId
           ? await supabase.from("imphq_projects").select("name, avatar, brand_kit").eq("id", projectId).maybeSingle()
-          : { data: null } as any;
+          : { data: null };
 
-        const produto = String(lead?.ultimo_produto || (lead?.lead_memory as any)?.interesse_principal || "").slice(0, 80) || null;
+        const produto = String(lead?.ultimo_produto || record(lead?.lead_memory).interesse_principal || "").slice(0, 80) || null;
         const message = await generateCopy(nextWindow.angle, lead, produto, projeto);
 
         // Envia via edge send_message (usa infra existente com failover e atribuição)
@@ -208,8 +213,8 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_wa_conversations").update({
           followup_state: {
             ...state,
-            last_touch: nextWindow.touch,
-            last_touch_at: now.toISOString(),
+            last_touch: ok ? nextWindow.touch : lastTouch,
+            last_touch_at: ok ? now.toISOString() : state.last_touch_at,
             last_angle: nextWindow.angle,
             last_ok: ok,
           },
@@ -234,17 +239,17 @@ Deno.serve(async (req) => {
 
         if (ok) sent++; else skipped++;
         details.push({ conv: conv.id, touch: nextWindow.touch, ok });
-      } catch (convErr: any) {
-        console.error("[wa-consultive-followup] conv error:", convErr?.message);
+      } catch (convErr) {
+        console.error("[wa-consultive-followup] conv error:", errorMessage(convErr));
         skipped++;
       }
     }
 
     return new Response(JSON.stringify({ ok: true, processed: convs.length, sent, skipped, details }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[wa-consultive-followup] fatal:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }),
+    return new Response(JSON.stringify({ error: String(errorMessage(e) || e) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

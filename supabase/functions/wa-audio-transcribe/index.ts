@@ -107,17 +107,19 @@ Deno.serve(async (req) => {
             embedding,
           });
         }
-      } catch (embErr: any) {
-        console.warn("[wa-audio-transcribe] embedding skip:", embErr?.message);
+      } catch (embErr) {
+    const embErrMessage = embErr instanceof Error ? embErr.message : embErr && typeof embErr === "object" && "message" in embErr && typeof embErr.message === "string" ? embErr.message : undefined;
+        console.warn("[wa-audio-transcribe] embedding skip:", embErrMessage);
       }
     }
 
     return new Response(JSON.stringify({ success: true, transcript }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[wa-audio-transcribe] fatal:", err?.message);
-    return new Response(JSON.stringify({ error: err?.message || "unknown" }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[wa-audio-transcribe] fatal:", errMessage);
+    return new Response(JSON.stringify({ error: errMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

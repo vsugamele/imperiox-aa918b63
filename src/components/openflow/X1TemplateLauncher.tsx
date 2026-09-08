@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { FLOW_TEMPLATES, type FlowTemplate } from "./flow-editor/templates";
+import { FLOW_TEMPLATES, type FlowTemplate } from "@/components/openflow/flow-editor/templates";
 
 const CANAIS = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -77,7 +77,7 @@ export function X1TemplateLauncher({ open, onOpenChange, projects, onCreated }: 
       acoes: JSON.parse(JSON.stringify(tpl.acoes)),
       ativo: false,
       canal,
-    } as any);
+    });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Fluxo criado a partir do template — revise e ative.");

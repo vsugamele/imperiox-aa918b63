@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     let avatarCtx = avatar, brandingCtx = branding;
     if (!avatarCtx || !brandingCtx) {
       const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).maybeSingle();
-      const d = (proj as any)?.data || {};
+      const d = proj?.data || {};
       avatarCtx = avatarCtx || d.avatar || d.avatars_por_produto;
       brandingCtx = brandingCtx || d.branding || d.brand;
     }
@@ -81,8 +81,9 @@ A oferta tripwire DEVE preparar a escada para esse core.`;
     return new Response(JSON.stringify({ result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

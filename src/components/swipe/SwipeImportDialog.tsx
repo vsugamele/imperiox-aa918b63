@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { TablesInsert } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -48,7 +51,7 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
     return raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   };
 
-  const tryRecover = (raw: string): { data: any; recovered: number } | null => {
+  const tryRecover = (raw: string): { data: unknown; recovered: number } | null => {
     // Tenta recuperar JSON truncado: fecha no último roteiro completo dentro de "roteiros":[...]
     try {
       const m = raw.match(/"roteiros"\s*:\s*\[/i) || raw.match(/"copies"\s*:\s*\[/i) || raw.match(/"swipes"\s*:\s*\[/i);
@@ -70,8 +73,10 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
       }
       if (lastGood < 0) return null;
       const fixed = raw.slice(0, lastGood + 1) + "]}";
-      const data = JSON.parse(fixed);
-      return { data, recovered: (data.roteiros || data.copies || data.swipes || []).length };
+      const data: unknown = JSON.parse(fixed);
+      const row = record(data);
+      const recovered = row.roteiros || row.copies || row.swipes;
+      return Array.isArray(recovered) ? { data, recovered: recovered.length } : null;
     } catch {
       return null;
     }
@@ -101,7 +106,7 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
 
       setUploadProgress("Criando registro...");
       const { data: row, error: insErr } = await supabase
-        .from("imphq_swipes" as any)
+        .from("imphq_swipes")
         .insert({
           user_id: userId,
           title: videoTitle,
@@ -114,14 +119,14 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
           tags: [`${sizeMB.toFixed(1)}MB`],
           blocks: {},
           gatilhos: [],
-        } as any)
+        })
         .select("id")
         .single();
       if (insErr) throw insErr;
 
       setUploadProgress("Transcrevendo (pode levar 30-90s)...");
       const { error: tErr } = await supabase.functions.invoke("swipe-video-transcribe", {
-        body: { swipe_id: (row as any).id, storage_path: path, auto_engineer: videoAutoEng },
+        body: { swipe_id: row.id, storage_path: path, auto_engineer: videoAutoEng },
       });
       if (tErr) throw tErr;
 
@@ -131,8 +136,8 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
       setVideoFile(null);
       setVideoTitle("");
       setUploadProgress("");
-    } catch (e: any) {
-      toast.error(e.message || "Falha no upload");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha no upload");
       setUploadProgress("");
     } finally {
       setLoading(false);
@@ -143,22 +148,22 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
     if (tab === "video") return handleVideoUpload();
     setLoading(true);
     try {
-      let payload: any;
+      let payload: unknown;
       if (tab === "json") {
         const raw = cleanJson(json);
         if (!raw) throw new Error("Cole um JSON");
         try {
           payload = JSON.parse(raw);
-        } catch (parseErr: any) {
+        } catch (parseErr: unknown) {
           // tenta recuperar truncamento
           const recovered = tryRecover(raw);
           if (recovered) {
             payload = recovered.data;
             toast.warning(`JSON estava truncado — recuperei ${recovered.recovered} roteiro(s) válido(s).`);
           } else {
-            const pos = (parseErr?.message || "").match(/position (\d+)/);
+            const pos = (errorMessage(parseErr) || "").match(/position (\d+)/);
             const hint = pos ? ` (posição ${pos[1]} — provável paste truncado)` : "";
-            throw new Error(`JSON inválido${hint}. Detalhe: ${parseErr?.message || "erro desconhecido"}`);
+            throw new Error(`JSON inválido${hint}. Detalhe: ${errorMessage(parseErr) || "erro desconhecido"}`);
           }
         }
       } else if (tab === "text") {
@@ -171,7 +176,7 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
         if (!vsl.title.trim()) throw new Error("Dê um título à VSL");
         if (!vsl.url.trim() && !vsl.transcricao.trim()) throw new Error("Cole pelo menos a URL ou a transcrição");
         const { data: u } = await supabase.auth.getUser();
-        const row: any = {
+        const row: TablesInsert<"imphq_swipes"> = {
           user_id: u.user?.id,
           title: vsl.title,
           formato: "vsl",
@@ -190,7 +195,7 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
           gatilhos: [],
           reverse_engineering: vsl.oferta ? { oferta: vsl.oferta } : {},
         };
-        const { error: insErr } = await supabase.from("imphq_swipes" as any).insert(row);
+        const { error: insErr } = await supabase.from("imphq_swipes").insert(row);
         if (insErr) throw insErr;
         toast.success("VSL adicionada ao banco!");
         onImported();
@@ -212,8 +217,8 @@ export function SwipeImportDialog({ open, onOpenChange, onImported }: Props) {
       setText("");
       setUrl("");
       setNicho("");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao importar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao importar");
     } finally {
       setLoading(false);
     }

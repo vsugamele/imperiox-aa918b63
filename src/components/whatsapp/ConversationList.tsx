@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import { toast } from "sonner";
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
   session: string; project_id: string; status: string;
-  message_count: number; metadata: any; created_at: string;
+  message_count: number; metadata: unknown; created_at: string;
   provider_id: string | null;
   last_message?: string | null;
   updated_at?: string;
@@ -139,10 +140,10 @@ export default function ConversationList({
   const [search, setSearch] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
-    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-snooze-mode") as any) : null) || "hide"
+    () => { const value = typeof window !== "undefined" ? localStorage.getItem("wa-snooze-mode") : null; return value === "show" || value === "only" ? value : "hide"; }
   );
   const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">(
-    () => (typeof window !== "undefined" ? (localStorage.getItem("wa-assign-filter") as any) : null) || "all"
+    () => { const value = typeof window !== "undefined" ? localStorage.getItem("wa-assign-filter") : null; return value === "mine" || value === "unassigned" ? value : "all"; }
   );
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [colorFilter, setColorFilter] = useState<string>(
@@ -155,22 +156,22 @@ export default function ConversationList({
 
   const setColor = async (id: string, color: string | null) => {
     try {
-      await supabase.from("imphq_wa_conversations").update({ color_override: color } as any).eq("id", id);
+      await supabase.from("imphq_wa_conversations").update({ color_override: color }).eq("id", id);
       toast.success(color ? "Cor aplicada" : "Cor removida");
-    } catch (e: any) {
-      toast.error("Falha ao salvar cor: " + (e.message || e));
+    } catch (e: unknown) {
+      toast.error("Falha ao salvar cor: " + errorMessage(e));
     }
   };
 
   const cycleSnoozeMode = () => {
     const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
     setSnoozeMode(next);
-    try { localStorage.setItem("wa-snooze-mode", next); } catch {}
+    try { localStorage.setItem("wa-snooze-mode", next); } catch { /* Storage preferences are optional in restricted browsers. */ }
   };
   const cycleAssignFilter = () => {
     const next = assignFilter === "all" ? "mine" : assignFilter === "mine" ? "unassigned" : "all";
     setAssignFilter(next);
-    try { localStorage.setItem("wa-assign-filter", next); } catch {}
+    try { localStorage.setItem("wa-assign-filter", next); } catch { /* Storage preferences are optional in restricted browsers. */ }
   };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
@@ -341,7 +342,7 @@ export default function ConversationList({
             return (
               <button
                 key={c.k}
-                onClick={() => { setColorFilter(c.k); try { localStorage.setItem("wa-color-filter", c.k); } catch {} }}
+                onClick={() => { setColorFilter(c.k); try { localStorage.setItem("wa-color-filter", c.k); } catch { /* Storage preferences are optional in restricted browsers. */ } }}
                 className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground bg-muted/60 border-primary/40" : "text-muted-foreground bg-muted/20 border-border hover:bg-muted/50"}`}
               >
                 {c.hex !== "transparent" && <span className="inline-block w-2 h-2 rounded-full" style={{ background: c.hex }} />}
@@ -458,7 +459,7 @@ export default function ConversationList({
                             // O hook no WhatsAppPage detecta e puxa um link assinado novo e funcional!
                             await supabase
                               .from("imphq_wa_conversations")
-                              .update({ avatar_url: null } as any)
+                              .update({ avatar_url: null })
                               .eq("id", s.id);
                           }}
                         />

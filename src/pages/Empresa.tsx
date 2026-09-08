@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
+import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
+import { hexToTint } from "@/components/kanban/column-color";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
 import { FarmTab } from "@/components/empresa/FarmTab";
@@ -95,11 +97,11 @@ export default function Empresa() {
 
   const loadRefs = async () => {
     const [d, p] = await Promise.all([
-      (supabase.from("imphq_cloud_phones" as any) as any).select("id, nome, provider").order("nome"),
+      supabase.from("imphq_cloud_phones").select("id, nome, provider").order("nome"),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    setDevices(((d.data as any) || []).map((x: any) => ({ id: x.id, nome: x.nome || x.provider, provider: x.provider })));
-    setProjects((p.data as any) || []);
+    setDevices((d.data || []).map((x) => ({ id: x.id, nome: x.nome || x.provider, provider: x.provider })));
+    setProjects(p.data || []);
   };
 
   useEffect(() => { load(); loadNodes(); loadRefs(); }, []);
@@ -188,7 +190,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     if (typeof window === "undefined") return "list";
     return (localStorage.getItem(viewKey) as "list" | "grid") || "list";
   });
-  useEffect(() => { try { localStorage.setItem(viewKey, view); } catch {} }, [view, viewKey]);
+  useEffect(() => { try { localStorage.setItem(viewKey, view); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ } }, [view, viewKey]);
 
   const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
   const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
@@ -207,7 +209,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     // Otimista: atualiza posições e persiste
     await Promise.all(
       ordered.map((c, i) =>
-        supabase.from("imphq_empresa").update({ position: (i + 1) * 100 } as any).eq("id", c.id)
+        supabase.from("imphq_empresa").update({ position: (i + 1) * 100 }).eq("id", c.id)
       )
     );
     onRefresh();
@@ -289,8 +291,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       const { data } = supabase.storage.from("company-map-images").getPublicUrl(path);
       setForm(f => ({ ...f, foto_url: data.publicUrl }));
       toast.success("Foto carregada");
-    } catch (e: any) {
-      toast.error("Erro no upload: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro no upload: " + errorMessage(e));
     } finally {
       setUploading(false);
     }
@@ -324,7 +326,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
         geelark_profile: form.geelark_profile || null,
         geelark_status: form.geelark_status || null,
       },
-    } as any;
+    };
 
 
     if (editingConta) {
@@ -538,7 +540,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                       <ColumnColorMenu
                         currentColor={c.color}
                         onPick={async (hex) => {
-                          await supabase.from("imphq_empresa").update({ color: hex } as any).eq("id", c.id);
+                          await supabase.from("imphq_empresa").update({ color: hex }).eq("id", c.id);
                           onRefresh();
                         }}
                       />
@@ -548,7 +550,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                           size="sm"
                           className="w-full mt-1 h-7 text-xs text-muted-foreground"
                           onClick={async () => {
-                            await supabase.from("imphq_empresa").update({ color: null } as any).eq("id", c.id);
+                            await supabase.from("imphq_empresa").update({ color: null }).eq("id", c.id);
                             onRefresh();
                           }}
                         >

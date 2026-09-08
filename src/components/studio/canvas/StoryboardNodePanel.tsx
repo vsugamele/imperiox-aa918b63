@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,19 +12,19 @@ import { toast } from "sonner";
 type Model = {
   id: string;
   title: string | null;
-  ficha: any;
-  storyboard: any;
+  ficha: Json;
+  storyboard: Json;
 };
 
 interface Props {
   nodeId: string;
   modelId: string | null;
   targetKind: "image" | "video";
-  onChangeConfig: (patch: any) => void;
+  onChangeConfig: (patch: Record<string,Json>) => void;
   onExplode: (opts: {
     sourceNodeId: string;
-    scenes: any[];
-    ficha: any;
+    scenes: Json[];
+    ficha: Json;
     targetKind: "image" | "video";
   }) => Promise<void>;
 }
@@ -33,9 +36,9 @@ export function StoryboardNodePanel({ nodeId, modelId, targetKind, onChangeConfi
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase.from("imphq_studio_reference_models" as any) as any)
+      const { data } = await supabase.from("imphq_studio_reference_models")
         .select("id,title,ficha,storyboard").order("created_at", { ascending: false }).limit(40);
-      const rows = (data ?? []) as Model[];
+      const rows = data ?? [];
       setModels(rows.filter((m) => Array.isArray(m.storyboard) && m.storyboard.length > 0));
       if (modelId) {
         const f = rows.find((m) => m.id === modelId);
@@ -58,8 +61,8 @@ export function StoryboardNodePanel({ nodeId, modelId, targetKind, onChangeConfi
     try {
       await onExplode({ sourceNodeId: nodeId, scenes, ficha: active.ficha || {}, targetKind });
       toast.success(`${scenes.length} cenas plantadas`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao explodir");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao explodir");
     } finally { setBusy(false); }
   };
 
@@ -73,7 +76,7 @@ export function StoryboardNodePanel({ nodeId, modelId, targetKind, onChangeConfi
             {models.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma modelagem com storyboard</div>}
             {models.map((m) => (
               <SelectItem key={m.id} value={m.id}>
-                {m.title ?? "Modelo"} · {m.storyboard?.length || 0} cenas
+                {m.title ?? "Modelo"} · {Array.isArray(m.storyboard) ? m.storyboard.length : 0} cenas
               </SelectItem>
             ))}
           </SelectContent>
@@ -97,10 +100,10 @@ export function StoryboardNodePanel({ nodeId, modelId, targetKind, onChangeConfi
             <Film className="h-3 w-3" /> {active.storyboard.length} cenas
           </div>
           <ol className="space-y-1 text-[11px] leading-5 list-decimal list-inside">
-            {active.storyboard.slice(0, 8).map((s: any, i: number) => (
+            {active.storyboard.slice(0, 8).map(record).map((s, i) => (
               <li key={i} className="text-muted-foreground">
-                <span className="text-foreground">{s.titulo || s.title || `Cena ${i + 1}`}</span>
-                {s.prompt && <div className="ml-4 text-[10px] line-clamp-2">{s.prompt}</div>}
+                <span className="text-foreground">{String(s.titulo || s.title || `Cena ${i + 1}`)}</span>
+                {typeof s.prompt === "string" && <div className="ml-4 text-[10px] line-clamp-2">{s.prompt}</div>}
               </li>
             ))}
             {active.storyboard.length > 8 && <li className="text-[10px]">+{active.storyboard.length - 8} cenas…</li>}

@@ -18,7 +18,7 @@ export interface LeadSignals {
     score?: number | null;
     total_gasto?: number | string | null;
     updated_at?: string | null;
-    data?: any;
+    data?: Json;
     project_id?: string | null;
   };
   // Predição IA opcional
@@ -51,8 +51,8 @@ export function calcHotLead(signals: LeadSignals): HotLeadResult {
   const reasons: HotReason[] = [];
   let score = 0;
 
-  const data = lead.data || {};
-  const evento: string = data.ultimo_evento || "";
+  const data = jsonFields(lead.data);
+  const evento = jsonText(data.ultimo_evento) || "";
   const updatedMin = minutesSince(lead.updated_at);
   const totalGasto = parseFloat(String(lead.total_gasto || 0)) || 0;
 
@@ -89,10 +89,10 @@ export function calcHotLead(signals: LeadSignals): HotLeadResult {
   }
 
   // 5. Sinais de engajamento recente em data.interacoes
-  const interacoes: any[] = Array.isArray(data.interacoes) ? data.interacoes : [];
+  const interacoes = Array.isArray(data.interacoes) ? data.interacoes : [];
   if (interacoes.length > 0) {
     const last = interacoes[interacoes.length - 1];
-    const lastMin = minutesSince(last?.data);
+    const lastMin = minutesSince(jsonText(jsonFields(last).data));
     if (lastMin < 60) {
       score += 15;
       reasons.push({ key: "engajou_agora", label: `Interagiu há ${Math.max(1, Math.floor(lastMin))}min`, points: 15, intensity: "high" });
@@ -122,3 +122,5 @@ export function heatColor(score: number): { bg: string; text: string; border: st
   if (score >= 40) return { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/40", label: "Alto" };
   return { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/30", label: "Atenção" };
 }
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";

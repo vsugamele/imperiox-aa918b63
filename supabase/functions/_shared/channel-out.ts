@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { record, text as stringValue } from "./value.ts";
 // Envio de mensagens para canais não-WhatsApp do OpenFlow (Messenger via Zernio, Webchat do site).
 // Mantém um registro em imphq_channel_messages para histórico e para o widget fazer polling.
 
@@ -9,7 +11,7 @@ export interface ChannelSession {
   canal: string;
   external_id: string;
   project_id: string | null;
-  meta?: Record<string, any> | null;
+  meta?: Record<string, unknown> | null;
 }
 
 /** Chama o bridge zernio-mcp desta instância. */
@@ -19,19 +21,19 @@ async function zernioMcp(projectId: string, body: Record<string, unknown>) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
     body: JSON.stringify({ project_id: projectId, ...body }),
   });
-  const json = await res.json().catch(() => ({}));
+  const json = record(await res.json().catch(() => ({})));
   return { ok: res.ok && json?.ok !== false, status: res.status, json };
 }
 
-let cachedTool: Record<string, string> = {};
+const cachedTool: Record<string, string> = {};
 
 /** Descobre dinamicamente a tool de envio de mensagem do Messenger no MCP do Zernio. */
 async function resolveMessengerTool(projectId: string): Promise<string | null> {
   if (cachedTool[projectId]) return cachedTool[projectId];
   const r = await zernioMcp(projectId, { op: "tools/list" });
-  const tools: any[] = r.json?.result?.tools || r.json?.result || [];
+  const tools = record(r.json.result).tools || r.json.result || [];
   const names: string[] = Array.isArray(tools)
-    ? tools.map((t) => (typeof t === "string" ? t : t?.name)).filter(Boolean)
+    ? tools.map((t) => (typeof t === "string" ? t : stringValue(record(t).name))).filter(Boolean)
     : [];
   const score = (n: string) => {
     const s = n.toLowerCase();
@@ -74,7 +76,7 @@ async function sendMessenger(session: ChannelSession, text: string, mediaUrl?: s
 
 /** Envia texto (e mídia opcional) para uma sessão de canal. Retorna { success, error? }. */
 export async function sendToChannel(
-  supa: any,
+  supa: SupabaseClient,
   session: ChannelSession,
   text: string,
   mediaUrl?: string | null,
@@ -86,13 +88,14 @@ export async function sendToChannel(
   }
   // webchat: a entrega acontece pelo polling do widget, então basta persistir.
 
-  await supa.from("imphq_channel_messages").insert({
+  const { error: persistError } = await supa.from("imphq_channel_messages").insert({
     session_id: session.id,
     direction: "out",
     texto: text,
     media_url: mediaUrl || null,
     meta: result.success ? {} : { error: result.error },
   });
+  if (persistError && session.canal === "webchat") return { success: false, error: persistError.message };
   await supa
     .from("imphq_channel_sessions")
     .update({ last_message_at: new Date().toISOString() })
@@ -103,7 +106,7 @@ export async function sendToChannel(
 
 /** Cria/recupera a sessão de canal por external_id. */
 export async function upsertSession(
-  supa: any,
+  supa: SupabaseClient,
   input: {
     canal: string;
     external_id: string;
@@ -112,7 +115,7 @@ export async function upsertSession(
     avatar_url?: string | null;
     origin?: string | null;
     widget_id?: string | null;
-    meta?: Record<string, any>;
+    meta?: Record<string, unknown>;
   },
 ): Promise<ChannelSession> {
   const { data: existing } = await supa

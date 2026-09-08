@@ -2,6 +2,10 @@
 // Auto-executa low risk (confidence ≥ 0.8). Roda via cron a cada 15min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+interface FlowAction { tipo: string; template?: string; delay_min?: number; [key: string]: unknown }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -16,7 +20,7 @@ type Proposed = {
   confidence: number;
   title: string;
   reason: string;
-  payload: any;
+  payload: Record<string, unknown>;
   projeto_id?: string;
   source?: string;
   impact_brl?: number;
@@ -25,8 +29,8 @@ type Proposed = {
 type Projeto = {
   id: string;
   name: string;
-  settings: any;
-  data: any;
+  settings: Record<string, unknown> | null;
+  data: Record<string, unknown> | null;
   daily_revenue_goal: number | null;
 };
 
@@ -36,7 +40,7 @@ function metaCpaOf(p: Projeto): number {
   return Number(s.meta_cpa ?? d.meta_cpa ?? 50);
 }
 
-async function scoutProject(supabase: any, projeto: Projeto): Promise<Proposed[]> {
+async function scoutProject(supabase: ReturnType<typeof makeClient>, projeto: Projeto): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
   const since2h = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
@@ -74,7 +78,7 @@ async function scoutProject(supabase: any, projeto: Projeto): Promise<Proposed[]
     .gte("date", since7d.slice(0, 10))
     .limit(500);
 
-  const agg = new Map<string, any>();
+  const agg = new Map<string, { entity_id: string; entity_type: string; entity_name: string; impressions: number; clicks: number; spend: number; conversions: number }>();
   for (const a of ads || []) {
     const entityId = a.ad_id || a.adset_id;
     if (!entityId) continue;
@@ -83,7 +87,7 @@ async function scoutProject(supabase: any, projeto: Projeto): Promise<Proposed[]
     if (!agg.has(entityId)) {
       agg.set(entityId, { entity_id: entityId, entity_type: entityType, entity_name: entityName, impressions: 0, clicks: 0, spend: 0, conversions: 0 });
     }
-    const r = agg.get(entityId);
+    const r = agg.get(entityId)!;
     r.impressions += Number(a.impressoes || 0);
     r.clicks += Number(a.cliques || 0);
     r.spend += Number(a.spend ?? a.valor ?? 0);
@@ -130,7 +134,7 @@ async function scoutProject(supabase: any, projeto: Projeto): Promise<Proposed[]
     .in("status", ["pending", "waiting_payment", "expired", "pendente", "aguardando_pagamento"])
     .lt("data_venda", since24)
     .gte("data_venda", since7d)
-    .limit(30);
+    .limit(30).returns<{ id: string; valor: number; status: string; lead_id: string; data_venda: string; lead: { nome: string | null; phone: string | null } | null }[]>();
 
   for (const v of pending || []) {
     const phone = v.lead?.phone;
@@ -159,13 +163,13 @@ function dynamicConfidence(sample: number, threshold: number, base = 0.7, max = 
   return Math.min(max, base + ratio * (max - base));
 }
 
-function buildPreview(acoes: any[]): string[] {
+function buildPreview(acoes: FlowAction[]): string[] {
   return acoes
     .filter((a) => a.template && a.tipo !== "aguardar")
     .map((a) => `${a.tipo}: ${String(a.template).slice(0, 90)}`);
 }
 
-async function detectFlowPatterns(supabase: any, projeto: Projeto): Promise<Proposed[]> {
+async function detectFlowPatterns(supabase: ReturnType<typeof makeClient>, projeto: Projeto): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
   const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -187,7 +191,7 @@ async function detectFlowPatterns(supabase: any, projeto: Projeto): Promise<Prop
     reason: string;
     flow_name: string;
     trigger_tipo: string;
-    acoes: any[];
+    acoes: FlowAction[];
     sample: number;
     threshold: number;
     metric: string;
@@ -394,7 +398,7 @@ async function detectFlowPatterns(supabase: any, projeto: Projeto): Promise<Prop
 }
 
 // ── Sensores macro: anomalias, budget, CAC, nutrição parada ──
-async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Proposed[]> {
+async function detectMacroSignals(supabase: ReturnType<typeof makeClient>, projeto: Projeto): Promise<Proposed[]> {
   const out: Proposed[] = [];
   const projetoId = projeto.id;
   const today = new Date().toISOString().slice(0, 10);
@@ -454,7 +458,7 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
         .eq("project_id", projetoId)
         .eq("date", today)
         .limit(1000);
-      const total = (todaySpend || []).reduce((a: number, r: any) => a + Number(r.spend ?? r.valor ?? 0), 0);
+      const total = (todaySpend || []).reduce((a: number, r) => a + Number(r.spend ?? r.valor ?? 0), 0);
       const pct = total / dailyBudget;
       if (pct >= 0.8) {
         out.push({
@@ -525,8 +529,8 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
       .eq("status", "active")
       .lt("updated_at", since24)
       .gte("updated_at", since7d)
-      .limit(50);
-    const filtered = (stuck || []).filter((s: any) => s.lead?.project_id === projetoId && (s.lead?.score || 0) >= 60 && s.lead?.phone);
+      .limit(50).returns<{ lead_id: string; lead: { project_id: string | null; score: number | null; phone: string | null } | null }[]>();
+    const filtered = (stuck || []).filter((s) => s.lead?.project_id === projetoId && (s.lead?.score || 0) >= 60 && s.lead?.phone);
     if (filtered.length >= 3) {
       out.push({
         kind: "notify",
@@ -534,7 +538,7 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
         confidence: 0.8,
         title: `${filtered.length} hot leads parados em sequência`,
         reason: `Leads (score≥60) sem avanço em sequência há +24h. Possível travamento no flow.`,
-        payload: { tipo: "nutrition_stuck", count: filtered.length, lead_ids: filtered.slice(0, 10).map((f: any) => f.lead_id) },
+        payload: { tipo: "nutrition_stuck", count: filtered.length, lead_ids: filtered.slice(0, 10).map((f) => f.lead_id) },
         projeto_id: projetoId,
         source: "scout-nutrition-stuck",
         impact_brl: filtered.length * 150,
@@ -550,7 +554,7 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
       .eq("project_id", projetoId)
       .gte("date", since7d.slice(0, 10))
       .limit(500);
-    const agg = new Map<string, any>();
+    const agg = new Map<string, { id: string; type: string; name: string; spend: number; rev: number; budget: number }>();
     let totalSpend = 0, totalRev = 0;
     for (const a of adsRows || []) {
       const id = a.adset_id || a.ad_id; if (!id) continue;
@@ -561,7 +565,7 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
       const budget = Number(a.budget_daily ?? 0);
       totalSpend += spend; totalRev += rev;
       if (!agg.has(id)) agg.set(id, { id, type, name, spend: 0, rev: 0, budget });
-      const r = agg.get(id); r.spend += spend; r.rev += rev;
+      const r = agg.get(id)!; r.spend += spend; r.rev += rev;
       if (budget > 0) r.budget = budget;
     }
     const projAvgRoas = totalSpend > 0 ? totalRev / totalSpend : 0;
@@ -631,9 +635,9 @@ async function detectMacroSignals(supabase: any, projeto: Projeto): Promise<Prop
       .in("status", ["aguardando_pagamento", "pix_gerado", "boleto_gerado", "pendente", "abandoned", "checkout_abandoned", "abandonado"])
       .gte("created_at", since3h)
       .lt("created_at", since30min)
-      .limit(30);
+      .limit(30).returns<{ id: string; lead_id: string; produto_nome: string | null; valor: number; status: string; created_at: string; data: unknown; lead: { nome: string | null; phone: string | null; score: number | null } | null }[]>();
     for (const v of pending || []) {
-      const meta: any = v.data || {};
+      const meta = record(v.data);
       if (meta.hot_lead_responder_sent) continue;
       if (!v.lead?.phone || (v.lead?.score || 0) < 60) continue;
       out.push({
@@ -697,8 +701,8 @@ Deno.serve(async (req) => {
           ...(await detectFlowPatterns(supabase, p)),
           ...(await detectMacroSignals(supabase, p)),
         ];
-      } catch (e: any) {
-        errors.push(`${p.id}: ${String(e?.message || e)}`);
+      } catch (e) {
+        errors.push(`${p.id}: ${String((e instanceof Error ? e.message : record(e).message) || e)}`);
         continue;
       }
       for (const prop of proposals) {
@@ -716,8 +720,8 @@ Deno.serve(async (req) => {
           const { data: full } = await supabase
             .from("imphq_ai_actions")
             .select("id, payload")
-            .in("id", existing.map((x: any) => x.id));
-          isDup = (full || []).some((f: any) => {
+            .in("id", existing.map((x) => x.id));
+          isDup = (full || []).some((f) => {
             const k = f.payload?.entity_id || f.payload?.lead_id || f.payload?.venda_id || f.payload?.trigger_tipo;
             return k === dupKey;
           });
@@ -771,8 +775,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("imperius-scout fatal:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e), execution_ms: Date.now() - startedAt }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String((e instanceof Error ? e.message : record(e).message) || e), execution_ms: Date.now() - startedAt }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

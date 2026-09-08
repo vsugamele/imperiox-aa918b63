@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ interface Props {
  * Usado tanto na aba Farm quanto nos cards de Instagram/TikTok/YouTube/Email.
  */
 export function AccountFarmDialog({ accountId, open, onOpenChange, onSaved }: Props) {
-  const [row, setRow] = useState<any>(null);
+  const [row, setRow] = useState<Tables<"imphq_empresa"> | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function AccountFarmDialog({ accountId, open, onOpenChange, onSaved }: Pr
     })();
   }, [open, accountId]);
 
-  const patch = (k: string, v: any) => setRow((r: any) => ({ ...(r || {}), [k]: v }));
+  const patch = <K extends keyof Tables<"imphq_empresa">,>(k: K, v: Tables<"imphq_empresa">[K]) => setRow(r => r ? ({ ...r, [k]: v }) : r);
 
   const save = async () => {
     if (!row?.id) return;

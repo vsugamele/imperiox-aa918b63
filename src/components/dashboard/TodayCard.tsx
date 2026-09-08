@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { jsonFields, jsonText } from "@/components/dashboard/json-fields";
 import { Card } from "@/components/ui/card";
 import { Flame, AlertTriangle, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,20 +37,20 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       const yesterday = new Date(now - 24 * 60 * 60 * 1000).toISOString();
 
       // 1) Hot leads: leads recentes com Pix/Boleto e sem outgoing recente
-      const hotQ: any = supabase
+      const hotQ = supabase
         .from("imphq_leads")
         .select("id, data", { count: "exact" })
         .gte("data->>last_intent_at", twoHoursAgo)
         .limit(200);
       if (projectId && projectId !== "all") hotQ.eq("project_id", projectId);
       const hotRes = await hotQ;
-      const hotCount = (hotRes.data || []).filter((l: any) => {
-        const last = l?.data?.last_outgoing_at;
-        return !last || new Date(last).toISOString() <= tenMinAgo;
+      const hotCount = (hotRes.data || []).filter((l) => {
+        const last = jsonText(jsonFields(l.data).last_outgoing_at);
+        return !last || new Date(last).getTime() <= new Date(tenMinAgo).getTime();
       }).length;
 
       // 2) Pix/Boleto pendentes >30min (últimas 24h)
-      const pixQ: any = supabase
+      const pixQ = supabase
         .from("imphq_vendas")
         .select("id", { count: "exact", head: true })
         .in("status", ["pendente", "aguardando_pagamento", "pix_gerado", "boleto_gerado"])
@@ -62,13 +63,13 @@ export default function TodayCard({ projectId }: { projectId?: string }) {
       let adsCount = 0;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const spendsRes: any = await (supabase as any)
+        const spendsRes = await (supabase)
           .from("imphq_ads_spend")
           .select("ad_id, spend, purchases")
           .eq("date", today)
           .limit(500);
         const spends = spendsRes.data || [];
-        adsCount = spends.filter((s: any) => (s.spend || 0) > 50 && (!s.purchases || s.purchases === 0)).length;
+        adsCount = spends.filter((s) => (s.spend || 0) > 50 && (!s.purchases || s.purchases === 0)).length;
       } catch {
         adsCount = 0;
       }

@@ -1,7 +1,9 @@
 // Helpers DB-aware: receivem supabase como param (não usam closure)
 // Extraído de whatsapp-api/index.ts.
 
-export async function getProvider(supabase: any, providerId: string) {
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+export async function getProvider(supabase: SupabaseClient, providerId: string) {
   const { data, error } = await supabase
     .from("imphq_wa_providers")
     .select("*")
@@ -35,7 +37,7 @@ export function brPhoneVariants(raw: string): { canonical: string; variants: str
 }
 
 export async function findOrCreateConversation(
-  supabase: any,
+  supabase: SupabaseClient,
   phone: string,
   projectId: string,
   providerId: string | null,
@@ -57,11 +59,11 @@ export async function findOrCreateConversation(
 
   // Prefere a com mais mensagens (mais "viva") se houver mais de uma
   const existing = (existingRows || []).sort(
-    (a: any, b: any) => (b.message_count || 0) - (a.message_count || 0),
+    (a, b) => (b.message_count || 0) - (a.message_count || 0),
   )[0];
 
   if (existing) {
-    const patch: any = {};
+    const patch: { jid_suffix?: string } = {};
     if (existing.jid_suffix !== suffix) patch.jid_suffix = suffix;
     if (Object.keys(patch).length) {
       await supabase.from("imphq_wa_conversations").update(patch).eq("id", existing.id);
@@ -102,14 +104,14 @@ export async function findOrCreateConversation(
 }
 
 export async function updateConversationAfterMessage(
-  supabase: any,
+  supabase: SupabaseClient,
   conversationId: string,
   content: string,
   currentCount: number,
   incrementUnread = false,
   pauseAI = false,
 ) {
-  const patch: Record<string, any> = {
+  const patch: Record<string, string | number> = {
     last_message: content.substring(0, 200),
     last_message_at: new Date().toISOString(),
     message_count: (currentCount || 0) + 1,

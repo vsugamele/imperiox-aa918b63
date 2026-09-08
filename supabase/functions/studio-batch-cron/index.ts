@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const { data: projetos, error: pErr } = await q;
     if (pErr) throw pErr;
 
-    const results: any[] = [];
+    const results: Array<{projeto:string} & ({skipped:string}|{batch_id:string;ok:true}|{error:string})> = [];
 
     for (const proj of projetos || []) {
       try {
@@ -78,17 +78,19 @@ Deno.serve(async (req) => {
         });
 
         results.push({ projeto: proj.nome, batch_id: batch.id, ok: true });
-      } catch (e: any) {
-        results.push({ projeto: proj.nome, error: String(e?.message || e) });
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        results.push({ projeto: proj.nome, error: String(eMessage || e) });
       }
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-batch-cron:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

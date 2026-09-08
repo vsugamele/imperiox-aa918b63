@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     const { data: decisions, error } = await supa.rpc("evaluate_wa_rules_ab", { p_min_sample: min_sample });
     if (error) throw error;
 
-    const results: any[] = [];
+    const results: Array<{group_id:string} & ({decided:false;reason:"tie"}|{decided:true;winner:string;loser:string})> = [];
     for (const d of (decisions || [])) {
       // Empate ou diferença < 1pp → ignora
       if (Math.abs((d.winner_rate || 0) - (d.loser_rate || 0)) < 0.01) {
@@ -53,9 +53,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, evaluated: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[wa-rules-evaluate-ab]", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[wa-rules-evaluate-ab]", errMessage);
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

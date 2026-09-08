@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -30,15 +31,15 @@ export function StudioRunLogPanel({ workflowId, nodeTitles }: Props) {
       .eq("workflow_id", workflowId)
       .order("created_at", { ascending: false })
       .limit(30)
-      .then(({ data }) => { if (data) setEvents([...data].reverse() as any); });
+      .then(({ data }) => { if (data) setEvents([...data].reverse()); });
 
     const ch = supabase
       .channel(`studio-log-${workflowId}`)
-      .on("postgres_changes", {
+      .on<Tables<"imphq_studio_canvas_run_events">>("postgres_changes", {
         event: "INSERT", schema: "public", table: "imphq_studio_canvas_run_events",
         filter: `workflow_id=eq.${workflowId}`,
       }, (payload) => {
-        setEvents(prev => [...prev.slice(-99), payload.new as any]);
+        setEvents(prev => [...prev.slice(-99), payload.new]);
         setOpen(true);
       })
       .subscribe();

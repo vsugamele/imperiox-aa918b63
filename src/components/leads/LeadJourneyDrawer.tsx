@@ -1,3 +1,6 @@
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import type { TimelineLead } from "@/hooks/useLeadTimeline";
+import type { LucideIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLeadTimeline } from "@/hooks/useLeadTimeline";
@@ -5,16 +8,16 @@ import { Activity, MousePointerClick, MessageCircle, ShoppingCart, Mail, Zap, Ey
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import NextBestActionInline from "./NextBestActionInline";
+import NextBestActionInline from "@/components/leads/NextBestActionInline";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  lead: any;
-  automations?: any[];
+  lead: TimelineLead & { nome?: string };
+  automations?: Array<{ id: string; nome: string }>;
 }
 
-const TYPE_META: Record<string, { icon: any; color: string }> = {
+const TYPE_META: Record<string, { icon: LucideIcon; color: string }> = {
   click: { icon: MousePointerClick, color: "text-sky-400 bg-sky-500/15 border-sky-500/40" },
   pageview: { icon: Eye, color: "text-sky-400 bg-sky-500/15 border-sky-500/40" },
   whatsapp: { icon: MessageCircle, color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/40" },
@@ -49,7 +52,7 @@ export default function LeadJourneyDrawer({ open, onClose, lead, automations = [
         <SheetHeader>
           <SheetTitle className="font-display flex items-center gap-2">
             <Activity className="h-4 w-4 text-pink-400" />
-            Jornada — {lead?.data?.nome || lead?.nome || lead?.email || "Lead"}
+            Jornada — {jsonText(jsonFields(lead?.data).nome) || lead?.nome || lead?.email || "Lead"}
           </SheetTitle>
         </SheetHeader>
 

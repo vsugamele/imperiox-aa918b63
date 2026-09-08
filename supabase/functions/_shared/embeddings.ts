@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText, record } from "./value.ts";
 // Helper compartilhado de embeddings com cache.
 // Antes: cada chamada paga ao Lovable/OpenRouter mesmo se o mesmo texto foi feito ontem.
 // Depois: lookup em imphq_embedding_cache por SHA256(text + model + dims).
@@ -11,6 +13,10 @@
 
 export const DEFAULT_MODEL = "google/gemini-embedding-001";
 export const DEFAULT_DIMENSIONS = 768;
+
+function validEmbedding(value: unknown, dimensions: number): value is number[] {
+  return Array.isArray(value) && value.length === dimensions && value.every(n => typeof n === "number" && Number.isFinite(n));
+}
 
 function normalizeForHash(text: string): string {
   return text.trim().replace(/\s+/g, " ");
@@ -36,12 +42,12 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
       if (res.ok) {
         const d = await res.json();
         const emb = d?.data?.[0]?.embedding;
-        if (emb) return emb;
+        if (validEmbedding(emb, dimensions)) return emb;
       } else {
         console.warn(`[embeddings] Lovable error ${res.status}`);
       }
-    } catch (e: any) {
-      console.warn(`[embeddings] Lovable failed: ${e?.message}`);
+    } catch (e: unknown) {
+      console.warn(`[embeddings] Lovable failed: ${errorText(e)}`);
     }
   }
 
@@ -55,9 +61,10 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
     });
     if (!res.ok) return null;
     const d = await res.json();
-    return d?.data?.[0]?.embedding ?? null;
-  } catch (e: any) {
-    console.warn(`[embeddings] OpenRouter failed: ${e?.message}`);
+    const embedding: unknown = d?.data?.[0]?.embedding;
+    return validEmbedding(embedding, dimensions) ? embedding : null;
+  } catch (e: unknown) {
+    console.warn(`[embeddings] OpenRouter failed: ${errorText(e)}`);
     return null;
   }
 }
@@ -67,7 +74,7 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
  * @returns embedding array ou null se falhar
  */
 export async function getCachedEmbedding(
-  supabase: any,
+  supabase: SupabaseClient,
   text: string,
   opts: { model?: string; dimensions?: number; skipCache?: boolean } = {}
 ): Promise<number[] | null> {
@@ -87,7 +94,7 @@ export async function getCachedEmbedding(
         .eq("dimensions", dimensions)
         .maybeSingle();
 
-      if (cached?.embedding) {
+      if (validEmbedding(cached?.embedding, dimensions)) {
         // Fire-and-forget atualização de hits/last_used_at
         supabase.from("imphq_embedding_cache")
           .update({ hits: (cached.hits || 0) + 1, last_used_at: new Date().toISOString() })
@@ -108,11 +115,11 @@ export async function getCachedEmbedding(
         embedding: emb,
         text_preview: normalized.slice(0, 200),
         hits: 1,
-      }).then(() => {}, (e: any) => console.warn(`[embeddings] cache insert failed: ${e?.message}`));
+      }).then(() => {}, (e: unknown) => console.warn(`[embeddings] cache insert failed: ${errorText(e)}`));
 
       return emb;
-    } catch (e: any) {
-      console.warn(`[embeddings] cache layer error, falling back: ${e?.message}`);
+    } catch (e: unknown) {
+      console.warn(`[embeddings] cache layer error, falling back: ${errorText(e)}`);
     }
   }
 
@@ -124,7 +131,7 @@ export async function getCachedEmbedding(
  * Retorna array de embeddings (null em índice se falhou).
  */
 export async function getCachedEmbeddingsBatch(
-  supabase: any,
+  supabase: SupabaseClient,
   texts: string[],
   opts: { model?: string; dimensions?: number } = {}
 ): Promise<(number[] | null)[]> {

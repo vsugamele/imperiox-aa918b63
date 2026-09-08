@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "types:gen": "supabase gen types typescript --project-id tkbivipqiewkfnhktmqq --schema public > src/integrations/supabase/types.ts",
-    "types:check": "tsc --noEmit -p tsconfig.json"
+    "types:check": "npm run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

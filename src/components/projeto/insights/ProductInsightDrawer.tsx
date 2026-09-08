@@ -6,11 +6,17 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Loader2, Clock, Calendar, Users, MapPin, Cake, Activity, Target, Zap, AlertTriangle, TrendingDown, Sparkles, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/supabasePaginate";
+import type { Tables } from "@/integrations/supabase/types";
 import {
   aggregateAudience, aggregateAds, buildFunnel, buildDiagnostics,
   semaforo, semColor, semaforoBenchmark, fmtMoney, fmtNum,
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
-} from "./aggregations";
+} from "@/components/projeto/insights/aggregations";
+
+type SaleProjection = Pick<Tables<"imphq_vendas">, "created_at" | "valor" | "lead_id" | "produto_nome" | "status">;
+type LeadProjection = Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "data">;
+type AudienceLeadProjection = Pick<Tables<"imphq_leads">, "criado_em" | "nome" | "phone" | "data">;
+type AdsProjection = Pick<Tables<"imphq_ads_spend">, keyof AdsRow>;
 
 type SaleScope = "realizada" | "gerada" | "todas";
 const STATUS_BY_SCOPE: Record<SaleScope, string[] | null> = {
@@ -48,7 +54,7 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
       const audiencePromise = (async (): Promise<AudienceRow[]> => {
         if (source === "vendas") {
           const statuses = STATUS_BY_SCOPE[scope];
-          const vendas = await fetchAll<any>(
+          const vendas = await fetchAll<SaleProjection>(
             (from, to) => {
               let q = supabase.from("imphq_vendas")
                 .select("created_at, valor, lead_id, produto_nome, status")
@@ -60,14 +66,14 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
             },
             1000, 20000, n => !cancel && setProgress(n),
           );
-          const leadIds = [...new Set(vendas.map(v => v.lead_id).filter(Boolean))] as string[];
-          const leadsMap = new Map<string, any>();
+          const leadIds = [...new Set(vendas.map(v => v.lead_id).filter((id): id is string => !!id))];
+          const leadsMap = new Map<string, LeadProjection>();
           if (leadIds.length) {
             for (let i = 0; i < leadIds.length; i += 500) {
               const slice = leadIds.slice(i, i + 500);
-              const { data: leads } = await (supabase as any).from("imphq_leads")
-                .select("id, nome, genero, phone, data").in("id", slice);
-              ((leads ?? []) as any[]).forEach(l => leadsMap.set(l.id, l));
+              const { data: leads } = await (supabase).from("imphq_leads")
+                .select("id, nome, phone, data").in("id", slice);
+              (leads ?? []).forEach(l => leadsMap.set(l.id, l));
             }
           }
           return vendas.map(v => ({
@@ -75,30 +81,34 @@ export function ProductInsightDrawer({ open, onClose, projectId, produto, source
             lead: leadsMap.get(v.lead_id), produto: v.produto_nome,
           }));
         } else {
-          const leads = await fetchAll<any>(
-            (from, to) => (supabase as any).from("imphq_leads")
-              .select("criado_em, nome, genero, phone, data, ultimo_produto")
-              .eq("project_id", projectId).eq("ultimo_produto", produto)
+          const leads = await fetchAll<AudienceLeadProjection>(
+            (from, to) => (supabase).from("imphq_leads")
+              .select("criado_em, nome, phone, data")
+              .eq("project_id", projectId).eq("data->>ultimo_produto", produto)
               .gte("criado_em", since).range(from, to),
             1000, 20000, n => !cancel && setProgress(n),
           );
-          return leads.map((l: any) => ({ ts: l.criado_em, lead: l, produto: l.ultimo_produto }));
+          return leads.map(l => {
+            const data = l.data;
+            const product = data && typeof data === "object" && !Array.isArray(data) ? data.ultimo_produto : null;
+            return { ts: l.criado_em, lead: l, produto: typeof product === "string" ? product : null };
+          });
         }
       })();
 
-      const adsPromise = fetchAll<any>(
+      const adsPromise = fetchAll<AdsProjection>(
         (from, to) => supabase.from("imphq_ads_spend")
           .select("data_ref, campanha, valor, impressoes, alcance, link_clicks, cliques, landing_page_views, add_to_cart, init_checkout, checkouts_iniciados, compras, resultados, hook_rate, hold_rate, ctr, cpm, frequencia")
           .eq("project_id", projectId).gte("data_ref", sinceDate)
           .ilike("campanha", `%${produto}%`).range(from, to),
         1000, 20000,
-      ).then(rs => rs.map((r: any) => ({
+      ).then(rs => rs.map((r) => ({
         ...r, valor: +r.valor||0, impressoes: +r.impressoes||0, alcance: +r.alcance||0,
         link_clicks: +r.link_clicks||0, cliques: +r.cliques||0,
         landing_page_views: +r.landing_page_views||0, add_to_cart: +r.add_to_cart||0,
         init_checkout: +r.init_checkout||0, checkouts_iniciados: +r.checkouts_iniciados||0,
         compras: +r.compras||0, resultados: +r.resultados||0,
-      })) as AdsRow[]);
+      })));
 
       const [aud, ads] = await Promise.all([audiencePromise, adsPromise]);
       if (cancel) return;

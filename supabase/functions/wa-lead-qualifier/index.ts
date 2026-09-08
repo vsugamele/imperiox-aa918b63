@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // wa-lead-qualifier — qualifica lead via IA com base nas últimas mensagens
 // Salva em imphq_leads.data.qualificacao e atualiza nivel_qualificacao
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
@@ -11,7 +12,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-async function qualify(messages: string[]): Promise<any> {
+const qualificationSchema = z.object({orcamento:z.string().optional(),urgencia:z.number().optional(),nivel_experiencia:z.string().optional(),objetivo:z.string().nullish(),temperatura:z.string().optional(),score:z.number().optional(),proxima_pergunta:z.string().nullish(),resumo:z.string().optional()}).passthrough();
+
+async function qualify(messages: string[]): Promise<z.infer<typeof qualificationSchema>> {
   const sys = `Você é um SDR senior. Analise as mensagens do lead e classifique em JSON ESTRITO:
 {
   "orcamento": "baixo" | "medio" | "alto" | "desconhecido",
@@ -40,7 +43,7 @@ Pense em sinais reais: pergunta de preço/pagamento = quente; só curioso = frio
   });
   if (!r.ok) throw new Error(`gateway ${r.status}`);
   const j = await r.json();
-  return JSON.parse(j.choices?.[0]?.message?.content || "{}");
+  return qualificationSchema.parse(JSON.parse(j.choices?.[0]?.message?.content || "{}"));
 }
 
 Deno.serve(async (req) => {
@@ -95,7 +98,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    const incoming = (msgs || []).filter((m: any) => !m.from_me).reverse().map((m: any) => m.body).filter(Boolean);
+    const incoming = (msgs || []).filter((m: {from_me:boolean;body:string|null}) => !m.from_me).reverse().map((m: {from_me:boolean;body:string|null}) => m.body).filter((text):text is string=>typeof text === "string" && !!text);
     if (incoming.length === 0) {
       return new Response(JSON.stringify({ ok: false, error: "sem mensagens" }), {
         status: 400,
@@ -118,8 +121,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, qualificacao: q }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,7 +1,10 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Gera um Plano de Lançamento estruturado (fases + cronograma + ações).
 // Salva como kanban cards em uma coluna "🚀 Plano de Lançamento" e retorna o plano completo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { requireUser } from "../_shared/require-auth.ts";
+
+const launchPlanSchema = z.object({plano:z.object({fases:z.array(z.object({nome:z.string().nullish(),objetivo:z.string().nullish(),acoes:z.array(z.object({dia:z.union([z.number(),z.string()]).nullish(),titulo:z.string().nullish(),tipo:z.string().nullish(),descricao:z.string().nullish()}).passthrough()).nullish()}).passthrough()).nullish()}).passthrough().nullish()}).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,8 +45,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: `AI ${resp.status}: ${t.slice(0, 200)}` }), { status: st, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const data = await resp.json();
-    let parsed: any;
-    try { parsed = JSON.parse(data?.choices?.[0]?.message?.content || "{}"); } catch { parsed = { plano: { fases: [] } }; }
+    let parsed: z.infer<typeof launchPlanSchema>;
+    try { parsed = launchPlanSchema.parse(JSON.parse(data?.choices?.[0]?.message?.content || "{}")); } catch { parsed = { plano: { fases: [] } }; }
     const plano = parsed.plano || { fases: [] };
 
     let createdCards = 0;
@@ -76,8 +79,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ plano, applied: apply, cards: createdCards }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("lancamento-ai-generate:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

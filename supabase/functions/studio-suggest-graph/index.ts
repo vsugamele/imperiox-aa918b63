@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const contextSchema = z.object({ produtos: z.array(z.unknown()).nullish(), avatares_por_produto: z.union([z.array(z.unknown()), z.record(z.unknown())]).nullish(), avatar: z.unknown().optional() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { requireUser } from "../_shared/require-auth.ts";
 
@@ -36,22 +38,22 @@ Deno.serve(async (req) => {
   if (!auth.ok) return auth.response;
 
   try {
-    const { projeto_id, produto_idx = 0 } = await req.json();
+    const { projeto_id, produto_idx = 0 } = z.object({ projeto_id: z.string().nullish(), produto_idx: z.number().int().nonnegative().optional() }).passthrough().parse(await req.json());
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    let produto: any = {};
-    let avatar: any = {};
-    let ficha: any = null;
+    let produto: unknown = {};
+    let avatar: unknown = {};
+    let ficha: unknown = null;
     if (projeto_id) {
       const { data: p } = await sb.from("imphq_projects").select("data").eq("id", projeto_id).maybeSingle();
-      const raw: any = (p as any)?.data;
-      const b = raw?.briefing ?? raw ?? {};
+      const raw = z.object({ briefing: contextSchema.nullish() }).passthrough().parse(p?.data || {});
+      const b = contextSchema.parse(raw.briefing ?? raw);
       produto = (b?.produtos ?? [])[produto_idx] ?? {};
-      avatar = b?.avatares_por_produto?.[produto_idx] ?? b?.avatar ?? {};
-      const { data: m } = await sb.from("imphq_studio_reference_models" as any)
+      avatar = (Array.isArray(b.avatares_por_produto) ? b.avatares_por_produto[produto_idx] : b.avatares_por_produto?.[String(produto_idx)]) ?? b.avatar ?? {};
+      const { data: m } = await sb.from("imphq_studio_reference_models")
         .select("ficha").eq("projeto_id", projeto_id).eq("user_id", auth.userId)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
-      ficha = (m as any)?.ficha ?? null;
+      ficha = m?.ficha ?? null;
     }
 
     const userMsg = `PRODUTO: ${JSON.stringify(produto).slice(0, 1500)}
@@ -73,13 +75,14 @@ FICHA DE MODELAGEM: ${ficha ? JSON.stringify(ficha).slice(0, 2000) : "(nenhuma â
     }
     const j = await r.json();
     const raw = j.choices?.[0]?.message?.content ?? "{}";
-    let graph: any = {};
+    let graph: unknown = {};
     try { graph = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { graph = {}; }
 
     return new Response(JSON.stringify(graph), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), { status: 500, headers: corsHeaders });
   }
 });

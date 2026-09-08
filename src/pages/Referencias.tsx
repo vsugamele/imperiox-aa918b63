@@ -1,3 +1,7 @@
+import type { Json, Tables, TablesUpdate } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -18,7 +22,7 @@ import { toast } from "sonner";
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
 
-const TIPO_STYLES: Record<string, { border: string; badge: string; icon: any; gradient: string }> = {
+const TIPO_STYLES: Record<string, { border: string; badge: string; icon: LucideIcon; gradient: string }> = {
   criativo: { border: "border-l-rose-500", badge: "bg-rose-500/15 text-rose-400 border-rose-500/30", icon: Palette, gradient: "from-rose-500/20 to-rose-500/5" },
   landing_page: { border: "border-l-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: Layout, gradient: "from-blue-500/20 to-blue-500/5" },
   email: { border: "border-l-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Mail, gradient: "from-amber-500/20 to-amber-500/5" },
@@ -26,7 +30,7 @@ const TIPO_STYLES: Record<string, { border: string; badge: string; icon: any; gr
   copy: { border: "border-l-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: FileText, gradient: "from-emerald-500/20 to-emerald-500/5" },
 };
 
-const CATEGORY_META: Record<string, { label: string; icon: any; color: string }> = {
+const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   expert: { label: "Expert", icon: Camera, color: "text-cyan-400 bg-cyan-500/15 border-cyan-500/30" },
   produtos: { label: "Produtos", icon: LayoutGrid, color: "text-orange-400 bg-orange-500/15 border-orange-500/30" },
   anuncios: { label: "Anúncios", icon: Megaphone, color: "text-rose-400 bg-rose-500/15 border-rose-500/30" },
@@ -72,16 +76,16 @@ function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (pa
     setBusy(true);
     onChange({ transcribe_status: "processing", transcribe_error: null });
     try {
-      const { data, error } = await supabase.functions.invoke("referencia-video-transcribe", {
+      const { data, error } = await supabase.functions.invoke<Json>("referencia-video-transcribe", {
         body: { referencia_id: refItem.id },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const transcript = (data as any)?.transcript || "";
+      if (jsonText(jsonFields(data).error)) throw new Error(jsonText(jsonFields(data).error) || "Erro ao transcrever");
+      const transcript = jsonText(jsonFields(data).transcript) || "";
       onChange({ transcricao: transcript, transcribe_status: "done", transcribed_at: new Date().toISOString() });
       toast.success("Transcrição concluída");
-    } catch (e: any) {
-      const msg = e?.message || "Falha ao transcrever";
+    } catch (e: unknown) {
+      const msg = errorMessage(e) || "Falha ao transcrever";
       onChange({ transcribe_status: "error", transcribe_error: msg });
       toast.error(msg);
     } finally {
@@ -138,7 +142,7 @@ function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (pa
 function ReferenciasDesktop() {
   const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">, "id" | "name">>>([]);
   const [searchInput, setSearchInput] = useState(_ls.search ?? "");
   const [search, setSearch] = useState(_ls.search ?? "");
   const [filterTipo, setFilterTipo] = useState(_ls.filterTipo ?? "all");
@@ -168,13 +172,13 @@ function ReferenciasDesktop() {
   const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
 
   const loadEmptyFolders = async () => {
-    const { data } = await supabase.from("imphq_referencias_pastas" as any).select("path");
-    setEmptyFolders(((data || []) as any[]).map((r: any) => r.path));
+    const { data } = await supabase.from("imphq_referencias_pastas").select("path");
+    setEmptyFolders(((data || [])).map((r) => r.path));
   };
 
   const addEmptyFolder = async (path: string) => {
     if (emptyFolders.includes(path)) return;
-    const { error } = await supabase.from("imphq_referencias_pastas" as any).insert({ path } as any);
+    const { error } = await supabase.from("imphq_referencias_pastas").insert({ path });
     if (error && !error.message.includes("duplicate")) {
       toast.error("Erro ao salvar pasta: " + error.message);
       return;
@@ -183,19 +187,19 @@ function ReferenciasDesktop() {
   };
 
   const removeEmptyFolder = async (path: string) => {
-    await supabase.from("imphq_referencias_pastas" as any).delete().eq("path", path);
+    await supabase.from("imphq_referencias_pastas").delete().eq("path", path);
     setEmptyFolders(prev => prev.filter(p => p !== path));
   };
 
   const renameEmptyFolder = async (oldPath: string, newPath: string) => {
-    await supabase.from("imphq_referencias_pastas" as any).update({ path: newPath } as any).eq("path", oldPath);
+    await supabase.from("imphq_referencias_pastas").update({ path: newPath }).eq("path", oldPath);
     setEmptyFolders(prev => prev.map(p => p === oldPath ? newPath : p));
   };
 
   const toggleSidebar = () => {
     setSidebarHidden(v => {
       const nv = !v;
-      try { localStorage.setItem("referencias.sidebar.hidden.v1", nv ? "1" : "0"); } catch {}
+      try { localStorage.setItem("referencias.sidebar.hidden.v1", nv ? "1" : "0"); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
       return nv;
     });
   };
@@ -203,7 +207,7 @@ function ReferenciasDesktop() {
     setExpandedFolders(prev => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path); else next.add(path);
-      try { localStorage.setItem("referencias.sidebar.expanded.v1", JSON.stringify([...next])); } catch {}
+      try { localStorage.setItem("referencias.sidebar.expanded.v1", JSON.stringify([...next])); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
       return next;
     });
   };
@@ -233,16 +237,16 @@ function ReferenciasDesktop() {
   const load = async () => {
     const [rRes, lRes, pRes, adsRes] = await Promise.all([
       supabase.from("imphq_referencias").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_content_library" as any).select("id, project_id, title, file_url, file_type, thumbnail_url, tags, description, content_category, created_at").order("created_at", { ascending: false }),
+      supabase.from("imphq_content_library").select("id, project_id, title, file_url, file_type, thumbnail_url, tags, description, content_category, created_at").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_ads_spend" as any).select("id, project_id, campanha, conjunto_anuncios, anuncio, plataforma, ctr, impressoes, cliques, compras, valor, custo_por_compra, data_ref, created_at").order("created_at", { ascending: false }).limit(200),
+      supabase.from("imphq_ads_spend").select("id, project_id, campanha, conjunto_anuncios, anuncio, plataforma, ctr, impressoes, cliques, compras, valor, custo_por_compra, data_ref, created_at").order("created_at", { ascending: false }).limit(200),
     ]);
 
     const projs = pRes.data || [];
     setProjects(projs);
-    const projMap = Object.fromEntries(projs.map((p: any) => [p.id, p.name]));
+    const projMap = Object.fromEntries(projs.map((p) => [p.id, p.name]));
 
-    const manualRefs: Ref[] = ((rRes.data || []) as any[]).map(r => {
+    const manualRefs: Ref[] = ((rRes.data || [])).map(r => {
       // Auto-repair legacy rows where `pasta` was saved with the project segment
       // prefix (bug pré-fix). Strip the leading "<ProjectName>/" or "Sem Projeto/".
       let pasta = r.pasta as string | null;
@@ -266,9 +270,9 @@ function ReferenciasDesktop() {
       };
     });
 
-    const libraryRefs: Ref[] = ((lRes.data || []) as any[])
-      .filter((m: any) => m.file_type === "image" || m.file_type === "video")
-      .map((m: any) => {
+    const libraryRefs: Ref[] = ((lRes.data || []))
+      .filter((m) => m.file_type === "image" || m.file_type === "video")
+      .map((m) => {
         const isVid = m.file_type === "video";
         const thumbUrl = m.thumbnail_url || (!isVid ? m.file_url : null);
         return {
@@ -290,8 +294,8 @@ function ReferenciasDesktop() {
       });
 
     // Aggregate ads by unique ad name per project
-    const adsMap = new Map<string, any>();
-    ((adsRes.data || []) as any[]).forEach((ad: any) => {
+    const adsMap = new Map<string, Pick<Tables<"imphq_ads_spend">, "id" | "project_id" | "campanha" | "conjunto_anuncios" | "anuncio" | "plataforma" | "ctr" | "impressoes" | "cliques" | "compras" | "valor" | "custo_por_compra" | "data_ref" | "created_at">>();
+    ((adsRes.data || [])).forEach((ad) => {
       const key = `${ad.project_id}_${ad.anuncio || ad.conjunto_anuncios || ad.campanha}`;
       const existing = adsMap.get(key);
       if (!existing || (ad.ctr && ad.ctr > (existing.ctr || 0))) {
@@ -300,9 +304,9 @@ function ReferenciasDesktop() {
     });
 
     const adsRefs: Ref[] = Array.from(adsMap.values())
-      .filter((ad: any) => ad.anuncio || ad.campanha)
+      .filter((ad) => ad.anuncio || ad.campanha)
       .slice(0, 50)
-      .map((ad: any) => {
+      .map((ad) => {
         const ctr = Number(ad.ctr ?? 0);
         const impr = Number(ad.impressoes ?? 0);
         const compras = Number(ad.compras ?? 0);
@@ -346,7 +350,7 @@ function ReferenciasDesktop() {
     if (toRemove.length > 0) {
       toRemove.forEach(p => { removeEmptyFolder(p); });
     }
-  }, [refs]);
+  }, [refs, emptyFolders]);
 
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
@@ -476,14 +480,14 @@ function ReferenciasDesktop() {
     opts: { forceTitle?: boolean } = {},
   ) => {
     try {
-      const { data } = await supabase.functions.invoke("link-preview", { body: { url } });
-      if (!data || data.fallback) return;
-      const patch: Record<string, unknown> = {};
-      if (data.image) patch.image_url = data.image;
-      if (data.video && !data.image) patch.url = data.video;
-      if (opts.forceTitle && data.title) patch.titulo = data.title;
+      const { data } = await supabase.functions.invoke<Json>("link-preview", { body: { url } });
+      if (!data || jsonFields(data).fallback) return;
+      const patch: TablesUpdate<"imphq_referencias"> = {};
+      if (jsonText(jsonFields(data).image)) patch.image_url = jsonText(jsonFields(data).image);
+      if (jsonText(jsonFields(data).video) && !jsonText(jsonFields(data).image)) patch.url = jsonText(jsonFields(data).video);
+      if (opts.forceTitle && jsonText(jsonFields(data).title)) patch.titulo = jsonText(jsonFields(data).title);
       if (Object.keys(patch).length === 0) return;
-      await supabase.from("imphq_referencias").update(patch as any).eq("id", id);
+      await supabase.from("imphq_referencias").update(patch).eq("id", id);
       load();
     } catch (e) {
       console.warn("[link-preview]", e);
@@ -501,7 +505,7 @@ function ReferenciasDesktop() {
       score: form.score || 0, plataforma: form.plataforma || null,
       project_id: filterProject !== "all" ? filterProject : (form.project_id || null),
       pasta: pastaValue, produto: form.produto || null,
-    } as any);
+    });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Referência criada!");
     setShowNew(false);
@@ -521,7 +525,7 @@ function ReferenciasDesktop() {
       score: editing.score, plataforma: editing.plataforma, project_id: editing.project_id,
       pasta: editing.pasta || null, produto: editing.produto || null,
       transcricao: editing.transcricao ?? null,
-    } as any).eq("id", editing.id);
+    }).eq("id", editing.id);
     if (error) { toast.error("Erro ao salvar"); return; }
     toast.success("Salvo!"); setEditing(null); load();
   };
@@ -540,7 +544,7 @@ function ReferenciasDesktop() {
       tags: item.tags || [], notas: item.notas || null,
       score: 0, project_id: item.project_id || null,
       produto: item.content_category || null,
-    } as any);
+    });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Salvo como referência!");
     load();
@@ -560,7 +564,7 @@ function ReferenciasDesktop() {
         pasta: currentSubPath || (filterPasta !== "all" ? filterPasta : null),
         tags: [],
         score: 0,
-      } as any);
+      });
       if (!error) count++;
     }
     toast.success(`${count} referências criadas via upload`);
@@ -581,7 +585,7 @@ function ReferenciasDesktop() {
     </div>
   );
 
-  const RefForm = ({ data, setData }: { data: Partial<Ref>; setData: (d: any) => void }) => (
+  const RefForm = ({ data, setData }: { data: Partial<Ref>; setData: (d: Partial<Ref>) => void }) => (
     <div className="space-y-3">
       <div><Label>Título *</Label><Input value={data.titulo || ""} onChange={e => setData({ ...data, titulo: e.target.value })} /></div>
       <div className="grid grid-cols-2 gap-3">
@@ -1014,7 +1018,7 @@ function ReferenciasDesktop() {
         return supabase.from("imphq_referencias").update({ pasta: nextPasta }).eq("id", r.id);
       });
       const results = await Promise.all(updates);
-      const errors = results.filter((r: any) => r.error).length;
+      const errors = results.filter((r) => r.error).length;
       if (errors > 0) {
         toast.error(`${errors} erros ao renomear`);
       } else {
@@ -1475,7 +1479,7 @@ function ReferenciasDesktop() {
               {editing.source === "manual" && (
                 <TranscriptionBlock
                   refItem={editing}
-                  onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+                  onChange={(patch) => setEditing({ ...editing, ...patch })}
                 />
               )}
             </>
@@ -1494,7 +1498,7 @@ function ReferenciasDesktop() {
               <p className="text-xs text-muted-foreground">Este item é gerenciado na aba Mídia do projeto.</p>
             </div>
           ) : (
-            editing && <RefForm data={editing} setData={setEditing} />
+            editing && <RefForm data={editing} setData={patch => setEditing(current => current ? { ...current, ...patch } : current)} />
           )}
           <DialogFooter className="flex justify-between">
             {editing?.source === "library" ? (

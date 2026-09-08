@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,17 +60,17 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
     setLoading(true);
     try {
       const { data } = await supabase
-        .from("imphq_cold_reactivation_rules" as any)
+        .from("imphq_cold_reactivation_rules")
         .select("*")
         .order("created_at", { ascending: false });
-      setRules(((data as unknown) as ReactivationRule[]) || []);
+      setRules(data || []);
     } catch {
       // table may not exist yet — handled gracefully
     }
 
     try {
       const { data: tagData } = await supabase.rpc("get_lead_tag_counts", { p_project_id: null, p_limit: 100 });
-      setAllTags((tagData || []).map((t: any) => t.tag).filter(Boolean));
+      setAllTags((tagData || []).map((t) => t.tag).filter(Boolean));
     } catch {
       // rpc may not exist
     }
@@ -93,7 +94,7 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
       ativo: form.ativo,
     };
 
-    const { error } = await supabase.from("imphq_cold_reactivation_rules" as any).insert(payload);
+    const { error } = await supabase.from("imphq_cold_reactivation_rules").insert(payload);
     if (error) {
       toast.error("Erro ao salvar regra: " + error.message);
       return;
@@ -105,12 +106,14 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
   };
 
   const toggleActive = async (rule: ReactivationRule) => {
-    await supabase.from("imphq_cold_reactivation_rules" as any).update({ ativo: !rule.ativo }).eq("id", rule.id);
+    const { error } = await supabase.from("imphq_cold_reactivation_rules").update({ ativo: !rule.ativo }).eq("id", rule.id);
+    if (error) { toast.error(error.message); return; }
     setRules(prev => prev.map(r => r.id === rule.id ? { ...r, ativo: !r.ativo } : r));
   };
 
   const deleteRule = async (id: string) => {
-    await supabase.from("imphq_cold_reactivation_rules" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_cold_reactivation_rules").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
     setRules(prev => prev.filter(r => r.id !== id));
     toast.success("Regra removida");
   };
@@ -126,12 +129,12 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
         .lt("updated_at", cutoff)
         .not("status", "eq", "cliente");
 
-      if (rule.project_id) q = (q as any).eq("project_id", rule.project_id);
-      if (rule.status_filtro) q = (q as any).eq("status", rule.status_filtro);
-      if (rule.score_max) q = (q as any).lte("score", rule.score_max);
+      if (rule.project_id) q = q.eq("project_id", rule.project_id);
+      if (rule.status_filtro) q = q.eq("status", rule.status_filtro);
+      if (rule.score_max !== null) q = q.lte("score", rule.score_max);
 
       const { data: leads } = await q.limit(200);
-      const eligible = (leads || []).filter((l: any) => {
+      const eligible = (leads || []).filter((l) => {
         if (!rule.tag_filtro) return true;
         return Array.isArray(l.tags) && l.tags.includes(rule.tag_filtro);
       });
@@ -153,7 +156,7 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
       let dispatched = 0;
       for (const lead of eligible.slice(0, 50)) {
         try {
-          await supabase.functions.invoke("openflow-executor", {
+          const { data: result, error } = await supabase.functions.invoke<{ ok?: boolean }>("openflow-executor", {
             body: {
               trigger_tipo: auto.trigger_tipo,
               project_id: lead.project_id || rule.project_id,
@@ -167,19 +170,19 @@ export function ColdLeadReactivation({ projects, automacoes }: Props) {
               },
             },
           });
-          dispatched++;
+          if (!error && result?.ok) dispatched++;
         } catch { /* continue */ }
       }
 
-      await supabase.from("imphq_cold_reactivation_rules" as any).update({
+      await supabase.from("imphq_cold_reactivation_rules").update({
         last_run_at: new Date().toISOString(),
         leads_reactivated: (rule.leads_reactivated || 0) + dispatched,
       }).eq("id", rule.id);
 
       toast.success(`${dispatched} leads enviados para reativação`);
       load();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro: " + errorMessage(e));
     }
     setRunningId(null);
   };

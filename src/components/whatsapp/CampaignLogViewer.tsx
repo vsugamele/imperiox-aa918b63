@@ -24,7 +24,7 @@ export default function CampaignLogViewer({ campaignId }: { campaignId: string }
         .eq("campaign_id", campaignId)
         .order("executed_at", { ascending: false })
         .limit(100);
-      setLogs((data as any[]) || []);
+      setLogs(data || []);
       setLoading(false);
     })();
   }, [campaignId]);

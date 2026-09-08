@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +23,7 @@ interface StepStat {
 
 export function StepHeatmap({ automacaoId, projectId }: Props) {
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Pick<Tables<"imphq_flow_executions">, "step_results" | "automacao_id" | "project_id" | "created_at">[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -43,14 +45,15 @@ export function StepHeatmap({ automacaoId, projectId }: Props) {
     const acc = new Map<number, StepStat>();
     rows.forEach((r) => {
       const steps = Array.isArray(r.step_results) ? r.step_results : [];
-      steps.forEach((s: any, idx: number) => {
+      steps.forEach((value, idx) => {
+        const s = jsonFields(value);
         const i = typeof s.step === "number" ? s.step : idx;
-        const cur = acc.get(i) || { step: i, tipo: s.tipo || "step", total: 0, ok: 0, error: 0, skipped: 0, rate: 0 };
+        const cur = acc.get(i) || { step: i, tipo: jsonText(s.tipo) || "step", total: 0, ok: 0, error: 0, skipped: 0, rate: 0 };
         cur.total += 1;
         if (s.status === "sent" || s.status === "completed") cur.ok += 1;
         else if (s.status === "error") cur.error += 1;
         else if (s.status === "skipped") cur.skipped += 1;
-        cur.tipo = s.tipo || cur.tipo;
+        cur.tipo = jsonText(s.tipo) || cur.tipo;
         acc.set(i, cur);
       });
     });
@@ -61,12 +64,12 @@ export function StepHeatmap({ automacaoId, projectId }: Props) {
 
   const bottleneck = useMemo(() => {
     if (stats.length < 2) return null;
-    let worst: StepStat | null = null;
+    let worst: (StepStat & { _drop: number }) | null = null;
     for (let i = 1; i < stats.length; i++) {
       const drop = stats[i - 1].total - stats[i].total;
       const dropRate = stats[i - 1].total ? drop / stats[i - 1].total : 0;
-      if (dropRate > 0.3 && (!worst || dropRate > (worst as any)._drop)) {
-        worst = { ...stats[i], ...( { _drop: dropRate } as any) };
+      if (dropRate > 0.3 && (!worst || dropRate > worst._drop)) {
+        worst = { ...stats[i], _drop: dropRate };
       }
     }
     return worst;

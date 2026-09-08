@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { useState, forwardRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +17,13 @@ const BLOCKS: { key: string; label: string }[] = [
 ];
 
 interface Props {
-  swipe: any;
+  swipe: Tables<"imphq_swipes">;
   label: string;
   selected: boolean;
   onToggleSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onChanged?: (patch: any) => void;
+  onChanged?: (patch: TablesUpdate<"imphq_swipes">) => void;
 }
 
 export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
@@ -40,7 +42,7 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
       }
     };
 
-    const blocks = s.blocks || {};
+    const blocks = Object.fromEntries(Object.entries(record(s.blocks)).flatMap(([key,value])=>typeof value === "string" ? [[key,value]] : []));
     const title = String(s.title || "").replace(/^ROTEIRO\s+[A-Z0-9]+\s*[—-]\s*/i, "");
 
     return (
@@ -89,7 +91,7 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
               onClick={async () => {
                 const nv = !s.favorito;
                 onChanged?.({ favorito: nv });
-                await supabase.from("imphq_swipes" as any).update({ favorito: nv }).eq("id", s.id);
+                await supabase.from("imphq_swipes").update({ favorito: nv }).eq("id", s.id);
               }}
               className={cn(
                 "p-1.5 rounded transition",
@@ -197,7 +199,7 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
                 onClick={async () => {
                   const nv = s.rating === n ? 0 : n;
                   onChanged?.({ rating: nv });
-                  await supabase.from("imphq_swipes" as any).update({ rating: nv }).eq("id", s.id);
+                  await supabase.from("imphq_swipes").update({ rating: nv }).eq("id", s.id);
                 }}
                 className={cn(
                   "p-0.5 transition",

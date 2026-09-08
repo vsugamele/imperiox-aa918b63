@@ -45,7 +45,7 @@ export function useFunnelRevenue(projectId: string, days: number = 30): FunnelRe
 
       let total = 0, count = 0;
       const porProduto: Record<string, ProductRevenue> = {};
-      for (const v of (rows || []) as any[]) {
+      for (const v of (rows || [])) {
         const st = (v.status || "").toLowerCase();
         if (!st.includes("aprov") && !st.includes("paid")) continue;
         const valor = Number(v.valor_liquido ?? v.valor) || 0;

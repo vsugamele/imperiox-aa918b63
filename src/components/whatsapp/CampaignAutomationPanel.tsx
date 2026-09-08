@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
@@ -25,10 +26,10 @@ export default function CampaignAutomationPanel({ campaignId, welcomeMessage, ex
   const [hack, setHack] = useState(antiHack);
   const [mention, setMention] = useState(mentionAll);
 
-  const update = async (field: string, value: any) => {
+  const update = async <K extends "welcome_message" | "exit_message" | "anti_hack" | "mention_all",>(field: K, value: TablesUpdate<"imphq_wa_campaigns">[K]) => {
     const { error } = await supabase
       .from("imphq_wa_campaigns")
-      .update({ [field]: value } as any)
+      .update({ [field]: value })
       .eq("id", campaignId);
     if (error) toast.error(error.message);
     else {

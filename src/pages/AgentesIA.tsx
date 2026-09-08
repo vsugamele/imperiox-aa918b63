@@ -30,30 +30,30 @@ export default function AgentesIA() {
   const load = async () => {
     setLoading(true);
     const [aRes, pRes] = await Promise.all([
-      supabase.from("imphq_ai_agents" as any).select("id, nome, avatar_url, project_id, ativo").order("created_at", { ascending: false }),
+      supabase.from("imphq_ai_agents").select("id, nome, avatar_url, project_id, ativo").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    setAgents(((aRes.data as any[]) || []) as Agent[]);
-    setProjects((pRes.data as any[]) || []);
+    setAgents(aRes.data || []);
+    setProjects(pRes.data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
   const create = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
-    const { data, error } = await (supabase.from("imphq_ai_agents" as any).insert({
+    const { data, error } = await supabase.from("imphq_ai_agents").insert({
       nome: form.nome,
       project_id: form.project_id || null,
-    }) as any).select("id").single();
+    }).select("id").single();
     if (error) { toast.error(error.message); return; }
     setShowNew(false);
     toast.success("Agente criado");
-    nav(`/openflow/agentes/${(data as any).id}`);
+    nav(`/openflow/agentes/${data.id}`);
   };
 
   const remove = async (id: string) => {
     if (!confirm("Excluir agente?")) return;
-    const { error } = await supabase.from("imphq_ai_agents" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_ai_agents").delete().eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Excluído"); load(); }
   };
 

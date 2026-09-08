@@ -1,3 +1,7 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const templateSchema = z.object({ id: z.string().optional(), name: z.string().nullish(), subject: z.string().nullish(), html_body: z.string().nullish() }).passthrough();
+const emailConfigSchema = z.object({ resend_api_key: z.string().nullish(), from_email: z.string().nullish(), from_name: z.string().nullish(), reply_to: z.string().nullish(), templates: z.array(templateSchema).nullish() }).passthrough();
+const projectMailSchema = z.object({ email_config: emailConfigSchema.nullish(), checklist: z.object({ resend: emailConfigSchema.nullish() }).passthrough().nullish() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -59,8 +63,9 @@ Deno.serve(async (req) => {
     }
 
     // Fallback to legacy JSONB storage
-    const emailConfig = (project.data as any)?.email_config || {};
-    const briefingResend = (project.data as any)?.checklist?.resend || {};
+    const projectMail = projectMailSchema.parse(project.data || {});
+    const emailConfig = projectMail.email_config || {};
+    const briefingResend = projectMail.checklist?.resend || {};
     if (!resendApiKey) {
       resendApiKey = emailConfig.resend_api_key || briefingResend.resend_api_key || "";
       fromEmail = fromEmail || emailConfig.from_email || briefingResend.from_email || "";
@@ -79,13 +84,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    let template: any = null;
+    let template: z.infer<typeof templateSchema> | undefined;
     if (inline) {
       template = { name: inline.name || "inline", subject: inline.subject, html_body: inline.html_body };
     } else {
       const templates = emailConfig.templates || [];
-      console.log("[send-project-email] Templates disponíveis:", templates.map((t: any) => ({ id: t.id, name: t.name })));
-      template = templates.find((t: any) => t.id === template_id);
+      console.log("[send-project-email] Templates disponíveis:", templates.map((t) => ({ id: t.id, name: t.name })));
+      template = templates.find((t) => t.id === template_id);
       if (!template) {
         return new Response(JSON.stringify({ error: "Template não encontrado" }), {
           status: 404,
@@ -113,7 +118,7 @@ Deno.serve(async (req) => {
     const resendData = await resendRes.json();
 
     // Log the email event in imphq_events
-    const eventData: any = {
+    const eventData = {
       to_email,
       template_name: template.name,
       template_id,
@@ -140,7 +145,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

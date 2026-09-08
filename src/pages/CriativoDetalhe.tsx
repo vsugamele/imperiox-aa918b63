@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,17 +65,17 @@ export default function CriativoDetalhe() {
     setCardSearch("");
     const { data } = await supabase
       .from("imphq_kanban_cards")
-      .select("id, titulo, board_id")
+      .select("id, titulo:title, board_id:board")
       .order("created_at", { ascending: false })
       .limit(200);
-    setCardOptions((data as any) || []);
+    setCardOptions(data || []);
   }
 
   async function linkToCard(cardId: string | null) {
     if (!linkTarget) return;
     const { error } = await supabase
       .from("imphq_creative_assets")
-      .update({ card_id: cardId } as any)
+      .update({ card_id: cardId })
       .eq("id", linkTarget.id);
     if (error) { toast.error(error.message); return; }
     setAssets((prev) => prev.map((x) => x.id === linkTarget.id ? { ...x, card_id: cardId } : x));
@@ -94,19 +96,20 @@ export default function CriativoDetalhe() {
         .order("created_at", { ascending: true }),
     ]);
     if (bRes.data) {
-      setBatch(bRes.data as any);
-      const ids: string[] = (bRes.data as any)?.source_swipe_ids || [];
+      setBatch(bRes.data);
+      const sourceIds = record(bRes.data.briefing).source_swipe_ids;
+      const ids = Array.isArray(sourceIds) ? sourceIds.filter((id): id is string => typeof id === "string") : [];
       if (ids.length) {
         const { data: sws } = await supabase
-          .from("imphq_swipes" as any)
+          .from("imphq_swipes")
           .select("id, title")
           .in("id", ids);
-        setSourceSwipes((sws as any) || []);
+        setSourceSwipes(sws || []);
       } else {
         setSourceSwipes([]);
       }
     }
-    if (aRes.data) setAssets(aRes.data as any);
+    if (aRes.data) setAssets(aRes.data);
   }
 
   useEffect(() => {
@@ -162,13 +165,13 @@ export default function CriativoDetalhe() {
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (record(data).error) throw new Error(String(record(data).error));
       toast.success(`Nova versão gerada (${providerLabel(editProvider)})`);
       setEditTarget(null);
       setEditInstruction("");
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha na edição");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha na edição");
     } finally {
       setEditing(false);
     }
@@ -189,8 +192,8 @@ export default function CriativoDetalhe() {
       if (error) throw error;
       toast.success("Enviado pra biblioteca de mídias");
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao exportar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao exportar");
     } finally {
       setExporting(false);
     }
@@ -210,8 +213,8 @@ export default function CriativoDetalhe() {
       if (error) throw error;
       toast.success(`${aprovados.length} criativo(s) enviado(s) pra mídias`);
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao exportar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao exportar");
     } finally {
       setExporting(false);
     }
@@ -244,8 +247,8 @@ export default function CriativoDetalhe() {
       link.click();
       URL.revokeObjectURL(link.href);
       toast.success(`${i} criativo(s) baixado(s)`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha no ZIP");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha no ZIP");
     } finally {
       setZipping(false);
     }

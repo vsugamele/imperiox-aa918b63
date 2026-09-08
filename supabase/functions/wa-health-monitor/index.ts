@@ -1,5 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+interface HealthFailure { instance: string; project_id: string | null; reason: string; severity: string; alerts_muted: boolean }
+interface HealthResult { id: string; instance_name: string; project_id: string | null; status: string; alerts_muted: boolean; ok?: boolean; warning?: string; error?: string; auto_reconnect_attempted?: boolean; auto_reconnect_result?: string }
+interface HealthProvider { instance_name: string; api_url: string; api_key: string; project_id: string | null }
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function emailConfig(value: unknown) { const obj = record(value); return { resend_api_key: typeof obj.resend_api_key === "string" ? obj.resend_api_key : "", from_email: typeof obj.from_email === "string" ? obj.from_email : "", from_name: typeof obj.from_name === "string" ? obj.from_name : "" }; }
+function errorMessage(value: unknown): string | undefined { const obj = record(value); return typeof obj.message === "string" ? obj.message : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -34,8 +42,8 @@ Deno.serve(async (req) => {
 
     console.log(`[wa-health-monitor] Checking ${providers.length} providers`);
 
-    const results: any[] = [];
-    const failures: any[] = [];
+    const results: HealthResult[] = [];
+    const failures: HealthFailure[] = [];
 
     const nowMs = Date.now();
     for (const p of providers) {
@@ -43,7 +51,7 @@ Deno.serve(async (req) => {
       const mutedUntil = p.health_alerts_muted_until ? new Date(p.health_alerts_muted_until).getTime() : 0;
       const isMuted = !alertsEnabled || mutedUntil > nowMs;
 
-      const instanceResult: any = {
+      const instanceResult: HealthResult = {
         id: p.id,
         instance_name: p.instance_name,
         project_id: p.project_id,
@@ -100,16 +108,16 @@ Deno.serve(async (req) => {
             alerts_muted: isMuted,
           });
         }
-      } catch (e: any) {
-        const isTimeout = e.name === "AbortError";
+      } catch (e) {
+        const isTimeout = record(e).name === "AbortError";
         instanceResult.status = isTimeout ? "timeout" : "unreachable";
         instanceResult.ok = false;
-        instanceResult.error = isTimeout ? "Timeout (10s)" : e.message;
+        instanceResult.error = isTimeout ? "Timeout (10s)" : errorMessage(e);
 
         failures.push({
           instance: p.instance_name,
           project_id: p.project_id,
-          reason: isTimeout ? "API não respondeu em 10s" : `API inacessível: ${e.message}`,
+          reason: isTimeout ? "API não respondeu em 10s" : `API inacessível: ${errorMessage(e)}`,
           severity: "critical",
           alerts_muted: isMuted,
         });
@@ -137,7 +145,7 @@ Deno.serve(async (req) => {
       } else {
         // Throttle POR INSTÂNCIA: 6h entre e-mails da mesma instância
         const sixHoursAgo = new Date(nowMs - 6 * 60 * 60 * 1000).toISOString();
-        const toAlert: any[] = [];
+        const toAlert: HealthFailure[] = [];
         for (const f of alertable) {
           const { data: recent } = await supabase
             .from("imphq_events")
@@ -180,9 +188,9 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[wa-health-monitor] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: errorMessage(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -195,8 +203,8 @@ Deno.serve(async (req) => {
  * - Não força novo QR, não envia mensagens, não cria sessão nova
  */
 async function tryAutoReconnect(
-  supabase: any,
-  provider: any,
+  supabase: ReturnType<typeof makeClient>,
+  provider: HealthProvider,
   state: string
 ): Promise<{ attempted: boolean; result: string }> {
   if (state !== "close" && state !== "connecting") {
@@ -235,14 +243,14 @@ async function tryAutoReconnect(
     });
 
     return { attempted: true, result };
-  } catch (e: any) {
-    return { attempted: true, result: `error: ${e.message}` };
+  } catch (e) {
+    return { attempted: true, result: `error: ${errorMessage(e)}` };
   }
 }
 
 async function sendAlertEmail(
-  supabase: any,
-  failures: any[],
+  supabase: ReturnType<typeof makeClient>,
+  failures: HealthFailure[],
   totalProviders: number
 ): Promise<boolean> {
   try {
@@ -267,8 +275,8 @@ async function sendAlertEmail(
         .limit(10);
 
       for (const p of projects || []) {
-        const ec = (p.data as any)?.email_config || {};
-        const br = (p.data as any)?.checklist?.resend || {};
+        const ec = emailConfig(record(p.data).email_config);
+        const br = emailConfig(record(record(p.data).checklist).resend);
         const key = ec.resend_api_key || br.resend_api_key;
         if (key) {
           resendApiKey = key;
@@ -285,7 +293,7 @@ async function sendAlertEmail(
     }
 
     const failureLines = failures.map(
-      (f: any) => `• <b>${f.instance}</b> — ${f.reason} (${f.severity})`
+      (f) => `• <b>${f.instance}</b> — ${f.reason} (${f.severity})`
     ).join("<br>");
 
     const htmlBody = `
@@ -331,7 +339,7 @@ async function sendAlertEmail(
     const resData = await res.json();
     console.log("[wa-health-monitor] Email alert sent:", res.ok, resData);
     return res.ok;
-  } catch (e: any) {
+  } catch (e) {
     console.error("[wa-health-monitor] Failed to send email alert:", e);
     return false;
   }

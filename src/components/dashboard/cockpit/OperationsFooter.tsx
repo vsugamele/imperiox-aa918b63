@@ -13,25 +13,25 @@ export function OperationsFooter() {
       const startToday = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
       const [msgsRes, activeConvRes, tasksRes] = await Promise.all([
-        (supabase as any)
+        (supabase)
           .from("imphq_wa_messages")
           .select("sent_by, role, direction")
           .eq("direction", "out")
           .gte("created_at", since24),
-        (supabase as any)
+        (supabase)
           .from("imphq_wa_conversations")
           .select("id", { count: "exact", head: true })
           .gte("last_message_at", since24),
         supabase
-          .from("imphq_tasks" as any)
+          .from("imphq_tasks")
           .select("id", { count: "exact", head: true })
           .neq("status", "done")
           .lte("due_date", startToday.split("T")[0]),
       ]);
 
-      const msgs = (msgsRes.data || []) as any[];
+      const msgs = (msgsRes.data || []);
       const total = msgs.length;
-      const aiCount = msgs.filter((m: any) => m.sent_by === "ai" || m.role === "assistant").length;
+      const aiCount = msgs.filter((m) => m.sent_by === "ai" || m.role === "assistant").length;
       const aiShare = total > 0 ? (aiCount / total) * 100 : 0;
 
       return {

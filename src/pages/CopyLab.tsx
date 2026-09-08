@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +23,7 @@ type Intent =
   | "breakthrough_techniques"
   | "weaponized_credibility";
 
-const TABS: Array<{ id: Intent; label: string; icon: any; subtitle: string }> = [
+const TABS: Array<{ id: Intent; label: string; icon: LucideIcon; subtitle: string }> = [
   { id: "vsl_imperador", label: "VSL Reversa", icon: Film, subtitle: "Engenharia reversa: mecanismo → provas → abertura" },
   { id: "criativo_imperador", label: "Criativo", icon: Sparkles, subtitle: "5 variações com mecanismo nomeado" },
   { id: "conversa_imperador", label: "Conversa WA", icon: MessageSquare, subtitle: "Sequência em cadeia de sins" },

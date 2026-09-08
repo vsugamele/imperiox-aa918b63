@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,16 +16,13 @@ interface Props {
   onApplied?: () => void;
 }
 
-interface Template {
-  id: string;
-  setor: string;
-  nome: string;
-  emoji: string | null;
-  descricao: string | null;
-  config_json: any;
-  faq_json: any[];
-  ordem: number;
+type Template = Tables<"imphq_wa_sector_templates">;
+
+function config(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
+function text(value: unknown, fallback = ""): string { return typeof value === "string" ? value : fallback; }
+function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []; }
 
 export default function SectorPackDialog({ projectId, open, onOpenChange, onApplied }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -35,7 +34,7 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
     if (!open) return;
     setLoading(true);
     supabase
-      .from("imphq_wa_sector_templates" as any)
+      .from("imphq_wa_sector_templates")
       .select("*")
       .order("ordem")
       .then(({ data, error }) => {
@@ -43,7 +42,7 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
           console.error(error);
           toast.error("Erro ao carregar pacotes de setor");
         } else {
-          setTemplates((data as any) || []);
+          setTemplates(data || []);
         }
         setLoading(false);
       });
@@ -53,17 +52,17 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
     if (!selected) return;
     setApplying(true);
     try {
-      const cfg = selected.config_json || {};
+      const cfg = config(selected.config_json);
       const { error } = await supabase
         .from("imphq_wa_ai_config")
         .upsert({
           project_id: projectId,
-          personality: cfg.personality || "assistente",
-          tone: cfg.tone || "profissional",
-          welcome_message: cfg.welcome_message || "",
-          custom_instructions: cfg.custom_instructions || "",
-          escalation_keywords: cfg.escalation_keywords || [],
-          banned_phrases: cfg.banned_phrases || [],
+          personality: text(cfg.personality, "assistente"),
+          tone: text(cfg.tone, "profissional"),
+          welcome_message: text(cfg.welcome_message, ""),
+          custom_instructions: text(cfg.custom_instructions, ""),
+          escalation_keywords: strings(cfg.escalation_keywords),
+          banned_phrases: strings(cfg.banned_phrases),
           closer_mode_enabled: !!cfg.closer_mode_enabled,
           voice_reply_enabled: !!cfg.voice_reply_enabled,
           business_hours_only: !!cfg.business_hours_only,
@@ -76,8 +75,8 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
       onOpenChange(false);
       setSelected(null);
       onApplied?.();
-    } catch (err: any) {
-      toast.error("Erro ao aplicar pack", { description: err.message });
+    } catch (err: unknown) {
+      toast.error("Erro ao aplicar pack", { description: errorMessage(err) });
     } finally {
       setApplying(false);
     }
@@ -117,10 +116,10 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
                   <div className="font-semibold leading-tight">{t.nome}</div>
                   <div className="text-xs text-muted-foreground mt-1 leading-snug">{t.descricao}</div>
                   <div className="flex flex-wrap gap-1 mt-3">
-                    {t.config_json?.personality && (
-                      <Badge variant="outline" className="text-[10px]">{t.config_json.personality}</Badge>
+                    {text(config(t.config_json).personality) && (
+                      <Badge variant="outline" className="text-[10px]">{text(config(t.config_json).personality)}</Badge>
                     )}
-                    {t.config_json?.closer_mode_enabled && (
+                    {Boolean(config(t.config_json).closer_mode_enabled) && (
                       <Badge variant="outline" className="text-[10px]">closer</Badge>
                     )}
                     {Array.isArray(t.faq_json) && t.faq_json.length > 0 && (
@@ -136,7 +135,7 @@ export default function SectorPackDialog({ projectId, open, onOpenChange, onAppl
         {selected && (
           <div className="bg-muted/30 rounded-md p-3 mt-2 text-xs space-y-1">
             <div className="font-semibold mb-1">Prévia:</div>
-            <div><span className="text-muted-foreground">Saudação:</span> "{selected.config_json?.welcome_message}"</div>
+            <div><span className="text-muted-foreground">Saudação:</span> "{text(config(selected.config_json).welcome_message)}"</div>
           </div>
         )}
 

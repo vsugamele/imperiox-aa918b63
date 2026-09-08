@@ -1,3 +1,4 @@
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,12 +41,21 @@ export default function AutopilotProgress() {
     let mounted = true;
 
     const fetchRun = async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("imphq_autopilot_runs")
         .select("*")
         .eq("id", runId)
         .maybeSingle();
-      if (mounted && data) setRun(data as Run);
+      if (mounted && data) {
+        const input = jsonFields(data.input);
+        const steps: Step[] = Array.isArray(data.steps) ? data.steps.flatMap(value => {
+          const step = jsonFields(value);
+          const slug = jsonText(step.slug), label = jsonText(step.label), status = jsonText(step.status);
+          return slug && label && (status === "pending" || status === "running" || status === "done" || status === "failed")
+            ? [{ slug, label, status, output: jsonText(step.output) || "", error: jsonText(step.error) || null }] : [];
+        }) : [];
+        setRun({ ...data, steps, input: { nome: jsonText(input.nome), nicho: jsonText(input.nicho), url_concorrente: jsonText(input.url_concorrente) } });
+      }
     };
 
     fetchRun();

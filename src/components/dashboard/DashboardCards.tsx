@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +16,12 @@ interface Props {
 }
 
 export default function DashboardCards({ period, projectFilter, isAdmin }: Props) {
-  const [recentProjects, setRecentProjects] = useState<any[]>([]);
-  const [urgentTasks, setUrgentTasks] = useState<any[]>([]);
-  const [opportunities, setOpportunities] = useState<any[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
-  const [projectFinance, setProjectFinance] = useState<any[]>([]);
-  const [recentCards, setRecentCards] = useState<any[]>([]);
+  const [recentProjects, setRecentProjects] = useState<Array<Pick<Tables<"imphq_projects">, "id" | "name" | "icon" | "category" | "color">>>([]);
+  const [urgentTasks, setUrgentTasks] = useState<Array<Pick<Tables<"imphq_kanban_cards">, "id" | "title" | "priority" | "due_date" | "column_id" | "project_id" | "member_id"> & { _status: string; _member: Pick<Tables<"imphq_team_members">, "id" | "name" | "avatar_url"> | null; _projectName: string | null }>>([]);
+  const [opportunities, setOpportunities] = useState<Array<Pick<Tables<"imphq_mi_opportunities">, "id" | "produto" | "nicho" | "sub_nicho" | "score" | "ticket">>>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Array<Pick<Tables<"imphq_calendar_events">, "id" | "title" | "event_date" | "event_type" | "project_id"> & { imphq_projects: Pick<Tables<"imphq_projects">, "name" | "icon" | "color"> | null }>>([]);
+  const [projectFinance, setProjectFinance] = useState<Array<{ id: string; name: string; icon: string; cost: number; revenue: number; profit: number; roas: number; cpl: number }>>([]);
+  const [recentCards, setRecentCards] = useState<Array<Pick<Tables<"imphq_kanban_cards">, "id" | "title" | "priority" | "board" | "column_id" | "project_id" | "updated_at"> & { column_title: string }>>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,11 +45,11 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
       setUpcomingEvents(eventsRes.data || []);
 
       // Enriched urgent cards
-      const colMap = new Map((columnsRes.data || []).map((c: any) => [c.id, c]));
-      const memberMap = new Map((membersRes.data || []).map((m: any) => [m.id, m]));
-      const projMap2 = new Map((projListRes.data || []).map((p: any) => [p.id, p]));
+      const colMap = new Map((columnsRes.data || []).map((c) => [c.id, c]));
+      const memberMap = new Map((membersRes.data || []).map((m) => [m.id, m]));
+      const projMap2 = new Map((projListRes.data || []).map((p) => [p.id, p]));
 
-      const enrichedCards = (urgentCardsRes.data || []).map((c: any) => {
+      const enrichedCards = (urgentCardsRes.data || []).map((c) => {
         const col = colMap.get(c.column_id);
         const colTitle = (col?.title || "").toLowerCase();
         const isBlocked = colTitle.includes("travado") || colTitle.includes("bloqueado") || colTitle.includes("blocked");
@@ -56,11 +57,11 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
         const _status = isBlocked ? "travado" : isOverdueCard ? "atrasado" : "urgente";
         const proj = projMap2.get(c.project_id);
         return { ...c, _status, _member: memberMap.get(c.member_id) || null, _projectName: proj ? `${proj.icon || "📁"} ${proj.name}` : null };
-      }).filter((c: any) => {
+      }).filter((c) => {
         const col = colMap.get(c.column_id);
         const colTitle = (col?.title || "").toLowerCase();
         return !colTitle.includes("conclu") && !colTitle.includes("done") && !colTitle.includes("feito");
-      }).sort((a: any, b: any) => {
+      }).sort((a, b) => {
         const order: Record<string, number> = { travado: 0, atrasado: 1, urgente: 2 };
         return (order[a._status] ?? 3) - (order[b._status] ?? 3);
       }).slice(0, 8);
@@ -69,14 +70,14 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
       // Recent kanban cards
       const cardsData = cardsDataRes.data;
       if (cardsData) {
-        const colIds = [...new Set(cardsData.map((c: any) => c.column_id))];
+        const colIds = [...new Set(cardsData.map((c) => c.column_id))];
         const { data: colsData } = await supabase.from("imphq_kanban_columns").select("id, title").in("id", colIds);
-        const colMap2 = new Map((colsData || []).map((c: any) => [c.id, c.title]));
-        setRecentCards(cardsData.map((c: any) => ({ ...c, column_title: colMap2.get(c.column_id) || "?" })));
+        const colMap2 = new Map((colsData || []).map((c) => [c.id, c.title]));
+        setRecentCards(cardsData.map((c) => ({ ...c, column_title: colMap2.get(c.column_id) || "?" })));
       }
 
       // Project finance
-      setProjectFinance((finResumo.data || []).map((f: any) => ({
+      setProjectFinance((finResumo.data || []).map((f) => ({
         id: f.project_id, name: f.project_name || f.project_id, icon: f.project_icon || "📁",
         cost: Number(f.custo_total) || 0, revenue: Number(f.receita_total) || 0,
         profit: Number(f.lucro_liquido) || 0, roas: Number(f.roas) || 0, cpl: Number(f.cpl) || 0,
@@ -153,7 +154,7 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
               <CardTitle className="font-display text-lg flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> Próximos Eventos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {upcomingEvents.map((ev: any) => {
+              {upcomingEvents.map((ev) => {
                 const eventDate = new Date(ev.event_date);
                 const typeIcons: Record<string, string> = { launch: "🚀", live: "🎥", deadline: "⏰", meeting: "🤝", content: "📝", general: "📌" };
                 const project = ev.imphq_projects;
@@ -202,7 +203,7 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
               <CardTitle className="font-display text-lg flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Saúde Financeira dos Projetos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {projectFinance.map((pf: any) => {
+              {projectFinance.map((pf) => {
                 const isPositive = pf.profit >= 0;
                 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
                 return (
@@ -227,7 +228,7 @@ export default function DashboardCards({ period, projectFilter, isAdmin }: Props
             <CardTitle className="font-display text-lg flex items-center gap-2"><ListTodo className="h-4 w-4 text-amber-400" /> Últimos Cards Movimentados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {recentCards.map((c: any) => (
+            {recentCards.map((c) => (
               <div key={c.id} onClick={() => navigate("/kanban")} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <span className={`h-2 w-2 rounded-full shrink-0 ${c.priority === "urgent" ? "bg-destructive" : c.priority === "high" ? "bg-amber-400" : "bg-emerald-400"}`} />

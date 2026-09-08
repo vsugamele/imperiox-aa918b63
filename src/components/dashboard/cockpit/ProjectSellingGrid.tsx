@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
-import { Sparkline } from "./Sparkline";
+import { Sparkline } from "@/components/dashboard/cockpit/Sparkline";
 import { ArrowUpRight } from "lucide-react";
 
 const APPROVED = ["aprovado", "aprovada", "approved", "paid", "completed"];
@@ -56,9 +56,9 @@ export function ProjectSellingGrid() {
           .gte("score", 80),
       ]);
 
-      const sales = (salesRes.data || []) as any[];
-      const ads = (adsRes.data || []) as any[];
-      const hot = (hotRes.data || []) as any[];
+      const sales = (salesRes.data || []);
+      const ads = (adsRes.data || []);
+      const hot = (hotRes.data || []);
 
       const spendByProj = new Map<string, number>();
       ads.forEach((a) => {

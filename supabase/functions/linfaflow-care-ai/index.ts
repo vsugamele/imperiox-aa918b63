@@ -286,7 +286,7 @@ async function syncCareLead(params: {
     },
   };
 
-  let existing: any = null;
+  let existing: {id:string;tags:string[]|null;data:Record<string,unknown>|null;lead_memory:Record<string,unknown>|null} | null = null;
   if (identity.email) {
     const { data } = await supabase
       .from("imphq_leads")
@@ -931,9 +931,10 @@ Latest lead message: ${latest}`;
       persuasion_profile: persuasionProfile,
       voice_cache_key: voiceCacheKey,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (error: any) {
-    console.error("[linfaflow-care-ai] error", error?.message || error);
-    return new Response(JSON.stringify({ ok: false, error: error?.message || "Internal error" }), {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "Internal error";
+    console.error("[linfaflow-care-ai] error", message || error);
+    return new Response(JSON.stringify({ ok: false, error: message || "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

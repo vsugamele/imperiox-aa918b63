@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import { toast } from "sonner";
 type FunnelStage = {
   label: string;
   count: number;
-  icon: any;
+  icon: LucideIcon;
   color: string;
   description: string;
 };
@@ -59,7 +61,7 @@ export default function Funil() {
     if (!projectId && projects.length > 0) setProjectId(projects[0].id);
   }, [projects, projectId]);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
@@ -88,19 +90,19 @@ export default function Funil() {
         .gte("sent_at", since);
 
       const linksEnviados = (attrs || []).length;
-      const linksClicados = (attrs || []).filter((a: any) => a.clicked_at).length;
-      const vendasGeradas = (attrs || []).filter((a: any) => a.venda_id).length;
-      const vendasAprovadas = (attrs || []).filter((a: any) => a.venda_status === "aprovado").length;
+      const linksClicados = (attrs || []).filter((a) => a.clicked_at).length;
+      const vendasGeradas = (attrs || []).filter((a) => a.venda_id).length;
+      const vendasAprovadas = (attrs || []).filter((a) => a.venda_status === "aprovado").length;
 
       // Receita real via venda_ids atribuídos a esse funil
-      const vendaIds = Array.from(new Set((attrs || []).filter((a: any) => a.venda_id).map((a: any) => a.venda_id)));
+      const vendaIds = Array.from(new Set((attrs || []).filter((a) => a.venda_id).map((a) => a.venda_id)));
       let totalRev = 0; let countRev = 0;
       if (vendaIds.length > 0) {
         const { data: vendas } = await supabase
           .from("imphq_vendas")
           .select("id, valor, valor_liquido, status")
           .in("id", vendaIds);
-        for (const v of (vendas || []) as any[]) {
+        for (const v of (vendas || [])) {
           if ((v.status || "").toLowerCase() === "aprovado") {
             totalRev += Number(v.valor_liquido ?? v.valor) || 0;
             countRev++;
@@ -127,7 +129,7 @@ export default function Funil() {
         .gte("day", since);
 
       const agg = new Map<string, SourceBreakdown>();
-      for (const r of (funnelView || []) as any[]) {
+      for (const r of (funnelView || [])) {
         const cur = agg.get(r.source) || { source: r.source, links_enviados: 0, links_clicados: 0, vendas_geradas: 0, vendas_aprovadas: 0 };
         cur.links_enviados += Number(r.links_enviados) || 0;
         cur.links_clicados += Number(r.links_clicados) || 0;
@@ -146,7 +148,7 @@ export default function Funil() {
         .not("template_name", "is", null);
 
       const tplMap = new Map<string, { sent: number; sales: number }>();
-      for (const r of (templates || []) as any[]) {
+      for (const r of (templates || [])) {
         const cur = tplMap.get(r.template_name) || { sent: 0, sales: 0 };
         cur.sent++;
         if (r.venda_status === "aprovado") cur.sales++;
@@ -167,17 +169,17 @@ export default function Funil() {
         .order("matched_at", { ascending: false })
         .limit(15);
       setRecentMatches((recent || []) as AttributionRow[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[funil] erro:", e);
-      toast.error("Erro: " + e.message);
+      toast.error("Erro: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, days]);
 
   useEffect(() => {
     if (projectId) reload();
-  }, [projectId, days]);
+  }, [projectId, reload]);
 
   const totalLeads = stages[0]?.count || 0;
   const totalSales = stages[5]?.count || 0;

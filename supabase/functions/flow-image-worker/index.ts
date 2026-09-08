@@ -66,21 +66,26 @@ Deno.serve(async (req) => {
         if (job.blueprint_id) {
           const { data: bp } = await supabase.from('imphq_flow_blueprints').select('blueprint').eq('id', job.blueprint_id).maybeSingle();
           if (bp) {
-            const blueprint: any = bp.blueprint;
-            blueprint.nodes = (blueprint.nodes || []).map((n: any) => ({
-              ...n,
-              blocks: (n.blocks || []).map((b: any) => b.id === job.block_id ? { ...b, image_url: url } : b),
-            }));
+            const blueprint: unknown = bp.blueprint;
+            if (!blueprint || typeof blueprint !== "object" || Array.isArray(blueprint)) throw new Error("Invalid blueprint");
+            const nodes = "nodes" in blueprint && Array.isArray(blueprint.nodes) ? blueprint.nodes : [];
+            Object.assign(blueprint, { nodes: nodes.map((n: unknown) => {
+              if (!n || typeof n !== "object" || Array.isArray(n)) return n;
+              const blocks = "blocks" in n && Array.isArray(n.blocks) ? n.blocks : [];
+              return { ...n, blocks: blocks.map((b: unknown) => b && typeof b === "object" && "id" in b && b.id === job.block_id ? { ...b, image_url: url } : b) };
+            }) });
             await supabase.from('imphq_flow_blueprints').update({ blueprint }).eq('id', job.blueprint_id);
           }
         }
         done++;
-      } catch (e: any) {
-        await supabase.from('imphq_flow_image_jobs').update({ status: 'error', error: e.message }).eq('id', job.id);
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        await supabase.from('imphq_flow_image_jobs').update({ status: 'error', error: eMessage }).eq('id', job.id);
       }
     }
     return new Response(JSON.stringify({ processed: done }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

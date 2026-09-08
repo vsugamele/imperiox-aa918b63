@@ -2,6 +2,10 @@
 // Salva em imphq_ig_media, imphq_ig_media_insights e imphq_ig_account_insights
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(value: unknown): string | undefined { const message = record(value).message; return typeof message === "string" ? message : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -10,7 +14,7 @@ const corsHeaders = {
 
 const ZERNIO = "https://zernio.com/api/v1";
 
-function json(d: any, s = 200) {
+function json(d: unknown, s = 200) {
   return new Response(JSON.stringify(d), {
     status: s,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -24,14 +28,14 @@ async function tryFetch(urls: string[], headers: Record<string, string>) {
       const r = await fetch(u, { headers });
       if (r.ok) return { ok: true as const, data: await r.json(), url: u };
       lastErr = `${r.status} ${u}`;
-    } catch (e: any) {
-      lastErr = e?.message || String(e);
+    } catch (e) {
+      lastErr = errorMessage(e) || String(e);
     }
   }
   return { ok: false as const, error: lastErr };
 }
 
-function pickNumber(...vals: any[]): number {
+function pickNumber(...vals: unknown[]): number {
   for (const v of vals) {
     const n = Number(v);
     if (Number.isFinite(n)) return n;
@@ -39,14 +43,14 @@ function pickNumber(...vals: any[]): number {
   return 0;
 }
 
-async function syncAccount(supa: any, account: any, creds: any, limit = 50) {
+async function syncAccount(supa: ReturnType<typeof makeClient>, account: { id: string; project_id: string | null }, creds: { zernio_api_key?: string; zernio_account_id?: string }, limit = 50) {
   const apiKey = creds?.zernio_api_key;
   const zernioAccountId = creds?.zernio_account_id;
   if (!apiKey || !zernioAccountId) {
     return { ok: false, error: "missing zernio credentials" };
   }
   const auth = { Authorization: `Bearer ${apiKey}` };
-  const result: any = {
+  const result = {
     account_id: account.id,
     posts_synced: 0,
     insights_saved: 0,
@@ -68,14 +72,15 @@ async function syncAccount(supa: any, account: any, creds: any, limit = 50) {
   if (!postsRes.ok) {
     result.errors.push(`posts: ${postsRes.error}`);
   } else {
-    const list: any[] = postsRes.data?.posts || postsRes.data?.media || postsRes.data?.data || [];
+    const listInput: unknown = postsRes.data?.posts || postsRes.data?.media || postsRes.data?.data || [];
+    const list = Array.isArray(listInput) ? listInput.map(record) : [];
     const today = new Date().toISOString().slice(0, 10);
 
     for (const p of list) {
       const igMediaId = p.ig_id || p.igMediaId || p.media_id || p.mediaId || p.id || p._id;
       if (!igMediaId) continue;
 
-      const payload: any = {
+      const payload = {
         account_id: account.id,
         project_id: account.project_id,
         ig_media_id: String(igMediaId),
@@ -103,7 +108,7 @@ async function syncAccount(supa: any, account: any, creds: any, limit = 50) {
       result.posts_synced++;
 
       // métricas vindas no próprio post
-      const metrics = p.insights || p.metrics || p.stats || p;
+      const metrics = record(p.insights || p.metrics || p.stats || p);
       const likes = pickNumber(metrics.likes, metrics.likeCount, metrics.like_count, p.likes_count);
       const comments = pickNumber(metrics.comments, metrics.commentCount, metrics.comments_count, p.comments_count);
       const saves = pickNumber(metrics.saves, metrics.saved, metrics.saveCount);
@@ -115,7 +120,7 @@ async function syncAccount(supa: any, account: any, creds: any, limit = 50) {
       // se nenhum número veio embutido, tenta endpoint de insights
       const noEmbedded =
         likes + comments + saves + shares + reach + impressions + videoViews === 0;
-      let extra: any = null;
+      let extra: Record<string, unknown> | null = null;
       if (noEmbedded) {
         const insightsRes = await tryFetch(
           [
@@ -125,10 +130,10 @@ async function syncAccount(supa: any, account: any, creds: any, limit = 50) {
           ],
           auth,
         );
-        if (insightsRes.ok) extra = insightsRes.data;
+        if (insightsRes.ok) extra = record(insightsRes.data);
       }
 
-      const ex = extra?.insights || extra?.metrics || extra?.data || extra || {};
+      const ex = record(extra?.insights || extra?.metrics || extra?.data || extra || {});
       const finalLikes = likes || pickNumber(ex.likes, ex.likeCount);
       const finalComments = comments || pickNumber(ex.comments, ex.commentCount);
       const finalSaves = saves || pickNumber(ex.saves, ex.saved);
@@ -234,7 +239,7 @@ Deno.serve(async (req) => {
     if (accErr) return json({ error: accErr.message }, 500);
     if (!accounts?.length) return json({ ok: true, processed: 0, results: [] });
 
-    const out: any[] = [];
+    const out: (Awaited<ReturnType<typeof syncAccount>> | { account_id: string; skipped: string })[] = [];
     for (const acc of accounts) {
       const { data: credRow } = await supa
         .from("imphq_integration_credentials")
@@ -252,8 +257,8 @@ Deno.serve(async (req) => {
     }
 
     return json({ ok: true, processed: out.length, results: out });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[instagram-insights-sync]", e);
-    return json({ error: e?.message || "internal" }, 500);
+    return json({ error: errorMessage(e) || "internal" }, 500);
   }
 });

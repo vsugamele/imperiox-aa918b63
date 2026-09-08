@@ -1,3 +1,7 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const avatarPoint = z.union([z.string(), z.object({ dor: z.string().nullish(), desejo: z.string().nullish(), texto: z.string().nullish() }).passthrough()]).nullable();
+const avatarSchema = z.object({ dores: z.array(avatarPoint).nullish(), desejos: z.array(avatarPoint).nullish() }).passthrough();
+const projectContextSchema = z.object({ produtos: z.array(z.object({ nome: z.string().nullish(), avatar: avatarSchema.nullish() }).passthrough()).nullish(), briefing: z.object({ publico: z.string().nullish() }).passthrough().nullish(), avatar: avatarSchema.nullish() }).passthrough();
 // Generates a content cluster from one source idea — produces 5 derived formats
 // (legenda Instagram, copy de anúncio, story 3 frames, email curto, hook reels)
 // All anchored to the same core idea, project context and avatar.
@@ -90,12 +94,12 @@ Deno.serve(async (req) => {
 
     // Build minimal project context (briefing + avatar top points)
     const { data: project } = await supa.from("imphq_projects").select("name, data").eq("id", projectId).single();
-    const pData: any = project?.data || {};
+    const pData = projectContextSchema.parse(project?.data || {});
     const produto = pData.produtos?.[0] || {};
     const briefing = pData.briefing || {};
     const avatar = produto.avatar || pData.avatar || {};
-    const dores = (avatar.dores || []).slice(0, 3).map((d: any) => typeof d === "string" ? d : d?.dor || d?.texto).filter(Boolean);
-    const desejos = (avatar.desejos || []).slice(0, 3).map((d: any) => typeof d === "string" ? d : d?.desejo || d?.texto).filter(Boolean);
+    const dores = (avatar.dores || []).slice(0, 3).map((d) => typeof d === "string" ? d : d?.dor || d?.texto).filter(Boolean);
+    const desejos = (avatar.desejos || []).slice(0, 3).map((d) => typeof d === "string" ? d : d?.desejo || d?.texto).filter(Boolean);
 
     const context = [
       `Projeto: ${project?.name}`,
@@ -117,10 +121,12 @@ Deno.serve(async (req) => {
     const inserts = results.map((r, i) => {
       const fmt = targetFormats[i];
       const ok = r.status === "fulfilled";
+      const reason: unknown = r.status === "rejected" ? r.reason : undefined;
+      const failureMessage = reason instanceof Error ? reason.message : reason && typeof reason === "object" && "message" in reason && typeof reason.message === "string" ? reason.message : "erro";
       if (!ok) {
-        failed_formats.push({ role: fmt.role, label: fmt.label, error: (r as any).reason?.message || "erro" });
+        failed_formats.push({ role: fmt.role, label: fmt.label, error: failureMessage });
       }
-      const content = ok ? r.value : `❌ Falhou: ${(r as any).reason?.message || "erro"}`;
+      const content = ok ? r.value : `❌ Falhou: ${failureMessage}`;
       return {
         project_id: projectId,
         user_id: user.id,
@@ -148,9 +154,10 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[content-cluster] error", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

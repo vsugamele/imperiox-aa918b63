@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,11 +34,11 @@ interface Sequence {
 
 export default function Nutricao() {
   const [sequences, setSequences] = useState<Sequence[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">,"id"|"name">>>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [form, setForm] = useState<any>({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [] as string[], filter_tags_mode: "any" });
+  const [form, setForm] = useState({ project_id: "", produto_nome: "", nome: "", objetivo: "", duracao_dias: 365, cadencia: "diaria", filter_tags: [] as string[], filter_tags_mode: "any" });
 
   const load = async () => {
     setLoading(true);
@@ -45,7 +46,7 @@ export default function Nutricao() {
       supabase.from("imphq_nurture_sequences").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    setSequences((s.data as any) || []);
+    setSequences(s.data || []);
     setProjects(p.data || []);
     setLoading(false);
   };

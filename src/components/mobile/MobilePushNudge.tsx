@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,9 @@ export function MobilePushNudge() {
       await subscribeCurrentDevice();
       setStatus("subscribed");
       toast.success("Notificacoes ativadas neste celular");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus(await getPushStatus());
-      toast.error(err?.message || "Erro ao ativar notificacoes");
+      toast.error(errorMessage(err) || "Erro ao ativar notificacoes");
     } finally {
       setBusy(false);
     }

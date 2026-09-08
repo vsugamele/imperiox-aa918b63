@@ -1,3 +1,4 @@
+import { record, text, errorText } from "./value.ts";
 // Wrapper único para chamadas ao Lovable AI Gateway com retry exponencial,
 // timeout e log estruturado. Trata só 429/5xx como retryable (regra do gateway).
 //
@@ -18,7 +19,7 @@ export interface AiCallOptions {
   model: string;
   messages: Array<{ role: string; content: string }>;
   json?: boolean;
-  jsonSchema?: any;
+  jsonSchema?: Record<string, unknown>;
   temperature?: number;
   stream?: boolean;
   timeoutMs?: number;
@@ -29,7 +30,7 @@ export interface AiCallOptions {
 export interface AiCallResult {
   content: string;
   model: string;
-  raw: any;
+  raw: unknown;
   attempts: number;
 }
 
@@ -95,16 +96,17 @@ export async function callAiChat(opts: AiCallOptions): Promise<AiCallResult> {
         lastErr = err;
         continue;
       }
-      const data = JSON.parse(txt);
-      const content = data.choices?.[0]?.message?.content ?? "";
+      const data: unknown = JSON.parse(txt);
+      const choices = record(data).choices;
+      const content = text(record(record(Array.isArray(choices) ? choices[0] : null).message).content);
       return { content, model: opts.model, raw: data, attempts: attempt };
-    } catch (e: any) {
+    } catch (e: unknown) {
       clearTimeout(t);
       lastErr = e;
-      const isAbort = e?.name === "AbortError";
+      const isAbort = record(e).name === "AbortError";
       const retryable = isAbort || (e instanceof AiCallError && e.retryable);
       if (!retryable || attempt === maxAttempts) throw e;
-      console.warn(`[${tag}] erro tentativa ${attempt}/${maxAttempts}: ${e?.message}`);
+      console.warn(`[${tag}] erro tentativa ${attempt}/${maxAttempts}: ${errorText(e)}`);
       await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt - 1) + Math.random() * 250));
     }
   }

@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const results: any[] = [];
+  const results: Array<{id:string;action:string;ok?:boolean;error?:string}> = [];
 
   for (const conv of convs || []) {
     // Última msg incoming e última outgoing
@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
 
     if (!msgs || msgs.length === 0) continue;
 
-    const lastIncoming = msgs.find((m: any) => m.direction === "incoming");
-    const lastOutgoing = msgs.find((m: any) => m.direction === "outgoing");
+    const lastIncoming = msgs.find((m: {direction:string}) => m.direction === "incoming");
+    const lastOutgoing = msgs.find((m: {direction:string}) => m.direction === "outgoing");
 
     if (!lastIncoming) continue;
 
@@ -90,8 +90,9 @@ Deno.serve(async (req) => {
         },
       });
       results.push({ id: conv.id, action: "resumed", ok: !r.error });
-    } catch (e: any) {
-      results.push({ id: conv.id, action: "resume_failed", error: String(e?.message || e) });
+    } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+      results.push({ id: conv.id, action: "resume_failed", error: String(eMessage || e) });
     }
   }
 

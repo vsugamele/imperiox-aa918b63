@@ -1,10 +1,11 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, TrendingUp, ShoppingCart, DollarSign, Maximize2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
-import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
+import DashboardDrillSheet, { DrillMetric } from "@/components/dashboard/DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -77,12 +78,12 @@ function DashboardTooltip({
 }
 
 export default function DashboardCharts({ period, projectFilter, productFilter }: Props) {
-  const [leadsTrend, setLeadsTrend] = useState<any[]>([]);
-  const [funnelData, setFunnelData] = useState<any[]>([]);
-  const [receitaVsCusto, setReceitaVsCusto] = useState<any[]>([]);
-  const [receitaPorProjeto, setReceitaPorProjeto] = useState<any[]>([]);
-  const [receitaPorProduto, setReceitaPorProduto] = useState<any[]>([]);
-  const [roasData, setRoasData] = useState<any[]>([]);
+  const [leadsTrend, setLeadsTrend] = useState<Array<{ date: string; count: number }>>([]);
+  const [funnelData, setFunnelData] = useState<Array<{ stage: string; value: number; fill: string }>>([]);
+  const [receitaVsCusto, setReceitaVsCusto] = useState<Array<{ month: string; receita: number; custo: number }>>([]);
+  const [receitaPorProjeto, setReceitaPorProjeto] = useState<Array<{ name: string; value: number; projectId: string }>>([]);
+  const [receitaPorProduto, setReceitaPorProduto] = useState<Array<{ name: string; value: number; fill: string }>>([]);
+  const [roasData, setRoasData] = useState<Array<{ month: string; roas: number }>>([]);
   const [drill, setDrill] = useState<{ metric: DrillMetric; productName?: string; projectId?: string; dayKey?: string } | null>(null);
   const [drillOpen, setDrillOpen] = useState(false);
   const openDrill = (d: NonNullable<typeof drill>) => { setDrill(d); setDrillOpen(true); };
@@ -125,7 +126,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
         const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
         leadsByDay[key] = 0;
       }
-      (leadsRawRes.data || []).forEach((l: any) => {
+      (leadsRawRes.data || []).forEach((l) => {
         const day = l.criado_em?.split("T")[0];
         if (day && leadsByDay[day] !== undefined) leadsByDay[day]++;
       });
@@ -147,19 +148,19 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
         monthMap[key] = { receita: 0, custo: 0, ads: 0 };
       }
 
-      (revsRes.data || []).forEach((r: any) => { const m = r.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(r.valor) || 0; });
-      (vendasRes.data || []).forEach((v: any) => { const m = v.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(v.valor) || 0; });
-      (costsRes.data || []).forEach((c: any) => { const m = c.created_at?.slice(0, 7); const val = parseFloat(c.valor) || 0; if (m && monthMap[m]) monthMap[m].custo += c.moeda === "USD" ? val * 5.2 : val; });
-      (adsRes.data || []).forEach((a: any) => { const m = a.data?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += parseFloat(a.valor) || 0; });
+      (revsRes.data || []).forEach((r) => { const m = r.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += Number(r.valor) || 0; });
+      (vendasRes.data || []).forEach((v) => { const m = v.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += Number(v.valor) || 0; });
+      (costsRes.data || []).forEach((c) => { const m = c.created_at?.slice(0, 7); const val = Number(c.valor) || 0; if (m && monthMap[m]) monthMap[m].custo += c.moeda === "USD" ? val * 5.2 : val; });
+      (adsRes.data || []).forEach((a) => { const m = a.data?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += Number(a.valor) || 0; });
 
       setReceitaVsCusto(Object.entries(monthMap).map(([month, v]) => ({ month: month.slice(5), receita: v.receita, custo: v.custo + v.ads })));
 
       // Receita por Projeto
-      setReceitaPorProjeto((finResumo.data || []).filter((f: any) => Number(f.receita_total) > 0).map((f: any) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0, projectId: f.project_id })).sort((a: any, b: any) => b.value - a.value).slice(0, 5));
+      setReceitaPorProjeto((finResumo.data || []).filter((f) => Number(f.receita_total) > 0).map((f) => ({ name: `${f.project_icon || "📁"} ${f.project_name || "?"}`, value: Number(f.receita_total) || 0, projectId: f.project_id })).sort((a, b) => b.value - a.value).slice(0, 5));
 
       // Receita por Produto
       const prodMap = new Map<string, number>();
-      (vendasRes.data || []).forEach((v: any) => { const prod = v.produto_nome || "Sem produto"; prodMap.set(prod, (prodMap.get(prod) || 0) + (parseFloat(v.valor) || 0)); });
+      (vendasRes.data || []).forEach((v) => { const prod = v.produto_nome || "Sem produto"; prodMap.set(prod, (prodMap.get(prod) || 0) + (Number(v.valor) || 0)); });
       setReceitaPorProduto(Array.from(prodMap.entries()).map(([name, value], i) => ({ name, value, fill: COLORS_PIE[i % COLORS_PIE.length] })).sort((a, b) => b.value - a.value).slice(0, 6));
 
       // ROAS
@@ -178,8 +179,8 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={leadsTrend} onClick={(e: any) => {
-                const lbl = e?.activeLabel; if (!lbl) return;
+              <AreaChart data={leadsTrend} onClick={(e: unknown) => {
+                const lbl = e && typeof e === "object" && "activeLabel" in e && (typeof e.activeLabel === "string" || typeof e.activeLabel === "number") ? e.activeLabel : undefined; if (!lbl) return;
                 const yyyy = new Date().getFullYear();
                 const dayKey = `${yyyy}-${lbl}`;
                 openDrill({ metric: "day_revenue", dayKey });
@@ -261,7 +262,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
                   <Bar dataKey="value" fill="hsl(142, 71%, 45%)" radius={[0, 4, 4, 0]} name="Receita"
                     style={{ cursor: "pointer" }}
-                    onClick={(d: any) => d?.projectId && openDrill({ metric: "project_revenue", projectId: d.projectId })} />
+                    onClick={(d: unknown) => { if (d && typeof d === "object" && "projectId" in d && typeof d.projectId === "string") openDrill({ metric: "project_revenue", projectId: d.projectId }); }} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -278,8 +279,8 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                 <PieChart>
                   <Pie data={receitaPorProduto} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} label={({ name, percent }) => `${name.slice(0, 12)} ${(percent * 100).toFixed(0)}%`}
                     style={{ cursor: "pointer" }}
-                    onClick={(d: any) => d?.name && openDrill({ metric: "product", productName: d.name })}>
-                    {receitaPorProduto.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
+                    onClick={(d: unknown) => { if (d && typeof d === "object" && "name" in d && typeof d.name === "string") openDrill({ metric: "product", productName: d.name }); }}>
+                    {receitaPorProduto.map((entry, i: number) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
                   <Tooltip content={<DashboardTooltip valueFormatter={formatCurrency} />} />
                 </PieChart>
@@ -301,7 +302,7 @@ export default function DashboardCharts({ period, projectFilter, productFilter }
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                   <Tooltip content={<DashboardTooltip valueFormatter={formatRoas} />} />
                   <Bar dataKey="roas" name="ROAS" radius={[4, 4, 0, 0]}>
-                    {roasData.map((entry: any, i: number) => <Cell key={i} fill={entry.roas >= 1 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)"} />)}
+                    {roasData.map((entry, i: number) => <Cell key={i} fill={entry.roas >= 1 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)"} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkline } from "./Sparkline";
+import { Sparkline } from "@/components/dashboard/cockpit/Sparkline";
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -41,8 +41,8 @@ export function EditorialHeader() {
           .gte("data_ref", start30Date),
       ]);
 
-      const today = (todayRes.data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
-      const mtdRows = (mtdRes.data || []) as any[];
+      const today = (todayRes.data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
+      const mtdRows = (mtdRes.data || []);
       const mtd = mtdRows.reduce((s, v) => s + Number(v.valor || 0), 0);
       const mtdNet = mtdRows.reduce(
         (s, v) => s + Number(v.valor_liquido ?? v.valor ?? 0),
@@ -67,13 +67,13 @@ export function EditorialHeader() {
       const spark = Array.from(byDay.values());
 
       // ROAS blended 30d
-      const spend30 = (adsRes.data || []).reduce((s: number, a: any) => {
+      const spend30 = (adsRes.data || []).reduce((s: number, a) => {
         const v = Number(a.valor || 0);
         return s + (a.moeda === "USD" ? v * 5.2 : v);
       }, 0);
       const rev30 = mtdRows
-        .filter((v: any) => new Date(v.data_venda) >= new Date(start30))
-        .reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+        .filter((v) => new Date(v.data_venda) >= new Date(start30))
+        .reduce((s: number, v) => s + Number(v.valor || 0), 0);
       const roas = spend30 > 0 ? rev30 / spend30 : 0;
       const margin = mtd > 0 ? (mtdNet / mtd) * 100 : 0;
 

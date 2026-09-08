@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
 // RAG Indexer — extrai textos de briefings, avatares, swipes e skills,
 // gera embeddings com cache e faz upsert em imphq_rag_chunks.
 //
@@ -30,7 +32,7 @@ type Chunk = {
   source_id: string;
   source_field: string;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 function chunkText(text: string, maxLen = 800): string[] {
@@ -52,10 +54,10 @@ function chunkText(text: string, maxLen = 800): string[] {
   return parts;
 }
 
-function extractFromProject(p: any): Chunk[] {
+function extractFromProject(p: { id: string; nome?: string | null; nicho?: string | null; data?: unknown }): Chunk[] {
   const out: Chunk[] = [];
-  const data = p.data || {};
-  const fields: Array<[string, any]> = [
+  const data = z.record(z.unknown()).parse(p.data || {});
+  const fields: Array<[string, unknown]> = [
     ["nome", p.nome],
     ["nicho", p.nicho || data.nicho],
     ["briefing", data.briefing],
@@ -67,17 +69,17 @@ function extractFromProject(p: any): Chunk[] {
   ];
 
   // Avatar (suporta multi-avatar por produto)
-  const avatares: any[] = [];
+  const avatares: Record<string, unknown>[] = [];
   if (data.avatar && typeof data.avatar === "object") avatares.push({ produto: "principal", ...data.avatar });
   if (data.avatares_por_produto && typeof data.avatares_por_produto === "object") {
     for (const [prod, av] of Object.entries(data.avatares_por_produto)) {
-      avatares.push({ produto: prod, ...(av as any) });
+      if (av && typeof av === "object") avatares.push({ produto: prod, ...av });
     }
   }
   for (const av of avatares) {
     const lines: string[] = [];
     for (const key of ["dor_principal", "dores", "desejos", "objecoes", "linguagem", "persona", "demografia"]) {
-      const v = (av as any)[key];
+      const v = av[key];
       if (v) lines.push(`${key}: ${typeof v === "string" ? v : JSON.stringify(v)}`);
     }
     if (lines.length) {
@@ -94,7 +96,7 @@ function extractFromProject(p: any): Chunk[] {
 
   // Branding
   if (data.branding && typeof data.branding === "object") {
-    const b = data.branding;
+    const b = z.record(z.unknown()).parse(data.branding);
     const bLines: string[] = [];
     for (const k of ["tom_de_voz", "personalidade", "do", "dont", "exemplos", "manifesto"]) {
       const v = b[k];
@@ -121,7 +123,7 @@ function extractFromProject(p: any): Chunk[] {
   return out;
 }
 
-async function indexChunks(supabase: any, chunks: Chunk[]) {
+async function indexChunks(supabase: ReturnType<typeof makeClient>, chunks: Chunk[]) {
   let inserted = 0, skipped = 0, failed = 0;
   for (const ch of chunks) {
     try {
@@ -145,7 +147,7 @@ async function indexChunks(supabase: any, chunks: Chunk[]) {
         source_field: ch.source_field,
         content: ch.content,
         content_hash: hash,
-        embedding: emb as any,
+        embedding: emb,
         metadata: ch.metadata || {},
         updated_at: new Date().toISOString(),
       };
@@ -155,8 +157,9 @@ async function indexChunks(supabase: any, chunks: Chunk[]) {
         await supabase.from("imphq_rag_chunks").insert(row);
       }
       inserted++;
-    } catch (e: any) {
-      console.error("[rag-indexer] chunk failed", ch.source_type, ch.source_field, e?.message);
+    } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+      console.error("[rag-indexer] chunk failed", ch.source_type, ch.source_field, eMessage);
       failed++;
     }
   }
@@ -269,9 +272,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, total: allChunks.length, ...result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[rag-indexer] error", err);
-    return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
+    return new Response(JSON.stringify({ error: errMessage || "Internal error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

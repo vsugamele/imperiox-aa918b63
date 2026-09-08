@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { QrCode, RefreshCw, Loader2, Wifi, WifiOff } from "lucide-react";
 
 interface Props {
-  provider: any;
+  provider: Pick<Tables<"imphq_wa_providers">, "id" | "instance_name">;
 }
 
 export default function QrCodePanel({ provider }: Props) {
@@ -14,7 +15,7 @@ export default function QrCodePanel({ provider }: Props) {
   const [status, setStatus] = useState<string>("unknown");
   const [loading, setLoading] = useState(false);
 
-  const fetchQr = async () => {
+  const fetchQr = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -25,14 +26,14 @@ export default function QrCodePanel({ provider }: Props) {
       // Evolution returns base64 QR or pairingCode
       const base64 = data?.qrcode?.base64 || data?.qrcode?.qrcode?.base64 || null;
       setQrData(base64);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("QR fetch error:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [provider.id]);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const { data } = await supabase.functions.invoke(
         `whatsapp-api?action=session_status&provider_id=${provider.id}`,
@@ -40,20 +41,22 @@ export default function QrCodePanel({ provider }: Props) {
       );
       const state = data?.state?.instance?.state || data?.state?.state || data?.status || "unknown";
       setStatus(state);
+      return state;
     } catch {
       setStatus("error");
+      return "error";
     }
-  };
+  }, [provider.id]);
 
   useEffect(() => {
     fetchQr();
     fetchStatus();
-    const interval = setInterval(() => {
-      fetchStatus();
-      if (status !== "open" && status !== "connected") fetchQr();
+    const interval = setInterval(async () => {
+      const latestStatus = await fetchStatus();
+      if (latestStatus !== "open" && latestStatus !== "connected") fetchQr();
     }, 8000);
     return () => clearInterval(interval);
-  }, [provider.id]);
+  }, [fetchQr, fetchStatus]);
 
   const isConnected = status === "open" || status === "connected";
 

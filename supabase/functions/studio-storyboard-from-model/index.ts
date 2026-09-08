@@ -52,7 +52,7 @@ Cenas: 4-8 para reels, 6-12 para VSL, 5-8 slides para carrossel, 1 para imagem.`
     }
     const j = await r.json();
     const raw = j.choices?.[0]?.message?.content ?? "{}";
-    let storyboard: any = {};
+    let storyboard: unknown = {};
     try { storyboard = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { storyboard = { erro: "parse", raw }; }
 
     await sb.from("imphq_studio_reference_models").update({
@@ -62,7 +62,8 @@ Cenas: 4-8 para reels, 6-12 para VSL, 5-8 slides para carrossel, 1 para imagem.`
     return new Response(JSON.stringify({ storyboard }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), { status: 500, headers: corsHeaders });
   }
 });

@@ -1,3 +1,6 @@
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -49,7 +52,7 @@ interface Props {
 const fmtBRL = (v: number) =>
   `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const titleMap: Record<DrillMetric, { title: string; desc: string; icon: any }> = {
+const titleMap: Record<DrillMetric, { title: string; desc: string; icon: LucideIcon }> = {
   revenue: { title: "Receita do período", desc: "Vendas aprovadas detalhadas", icon: TrendingUp },
   profit: { title: "Lucro do período", desc: "Receita − Custos (Ads + Operacional)", icon: Wallet },
   roas: { title: "ROAS Real", desc: "Campanhas que compõem o ROAS", icon: Target },
@@ -82,13 +85,13 @@ export default function DashboardDrillSheet({
   dayKey,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const [vendas, setVendas] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [campanhas, setCampanhas] = useState<any[]>([]);
-  const [custos, setCustos] = useState<any[]>([]);
+  const [vendas, setVendas] = useState<Array<Pick<Tables<"imphq_vendas">, "id" | "produto_nome" | "valor" | "plataforma" | "data_venda" | "status" | "tipo_venda" | "lead_id" | "pais">>>([]);
+  const [leads, setLeads] = useState<Array<Pick<Tables<"imphq_leads">, "id" | "nome" | "email" | "phone" | "status" | "score" | "plataforma" | "criado_em">>>([]);
+  const [campanhas, setCampanhas] = useState<Array<{ name: string; gasto: number; compras?: number; checkouts?: number; cliques?: number; impressoes?: number; cpa?: number; custoCheckout?: number; receitaAtribuida?: number; roas?: number }>>([]);
+  const [custos, setCustos] = useState<Array<{ nome: string; valor: number; moeda: string; categoria: string; data_pagamento: string; descricao: string; data: string }>>([]);
   const [breakdown, setBreakdown] = useState<{ revenue: number; ads: number; op: number } | null>(null);
-  const [campaignDetail, setCampaignDetail] = useState<{ adsets: any[]; criativos: any[]; vendasUtm: any[] } | null>(null);
-  const [pixPending, setPixPending] = useState<any[]>([]);
+  const [campaignDetail, setCampaignDetail] = useState<{ adsets: Array<{ name: string; gasto: number; compras: number; checkouts: number }>; criativos: Array<{ name: string; gasto: number; compras: number; ctr: number }>; vendasUtm: Array<Pick<Tables<"imphq_vendas">, "id" | "produto_nome" | "valor" | "data_venda" | "plataforma" | "data">> } | null>(null);
+  const [pixPending, setPixPending] = useState<Tables<"imphq_vendas">[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
 
   async function reprocessPix(vendaId: string) {
@@ -108,7 +111,7 @@ export default function DashboardDrillSheet({
 
       try {
         if (metric === "revenue" || metric === "sales") {
-          let q: any = supabase
+          let q = supabase
             .from("imphq_vendas")
             .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from)
@@ -121,7 +124,7 @@ export default function DashboardDrillSheet({
           const { data } = await q;
           setVendas(data || []);
         } else if (metric === "leads") {
-          let q: any = supabase
+          let q = supabase
             .from("imphq_leads")
             .select("id, nome, email, phone, status, score, plataforma, criado_em")
             .gte("criado_em", from)
@@ -132,18 +135,18 @@ export default function DashboardDrillSheet({
           const { data } = await q;
           setLeads(data || []);
         } else if (metric === "profit" || metric === "cost") {
-          let vendasQ: any = supabase
+          let vendasQ = supabase
             .from("imphq_vendas")
             .select("valor")
             .gte("data_venda", from)
             .lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"]);
-          let adsQ: any = supabase
+          let adsQ = supabase
             .from("imphq_ads_spend")
             .select("valor, moeda, campanha")
             .gte("data_ref", fromDate)
             .lte("data_ref", toDate);
-           let custosQ: any = supabase
+           let custosQ = supabase
             .from("imphq_project_costs")
             .select("nome, valor, moeda, categoria, data_pagamento")
             .gte("data_pagamento", fromDate)
@@ -156,18 +159,18 @@ export default function DashboardDrillSheet({
           }
           if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
 
-          const [vRes, aRes, cRes]: any = await Promise.all([vendasQ, adsQ, custosQ]);
-          const sumCur = (rows: any[]) =>
+          const [vRes, aRes, cRes] = await Promise.all([vendasQ, adsQ, custosQ]);
+          const sumCur = (rows: Array<{ valor: number | null; moeda: string | null }>) =>
             (rows || []).reduce((acc, r) => {
-              const v = parseFloat(r.valor) || 0;
+              const v = Number(r.valor) || 0;
               return acc + (r.moeda === "USD" ? v * 5.2 : v);
             }, 0);
-          const revenue = (vRes.data || []).reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
+          const revenue = (vRes.data || []).reduce((a: number, v) => a + (Number(v.valor) || 0), 0);
           const ads = sumCur(aRes.data || []);
           const op = sumCur(cRes.data || []);
           setBreakdown({ revenue, ads, op });
           
-          const mappedCustos = (cRes.data || []).map((c: any) => ({
+          const mappedCustos = (cRes.data || []).map((c) => ({
             ...c,
             descricao: c.nome,
             data: c.data_pagamento,
@@ -175,8 +178,8 @@ export default function DashboardDrillSheet({
           setCustos(mappedCustos);
           // also aggregate ads by campaign for cost view
           const map = new Map<string, number>();
-          (aRes.data || []).forEach((r: any) => {
-            const v = parseFloat(r.valor) || 0;
+          (aRes.data || []).forEach((r) => {
+            const v = Number(r.valor) || 0;
             const real = r.moeda === "USD" ? v * 5.2 : v;
             const k = r.campanha || "Sem nome";
             map.set(k, (map.get(k) || 0) + real);
@@ -188,12 +191,12 @@ export default function DashboardDrillSheet({
               .slice(0, 30),
           );
         } else if (metric === "roas" || metric === "ads_spend" || metric === "ads_cpa" || metric === "ads_checkout_cost" || metric === "ads_purchases") {
-          let adsQ: any = supabase
+          let adsQ = supabase
             .from("imphq_ads_spend")
             .select("valor, moeda, campanha, compras, checkouts_iniciados, cliques, impressoes")
             .gte("data_ref", fromDate)
             .lte("data_ref", toDate);
-          let vendasQ: any = supabase
+          let vendasQ = supabase
             .from("imphq_vendas")
             .select("valor, produto_nome")
             .gte("data_venda", from)
@@ -204,12 +207,12 @@ export default function DashboardDrillSheet({
             vendasQ = vendasQ.eq("project_id", projectFilter);
           }
           if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
-          const [aRes, vRes]: any = await Promise.all([adsQ, vendasQ]);
-          const totalRevenue = (vRes.data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+          const [aRes, vRes] = await Promise.all([adsQ, vendasQ]);
+          const totalRevenue = (vRes.data || []).reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
 
           const map = new Map<string, { gasto: number; compras: number; checkouts: number; cliques: number; impressoes: number }>();
-          (aRes.data || []).forEach((r: any) => {
-            const v = parseFloat(r.valor) || 0;
+          (aRes.data || []).forEach((r) => {
+            const v = Number(r.valor) || 0;
             const real = r.moeda === "USD" ? v * 5.2 : v;
             const k = r.campanha || "Sem nome";
             const prev = map.get(k) || { gasto: 0, compras: 0, checkouts: 0, cliques: 0, impressoes: 0 };
@@ -242,9 +245,9 @@ export default function DashboardDrillSheet({
           else list.sort((a, b) => b.gasto - a.gasto);
           setCampanhas(list.slice(0, 50));
         } else if (metric === "campaign" && campaignName) {
-          let q: any = supabase
+          let q = supabase
             .from("imphq_ads_spend")
-            .select("data_ref, valor, moeda, adset, criativo, cliques, impressoes, compras, checkouts_iniciados, ctr, frequencia")
+            .select("data_ref, valor, moeda, conjunto_anuncios, anuncio, cliques, impressoes, compras, checkouts_iniciados, ctr, frequencia")
             .eq("campanha", campaignName)
             .gte("data_ref", fromDate)
             .lte("data_ref", toDate);
@@ -254,19 +257,19 @@ export default function DashboardDrillSheet({
           // adsets
           const adsetMap = new Map<string, { gasto: number; compras: number; checkouts: number }>();
           const criativoMap = new Map<string, { gasto: number; compras: number; ctr: number; n: number }>();
-          (rows || []).forEach((r: any) => {
-            const v = parseFloat(r.valor) || 0;
+          (rows || []).forEach((r) => {
+            const v = Number(r.valor) || 0;
             const real = r.moeda === "USD" ? v * 5.2 : v;
-            const ak = r.adset || "—";
-            const ck = r.criativo || "—";
+            const ak = r.conjunto_anuncios || "—";
+            const ck = r.anuncio || "—";
             const ap = adsetMap.get(ak) || { gasto: 0, compras: 0, checkouts: 0 };
             adsetMap.set(ak, { gasto: ap.gasto + real, compras: ap.compras + (r.compras || 0), checkouts: ap.checkouts + (r.checkouts_iniciados || 0) });
             const cp = criativoMap.get(ck) || { gasto: 0, compras: 0, ctr: 0, n: 0 };
-            criativoMap.set(ck, { gasto: cp.gasto + real, compras: cp.compras + (r.compras || 0), ctr: cp.ctr + (parseFloat(r.ctr) || 0), n: cp.n + 1 });
+            criativoMap.set(ck, { gasto: cp.gasto + real, compras: cp.compras + (r.compras || 0), ctr: cp.ctr + (Number(r.ctr) || 0), n: cp.n + 1 });
           });
 
           // vendas via UTM utm_campaign matching campaign name
-          let vQ: any = supabase
+          let vQ = supabase
             .from("imphq_vendas")
             .select("id, produto_nome, valor, data_venda, plataforma, data")
             .gte("data_venda", from)
@@ -274,9 +277,9 @@ export default function DashboardDrillSheet({
             .in("status", ["aprovado", "approved", "paid", "completed"]);
           if (projectFilter !== "all") vQ = vQ.eq("project_id", projectFilter);
           const { data: vendasRaw } = await vQ;
-          const vendasUtm = (vendasRaw || []).filter((v: any) => {
-            const utms = v?.data?.utms || {};
-            const cmp = (utms.utm_campaign || "").toString();
+          const vendasUtm = (vendasRaw || []).filter((v) => {
+            const utms = jsonFields(jsonFields(v.data).utms);
+            const cmp = jsonText(utms.utm_campaign) || "";
             return cmp && (cmp === campaignName || cmp.includes(campaignName) || campaignName.includes(cmp));
           });
 
@@ -288,7 +291,7 @@ export default function DashboardDrillSheet({
         } else if (metric === "funnel_stage" && funnelStage) {
           // Filter leads or sales according to stage
           if (funnelStage === "leads") {
-            let q: any = supabase.from("imphq_leads")
+            let q = supabase.from("imphq_leads")
               .select("id, nome, email, phone, status, score, plataforma, criado_em")
               .gte("criado_em", from).lte("criado_em", to)
               .order("criado_em", { ascending: false }).limit(200);
@@ -303,7 +306,7 @@ export default function DashboardDrillSheet({
               lost: ["expirado", "cancelado", "recusado", "reembolsado", "chargedback"],
             };
             const statuses = stageStatusMap[funnelStage] || [];
-            let q: any = supabase.from("imphq_vendas")
+            let q = supabase.from("imphq_vendas")
               .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
               .gte("data_venda", from).lte("data_venda", to)
               .in("status", statuses)
@@ -314,7 +317,7 @@ export default function DashboardDrillSheet({
             setVendas(data || []);
           }
         } else if ((metric === "product" || metric === "project_revenue") && (productName || projectId)) {
-          let q: any = supabase.from("imphq_vendas")
+          let q = supabase.from("imphq_vendas")
             .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", from).lte("data_venda", to)
             .in("status", ["aprovado", "approved", "paid", "completed"])
@@ -327,7 +330,7 @@ export default function DashboardDrillSheet({
         } else if (metric === "day_revenue" && dayKey) {
           const dayStart = `${dayKey}T00:00:00`;
           const dayEnd = `${dayKey}T23:59:59`;
-          let q: any = supabase.from("imphq_vendas")
+          let q = supabase.from("imphq_vendas")
             .select("id, produto_nome, valor, plataforma, data_venda, status, tipo_venda, lead_id, pais")
             .gte("data_venda", dayStart).lte("data_venda", dayEnd)
             .in("status", ["aprovado", "approved", "paid", "completed"])
@@ -388,7 +391,7 @@ export default function DashboardDrillSheet({
 
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-mono font-bold text-emerald-400">{fmtBRL(parseFloat(v.valor) || 0)}</p>
+                          <p className="text-sm font-mono font-bold text-emerald-400">{fmtBRL(Number(v.valor) || 0)}</p>
                           {v.tipo_venda && v.tipo_venda !== "principal" && (
                             <Badge variant="outline" className="text-[9px] mt-0.5">{v.tipo_venda}</Badge>
                           )}
@@ -466,13 +469,13 @@ export default function DashboardDrillSheet({
                   {custos.length > 0 && (
                     <>
                       <p className="text-xs text-muted-foreground mt-4 mb-1">Custos operacionais</p>
-                      {custos.slice(0, 30).map((c: any, i: number) => (
+                      {custos.slice(0, 30).map((c, i: number) => (
                         <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/30 border border-border">
                           <div className="min-w-0 flex-1">
                             <p className="text-xs truncate">{c.descricao || c.categoria || "Custo"}</p>
                             <p className="text-[10px] text-muted-foreground">{c.data} · {c.categoria || "—"}</p>
                           </div>
-                          <span className="text-xs font-mono font-bold text-orange-400 shrink-0 ml-2">{fmtBRL((parseFloat(c.valor) || 0) * (c.moeda === "USD" ? 5.2 : 1))}</span>
+                          <span className="text-xs font-mono font-bold text-orange-400 shrink-0 ml-2">{fmtBRL((Number(c.valor) || 0) * (c.moeda === "USD" ? 5.2 : 1))}</span>
                         </div>
                       ))}
                     </>
@@ -547,13 +550,13 @@ export default function DashboardDrillSheet({
 
                   <p className="text-xs text-muted-foreground mt-3 mb-1">Vendas atribuídas (via UTM)</p>
                   {campaignDetail.vendasUtm.length === 0 && <p className="text-sm text-muted-foreground italic">Nenhuma venda com utm_campaign correspondente.</p>}
-                  {campaignDetail.vendasUtm.map((v: any) => (
+                  {campaignDetail.vendasUtm.map((v) => (
                     <div key={v.id} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/30 border border-border">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium truncate">{v.produto_nome}</p>
                         <p className="text-[10px] text-muted-foreground">{new Date(v.data_venda).toLocaleString("pt-BR")} · {v.plataforma}</p>
                       </div>
-                      <span className="text-xs font-mono font-bold text-emerald-400 shrink-0 ml-2">{fmtBRL(parseFloat(v.valor) || 0)}</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400 shrink-0 ml-2">{fmtBRL(Number(v.valor) || 0)}</span>
                     </div>
                   ))}
                 </>

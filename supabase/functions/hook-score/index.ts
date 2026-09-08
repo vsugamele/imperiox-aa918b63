@@ -65,7 +65,7 @@ Responda APENAS com JSON válido (sem markdown, sem code fences):
 
     const data = await res.json();
     const raw = (data?.choices?.[0]?.message?.content || "").trim();
-    let parsed: any;
+    let parsed: unknown;
     try {
       parsed = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, ""));
     } catch {
@@ -78,8 +78,9 @@ Responda APENAS com JSON válido (sem markdown, sem code fences):
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "erro";
+    return new Response(JSON.stringify({ error: message || "erro" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

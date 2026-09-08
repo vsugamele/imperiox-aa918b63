@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -42,8 +43,8 @@ export function RefineAIDialog({
         setSavedToday(s => [...data.saved, ...s]);
         toast.success(`${data.saved.length} lição(ões) gravadas na IA`);
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao refinar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao refinar");
       setMessages(m => [...m, { role: "assistant", content: "Deu erro aqui. Tenta de novo?" }]);
     } finally {
       setLoading(false);
@@ -63,7 +64,7 @@ export function RefineAIDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
-          <ScrollArea className="h-[340px] rounded-lg border border-border/40 bg-background/30 p-3" ref={scrollRef as any}>
+          <ScrollArea className="h-[340px] rounded-lg border border-border/40 bg-background/30 p-3" ref={scrollRef}>
             <div className="space-y-3">
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>

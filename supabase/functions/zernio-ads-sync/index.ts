@@ -1,3 +1,20 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const metric = z.union([z.string(), z.number()]).transform(String);
+const actionSchema = z.union([z.record(metric), z.array(z.object({ action_type: z.string(), value: metric.nullish() }).passthrough())]);
+const metricsSchema = z.object({
+  spend: metric.nullish(), impressions: metric.nullish(), reach: metric.nullish(), clicks: metric.nullish(), ctr: metric.nullish(), frequency: metric.nullish(), linkClicks: metric.nullish(), inline_link_clicks: metric.nullish(),
+  date_start: z.string().nullish(), date: z.string().nullish(), dateStart: z.string().nullish(), lastSyncedAt: z.string().nullish(), currency: z.string().nullish(), actions: actionSchema.nullish(),
+  video_play_actions: z.array(z.object({ value: metric })).nullish(), video_thruplay_watched_actions: z.array(z.object({ value: metric })).nullish(),
+}).passthrough();
+const campaignSchema = z.object({ id: metric, name: z.string().nullish(), platformCampaignId: metric.nullish(), platform_campaign_id: metric.nullish(), currency: z.string().nullish(), effective_status: z.string().nullish(), effectiveStatus: z.string().nullish(), status: z.string().nullish() }).passthrough();
+const adSchema = z.object({
+  id: metric.nullish(), _id: metric.nullish(), adId: metric.nullish(), ad_id: metric.nullish(), platformAdId: metric.nullish(), campaignId: metric.nullish(), campaign_id: metric.nullish(), adsetId: metric.nullish(), adset_id: metric.nullish(),
+  campaignName: z.string().nullish(), campaign_name: z.string().nullish(), adsetName: z.string().nullish(), adset_name: z.string().nullish(), name: z.string().nullish(), adName: z.string().nullish(), thumbnail_url: z.string().nullish(), currency: z.string().nullish(),
+  effective_status: z.string().nullish(), effectiveStatus: z.string().nullish(), platformStatus: z.string().nullish(), status: z.string().nullish(), metrics: metricsSchema.nullish(),
+  creative: z.object({ thumbnailUrl: z.string().nullish(), thumbnail_url: z.string().nullish(), imageUrl: z.string().nullish(), image_url: z.string().nullish(), body: z.string().nullish(), title: z.string().nullish() }).passthrough().nullish(),
+}).passthrough();
+const responseSchema = z.object({ campaigns: z.array(campaignSchema).nullish(), ads: z.array(adSchema).nullish(), insights: z.array(metricsSchema).nullish(), data: z.array(metricsSchema).nullish(), pagination: z.object({ pages: z.number().nullish() }).passthrough().nullish() }).passthrough();
 // Sync Meta Ads data via Zernio API (read-only).
 // Endpoints used:
 //   GET /api/v1/ads/accounts?accountId=<zernioAcc>
@@ -18,21 +35,21 @@ const brtDateStr = (d: Date = new Date()) =>
 
 async function zFetch(path: string, apiKey: string) {
   const r = await fetch(`${ZERNIO_BASE}${path}`, { headers: { Authorization: `Bearer ${apiKey}` } });
-  const body = await r.json().catch(() => ({}));
+  const body = responseSchema.parse(await r.json().catch(() => ({})));
   return { ok: r.ok, status: r.status, body };
 }
 
-function pickAction(actions: any, type: string): number {
+function pickAction(actions: unknown, type: string): number {
   if (!actions) return 0;
   // Zernio's /ads endpoint returns actions as a map: {purchase: 7, lead: 9, ...}
   if (!Array.isArray(actions) && typeof actions === "object") {
-    const v = actions[type];
+    const v = Object.getOwnPropertyDescriptor(actions, type)?.value;
     return v ? parseInt(String(v), 10) || 0 : 0;
   }
   // /insights returns an array: [{action_type, value}, ...]
   if (Array.isArray(actions)) {
-    const a = actions.find((x) => x?.action_type === type);
-    return a ? parseInt(a.value || "0", 10) : 0;
+    const a: unknown = actions.find((x: unknown) => x && typeof x === "object" && "action_type" in x && x.action_type === type);
+    return a && typeof a === "object" && "value" in a ? parseInt(String(a.value || "0"), 10) : 0;
   }
   return 0;
 }
@@ -40,8 +57,8 @@ function pickAction(actions: any, type: string): number {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   let project_id_for_log: string | null = null;
-  let supabaseForCatch: any = null;
-  let credsForCatch: any = null;
+  let supabaseForCatch: ReturnType<typeof makeClient> | null = null;
+  let credsForCatch: { credentials: Record<string, unknown> | null } | null = null;
   try {
     const { project_id, ad_account_id, date_from, date_to } = await req.json();
     project_id_for_log = project_id;
@@ -74,7 +91,7 @@ Deno.serve(async (req) => {
     const dfrom = date_from || brtDateStr(new Date(Date.now() - 30 * 86400000));
     const dto = date_to || today;
 
-    const debug: any = { variants_tried: [], chosen_variant: null, sample_campaign: null, sample_ad: null };
+    const debug: { variants_tried: unknown[]; chosen_variant: string | null; sample_campaign: unknown; sample_ad: unknown } & Record<string, unknown> = { variants_tried: [], chosen_variant: null, sample_campaign: null, sample_ad: null };
 
     // Try different param variants for campaigns until we find one that returns data.
     // Reordered: onlyAdAccount first (known to work for this tenant).
@@ -91,8 +108,8 @@ Deno.serve(async (req) => {
       ? allVariants.filter((v) => v.name === cachedVariantName).concat(allVariants.filter((v) => v.name !== cachedVariantName))
       : allVariants;
 
-    const campaignsByZId = new Map<string, any>();
-    const ads: any[] = [];
+    const campaignsByZId = new Map<string, z.infer<typeof campaignSchema>>();
+    const ads: z.infer<typeof adSchema>[] = [];
     let qBase = variants[0].qs;
     let chosen = variants[0].name;
     let foundVariant = false;
@@ -133,7 +150,7 @@ Deno.serve(async (req) => {
         const { ok, status, body } = await zFetch(`/ads/campaigns?${qBase}&page=${page}&limit=50`, apiKey);
         if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar campanhas Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
         for (const c of (body.campaigns || [])) campaignsByZId.set(String(c.id), c);
-        if (!debug.sample_campaign && (body.campaigns || []).length > 0) debug.sample_campaign = body.campaigns[0];
+        if (!debug.sample_campaign && (body.campaigns || []).length > 0) debug.sample_campaign = body.campaigns?.[0];
         const pages = body?.pagination?.pages || 1;
         if (page >= pages) break;
         page++;
@@ -147,7 +164,7 @@ Deno.serve(async (req) => {
         const { ok, status, body } = await zFetch(`/ads?${qBase}&page=${page}&limit=50`, apiKey);
         if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar anúncios Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
         ads.push(...(body.ads || []));
-        if (!debug.sample_ad && (body.ads || []).length > 0) debug.sample_ad = body.ads[0];
+        if (!debug.sample_ad && (body.ads || []).length > 0) debug.sample_ad = body.ads?.[0];
         const pages = body?.pagination?.pages || 1;
         if (page >= pages) break;
         page++;
@@ -212,7 +229,7 @@ Deno.serve(async (req) => {
       if (campaignId) campaignAdCount.set(String(campaignId), (campaignAdCount.get(String(campaignId)) || 0) + 1);
 
       // === Path A: /insights (preferido — breakdown diário) ===
-      let rows: any[] = [];
+      let rows: z.infer<typeof metricsSchema>[] = [];
       let lastStatus: number | null = null;
       let lastBodyKeys: string[] = [];
       const variantsToTry = chosenInsightsVariant
@@ -306,7 +323,7 @@ Deno.serve(async (req) => {
 
       const m = ad?.metrics;
       const hasInline = !!m && ((Number(m?.spend) > 0) || (Number(m?.impressions) > 0));
-      if (!hasInline) continue;
+      if (!hasInline || !m) continue;
 
       adsFallbackInline++;
       const dateRef = (m.lastSyncedAt ? String(m.lastSyncedAt).slice(0, 10) : null) || today;
@@ -316,7 +333,7 @@ Deno.serve(async (req) => {
       const cliques = parseInt(m.clicks ?? "0", 10) || 0;
       const ctr = parseFloat(m.ctr ?? "0") || 0;
       const frequencia = parseFloat(m.frequency ?? "0") || 0;
-      const linkClicks = parseInt(m.linkClicks ?? m.inline_link_clicks ?? (m.actions?.link_click ?? "0"), 10) || 0;
+      const linkClicks = parseInt(m.linkClicks ?? m.inline_link_clicks ?? String(pickAction(m.actions, "link_click")), 10) || 0;
       const actions = m.actions || {};
       const leads = pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead");
       const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
@@ -400,7 +417,7 @@ Deno.serve(async (req) => {
         : await supabase.from("imphq_ads_spend").insert(record);
       if (!error) campaignPlaceholdersUpserted++;
     }
-    debug.campaigns_detected = Array.from(campaignsByZId.values()).map((c: any) => ({
+    debug.campaigns_detected = Array.from(campaignsByZId.values()).map((c) => ({
       id: c?.platformCampaignId || c?.id,
       name: c?.name,
       status: c?.effective_status ?? c?.effectiveStatus ?? c?.status ?? null,

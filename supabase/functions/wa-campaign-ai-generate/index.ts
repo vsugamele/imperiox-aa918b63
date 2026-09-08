@@ -3,6 +3,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function campaignSteps(value: unknown): Record<string, unknown>[] { const steps = record(value).steps; return Array.isArray(steps) ? steps.map(record) : []; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -66,7 +69,7 @@ serve(async (req) => {
       }
 
       // Truncar conteúdo para caber no prompt
-      const stepsForPrompt = steps.map((s: any, i: number) => ({
+      const stepsForPrompt = steps.map((s, i: number) => ({
         idx: i,
         id: s.id,
         ordem: s.step_order + 1,
@@ -124,9 +127,9 @@ RESPONDA APENAS JSON VÁLIDO neste formato exato:
       }
 
       const ceData = await ceResp.json();
-      let parsed: any = {};
+      let parsed: unknown = {};
       try { parsed = JSON.parse(ceData?.content || "{}"); } catch { parsed = {}; }
-      const out: any[] = Array.isArray(parsed.steps) ? parsed.steps : [];
+      const out = campaignSteps(parsed);
 
       // Montar diff por id
       const diff = stepsForPrompt.map((orig) => {
@@ -168,7 +171,7 @@ RESPONDA APENAS JSON VÁLIDO neste formato exato:
         .limit(5);
       if (refs && refs.length) {
         refsCtx = "\n\nReferências de alta performance (inspire-se, NÃO copie):\n" +
-          refs.map((r: any, i: number) => `[${i + 1}] ${r.title} (rating ${r.rating}) — gatilhos: ${(r.gatilhos || []).join(", ")} — mecanismo: ${r.mecanismo || "—"}\nTrecho: ${String(r.raw_text || "").slice(0, 300)}`).join("\n");
+          refs.map((r, i: number) => `[${i + 1}] ${r.title} (rating ${r.rating}) — gatilhos: ${(r.gatilhos || []).join(", ")} — mecanismo: ${r.mecanismo || "—"}\nTrecho: ${String(r.raw_text || "").slice(0, 300)}`).join("\n");
       }
     }
 
@@ -182,8 +185,8 @@ RESPONDA APENAS JSON VÁLIDO neste formato exato:
     let lastDaysOffset = 0;
     if (existingSteps && existingSteps.length > 0) {
       existingStepsCtx = "\n\n## MENSAGENS JÁ EXISTENTES (continue a sequência, NÃO repita ganchos):\n" +
-        existingSteps.map((s: any) => `Passo #${s.step_order + 1} (Dia ${s.days_offset} às ${s.send_time || "09:00"}): "${s.content || "(vazia)"}"`).join("\n\n");
-      lastDaysOffset = Math.max(...existingSteps.map((s: any) => Number(s.days_offset) || 0)) + 1;
+        existingSteps.map((s) => `Passo #${s.step_order + 1} (Dia ${s.days_offset} às ${s.send_time || "09:00"}): "${s.content || "(vazia)"}"`).join("\n\n");
+      lastDaysOffset = Math.max(...existingSteps.map((s) => Number(s.days_offset) || 0)) + 1;
     }
 
     const N = Math.max(1, Math.min(60, Number(count) || 7));
@@ -215,9 +218,9 @@ Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferên
     }
 
     const ceData = await ceResp.json();
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(ceData?.content || "{}"); } catch { parsed = {}; }
-    const steps: any[] = Array.isArray(parsed.steps) ? parsed.steps : [];
+    const steps = campaignSteps(parsed);
 
     if (steps.length === 0) {
       return new Response(JSON.stringify({ error: "IA não retornou steps válidos" }), {
@@ -233,17 +236,17 @@ Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferên
       .limit(1);
     let nextOrder = (existing?.[0]?.step_order ?? -1) + 1;
 
-    const toInsert = steps.map((s: any) => ({
+    const toInsert = steps.map((s) => ({
       campaign_id,
       step_order: nextOrder++,
       content: String(s.content || "").slice(0, 4000),
       media_type: "text",
       send_time: typeof s.send_time === "string" && /^\d{2}:\d{2}/.test(s.send_time) ? s.send_time.slice(0, 5) : "09:00",
-      days_offset: Number.isInteger(s.day_offset) ? s.day_offset + lastDaysOffset : lastDaysOffset,
+      days_offset: typeof s.day_offset === "number" && Number.isInteger(s.day_offset) ? s.day_offset + lastDaysOffset : lastDaysOffset,
       is_active: true,
     }));
 
-    const { error: insErr } = await supabase.from("imphq_wa_campaign_steps").insert(toInsert as any);
+    const { error: insErr } = await supabase.from("imphq_wa_campaign_steps").insert(toInsert);
     if (insErr) {
       return new Response(JSON.stringify({ error: insErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -251,8 +254,8 @@ Briefing: ${briefing || "(livre)"}${existingStepsCtx}${reference ? `\n\nReferên
     return new Response(JSON.stringify({ ok: true, inserted: toInsert.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : record(err).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

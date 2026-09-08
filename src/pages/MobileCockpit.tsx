@@ -1,3 +1,6 @@
+import type { LucideIcon } from "lucide-react";
+import type { NavigateFunction } from "react-router-dom";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +33,7 @@ interface Conversation {
   temperature: string | null;
   status: string | null;
   unread_count?: number | null;
-  provider_id?: string | null;
+  provider_id: string | null;
   lead_id?: string | null;
 }
 
@@ -83,14 +86,17 @@ export default function MobileCockpit() {
     localStorage.setItem(TAB_KEY, t);
   };
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     const { data } = await supabase.from("imphq_projects").select("id, name");
     setProjects(data || []);
-    if (data && data.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(data[0].id);
-      localStorage.setItem("mc.selectedProject", data[0].id);
+    if (data && data.length > 0) {
+      setSelectedProjectId(current => {
+        if (current) return current;
+        localStorage.setItem("mc.selectedProject", data[0].id);
+        return data[0].id;
+      });
     }
-  };
+  }, []);
 
   const loadStats = useCallback(async () => {
     if (!selectedProjectId) return;
@@ -108,7 +114,7 @@ export default function MobileCockpit() {
       const seven = new Date(); seven.setDate(seven.getDate() - 7);
 
       let today = 0, yesterday = 0, sevenDays = 0;
-      (sales || []).forEach((s: any) => {
+      (sales || []).forEach((s) => {
         const d = String(s.data || ""); const v = Number(s.valor) || 0;
         if (d.startsWith(todayStr)) today += v;
         if (d.startsWith(yesterdayStr)) yesterday += v;
@@ -132,7 +138,7 @@ export default function MobileCockpit() {
         .limit(100);
       if (error) throw error;
       setConversations((data || []) as unknown as Conversation[]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Erro ao carregar conversas.");
     } finally {
       setLoadingConvs(false);
@@ -151,14 +157,14 @@ export default function MobileCockpit() {
         .limit(150);
       if (error) throw error;
       setLeads((data || []) as Lead[]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Erro ao carregar leads.");
     } finally {
       setLoadingLeads(false);
     }
   }, [selectedProjectId]);
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => { loadProjects(); }, [loadProjects]);
 
   useEffect(() => {
     if (!selectedProjectId) return;
@@ -178,13 +184,13 @@ export default function MobileCockpit() {
     try {
       const { error } = await supabase
         .from("imphq_wa_conversations")
-        .update({ ai_paused_until: newPausedUntil } as any)
+        .update({ ai_paused_until: newPausedUntil })
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused_until: newPausedUntil } : c));
       toast.success(isPaused ? "IA retomada." : "IA pausada por 30min.");
-    } catch (err: any) {
-      toast.error("Erro: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro: " + errorMessage(err));
     }
   };
 
@@ -193,14 +199,14 @@ export default function MobileCockpit() {
     try {
       const { error } = await supabase
         .from("imphq_wa_conversations")
-        .update({ buy_intent_detected: next, temperature: next ? "hot" : conv.temperature } as any)
+        .update({ buy_intent_detected: next, temperature: next ? "hot" : conv.temperature })
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id
         ? { ...c, buy_intent_detected: next, temperature: next ? "hot" : c.temperature } : c));
       toast.success(next ? "Closer Mode ativado." : "Closer Mode desativado.");
-    } catch (err: any) {
-      toast.error("Erro: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro: " + errorMessage(err));
     }
   };
 
@@ -363,7 +369,7 @@ export default function MobileCockpit() {
 
       {openConv && (
         <MobileChat
-          conversation={openConv as any}
+          conversation={openConv}
           onClose={() => { setOpenConv(null); loadConversations(); }}
           onTogglePause={handleToggleAiPause}
           onToggleCloser={handleToggleCloserMode}
@@ -377,7 +383,7 @@ export default function MobileCockpit() {
 function CockpitTab({
   projectId, salesStats, loadingStats, hotConversations, loading, onRefresh,
   onOpenChat, onTogglePause, onToggleCloser, onNavigateMore,
-}: any) {
+}: {projectId:string;salesStats:{today:number;yesterday:number;sevenDays:number};loadingStats:boolean;hotConversations:Conversation[];loading:boolean;onRefresh:()=>void;onOpenChat:(c:Conversation)=>void;onTogglePause:(c:Conversation)=>void;onToggleCloser:(c:Conversation)=>void;onNavigateMore:(target:string)=>void}) {
   return (
     <div className="space-y-4">
       {projectId && (
@@ -437,7 +443,7 @@ function CockpitTab({
 function InboxTab({
   conversations, total, loading, search, setSearch, filter, setFilter,
   onRefresh, onOpenChat, onTogglePause
-}: any) {
+}: {conversations:Conversation[];total:number;loading:boolean;search:string;setSearch:(s:string)=>void;filter:InboxFilter;setFilter:(f:InboxFilter)=>void;onRefresh:()=>void;onOpenChat:(c:Conversation)=>void;onTogglePause:(c:Conversation)=>void}) {
   const filters: { id: InboxFilter; label: string }[] = [
     { id: "all", label: "Todas" },
     { id: "unread", label: "Não lidas" },
@@ -505,7 +511,7 @@ function InboxTab({
 function LeadsTab({
   leads, total, loading, search, setSearch, status, setStatus, statuses,
   onRefresh, onOpen, onWhats
-}: any) {
+}: {leads:Lead[];total:number;loading:boolean;search:string;setSearch:(s:string)=>void;status:string;setStatus:(s:string)=>void;statuses:string[];onRefresh:()=>void;onOpen:(id:string)=>void;onWhats:(phone:string)=>void}) {
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -556,8 +562,8 @@ function LeadsTab({
 }
 
 /* ───────────── Mais Tab ───────────── */
-function MaisTab({ onDesktop, navigate }: any) {
-  const groups: { title: string; items: { label: string; icon: any; to: string; desc: string; color: string }[] }[] = [
+function MaisTab({ onDesktop, navigate }: {onDesktop:()=>void;navigate:NavigateFunction}) {
+  const groups: { title: string; items: { label: string; icon: LucideIcon; to: string; desc: string; color: string }[] }[] = [
     {
       title: "Operação",
       items: [
@@ -615,7 +621,7 @@ function MaisTab({ onDesktop, navigate }: any) {
 }
 
 /* ───────────── Conv Card ───────────── */
-function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = false, compact = false }: any) {
+function ConvCard({ conv, onOpenChat, onTogglePause, onToggleCloser, full = false, compact = false }: {conv:Conversation;onOpenChat:(c:Conversation)=>void;onTogglePause:(c:Conversation)=>void;onToggleCloser?:(c:Conversation)=>void;full?:boolean;compact?:boolean}) {
   const isPaused = conv.ai_paused_until && new Date(conv.ai_paused_until) > new Date();
   const isHot = conv.temperature === "hot" || conv.buy_intent_detected;
   const remaining = conv.ai_paused_until
@@ -715,7 +721,7 @@ function Loader({ text }: { text: string }) {
   );
 }
 
-function Empty({ icon: Icon, text }: any) {
+function Empty({ icon: Icon, text }: {icon:LucideIcon;text:string}) {
   return (
     <Card className="bg-slate-900 border-border/40 text-center">
       <CardContent className="p-10 space-y-2 text-muted-foreground">

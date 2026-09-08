@@ -63,15 +63,16 @@ ${projCtx}`;
       return new Response(JSON.stringify({ error: `AI ${resp.status}: ${t.slice(0, 200)}` }), { status: st, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const data = await resp.json();
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(data?.choices?.[0]?.message?.content || "{}"); } catch { /* fallback */ }
 
     return new Response(JSON.stringify({
-      reply_public: parsed.reply_public || "",
-      dm_message: parsed.dm_message || "",
+      reply_public: parsed && typeof parsed === "object" && "reply_public" in parsed && typeof parsed.reply_public === "string" ? parsed.reply_public : "",
+      dm_message: parsed && typeof parsed === "object" && "dm_message" in parsed && typeof parsed.dm_message === "string" ? parsed.dm_message : "",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("ig-trigger-ai-generate:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

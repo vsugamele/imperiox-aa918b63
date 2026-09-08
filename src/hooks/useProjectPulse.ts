@@ -40,19 +40,16 @@ export function useProjectPulse(projectId: string | undefined, refreshMs = 60_00
       const monthStart = `${todayStr.slice(0, 7)}-01T03:00:00.000Z`;
       const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
 
-      const sb: any = supabase;
-      const promises: PromiseLike<any>[] = [
-        sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", dayStart).lt("created_at", dayEnd),
-        sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
-        sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", yStart).lt("created_at", dayStart),
-        sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
-        sb.from("imphq_vendas").select("id, status, last_intent_at").eq("project_id", projectId).neq("status", "aprovado").gte("last_intent_at", twoHoursAgo),
-        sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("criado_em", dayStart),
-      ];
+      const [todayRes, monthRes, ystRes, adsRes, hotRes, leadsRes] = await Promise.all([
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", dayStart).lt("created_at", dayEnd),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", yStart).lt("created_at", dayStart),
+        supabase.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
+        supabase.from("imphq_vendas").select("id, status, last_intent_at").eq("project_id", projectId).neq("status", "aprovado").gte("last_intent_at", twoHoursAgo),
+        supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("criado_em", dayStart),
+      ]);
 
-      const [todayRes, monthRes, ystRes, adsRes, hotRes, leadsRes] = await Promise.all(promises);
-
-      const sumValor = (rows: any[]) => (rows || []).reduce((acc, r) => acc + Number(r.valor || 0), 0);
+      const sumValor = (rows: { valor: number | null }[] | null) => (rows || []).reduce((acc, r) => acc + Number(r.valor || 0), 0);
       const revenueToday = sumValor(todayRes.data);
       const revenueMonth = sumValor(monthRes.data);
       const revenueYesterday = sumValor(ystRes.data);
@@ -66,7 +63,7 @@ export function useProjectPulse(projectId: string | undefined, refreshMs = 60_00
         adsToday,
         roasToday,
         hotLeads: (hotRes.data || []).length,
-        leadsToday: (leadsRes as any).count || 0,
+        leadsToday: leadsRes.count || 0,
         loading: false,
       };
     },

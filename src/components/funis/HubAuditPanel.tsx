@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { record, type Product } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, X, Loader2, AlertTriangle, Target, Plus, TrendingUp } from "lucide-react";
@@ -19,11 +22,17 @@ interface AuditResult {
   proxima_acao?: string;
 }
 
+const auditSchema = z.object({
+ gargalo:z.object({etapa:z.string(),diagnostico:z.string(),metrica:z.string().optional()}).optional(),
+ ativos_faltantes:z.array(z.object({catId:z.string(),itemId:z.string(),score:z.number(),motivo:z.string()})).optional(),
+ proxima_acao:z.string().optional()
+});
+const kpisSchema = z.object({totalVendas:z.number(),cpa:z.number(),ticketMedio:z.number(),avgCtr:z.number()});
 interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  product: any;
+  product: Product;
   existingAssets: Array<{ catId: string; itemId: string; status?: string }>;
   onAddAsset: (catId: string, itemId: string) => void;
 }
@@ -31,8 +40,8 @@ interface Props {
 export function HubAuditPanel({ open, onClose, projectId, product, existingAssets, onAddAsset }: Props) {
   const [loading, setLoading] = useState(false);
   const [enqueueing, setEnqueueing] = useState(false);
-  const [audit, setAudit] = useState<AuditResult | null>(null);
-  const [kpis, setKpis] = useState<any>(null);
+  const [audit, setAudit] = useState<z.infer<typeof auditSchema> | null>(null);
+  const [kpis, setKpis] = useState<z.infer<typeof kpisSchema> | null>(null);
 
   const run = async () => {
     setLoading(true);
@@ -41,10 +50,10 @@ export function HubAuditPanel({ open, onClose, projectId, product, existingAsset
         body: { project_id: projectId, product, existing_assets: existingAssets },
       });
       if (error) throw error;
-      setAudit((data as any)?.audit || {});
-      setKpis((data as any)?.kpis || null);
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao auditar");
+      setAudit(auditSchema.parse(record(data).audit));
+      setKpis(record(data).kpis ? kpisSchema.parse(record(data).kpis) : null);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao auditar");
     } finally {
       setLoading(false);
     }
@@ -71,8 +80,8 @@ export function HubAuditPanel({ open, onClose, projectId, product, existingAsset
       const { error } = await supabase.from("imphq_ai_actions").insert(rows);
       if (error) throw error;
       toast.success(`${rows.length} ações enviadas para o Imperius`);
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao enfileirar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao enfileirar");
     } finally {
       setEnqueueing(false);
     }

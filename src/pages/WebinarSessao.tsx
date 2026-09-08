@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,30 +14,30 @@ import { ArrowLeft, Copy, Save, Plus, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-interface Step { delay_minutes: number; message: string; }
+type Step = { delay_minutes: number; message: string; };
 
 export default function WebinarSessao() {
   const { sessionId } = useParams();
-  const [session, setSession] = useState<any>(null);
-  const [regs, setRegs] = useState<any[]>([]);
-  const [clicks, setClicks] = useState<any[]>([]);
+  const [session, setSession] = useState<Tables<"imphq_webinar_sessions"> | null>(null);
+  const [regs, setRegs] = useState<Tables<"imphq_webinar_registrations">[]>([]);
+  const [clicks, setClicks] = useState<Array<Tables<"imphq_webinar_clicks"> & { imphq_webinar_registrations: Pick<Tables<"imphq_webinar_registrations">,"nome"|"email"|"phone"> | null }>>([]);
   const [newReg, setNewReg] = useState({ nome: "", email: "", phone: "" });
   const [saving, setSaving] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  useEffect(() => { load(); }, [sessionId]);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!sessionId) return;
     const [s, r, c] = await Promise.all([
-      supabase.from("imphq_webinar_sessions").select("*").eq("id", sessionId).maybeSingle() as PromiseLike<any>,
-      supabase.from("imphq_webinar_registrations").select("*").eq("session_id", sessionId).order("created_at", { ascending: false }) as PromiseLike<any>,
-      supabase.from("imphq_webinar_clicks").select("*, imphq_webinar_registrations(nome, email, phone)").eq("session_id", sessionId).order("clicked_at", { ascending: false }) as PromiseLike<any>,
+      supabase.from("imphq_webinar_sessions").select("*").eq("id", sessionId).maybeSingle(),
+      supabase.from("imphq_webinar_registrations").select("*").eq("session_id", sessionId).order("created_at", { ascending: false }),
+      supabase.from("imphq_webinar_clicks").select("*, imphq_webinar_registrations(nome, email, phone)").eq("session_id", sessionId).order("clicked_at", { ascending: false }),
     ]);
     setSession(s.data);
     setRegs(r.data || []);
     setClicks(c.data || []);
-  }
+  }, [sessionId]);
+  useEffect(() => { load(); }, [load]);
 
   async function saveSession() {
     if (!session) return;
@@ -86,7 +88,7 @@ export default function WebinarSessao() {
 
   if (!session) return <div className="p-6 text-muted-foreground">Carregando...</div>;
 
-  const steps: Step[] = Array.isArray(session.recovery_template) ? session.recovery_template : [];
+  const steps: Step[] = Array.isArray(session.recovery_template) ? session.recovery_template.map(value => { const row=jsonFields(value); return { ...row, delay_minutes: jsonNumber(row.delay_minutes) || 0, message: jsonText(row.message) || "" }; }) : [];
 
   return (
     <div className="p-6 space-y-6">

@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,18 +18,18 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FlowEditorCanvas } from "./FlowEditorCanvas";
-import { FlowLivePreview } from "./FlowLivePreview";
-import { useFlowHistory } from "./flow-editor/useFlowHistory";
-import { validateFlow } from "./flow-editor/validate";
-import { syncX1Media, hasMediaPlaceholder } from "./flow-editor/templates";
-import { ValidationPanel } from "./flow-editor/ValidationPanel";
-import { TemplatePicker } from "./flow-editor/TemplatePicker";
-import { GuardrailsPanel } from "./GuardrailsPanel";
-import { MediaPicker } from "./MediaPicker";
-import { ABVariantStats } from "./flow-editor/ABVariantStats";
-import { useFlowNodeStats } from "./flow-editor/useFlowNodeStats";
-import { LivePanel } from "./flow-editor/LivePanel";
+import { FlowEditorCanvas } from "@/components/openflow/FlowEditorCanvas";
+import { FlowLivePreview } from "@/components/openflow/FlowLivePreview";
+import { useFlowHistory } from "@/components/openflow/flow-editor/useFlowHistory";
+import { validateFlow } from "@/components/openflow/flow-editor/validate";
+import { syncX1Media, hasMediaPlaceholder } from "@/components/openflow/flow-editor/templates";
+import { ValidationPanel } from "@/components/openflow/flow-editor/ValidationPanel";
+import { TemplatePicker } from "@/components/openflow/flow-editor/TemplatePicker";
+import { GuardrailsPanel } from "@/components/openflow/GuardrailsPanel";
+import { MediaPicker } from "@/components/openflow/MediaPicker";
+import { ABVariantStats } from "@/components/openflow/flow-editor/ABVariantStats";
+import { useFlowNodeStats } from "@/components/openflow/flow-editor/useFlowNodeStats";
+import { LivePanel } from "@/components/openflow/flow-editor/LivePanel";
 import { Undo2, Redo2, Radio, Shield } from "lucide-react";
 
 
@@ -298,7 +300,7 @@ export function FlowEditor({
   const pendingMediaCount = useMemo(
     () =>
       acoes.filter((a) =>
-        ["template", "mensagem", "corpo", "conteudo"].some((f) => hasMediaPlaceholder((a as any)[f])),
+        (["template", "mensagem", "corpo", "conteudo"] as const).some((f) => hasMediaPlaceholder(a[f])),
       ).length,
     [acoes],
   );
@@ -379,13 +381,13 @@ export function FlowEditor({
   useEffect(() => {
     (async () => {
       try {
-        const q = supabase.from("imphq_ai_agents" as any).select("id, nome, avatar").eq("status", "ativo").order("nome");
-        const { data } = projectId ? await q.eq("projeto_id", projectId) : await q;
-        setAiAgents((data || []) as any);
+        const q = supabase.from("imphq_ai_agents").select("id, nome, avatar:avatar_url").eq("ativo", true).order("nome");
+        const { data } = projectId ? await q.eq("project_id", projectId) : await q;
+        setAiAgents(data || []);
       } catch (e) { console.warn("agents load", e); }
       try {
-        const { data } = await supabase.from("imphq_team_members" as any).select("id, nome").order("nome");
-        setTeamMembers((data || []) as any);
+        const { data } = await supabase.from("imphq_team_members").select("id, nome:name").order("name");
+        setTeamMembers(data || []);
       } catch (e) { console.warn("team load", e); }
     })();
   }, [projectId]);
@@ -422,10 +424,10 @@ export function FlowEditor({
           .maybeSingle();
         
         if (data?.credentials) {
-          const creds = data.credentials as any;
+          const creds = record(data.credentials);
           setResendConfig({
-            from_email: creds.from_email || "",
-            from_name: creds.from_name || "",
+            from_email: typeof creds.from_email === "string" ? creds.from_email : "",
+            from_name: typeof creds.from_name === "string" ? creds.from_name : "",
           });
         } else {
           // Fallback to legacy project data
@@ -434,11 +436,11 @@ export function FlowEditor({
             .select("data")
             .eq("id", projectId)
             .single();
-          const emailConfig = (proj?.data as any)?.email_config || {};
-          const briefing = (proj?.data as any)?.checklist?.resend || {};
+          const emailConfig = record(record(proj?.data).email_config);
+          const briefing = record(record(record(proj?.data).checklist).resend);
           setResendConfig({
-            from_email: emailConfig.from_email || briefing.from_email || "sem_config@resend.com",
-            from_name: emailConfig.from_name || briefing.from_name || "Sem Nome",
+            from_email: [emailConfig.from_email, briefing.from_email].find((value): value is string => typeof value === "string" && !!value) || "sem_config@resend.com",
+            from_name: [emailConfig.from_name, briefing.from_name].find((value): value is string => typeof value === "string" && !!value) || "Sem Nome",
           });
         }
       } catch (e) {
@@ -498,8 +500,8 @@ export function FlowEditor({
   const [isMuted, setIsMuted] = useState(false);
   
   const canvasRef = useRef<HTMLDivElement>(null);
-  const utteranceRef = useRef<any>(null);
-  const speechIntervalRef = useRef<any>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Cancel speech synthesis when changing active node or unmounting
@@ -644,12 +646,12 @@ export function FlowEditor({
         category: acao.tipo || "whatsapp",
         project_id: projectId || null,
         user_id: user?.id,
-      } as any);
+      });
       if (error) throw error;
       toast.success("Template de automação salvo!");
       onTemplateSaved?.();
-    } catch (e: any) {
-      toast.error("Erro ao salvar template: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro ao salvar template: " + (errorMessage(e) || ""));
     } finally {
       setSavingTemplate(false);
     }
@@ -729,7 +731,7 @@ export function FlowEditor({
 
   const duplicateAcao = (idx: number) => {
     const original = acoes[idx];
-    const cloned: any = JSON.parse(JSON.stringify(original));
+    const cloned = structuredClone(original);
     cloned.id = crypto.randomUUID();
     delete cloned.next_id;
     delete cloned.true_next_id;
@@ -744,7 +746,7 @@ export function FlowEditor({
     toast.success("Ação duplicada com sucesso!");
   };
 
-  const updateAcao = (idx: number, field: string, value: any) => {
+  const updateAcao = <K extends keyof Acao,>(idx: number, field: K, value: Acao[K]) => {
     const updated = [...acoes];
     updated[idx] = { ...updated[idx], [field]: value };
     onChange(updated);
@@ -1721,7 +1723,7 @@ export function FlowEditor({
                     title="Duplicar etapa"
                     onClick={() => {
                       const updated = [...acoes];
-                      const clone: any = JSON.parse(JSON.stringify(acoes[selectedIdx]));
+                      const clone = structuredClone(acoes[selectedIdx]);
                       clone.id = crypto.randomUUID();
                       delete clone.next_id;
                       delete clone.true_next_id;
@@ -1827,7 +1829,7 @@ export function FlowEditor({
                         <Select
                           value={acao.wait_until ? "absolute" : "relative"}
                           onValueChange={(v) => {
-                            if (v === "relative") updateAcao(selectedIdx, "wait_until", undefined as any);
+                            if (v === "relative") updateAcao(selectedIdx, "wait_until", undefined);
                             else {
                               // default: agora + 1h, arredondado
                               const d = new Date(Date.now() + 60 * 60 * 1000);
@@ -2088,13 +2090,13 @@ export function FlowEditor({
 
                     <div className="space-y-2">
                       <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Opções (até 9)</Label>
-                      {(Array.isArray(acao.options) ? acao.options : []).map((opt: any, oi: number) => (
+                      {(Array.isArray(acao.options) ? acao.options : []).map((opt, oi: number) => (
                         <div key={oi} className="flex items-center gap-1.5">
                           <span className="text-[10px] font-bold text-muted-foreground w-4">{oi + 1}.</span>
                           <Input
                             value={typeof opt === "string" ? opt : (opt?.label || "")}
                             onChange={e => {
-                              const next = [...(acao.options || [])].map((o: any) => typeof o === "string" ? { label: o } : { ...o });
+                              const next = [...(acao.options || [])].map((o) => typeof o === "string" ? { label: o } : { ...o });
                               next[oi] = { ...(next[oi] || {}), label: e.target.value };
                               updateAcao(selectedIdx, "options", next);
                             }}
@@ -2177,7 +2179,7 @@ export function FlowEditor({
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Formato</Label>
-                        <Select value={acao.image_ratio || "1:1"} onValueChange={v => updateAcao(selectedIdx, "image_ratio", v)}>
+                        <Select value={acao.image_ratio || "1:1"} onValueChange={v => { if (v === "1:1" || v === "9:16" || v === "16:9") updateAcao(selectedIdx, "image_ratio", v); }}>
                           <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="1:1">Quadrado 1:1</SelectItem>
@@ -2833,7 +2835,7 @@ export function FlowEditor({
                     <MediaPicker
                       value={acao.media || null}
                       projects={projectId ? [{ id: projectId, name: "Projeto atual" }] : []}
-                      onChange={(m) => updateAcao(selectedIdx, "media" as any, m)}
+                      onChange={(m) => updateAcao(selectedIdx, "media", m)}
                     />
                   </div>
                 )}
@@ -3059,7 +3061,7 @@ export function FlowEditor({
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Estratégia de Distribuição</Label>
-                      <Select value={acao.distrib_strategy || "round_robin"} onValueChange={v => updateAcao(selectedIdx, "distrib_strategy", v as any)}>
+                      <Select value={acao.distrib_strategy || "round_robin"} onValueChange={v => { if (v === "round_robin" || v === "random" || v === "least_busy") updateAcao(selectedIdx, "distrib_strategy", v); }}>
                         <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="round_robin">🔁 Round-Robin (revezamento)</SelectItem>

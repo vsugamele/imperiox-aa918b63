@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,16 +15,16 @@ type Model = {
   title: string | null;
   status: string;
   output_type: string | null;
-  ficha: any;
-  storyboard: any;
-  source_assets: any;
+  ficha: Json;
+  storyboard: Json;
+  source_assets: Json;
   created_at: string;
 };
 
 interface Props {
   modelId: string | null;
   contexto?: string;
-  onChange: (modelId: string | null, ficha?: any) => void;
+  onChange: (modelId: string | null, ficha?: Json) => void;
 }
 
 export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
@@ -31,16 +34,16 @@ export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
   const [external, setExternal] = useState<PickerSelection[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const load = async () => {
-    const { data } = await (supabase.from("imphq_studio_reference_models" as any) as any)
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("imphq_studio_reference_models")
       .select("*").order("created_at", { ascending: false }).limit(40);
-    setModels((data ?? []) as any);
+    setModels((data ?? []));
     if (modelId) {
-      const found = (data ?? []).find((m: any) => m.id === modelId);
-      if (found) setActive(found as any);
+      const found = (data ?? []).find((m) => m.id === modelId);
+      if (found) setActive(found);
     }
-  };
-  useEffect(() => { load(); }, [modelId]);
+  }, [modelId]);
+  useEffect(() => { load(); }, [load]);
 
   const pick = (id: string) => {
     const m = models.find((x) => x.id === id);
@@ -64,17 +67,19 @@ export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
       if (error) throw error;
       toast.success("Modelagem criada");
       await load();
-      const created = (await (supabase.from("imphq_studio_reference_models" as any) as any)
-        .select("*").eq("id", (data as any).id).single()).data as any;
+      const created = (await supabase.from("imphq_studio_reference_models")
+        .select("*").eq("id", String(record(data).id)).single()).data;
       if (created) {
         setActive(created);
         setExternal([]);
         onChange(created.id, created.ficha);
       }
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(errorMessage(e)); }
     finally { setAnalyzing(false); }
   };
 
+  const rawPalette = record(active?.ficha).paleta;
+  const palette = Array.isArray(rawPalette) ? rawPalette.filter((v):v is string=>typeof v === "string") : [];
   return (
     <div className="space-y-3">
       <div>
@@ -85,7 +90,7 @@ export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
             {models.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma ainda</div>}
             {models.map((m) => (
               <SelectItem key={m.id} value={m.id}>
-                {m.title ?? m.ficha?.estilo_visual ?? "Modelo"} · {(m.source_assets?.length ?? 0)} refs
+                {m.title ?? String(record(m.ficha).estilo_visual || "Modelo")} · {(Array.isArray(m.source_assets) ? m.source_assets.length : 0)} refs
               </SelectItem>
             ))}
           </SelectContent>
@@ -126,15 +131,15 @@ export function ModelingNodePanel({ modelId, contexto, onChange }: Props) {
               className="text-[10px] text-primary flex items-center gap-0.5"><ExternalLink className="h-2.5 w-2.5" /> ver</a>
           </div>
           <div className="text-[11px] leading-5 space-y-0.5">
-            {active.ficha.estilo_visual && <div><b>Estilo:</b> {active.ficha.estilo_visual}</div>}
-            {active.ficha.ritmo && <div><b>Ritmo:</b> {active.ficha.ritmo}</div>}
-            {active.ficha.iluminação && <div><b>Luz:</b> {active.ficha.iluminação}</div>}
-            {active.ficha.hook_pattern && <div><b>Hook:</b> {active.ficha.hook_pattern}</div>}
-            {active.ficha.cta_pattern && <div><b>CTA:</b> {active.ficha.cta_pattern}</div>}
+            {String(record(active.ficha).estilo_visual || "") && <div><b>Estilo:</b> {String(record(active.ficha).estilo_visual || "")}</div>}
+            {String(record(active.ficha).ritmo || "") && <div><b>Ritmo:</b> {String(record(active.ficha).ritmo || "")}</div>}
+            {String(record(active.ficha).iluminação || "") && <div><b>Luz:</b> {String(record(active.ficha).iluminação || "")}</div>}
+            {String(record(active.ficha).hook_pattern || "") && <div><b>Hook:</b> {String(record(active.ficha).hook_pattern || "")}</div>}
+            {String(record(active.ficha).cta_pattern || "") && <div><b>CTA:</b> {String(record(active.ficha).cta_pattern || "")}</div>}
           </div>
-          {active.ficha.paleta && Array.isArray(active.ficha.paleta) && (
+          {Array.isArray(record(active.ficha).paleta) && (
             <div className="flex gap-1 mt-1">
-              {active.ficha.paleta.slice(0, 6).map((c: string, i: number) => (
+              {palette.slice(0,6).map((c: string, i: number) => (
                 <div key={i} className="w-4 h-4 rounded border border-border/60" style={{ background: c }} title={c} />
               ))}
             </div>

@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const slice = urls.slice(0, 3);
     const scraped = await Promise.allSettled(slice.map((u: string) => scrape(u)));
     const corpus = scraped.map((r, i) => {
-      const ok = r.status === "fulfilled" ? r.value : `[ERRO: ${(r as any).reason?.message || "scrape falhou"}]`;
+      const ok = r.status === "fulfilled" ? r.value : `[ERRO: ${r.reason?.message || "scrape falhou"}]`;
       return `### URL ${i + 1}: ${slice[i]}\n${ok}`;
     }).join("\n\n---\n\n");
 
@@ -94,14 +94,15 @@ Priorize 6-8 ativos espelho relevantes ao nosso produto. Português BR.`;
     }
     const aiData = await aiRes.json();
     const content = aiData?.choices?.[0]?.message?.content || "{}";
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(content); } catch { parsed = { raw: content }; }
 
     return new Response(JSON.stringify({ result: parsed, scraped_urls: slice }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

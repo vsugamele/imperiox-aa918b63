@@ -15,13 +15,18 @@ const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
 
 const BUCKET = "creative-assets";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface GenerationParams { duration?: number | string; resolution?: string; aspect_ratio?: string; reference_audio_urls?: string[]; generate_audio?: boolean; size?: string; quality?: string }
+interface KieVideoInput { prompt: string; duration: number | string; aspect_ratio: string; resolution?: string; first_frame_url?: string; reference_audio_urls?: string[]; generate_audio?: boolean; image_url?: string }
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+
 type Body = {
   kind: "image" | "video" | "audio";
   provider: "openrouter" | "kie" | "elevenlabs" | "luma";
   model: string;
   prompt: string;
   negative_prompt?: string;
-  params?: Record<string, any>;
+  params?: GenerationParams;
   nicho?: string;
   projeto_id?: string;
   source_prompt_id?: string;
@@ -31,7 +36,7 @@ type Body = {
   voice_id?: string;
 };
 
-async function uploadFromBase64(supabase: any, userId: string, b64: string, ext: string, mime: string) {
+async function uploadFromBase64(supabase: ReturnType<typeof makeClient>, userId: string, b64: string, ext: string, mime: string) {
   const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   const path = `studio/${userId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, bin, { contentType: mime, upsert: false });
@@ -40,7 +45,7 @@ async function uploadFromBase64(supabase: any, userId: string, b64: string, ext:
   return data.publicUrl;
 }
 
-async function uploadFromUrl(supabase: any, userId: string, url: string, ext: string, mime: string) {
+async function uploadFromUrl(supabase: ReturnType<typeof makeClient>, userId: string, url: string, ext: string, mime: string) {
   const r = await fetch(url);
   const buf = new Uint8Array(await r.arrayBuffer());
   const path = `studio/${userId}/${crypto.randomUUID()}.${ext}`;
@@ -73,9 +78,9 @@ async function openrouterImage(model: string, prompt: string): Promise<string> {
 }
 
 // ---------- OPENROUTER: VIDEO (Seedance) ----------
-async function openrouterVideo(model: string, prompt: string, params: any, image_url?: string): Promise<{ url: string; cost?: number }> {
+async function openrouterVideo(model: string, prompt: string, params: GenerationParams, image_url?: string): Promise<{ url: string; cost?: number }> {
   // Seedance via OpenRouter — content can include image_url for image-to-video
-  const content: any[] = [{ type: "text", text: prompt }];
+  const content: ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] = [{ type: "text", text: prompt }];
   if (image_url) content.push({ type: "image_url", image_url: { url: image_url } });
 
   const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -103,14 +108,14 @@ async function openrouterVideo(model: string, prompt: string, params: any, image
 }
 
 // ---------- KIE.AI: VIDEO ----------
-async function kieVideo(model: string, prompt: string, params: any, image_url?: string): Promise<{ taskId: string }> {
+async function kieVideo(model: string, prompt: string, params: GenerationParams, image_url?: string): Promise<{ taskId: string }> {
   // Kie.ai unified API. Models: veo3, veo3-fast, sora-2, kling-2.1, runway-gen4, bytedance/seedance-2 etc.
   const isSeedance2 = model === "seedance-2" || model === "bytedance/seedance-2";
   const refAudios: string[] | undefined = Array.isArray(params?.reference_audio_urls) && params.reference_audio_urls.length > 0
     ? params.reference_audio_urls.slice(0, 3)
     : undefined;
 
-  const input: any = {
+  const input: KieVideoInput = {
     prompt,
     duration: params?.duration ?? 5,
     aspect_ratio: params?.aspect_ratio ?? "16:9",
@@ -130,7 +135,7 @@ async function kieVideo(model: string, prompt: string, params: any, image_url?: 
     input.image_url = image_url;
   }
 
-  const body: any = {
+  const body = {
     model: isSeedance2 ? "bytedance/seedance-2" : model,
     input,
   };
@@ -147,8 +152,8 @@ async function kieVideo(model: string, prompt: string, params: any, image_url?: 
 }
 
 // ---------- KIE.AI: IMAGE (GPT Image 2 etc) ----------
-async function kieImage(model: string, prompt: string, params: any, image_input?: string): Promise<{ taskId: string }> {
-  const input: any = {
+async function kieImage(model: string, prompt: string, params: GenerationParams, image_input?: string): Promise<{ taskId: string }> {
+  const input = {
     prompt,
     size: params?.size ?? "1024x1024",
     quality: params?.quality ?? "high",
@@ -168,8 +173,8 @@ async function kieImage(model: string, prompt: string, params: any, image_input?
 }
 
 // ---------- LUMA: IMAGE (uni-1) ----------
-async function lumaImage(model: string, prompt: string, params: any, image_url?: string): Promise<{ id: string }> {
-  const body: any = {
+async function lumaImage(model: string, prompt: string, params: GenerationParams, image_url?: string): Promise<{ id: string }> {
+  const body = {
     model: model || "uni-1",
     type: image_url ? "edit" : "image",
     prompt,
@@ -303,13 +308,13 @@ Deno.serve(async (req) => {
       }
 
       throw new Error(`Combinação não suportada: ${kind}/${provider}`);
-    } catch (genErr: any) {
+    } catch (genErr) {
       console.error("studio-generate error:", genErr);
-      await admin.from("imphq_studio_generations").update({ status: "failed", error: String(genErr?.message || genErr).slice(0, 1000) }).eq("id", row.id);
-      return new Response(JSON.stringify({ ok: false, id: row.id, error: String(genErr?.message || genErr) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("imphq_studio_generations").update({ status: "failed", error: String(errorMessage(genErr) || genErr).slice(0, 1000) }).eq("id", row.id);
+      return new Response(JSON.stringify({ ok: false, id: row.id, error: String(errorMessage(genErr) || genErr) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-  } catch (e: any) {
+  } catch (e) {
     console.error("studio-generate fatal:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(errorMessage(e) || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

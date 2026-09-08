@@ -47,12 +47,12 @@ export function TriagemPanel() {
       .gte("created_at", since.toISOString())
       .order("created_at", { ascending: false })
       .limit(50);
-    const arr = (data as any) || [];
+    const arr = data || [];
     setItems(arr);
     setStats({
       hoje: arr.length,
-      escalados: arr.filter((x: any) => x.escalated).length,
-      hotLeads: arr.filter((x: any) => x.intent === "compra_quente").length,
+      escalados: arr.filter((x) => x.escalated).length,
+      hotLeads: arr.filter((x) => x.intent === "compra_quente").length,
     });
   };
 

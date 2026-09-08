@@ -58,10 +58,10 @@ Deno.serve(async (req) => {
         .select("status")
         .eq("automacao_id", automacao_id)
         .gte("created_at", since)
-        .limit(500);
+        .limit(500).returns<{ status: string | null }[]>();
       const total = (logs || []).length;
       if (total >= 10) {
-        const errors = (logs || []).filter((l: any) => l.status === "error").length;
+        const errors = (logs || []).filter((l) => l.status === "error").length;
         const pct = (errors / total) * 100;
         if (pct >= auto.circuit_breaker_error_pct) {
           const reason = `Erro ${pct.toFixed(0)}% em ${win}min (limite ${auto.circuit_breaker_error_pct}%)`;

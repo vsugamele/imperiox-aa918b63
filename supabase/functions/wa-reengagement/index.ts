@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const results: Record<string, any> = { processed: 0, sent: 0, skipped: 0, errors: [] };
+  const results: { processed: number; sent: number; skipped: number; errors: string[] } = { processed: 0, sent: 0, skipped: 0, errors: [] };
 
   try {
     // ── 1. Buscar projetos com IA WhatsApp ativa ──────────────────────────────
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
           .in("conversation_id", convIds)
           .eq("status", "running");
 
-        const activeFlowConvIds = new Set((activeFlows || []).map((f: any) => f.conversation_id));
+        const activeFlowConvIds = new Set((activeFlows || []).map((f) => f.conversation_id));
 
         // ── 6. Buscar últimas mensagens de cada conversa (para contexto) ───
         // fazemos em batch para não fazer N queries individuais
@@ -266,15 +266,17 @@ REGRAS:
             // Pequena pausa entre envios para não sobrecarregar a API
             await new Promise(r => setTimeout(r, 800));
 
-          } catch (convErr: any) {
-            console.error(`[wa-reengagement] Erro ao processar ${conv.phone}:`, convErr.message);
-            results.errors.push(`${conv.phone}: ${convErr.message}`);
+          } catch (convErr) {
+    const convErrMessage = convErr instanceof Error ? convErr.message : convErr && typeof convErr === "object" && "message" in convErr && typeof convErr.message === "string" ? convErr.message : undefined;
+            console.error(`[wa-reengagement] Erro ao processar ${conv.phone}:`, convErrMessage);
+            results.errors.push(`${conv.phone}: ${convErrMessage}`);
           }
         }
 
-      } catch (projErr: any) {
-        console.error(`[wa-reengagement] Erro no projeto ${project_id}:`, projErr.message);
-        results.errors.push(`Project ${project_id}: ${projErr.message}`);
+      } catch (projErr) {
+    const projErrMessage = projErr instanceof Error ? projErr.message : projErr && typeof projErr === "object" && "message" in projErr && typeof projErr.message === "string" ? projErr.message : undefined;
+        console.error(`[wa-reengagement] Erro no projeto ${project_id}:`, projErrMessage);
+        results.errors.push(`Project ${project_id}: ${projErrMessage}`);
       }
     }
 
@@ -283,9 +285,10 @@ REGRAS:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[wa-reengagement] Fatal:", e.message);
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[wa-reengagement] Fatal:", eMessage);
+    return new Response(JSON.stringify({ ok: false, error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -65,10 +65,10 @@ Deno.serve(async (req) => {
     console.log(`[ig-to-wa-bridge] Upserted lead ${leadId} (${nome}) from IG conversation ${ig_conversation_id}`);
 
     // Tag history
-    await supabase.from("imphq_lead_tag_history").insert([
+    await Promise.resolve(supabase.from("imphq_lead_tag_history").insert([
       { lead_id: leadId, project_id, tag: "📸 Instagram", action: "added", source: "ig_to_wa_bridge" },
       { lead_id: leadId, project_id, tag: "🔥 Hot Lead", action: "added", source: "ig_to_wa_bridge" },
-    ]).catch(() => {});
+    ])).catch(() => { /* Tag history is best effort; keep the bridge available. */ });
 
     // Trigger OpenFlow if phone is available
     let flowResult = null;
@@ -95,8 +95,9 @@ Deno.serve(async (req) => {
         });
         flowResult = await flowRes.json().catch(() => null);
         console.log(`[ig-to-wa-bridge] OpenFlow triggered: ${JSON.stringify(flowResult)}`);
-      } catch (fe: any) {
-        console.warn(`[ig-to-wa-bridge] OpenFlow trigger failed: ${fe.message}`);
+      } catch (fe) {
+        const message = fe instanceof Error ? fe.message : fe && typeof fe === "object" && "message" in fe && typeof fe.message === "string" ? fe.message : "Unknown error";
+        console.warn(`[ig-to-wa-bridge] OpenFlow trigger failed: ${message}`);
       }
     }
 
@@ -108,9 +109,10 @@ Deno.serve(async (req) => {
       flow_result: flowResult,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (e: any) {
-    console.error(`[ig-to-wa-bridge] Fatal: ${e.message}`);
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+        const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
+    console.error(`[ig-to-wa-bridge] Fatal: ${message}`);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

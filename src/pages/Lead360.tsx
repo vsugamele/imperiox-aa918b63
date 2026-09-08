@@ -1,3 +1,7 @@
+import type { Json } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useParams, Link } from "react-router-dom";
 import { useLead360, type Lead360Event } from "@/hooks/useLead360";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
-const ICONS: Record<Lead360Event["kind"], any> = {
+const ICONS: Record<Lead360Event["kind"], LucideIcon> = {
   click: MousePointerClick,
   event: Eye,
   form_response: FileText,
@@ -56,7 +60,7 @@ export default function Lead360Page() {
     setAiLoading(true);
     setAiOut("");
     try {
-      const { data: res, error } = await supabase.functions.invoke("copy-engine", {
+      const { data: res, error } = await supabase.functions.invoke<Json>("copy-engine", {
         body: {
           intent: "campanha_wa",
           input: aiInput,
@@ -64,9 +68,9 @@ export default function Lead360Page() {
         },
       });
       if (error) throw error;
-      setAiOut((res as any)?.content || "(sem resposta)");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar");
+      setAiOut(jsonText(jsonFields(res).content) || "(sem resposta)");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar");
     } finally {
       setAiLoading(false);
     }
@@ -175,7 +179,7 @@ export default function Lead360Page() {
   );
 }
 
-function Field({ label, value }: { label: string; value: any }) {
+function Field({ label, value }: { label: string; value: unknown }) {
   if (value === null || value === undefined || value === "") return null;
   return (
     <div>

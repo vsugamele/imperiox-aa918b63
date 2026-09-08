@@ -4,8 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { FolderKanban, ListTodo, DollarSign, Users, TrendingUp, Wallet, Target, ShoppingCart, Clock } from "lucide-react";
 import { getPeriodRange, getPreviousPeriodRange, calcDelta } from "@/lib/periodUtils";
-import { DeltaBadge } from "./DeltaBadge";
-import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
+import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
+import DashboardDrillSheet, { DrillMetric } from "@/components/dashboard/DashboardDrillSheet";
 import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
 
 interface Stats {
@@ -44,47 +44,47 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
       const fromDate = from.split("T")[0];
       const toDate = to.split("T")[0];
 
-      let leadsQ: any = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
+      let leadsQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true })
         .gte("criado_em", from).lte("criado_em", to);
       if (projectFilter !== "all") leadsQ = leadsQ.eq("project_id", projectFilter);
 
-      let costQ: any = supabase.from("imphq_project_costs").select("valor, moeda")
+      let costQ = supabase.from("imphq_project_costs").select("valor, moeda")
         .gte("data_pagamento", fromDate).lte("data_pagamento", toDate);
       if (projectFilter !== "all") costQ = costQ.eq("project_id", projectFilter);
 
-      let adsQ: any = supabase.from("imphq_ads_spend").select("valor, moeda")
+      let adsQ = supabase.from("imphq_ads_spend").select("valor, moeda")
         .gte("data_ref", fromDate).lte("data_ref", toDate);
       if (projectFilter !== "all") adsQ = adsQ.eq("project_id", projectFilter);
 
-      let vendasQ: any = supabase.from("imphq_vendas").select("valor, valor_liquido, produto_nome, status")
+      let vendasQ = supabase.from("imphq_vendas").select("valor, valor_liquido, produto_nome, status")
         .gte("data_venda", from).lte("data_venda", to)
         .in("status", ["aprovado", "approved", "paid", "completed"]);
       if (projectFilter !== "all") vendasQ = vendasQ.eq("project_id", projectFilter);
       if (productFilter && productFilter !== "all") vendasQ = vendasQ.eq("produto_nome", productFilter);
 
-      let pixQ: any = supabase.from("imphq_vendas").select("valor, status")
+      let pixQ = supabase.from("imphq_vendas").select("valor, status")
         .gte("data_venda", from).lte("data_venda", to)
         .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento", "pendente"]);
       if (projectFilter !== "all") pixQ = pixQ.eq("project_id", projectFilter);
       if (productFilter && productFilter !== "all") pixQ = pixQ.eq("produto_nome", productFilter);
 
-      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes, pixRes]: any = await Promise.all([
+      const [projRes, taskRes, leadRes, costRes, adsRes, vendasRes, pixRes] = await Promise.all([
         supabase.from("imphq_projects").select("id", { count: "exact", head: true }),
         supabase.from("imphq_tasks").select("id", { count: "exact", head: true }).neq("status", "done"),
         leadsQ, costQ, adsQ, vendasQ, pixQ,
       ]);
 
-      const sumByCurrency = (rows: any[], field = "valor") => rows.reduce((acc, r) => {
-        const v = parseFloat(r[field]) || 0;
+      const sumByCurrency = (rows: { valor: number | null; moeda: string | null }[], field: "valor" = "valor") => rows.reduce((acc, r) => {
+        const v = parseFloat(String(r[field])) || 0;
         return acc + (r.moeda === "USD" ? v * 5.2 : v);
       }, 0);
 
       const opCost = sumByCurrency(costRes.data || []);
       const adsCost = sumByCurrency(adsRes.data || []);
       const vendas = vendasRes.data || [];
-      const revenue = vendas.reduce((a: number, v: any) => a + getRevenue(v, revenueMode), 0);
+      const revenue = vendas.reduce((a: number, v) => a + getRevenue(v, revenueMode), 0);
       const pixRows = pixRes.data || [];
-      const pixPendingValue = pixRows.reduce((a: number, v: any) => a + (parseFloat(v.valor) || 0), 0);
+      const pixPendingValue = pixRows.reduce((a: number, v) => a + (parseFloat(String(v.valor)) || 0), 0);
 
       return {
         projects: projRes.count || 0,
@@ -132,7 +132,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
     { label: "Leads", drill: "leads" as DrillMetric, value: stats.leads, prev: prevStats.leads, icon: Users, gradient: "from-blue-500/15 to-blue-500/5", iconBg: "bg-blue-500/15 text-blue-400", textColor: "text-blue-400", inverse: false, formatted: String(stats.leads) },
     { label: "Tarefas Pend.", nav: "/tarefas", value: stats.tasks, prev: prevStats.tasks, icon: ListTodo, gradient: "from-amber-500/15 to-amber-500/5", iconBg: "bg-amber-500/15 text-amber-400", textColor: "text-amber-400", inverse: true, formatted: String(stats.tasks) },
     { label: "Projetos", nav: "/projetos", value: stats.projects, prev: prevStats.projects, icon: FolderKanban, gradient: "from-secondary/30 to-secondary/10", iconBg: "bg-secondary text-foreground", textColor: "text-foreground", inverse: false, formatted: String(stats.projects) },
-  ] as any[];
+  ];
 
   // Cockpit strip — 6 KPIs principais em linha
   if (variant === "strip") {
@@ -145,7 +145,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
             return (
               <button
                 key={s.label}
-                onClick={clickable ? () => { s.drill ? openDrill(s.drill) : navigate(s.nav); } : undefined}
+                onClick={clickable ? () => { if (s.drill) { openDrill(s.drill); } else { navigate(s.nav); } } : undefined}
                 className={`text-left px-4 py-4 transition-colors animate-fade-in ${clickable ? "cursor-pointer hover:bg-secondary/30" : "cursor-default"}`}
                 style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
               >
@@ -181,7 +181,7 @@ export default function DashboardStats({ period, projectFilter, productFilter, c
           return (
             <Card
               key={s.label}
-              onClick={clickable ? () => { s.drill ? openDrill(s.drill) : navigate(s.nav); } : undefined}
+              onClick={clickable ? () => { if (s.drill) { openDrill(s.drill); } else { navigate(s.nav); } } : undefined}
               className={`bg-gradient-to-br ${s.gradient} border-border hover:scale-[1.03] transition-all duration-200 ${clickable ? "cursor-pointer" : "cursor-default"} animate-fade-in`}
               style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
             >

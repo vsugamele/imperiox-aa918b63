@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,10 +32,12 @@ const WEBHOOK_URL = (projectId: string) =>
 const ZERNIO_WEBHOOK_URL = (projectId: string) =>
   `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/zernio-webhook?project=${projectId}`;
 
+type ZernioAccount = { id: string; _id?: string; platformUserId: string; username: string | null; name?: string | null; avatarUrl?: string | null };
+
 interface Props { projectId: string }
 
 export function ProjetoInstagram({ projectId }: Props) {
-  const [account, setAccount] = useState<any>(null);
+  const [account, setAccount] = useState<Tables<"imphq_ig_accounts"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,13 +52,13 @@ export function ProjetoInstagram({ projectId }: Props) {
   // Form Zernio
   const [integrationMethod, setIntegrationMethod] = useState<"meta" | "zernio">("meta");
   const [zernioApiKey, setZernioApiKey] = useState("");
-  const [zernioAccounts, setZernioAccounts] = useState<any[]>([]);
+  const [zernioAccounts, setZernioAccounts] = useState<ZernioAccount[]>([]);
   const [selectedZernioAccountId, setSelectedZernioAccountId] = useState("");
   const [fetchingZernioAccounts, setFetchingZernioAccounts] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
 
   // Form AI Config
-  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [aiConfig, setAiConfig] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
   const [instagramEnabled, setInstagramEnabled] = useState(false);
   const [instagramCommentsEnabled, setInstagramCommentsEnabled] = useState(false);
   const [instagramCommentsBehavior, setInstagramCommentsBehavior] = useState("reply_and_dm");
@@ -61,25 +66,25 @@ export function ProjetoInstagram({ projectId }: Props) {
   const [savingAi, setSavingAi] = useState(false);
   const [productFocus, setProductFocus] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
-    const sb = supabase as any;
+    const sb = supabase;
     const [accRes, credRes, configRes, projectRes] = await Promise.all([
       sb.from("imphq_ig_accounts").select("*").eq("project_id", projectId).maybeSingle(),
       sb.from("imphq_integration_credentials").select("credentials").eq("project_id", projectId).eq("provider", "instagram").maybeSingle(),
       sb.from("imphq_wa_ai_config").select("*").eq("project_id", projectId).is("provider_id", null).maybeSingle(),
       sb.from("imphq_projects").select("data").eq("id", projectId).maybeSingle(),
-    ] as PromiseLike<any>[]);
+    ]);
     setAccount(accRes.data);
-    const c = credRes.data?.credentials || {};
-    if (c.app_id) setAppId(c.app_id);
-    if (c.app_secret) setAppSecret(c.app_secret);
-    if (c.webhook_verify_token) setVerifyToken(c.webhook_verify_token);
+    const c = jsonFields(credRes.data?.credentials);
+    if (typeof c.app_id === "string") setAppId(c.app_id);
+    if (typeof c.app_secret === "string") setAppSecret(c.app_secret);
+    if (typeof c.webhook_verify_token === "string") setVerifyToken(c.webhook_verify_token);
 
     if (c.auth_method === "zernio") {
       setIntegrationMethod("zernio");
-      setZernioApiKey(c.zernio_api_key || "");
-      setSelectedZernioAccountId(c.zernio_account_id || "");
+      setZernioApiKey(jsonText(c.zernio_api_key) || "");
+      setSelectedZernioAccountId(jsonText(c.zernio_account_id) || "");
     } else {
       setIntegrationMethod("meta");
     }
@@ -99,19 +104,21 @@ export function ProjetoInstagram({ projectId }: Props) {
     }
 
     if (projectRes.data) {
-      const d = typeof projectRes.data.data === "string" ? JSON.parse(projectRes.data.data) : (projectRes.data.data || {});
-      setProductFocus(d.produtos?.[0]?.oferta || d.briefing?.oferta || "");
+      const raw: Json = typeof projectRes.data.data === "string" ? JSON.parse(projectRes.data.data) : projectRes.data.data;
+      const d = jsonFields(raw);
+      const product = jsonFields(Array.isArray(d.produtos) ? d.produtos[0] : null);
+      setProductFocus(jsonText(product.oferta) || jsonText(jsonFields(d.briefing).oferta) || "");
     }
     
     setLoading(false);
-  }
+  }, [projectId]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   async function saveAiConfig() {
     setSavingAi(true);
     try {
-      const sb = supabase as any;
+      const sb = supabase;
       const payload = {
         instagram_enabled: instagramEnabled,
         instagram_comments_enabled: instagramCommentsEnabled,
@@ -140,8 +147,8 @@ export function ProjetoInstagram({ projectId }: Props) {
       if (error) throw error;
       toast.success("Configurações de IA do Instagram salvas!");
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar configurações de IA");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao salvar configurações de IA");
     } finally {
       setSavingAi(false);
     }
@@ -159,8 +166,8 @@ export function ProjetoInstagram({ projectId }: Props) {
       toast.success(`Conectado: @${data.account.username}`);
       setAccessToken("");
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao conectar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao conectar");
     } finally {
       setSaving(false);
     }
@@ -175,22 +182,22 @@ export function ProjetoInstagram({ projectId }: Props) {
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast.success("Token renovado por +60 dias");
       await load();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setRefreshing(false);
     }
   }
 
   async function saveVerifyToken() {
-    const sb = supabase as any;
+    const sb = supabase;
     const { data: cur } = await sb
       .from("imphq_integration_credentials")
       .select("id, credentials")
       .eq("project_id", projectId)
       .eq("provider", "instagram")
       .maybeSingle();
-    const credentials = { ...(cur?.credentials || {}), webhook_verify_token: verifyToken };
+    const credentials = { ...jsonFields(cur?.credentials), webhook_verify_token: verifyToken };
     if (cur) {
       await sb.from("imphq_integration_credentials").update({ credentials }).eq("id", cur.id);
     } else {
@@ -215,15 +222,21 @@ export function ProjetoInstagram({ projectId }: Props) {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       
-      const accounts = data.accounts || [];
+      const values: Json = data.accounts;
+      const accounts = Array.isArray(values) ? values.flatMap(value => {
+        const item = jsonFields(value);
+        const id = jsonText(item.id) || jsonText(item._id);
+        if (!id || typeof item.platformUserId !== "string") return [];
+        return [{ id, platformUserId: item.platformUserId, username: jsonText(item.username) || null, name: jsonText(item.name), avatarUrl: jsonText(item.avatarUrl) }];
+      }) : [];
       setZernioAccounts(accounts);
       if (accounts.length === 0) {
         toast.warning("Nenhuma conta do Instagram encontrada nesta chave do Zernio");
       } else {
         toast.success(`${accounts.length} conta(s) encontrada(s)`);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao buscar contas no Zernio");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao buscar contas no Zernio");
     } finally {
       setFetchingZernioAccounts(false);
     }
@@ -240,7 +253,7 @@ export function ProjetoInstagram({ projectId }: Props) {
     }
     
     let selectedAcc = zernioAccounts.find(acc => (acc.id || acc._id) === selectedZernioAccountId);
-    if (!selectedAcc && selectedZernioAccountId === account?.page_id) {
+    if (!selectedAcc && account?.page_id && selectedZernioAccountId === account.page_id) {
       selectedAcc = {
         _id: account.page_id,
         id: account.page_id,
@@ -277,8 +290,8 @@ export function ProjetoInstagram({ projectId }: Props) {
       
       toast.success(`Conectado via Zernio: @${data.account.username}`);
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao conectar via Zernio");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao conectar via Zernio");
     } finally {
       setSaving(false);
     }
@@ -360,7 +373,7 @@ export function ProjetoInstagram({ projectId }: Props) {
       </Card>
 
       {/* ─── TABS DE SELEÇÃO DE MÉTODO ─── */}
-      <Tabs value={integrationMethod} onValueChange={(val) => setIntegrationMethod(val as any)} className="w-full">
+      <Tabs value={integrationMethod} onValueChange={(val) => { if (val === "meta" || val === "zernio") setIntegrationMethod(val); }} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="meta" className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-lg py-2.5 transition-all text-sm font-medium flex items-center justify-center gap-2">
             <Instagram className="h-4 w-4 text-pink-500" />
@@ -655,8 +668,8 @@ export function ProjetoInstagram({ projectId }: Props) {
                       if (error) throw error;
                       if (data?.error) throw new Error(data.error);
                       toast.success(`Sincronizado: ${data.conversations_processed} conversas, ${data.messages_imported} mensagens`);
-                    } catch (e: any) {
-                      toast.error(e.message || "Falha ao sincronizar");
+                    } catch (e: unknown) {
+                      toast.error(errorMessage(e) || "Falha ao sincronizar");
                     } finally {
                       setBackfilling(false);
                     }

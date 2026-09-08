@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +22,7 @@ interface Prediction {
 }
 
 interface Props {
-  lead: any;
+  lead: { id: string; phone?: string | null; data?: Json };
 }
 
 export default function NextBestActionInline({ lead }: Props) {
@@ -27,7 +30,7 @@ export default function NextBestActionInline({ lead }: Props) {
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!lead?.id) return;
     setLoading(true);
     const { data } = await supabase
@@ -37,11 +40,11 @@ export default function NextBestActionInline({ lead }: Props) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    setPred((data as any) || null);
+    setPred(data ? { ...data, recommended_actions: Array.isArray(data.recommended_actions) ? data.recommended_actions.filter((v): v is string => typeof v === "string") : [] } : null);
     setLoading(false);
-  };
+  }, [lead?.id]);
 
-  useEffect(() => { load(); }, [lead?.id]);
+  useEffect(() => { load(); }, [load]);
 
   const analyze = async () => {
     if (!lead?.id) return;
@@ -51,13 +54,13 @@ export default function NextBestActionInline({ lead }: Props) {
       if (error) throw error;
       if (data?.ok) { toast.success("Predição gerada"); await load(); }
       else toast.error(data?.error || "Erro");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally { setAnalyzing(false); }
   };
 
   const nba = pred?.next_best_action || "";
-  const phone = onlyDigits(lead?.phone || lead?.data?.phone || "");
+  const phone = onlyDigits(lead?.phone || jsonText(jsonFields(lead?.data).phone) || "");
   const isWhatsApp = /whats|zap|mensag/i.test(nba);
   const isCall = /ligar|liga|telefon/i.test(nba);
 

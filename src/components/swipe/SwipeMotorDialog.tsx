@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,8 @@ export function SwipeMotorDialog({ open, onOpenChange, swipeIds, onDone }: Props
       onDone();
       onOpenChange(false);
       setBriefing("");
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setLoading(false);
     }

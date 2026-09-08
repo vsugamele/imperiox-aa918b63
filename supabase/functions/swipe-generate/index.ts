@@ -1,6 +1,12 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Swipe File — Motor de geração: variations | extract_template | bulk_campaign
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireUser } from "../_shared/require-auth.ts";
+
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const ProjectContext = z.object({ produtos: z.array(z.object({ id: z.string().nullish(), nome: z.string().nullish() }).passthrough()).nullish(), avatar: z.unknown(), branding: z.unknown() }).passthrough();
+const GeneratedCopy = z.object({ title: z.string().nullish(), blocks: z.record(z.unknown()).nullish(), source_index: z.number().optional() }).passthrough();
+const GeneratedCopies = z.object({ variations: z.array(GeneratedCopy).nullish(), copies: z.array(GeneratedCopy).nullish() }).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +17,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function callAI(messages: any[], json = true) {
+async function callAI(messages: { role: string; content: string }[], json = true) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
@@ -26,13 +32,13 @@ async function callAI(messages: any[], json = true) {
   return d.choices?.[0]?.message?.content || "{}";
 }
 
-async function getProjectContext(supabase: any, project_id: string | null, produto_id: string | null) {
+async function getProjectContext(supabase: ReturnType<typeof makeClient>, project_id: string | null, produto_id: string | null) {
   if (!project_id) return "";
   const { data: p } = await supabase.from("imphq_projects").select("nome, data").eq("id", project_id).single();
   if (!p) return "";
-  const d = typeof p.data === "string" ? JSON.parse(p.data) : (p.data || {});
+  const d = ProjectContext.parse(typeof p.data === "string" ? JSON.parse(p.data) : (p.data || {}));
   const produtos = d.produtos || [];
-  const produto = produto_id ? produtos.find((x: any) => x.id === produto_id || x.nome === produto_id) : produtos[0];
+  const produto = produto_id ? produtos.find((x) => x.id === produto_id || x.nome === produto_id) : produtos[0];
   return `\n\nCONTEXTO DO PROJETO "${p.nome}":
 - Avatar: ${JSON.stringify(d.avatar || {}).slice(0, 1500)}
 - Branding/tom: ${JSON.stringify(d.branding || {}).slice(0, 800)}
@@ -75,8 +81,8 @@ ${ctx}
 Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "participacao_ativa":"...", "narrativa":"...", "reframe":"...", "cta_engajamento":"...", "cta_venda":"..." } } ] }` },
       ]);
       const parsed = JSON.parse(out);
-      const variations = parsed.variations || [];
-      const rows = variations.map((v: any) => ({
+      const variations = GeneratedCopies.parse(parsed).variations || [];
+      const rows = variations.map((v) => ({
         user_id: user.id,
         project_id: target_project_id,
         produto_id: target_produto_id,
@@ -92,7 +98,7 @@ Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "p
         source_swipe_id: swipe.id,
         status: "rascunho",
       }));
-      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows as any).select();
+      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows).select();
       return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0, variations: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -105,7 +111,7 @@ Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "p
         { role: "user", content: `Analise as copys abaixo e destile a FÓRMULA reutilizável que elas compartilham.
 
 COPYS:
-${swipes.map((s: any, i: number) => `--- COPY ${i + 1}: ${s.title} ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
+${swipes.map((s, i: number) => `--- COPY ${i + 1}: ${s.title} ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
 
 Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skeleton": { "gancho": "template com {placeholders}", "participacao_ativa": "...", "narrativa": "...", "reframe": "...", "cta_engajamento": "...", "cta_venda": "..." }, "notes": "quando usar essa fórmula" }` },
       ]);
@@ -117,7 +123,7 @@ Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skel
         skeleton: parsed.skeleton || {},
         notes: parsed.notes || "",
         source_swipe_ids: ids,
-      } as any).select().single();
+      }).select().single();
       return new Response(JSON.stringify({ ok: true, template: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -130,7 +136,7 @@ Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skel
         { role: "user", content: `Pegue cada copy-fonte abaixo e gere UMA copy nova adaptada ao contexto, mantendo a estrutura única de cada fonte.
 
 COPYS-FONTE:
-${swipes.map((s: any, i: number) => `--- ${i + 1}. ${s.title} (${s.mecanismo || "?"}) ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
+${swipes.map((s, i: number) => `--- ${i + 1}. ${s.title} (${s.mecanismo || "?"}) ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
 
 BRIEFING: ${briefing || "(nenhum)"}
 ${ctx}
@@ -138,9 +144,9 @@ ${ctx}
 Devolva JSON: { "copies": [ { "source_index": 0, "title": "...", "blocks": {...} }, ... ] }` },
       ]);
       const parsed = JSON.parse(out);
-      const copies = parsed.copies || [];
-      const rows = copies.map((c: any) => {
-        const src = swipes[c.source_index] || swipes[0];
+      const copies = GeneratedCopies.parse(parsed).copies || [];
+      const rows = copies.map((c) => {
+        const src = swipes[c.source_index ?? -1] || swipes[0];
         return {
           user_id: user.id,
           project_id: target_project_id,
@@ -157,7 +163,7 @@ Devolva JSON: { "copies": [ { "source_index": 0, "title": "...", "blocks": {...}
           status: "rascunho",
         };
       });
-      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows as any).select();
+      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows).select();
       return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -232,16 +238,16 @@ Devolva JSON:
             mecanismo_unico: parsed.mecanismo_unico,
             origem: `Gerada a partir de "${swipe.title}"`,
           },
-        } as any)
+        })
         .select()
         .single();
       return new Response(JSON.stringify({ ok: true, swipe: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "mode inválido" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[swipe-generate]", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
 

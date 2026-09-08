@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -69,8 +69,8 @@ export function StudioPrompts() {
       .eq("user_id", user.id)
       .eq("entity_type", "prompt");
     const favs = new Set<string>();
-    (data || []).forEach((r: any) => {
-      if (r.state?.favorito) favs.add(r.entity_id);
+    (data || []).forEach((r) => {
+      if (jsonFields(r.state).favorito === true) favs.add(r.entity_id);
     });
     setFavoritos(favs);
   }
@@ -128,8 +128,8 @@ export function StudioPrompts() {
       prompts.filter((p) => p.nicho === "cartomantes").map((p) => `${p.codigo}|${p.titulo}`),
     );
     const rows = cartomantesSeed.prompts
-      .filter((p: any) => !existing.has(`${p.id}|${p.titulo}`))
-      .map((p: any, i: number) => ({
+      .filter((p) => !existing.has(`${p.id}|${p.titulo}`))
+      .map((p, i: number) => ({
         nicho: "cartomantes",
         codigo: p.id,
         titulo: p.titulo,
@@ -294,7 +294,7 @@ export function StudioPrompts() {
                   } cursor-pointer`}
                   onClick={() => {
                     const next = new Set(expanded);
-                    isExp ? next.delete(p.id) : next.add(p.id);
+                    if (isExp) { next.delete(p.id); } else { next.add(p.id); }
                     setExpanded(next);
                   }}
                 >
@@ -361,3 +361,4 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
     </div>
   );
 }
+import { jsonFields } from "@/lib/json-fields";

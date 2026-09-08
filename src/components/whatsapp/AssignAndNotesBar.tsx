@@ -43,10 +43,10 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     if (!conversationId) return;
     supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until,status").eq("id", conversationId).maybeSingle()
       .then(({ data }) => {
-        setAssignedTo((data as any)?.assigned_to || null);
-        setSnoozedUntil((data as any)?.snoozed_until || null);
-        setAiPausedUntil((data as any)?.ai_paused_until || null);
-        setConvStatus((data as any)?.status || null);
+        setAssignedTo(data?.assigned_to || null);
+        setSnoozedUntil(data?.snoozed_until || null);
+        setAiPausedUntil(data?.ai_paused_until || null);
+        setConvStatus(data?.status || null);
       });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
@@ -65,7 +65,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   const assign = async (userId: string | null) => {
     setAssignedTo(userId);
-    const { error } = await supabase.from("imphq_wa_conversations").update({ assigned_to: userId } as any).eq("id", conversationId);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ assigned_to: userId }).eq("id", conversationId);
     if (error) { toast.error("Falha ao atribuir"); return; }
     toast.success(userId ? "Atribuída" : "Atribuição removida");
   };
@@ -78,7 +78,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
       author_id: me?.id || null,
       author_name: me?.name || null,
       content: c,
-    } as any);
+    });
     if (error) { toast.error("Falha ao salvar nota"); return; }
     setNewNote("");
   };
@@ -91,7 +91,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const snooze = async (mins: number | null) => {
     const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
     setSnoozedUntil(until);
-    const { error } = await supabase.from("imphq_wa_conversations").update({ snoozed_until: until } as any).eq("id", conversationId);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ snoozed_until: until }).eq("id", conversationId);
     if (error) { toast.error("Falha ao silenciar"); return; }
     toast.success(until ? `Silenciada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "Silêncio removido");
   };
@@ -99,7 +99,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const pauseAi = async (mins: number | null) => {
     const until = mins === null ? null : new Date(Date.now() + mins * 60000).toISOString();
     setAiPausedUntil(until);
-    const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: until } as any).eq("id", conversationId);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: until }).eq("id", conversationId);
     if (error) { toast.error("Falha ao pausar IA"); return; }
     toast.success(until ? `IA pausada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "IA reativada");
   };
@@ -112,7 +112,7 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const resumeAi = async () => {
     const { error } = await supabase
       .from("imphq_wa_conversations")
-      .update({ status: "active", ai_paused_until: null } as any)
+      .update({ status: "active", ai_paused_until: null })
       .eq("id", conversationId);
     if (error) { toast.error("Falha ao retomar IA"); return; }
     setConvStatus("active");

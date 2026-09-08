@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,36 +8,36 @@ import { NotebookPen, Plus, Pin, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Props { projectId: string; }
 
 export function ProjetoNotasCard({ projectId }: Props) {
   const { user } = useAuth();
-  const [notes, setNotes] = useState<any[]>([]);
+  const [notes, setNotes] = useState<Tables<"imphq_project_notes">[]>([]);
   const [adding, setAdding] = useState(false);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
-    const { data } = await (supabase as any).from("imphq_project_notes")
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("imphq_project_notes")
       .select("*").eq("project_id", projectId)
       .order("pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(20);
     setNotes(data || []);
-  };
+  }, [projectId]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   const save = async () => {
     if (!content.trim()) return;
     setSaving(true);
-    const sb: any = supabase;
+    const sb = supabase;
     const { error } = await sb.from("imphq_project_notes").insert({
       project_id: projectId,
       author_id: user?.id || null,
-      author_name: (user as any)?.email?.split("@")[0] || "Usuário",
+      author_name: user?.email?.split("@")[0] || "Usuário",
       content: content.trim(),
     });
     setSaving(false);
@@ -44,13 +45,13 @@ export function ProjetoNotasCard({ projectId }: Props) {
     setContent(""); setAdding(false); load();
   };
 
-  const togglePin = async (n: any) => {
-    await (supabase as any).from("imphq_project_notes").update({ pinned: !n.pinned }).eq("id", n.id);
+  const togglePin = async (n: Tables<"imphq_project_notes">) => {
+    await supabase.from("imphq_project_notes").update({ pinned: !n.pinned }).eq("id", n.id);
     load();
   };
 
   const remove = async (id: string) => {
-    await (supabase as any).from("imphq_project_notes").delete().eq("id", id);
+    await supabase.from("imphq_project_notes").delete().eq("id", id);
     load();
   };
 

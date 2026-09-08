@@ -1,6 +1,22 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Webhook do Zernio — recebe DMs/comentários do Zernio, traduz para Meta e encaminha para instagram-webhook
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runCommentTrigger, runDmTrigger } from "../_shared/ig-trigger-match.ts";
+
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+const Text = z.string().nullish();
+const Story = z.object({ id: Text }).passthrough();
+const Profile = z.object({ username: Text, displayName: Text, profilePicture: Text, isFollower: z.boolean().nullish(), isFollowing: z.boolean().nullish(), followerCount: z.number().nullish(), isVerified: z.boolean().nullish() }).passthrough();
+const Person = z.object({ id: Text, contactId: Text, platformId: Text, username: Text, name: Text, avatar: Text, profilePicture: Text, role: Text, type: Text, instagramProfile: Profile.nullish() }).passthrough();
+const Attachment = z.object({ originalType: Text, type: Text, url: Text, payload: z.object({ url: Text }).passthrough().nullish() }).passthrough();
+const Reply = z.object({ story: Story.nullish() }).passthrough();
+const Message = z.object({ id: Text, messageId: Text, text: Text, content: Text, body: Text, sender: Person.nullish(), recipient: Person.nullish(), attachments: z.array(Attachment).nullish(), storyId: Text, story_id: Text, replyTo: Reply.nullish(), reply_to: Reply.nullish(), context: z.object({ story: z.union([Story, z.string()]).nullish() }).passthrough().nullish(), messageType: Text, type: Text, contextType: Text, sentAt: Text }).passthrough();
+const Conversation = z.object({ id: Text, conversationId: Text, participants: z.array(Person).nullish(), participantId: Text, platformConversationId: Text, participantUsername: Text, participantName: Text, participantPicture: Text, storyId: Text, story_id: Text, replyTo: Reply.nullish() }).passthrough();
+const Comment = z.object({ id: Text, commentId: Text, mediaId: Text, media: Story.nullish(), text: Text, message: Text, from: Person.nullish(), userId: Text, username: Text, parentId: Text, parent_id: Text, createdAt: Text, timestamp: Text, adContext: z.unknown() }).passthrough();
+const Media = z.object({ id: Text, ig_id: Text, igMediaId: Text, media_id: Text, mediaId: Text, mediaType: Text, media_type: Text, type: Text, mediaProductType: Text, media_product_type: Text, caption: Text, text: Text, permalink: Text, link: Text, thumbnailUrl: Text, thumbnail_url: Text, mediaUrl: Text, media_url: Text, timestamp: Text, publishedAt: Text, createdAt: Text, insights: z.record(z.unknown()).nullish(), metrics: z.record(z.unknown()).nullish(), stats: z.record(z.unknown()).nullish() }).passthrough();
+const EventData = z.object({ commentId: Text, mediaId: Text, message: z.union([Message, z.string()]).nullish(), conversation: Conversation.nullish(), account: z.object({ id: Text, platformUserId: Text, instagramScopedId: Text }).passthrough().nullish(), accountId: Text, account_id: Text, comment: Comment.nullish(), post: Media.nullish(), media: Media.nullish(), messageId: Text, conversationId: Text, text: Text, sender: Person.nullish(), recipientId: Text, contactId: Text, senderId: Text, participantUsername: Text, participantName: Text, participantPicture: Text, igUserId: Text, storyId: Text, story_id: Text, timestamp: z.union([z.string(), z.number()]).nullish() }).passthrough();
+const WebhookPayload = EventData.extend({ event: Text, id: Text, eventId: Text, data: EventData.nullish() });
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +24,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-async function persistIgMedia(supa: any, remoteUrl: string | null | undefined, projectId: string, key: string): Promise<string | null> {
+async function persistIgMedia(supa: ReturnType<typeof makeClient>, remoteUrl: string | null | undefined, projectId: string, key: string): Promise<string | null> {
   if (!remoteUrl || !projectId || !key) return null;
   try {
     const r = await fetch(remoteUrl);
@@ -29,8 +45,8 @@ async function persistIgMedia(supa: any, remoteUrl: string | null | undefined, p
     if (error) { console.warn("[ig-media] upload:", error.message); return null; }
     const { data } = supa.storage.from("ig-media").getPublicUrl(path);
     return data?.publicUrl || null;
-  } catch (e: any) {
-    console.warn("[ig-media] fetch err:", e?.message || e);
+  } catch (e) {
+    console.warn("[ig-media] fetch err:", errorMessage(e) || e);
     return null;
   }
 }
@@ -48,20 +64,22 @@ Deno.serve(async (req) => {
     return new Response("Missing project", { status: 400 });
   }
 
-  let payload: any = null;
+  let payload: z.infer<typeof WebhookPayload>;
   // Guardado fora do try para o catch atualizar o log por id (evita varredura
   // completa da tabela com filtro em payload->>id, que não é indexado)
   let logRowId: string | null = null;
   try {
-    payload = await req.json();
+    payload = WebhookPayload.parse(await req.json());
     console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
 
     // Dedupe idempotente — extrai messageId cedo
-    const earlyMessageId = payload?.data?.message?.id
-      || payload?.data?.message?.messageId
+    const earlyDataMessage = typeof payload.data?.message === "object" ? payload.data.message : null;
+    const earlyRootMessage = typeof payload.message === "object" ? payload.message : null;
+    const earlyMessageId = earlyDataMessage?.id
+      || earlyDataMessage?.messageId
       || payload?.data?.messageId
-      || payload?.message?.id
-      || payload?.message?.messageId
+      || earlyRootMessage?.id
+      || earlyRootMessage?.messageId
       || null;
 
     if (earlyMessageId) {
@@ -95,12 +113,12 @@ Deno.serve(async (req) => {
       payload,
       processed: false,
     }).select("id").maybeSingle();
-    logRowId = (logEntry as any)?.id ?? null;
+    logRowId = logEntry?.id ?? null;
 
     // === COMMENT EVENTS (comment.received etc) ===
     if (typeof payload.event === "string" && payload.event.startsWith("comment.")) {
       const d = payload.data || payload;
-      const c = d.comment || d;
+      const c = Comment.parse(d.comment || d);
       const commentId = c.id || c.commentId || d.commentId;
       const mediaId = c.mediaId || c.media?.id || d.mediaId;
       const text = c.text || c.message || "";
@@ -173,8 +191,8 @@ Deno.serve(async (req) => {
           commentText: text || "",
           fromUsername,
         });
-      } catch (e: any) {
-        console.warn(`[zernio-webhook] runCommentTrigger err: ${e?.message || e}`);
+      } catch (e) {
+        console.warn(`[zernio-webhook] runCommentTrigger err: ${errorMessage(e) || e}`);
       }
       return new Response("OK", { status: 200 });
     }
@@ -185,7 +203,7 @@ Deno.serve(async (req) => {
       (payload.event.startsWith("post.") || payload.event.startsWith("media."))
     ) {
       const d = payload.data || payload;
-      const p = d.post || d.media || d;
+      const p = Media.parse(d.post || d.media || d);
       const zernioAccountId = d.account?.id || d.accountId || d.account_id;
       const igMediaId = p.ig_id || p.igMediaId || p.media_id || p.mediaId || p.id;
       if (!igMediaId) {
@@ -225,7 +243,7 @@ Deno.serve(async (req) => {
       }, { onConflict: "account_id,ig_media_id" }).select("id").maybeSingle();
 
       const m = p.insights || p.metrics || p.stats || p;
-      const num = (...v: any[]) => { for (const x of v) { const n = Number(x); if (Number.isFinite(n) && n > 0) return n; } return 0; };
+      const num = (...v: unknown[]) => { for (const x of v) { const n = Number(x); if (Number.isFinite(n) && n > 0) return n; } return 0; };
       const likes = num(m.likes, m.likeCount, m.like_count, p.likes_count);
       const comments = num(m.comments, m.commentCount, m.comments_count, p.comments_count);
       const saves = num(m.saves, m.saved);
@@ -260,7 +278,7 @@ Deno.serve(async (req) => {
 
     const isOutbound = payload.event === "message.sent";
     const data = payload.data || payload;
-    const message = data.message;
+    const message = Message.parse(data.message || {});
     const conversation = data.conversation;
     const account = data.account;
 
@@ -269,7 +287,7 @@ Deno.serve(async (req) => {
     const conversationId = conversation?.id || conversation?.conversationId || data.conversationId;
     const text           = message?.text || message?.content || message?.body || data.text || "";
     const attachments    = Array.isArray(message?.attachments)
-      ? message.attachments.map((att: any) => ({
+      ? message.attachments.map((att) => ({
           type: att.originalType || att.type || "file",
           payload: { url: att.payload?.url || att.url || null },
         }))
@@ -279,7 +297,7 @@ Deno.serve(async (req) => {
     // Para inbound, o sender já é o próprio lead.
     const sender       = isOutbound
       ? {}
-      : (message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {});
+      : (message?.sender || data.sender || conversation?.participants?.find((p) => p.role === "customer" || p.type === "customer") || {});
     const senderId     = isOutbound
       ? (conversation?.participantId || conversation?.platformConversationId || data.recipientId)
       : (sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId);
@@ -369,19 +387,19 @@ Deno.serve(async (req) => {
     const replyToStory = message?.replyTo?.story
       || message?.reply_to?.story
       || conversation?.replyTo?.story
-      || (message?.context?.story ? { id: message.context.story.id || message.context.story } : null)
+      || (message?.context?.story ? { id: typeof message.context.story === "string" ? message.context.story : message.context.story.id } : null)
       || (rawStoryId ? { id: String(rawStoryId) } : null)
       || null;
     const msgType = String(message?.messageType || message?.type || message?.contextType || "").toLowerCase();
     const looksLikeStoryReply = /story[_-]?reply|reply[_-]?to[_-]?story/.test(msgType);
     const looksLikeStoryMention = /story[_-]?mention|mention[_-]?story/.test(msgType);
-    const attachmentHasStory = attachments.some((a: any) => {
+    const attachmentHasStory = attachments.some((a) => {
       const t = String(a?.type || "").toLowerCase();
       const u = String(a?.payload?.url || "").toLowerCase();
       return t === "story_mention" || t === "story" || t === "ig_story" || u.includes("/stories/");
     });
     const hasStoryAttachment = attachmentHasStory || looksLikeStoryMention;
-    const msgPayload: any = { mid: messageId, text, attachments };
+    const msgPayload: { mid: string; text: string; attachments: { type: string; payload: { url: string | null } }[]; reply_to?: { story: z.infer<typeof Story> } } = { mid: messageId, text, attachments };
     const finalReplyToStory = replyToStory || (looksLikeStoryReply && rawStoryId ? { id: String(rawStoryId) } : null);
     if (finalReplyToStory) msgPayload.reply_to = { story: finalReplyToStory };
     if (hasStoryAttachment) {
@@ -430,9 +448,9 @@ Deno.serve(async (req) => {
         console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}. Persistindo direto...`);
         if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: errText }).eq("id", logEntry.id);
       }
-    } catch (forwardErr: any) {
-      console.error(`[zernio-webhook] Erro ao encaminhar. Persistindo direto...`, forwardErr?.message || forwardErr);
-      if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: forwardErr?.message || "forward failed" }).eq("id", logEntry.id);
+    } catch (forwardErr) {
+      console.error(`[zernio-webhook] Erro ao encaminhar. Persistindo direto...`, errorMessage(forwardErr) || forwardErr);
+      if (logEntry) await supa.from("imphq_ig_webhook_logs").update({ error: errorMessage(forwardErr) || "forward failed" }).eq("id", logEntry.id);
     }
 
     if (!forwarded) {
@@ -490,7 +508,7 @@ Deno.serve(async (req) => {
     // Marca conta IG como ativa (heartbeat para card de saúde)
     if (dbAccId) {
       await supa.from("imphq_ig_accounts")
-        .update({ updated_at: new Date().toISOString() } as any)
+        .update({ updated_at: new Date().toISOString() })
         .eq("id", dbAccId);
     }
 
@@ -510,8 +528,8 @@ Deno.serve(async (req) => {
           dedupKey: messageId,
           username: senderUsername,
         });
-      } catch (e: any) {
-        console.warn(`[zernio-webhook] runDmTrigger err: ${e?.message || e}`);
+      } catch (e) {
+        console.warn(`[zernio-webhook] runDmTrigger err: ${errorMessage(e) || e}`);
       }
     }
 
@@ -529,7 +547,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (conv) {
-      const updates: any = {};
+      const updates: { ig_thread_id?: string; participant_name?: string; participant_username?: string; participant_avatar?: string; ig_profile_data?: { isFollower: boolean | null; isFollowing: boolean | null; followerCount: number | null; isVerified: boolean | null; updatedAt: string }; updated_at?: string } = {};
 
       // Sempre atualiza ig_thread_id se mudou
       if (conv.ig_thread_id !== conversationId) updates.ig_thread_id = conversationId;
@@ -562,17 +580,17 @@ Deno.serve(async (req) => {
     }
 
     return new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[zernio-webhook] Error processing webhook:", err);
     // Write error to log row if it exists
     try {
       const supaForErr = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       if (logRowId) {
-        await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).eq("id", logRowId);
+        await supaForErr.from("imphq_ig_webhook_logs").update({ error: errorMessage(err) || "Internal Error" }).eq("id", logRowId);
       }
-    } catch (dbErr: any) {
-      console.error("[zernio-webhook] Error updating error log in DB:", dbErr.message);
+    } catch (dbErr) {
+      console.error("[zernio-webhook] Error updating error log in DB:", errorMessage(dbErr));
     }
-    return new Response(err.message || "Internal Error", { status: 500 });
+    return new Response(errorMessage(err) || "Internal Error", { status: 500 });
   }
 });

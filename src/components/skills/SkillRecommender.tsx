@@ -1,3 +1,4 @@
+import { parseProjectData, record } from "@/lib/funis-data";
 // SkillRecommender.tsx — Sugere a próxima skill baseada no estado do projeto
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,11 +21,11 @@ interface Props {
 }
 
 function analyzeProjectAndRecommend(
-  project: any,
+  project: unknown,
   recentOutputs: { skill_id: string; skill_nome: string; created_at: string }[],
 ): Recommendation[] {
   const recs: Recommendation[] = [];
-  const d = typeof project?.data === "string" ? JSON.parse(project.data || "{}") : (project?.data || {});
+  const d = parseProjectData(record(project).data);
   const hasAvatar = !!d.avatar || recentOutputs.some(o => o.skill_id === "avatar-architect");
   const hasMecanismo = recentOutputs.some(o => o.skill_id === "mecanismo-unico");
   const hasLP = recentOutputs.some(o => o.skill_id === "lp-persuasiva");

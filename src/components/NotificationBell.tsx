@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import type { LucideIcon } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Bell, Check, CheckCheck, DollarSign, Users, ListTodo, Zap, Info, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ interface Notification {
   created_at: string;
 }
 
-const TYPE_ICONS: Record<string, any> = {
+const TYPE_ICONS: Record<string, LucideIcon> = {
   venda: DollarSign,
   lead: Users,
   pix: DollarSign,
@@ -42,6 +43,17 @@ export function NotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("imphq_notifications")
+      .select("id,title,message,type,entity_type,entity_id,read,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (data) setNotifications(data);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -70,18 +82,9 @@ export function NotificationBell() {
     }
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, loadNotifications]);
 
-  async function loadNotifications() {
-    if (!user) return;
-    const { data } = await supabase
-      .from("imphq_notifications")
-      .select("id,title,message,type,entity_type,entity_id,read,created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (data) setNotifications(data as Notification[]);
-  }
+
 
   async function markRead(id: string) {
     await supabase.from("imphq_notifications").update({ read: true }).eq("id", id);

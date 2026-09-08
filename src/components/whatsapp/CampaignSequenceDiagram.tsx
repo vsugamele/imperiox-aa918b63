@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
 import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,11 +35,21 @@ interface Props {
   onClose: () => void;
   steps: Step[];
   baseDate?: Date;
-  onUpdateStep?: (id: string, field: string, value: any) => void | Promise<void>;
+  onUpdateStep?: (id: string, field: keyof Step, value: Step[keyof Step]) => void | Promise<void>;
   onReorder?: (fromId: string, toIdx: number, newOffset?: number) => void | Promise<void>;
 }
 
-const ICONS: Record<string, any> = { text: Type, image: ImageIcon, audio: Mic, video: Video, document: FileText };
+interface ViewProps {
+  sorted: Step[];
+  grouped?: Array<[number, Step[]]>;
+  base: Date;
+  signals: Map<string, "ok" | "conflict" | "gap" | "media">;
+  signalColor?: (signal: string | undefined) => string;
+  onUpdateStep?: Props["onUpdateStep"];
+  onReorder?: Props["onReorder"];
+}
+
+const ICONS: Record<string, LucideIcon> = { text: Type, image: ImageIcon, audio: Mic, video: Video, document: FileText };
 
 function timeToMinutes(t: string) {
   const [h, m] = (t || "09:00").split(":").map(Number);
@@ -61,7 +73,7 @@ function StepEditPopover({ step, baseDate, children, onUpdateStep }: { step: Ste
 
   if (!onUpdateStep) return <>{children}</>;
 
-  const commit = (field: string, value: any) => onUpdateStep(step.id, field, value);
+  const commit = (field: keyof Step, value: Step[keyof Step]) => onUpdateStep(step.id, field, value);
   const baseDay = startOfDay(baseDate);
   const currentDate = addDays(baseDay, local.days_offset);
 
@@ -200,8 +212,8 @@ export default function CampaignSequenceDiagram({ open, onClose, steps, baseDate
       link.href = dataUrl;
       link.click();
       toast.success("PNG exportado!");
-    } catch (e: any) {
-      toast.error("Falha ao exportar: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha ao exportar: " + errorMessage(e));
     }
   };
 
@@ -219,7 +231,7 @@ export default function CampaignSequenceDiagram({ open, onClose, steps, baseDate
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="font-serif text-xl">Diagrama da Sequência · {sorted.length} mensagens</DialogTitle>
             <div className="flex items-center gap-2">
-              <ToggleGroup type="single" value={mode} onValueChange={(v) => v && setMode(v as any)} className="bg-background/40 rounded-md p-0.5">
+              <ToggleGroup type="single" value={mode} onValueChange={(v) => (v === "timeline" || v === "flow" || v === "calendar") && setMode(v)} className="bg-background/40 rounded-md p-0.5">
                 <ToggleGroupItem value="timeline" className="h-8 px-3 text-xs gap-1.5 data-[state=on]:bg-gold/20 data-[state=on]:text-gold">
                   <CalendarDays className="h-3.5 w-3.5" /> Timeline
                 </ToggleGroupItem>
@@ -262,7 +274,7 @@ export default function CampaignSequenceDiagram({ open, onClose, steps, baseDate
 }
 
 // ─────────── TIMELINE ───────────
-function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateStep, onReorder }: any) {
+function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateStep, onReorder }: ViewProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropOffset, setDropOffset] = useState<number | null>(null);
   const canEdit = !!onUpdateStep;
@@ -290,7 +302,7 @@ function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateSte
 
   return (
     <div className="flex gap-3 min-w-max">
-      {grouped.map(([offset, daySteps]: any) => {
+      {grouped.map(([offset, daySteps]) => {
         const date = addDays(base, offset);
         const isDropTarget = canDrag && draggingId && dropOffset === offset;
         return (
@@ -345,7 +357,7 @@ function TimelineView({ grouped, sorted, base, signals, signalColor, onUpdateSte
 }
 
 // ─────────── FLOW ───────────
-function FlowView({ sorted, base, signals, signalColor, onUpdateStep, onReorder }: any) {
+function FlowView({ sorted, base, signals, signalColor, onUpdateStep, onReorder }: ViewProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
   const canEdit = !!onUpdateStep;
@@ -422,7 +434,7 @@ function FlowView({ sorted, base, signals, signalColor, onUpdateStep, onReorder 
 }
 
 // ─────────── CALENDAR ───────────
-function CalendarView({ sorted, base, signals }: any) {
+function CalendarView({ sorted, base, signals }: ViewProps) {
   const HOURS_START = 6;
   const HOURS_END = 23;
   const totalHours = HOURS_END - HOURS_START + 1;

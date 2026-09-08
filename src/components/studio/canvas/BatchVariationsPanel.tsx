@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,15 +16,15 @@ interface VariantRow {
   variant_angulo: string | null;
   status: string;
   variant_score: number | null;
-  variant_score_data: any;
+  variant_score_data: Json;
   is_variant_winner: boolean;
-  output: any;
-  config: any;
+  output: Json;
+  config: Json;
   titulo: string | null;
 }
 
 interface Props {
-  node: any;
+  node: {id:string;data:Record<string,unknown>};
   onPromote: (winnerId: string, baseId: string) => Promise<void>;
   onFocusNode?: (id: string) => void;
 }
@@ -32,20 +35,20 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
   const [loading, setLoading] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [rows, setRows] = useState<VariantRow[]>([]);
-  const groupId: string | null = node?.data?.batch_group_id || null;
+  const groupId: string | null = typeof node?.data?.batch_group_id === "string" ? node.data.batch_group_id : null;
   const baseId: string = node?.id;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!groupId) { setRows([]); return; }
     const { data } = await supabase
       .from("imphq_studio_canvas_nodes")
       .select("id,variant_label,variant_angulo,status,variant_score,variant_score_data,is_variant_winner,output,config,titulo,variant_of")
       .eq("batch_group_id", groupId)
       .order("variant_label");
-    setRows((data as any) || []);
-  };
+    setRows(data || []);
+  }, [groupId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [groupId, node?.data?.status]);
+  useEffect(() => { load(); }, [load, node?.data?.status]);
 
   const generate = async () => {
     setLoading(true);
@@ -54,10 +57,10 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
         body: { node_id: baseId, count, strategy },
       });
       if (error) throw error;
-      toast.success(`${(data as any)?.created || count} variantes criadas · rode o fluxo para gerar`);
+      toast.success(`${record(data).created || count} variantes criadas · rode o fluxo para gerar`);
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || "erro ao gerar variantes");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "erro ao gerar variantes");
     } finally { setLoading(false); }
   };
 
@@ -69,11 +72,12 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
         body: { batch_group_id: groupId },
       });
       if (error) throw error;
-      const winnerLabel = ((data as any)?.results || []).find((r: any) => r.id === (data as any)?.winner_id)?.label;
+      const results=record(data).results;
+      const winnerLabel = (Array.isArray(results) ? results.map(record) : []).find(r=>r.id === record(data).winner_id)?.label;
       toast.success(`Vencedora: ${winnerLabel || "definida"}`);
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || "erro ao avaliar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "erro ao avaliar");
     } finally { setScoring(false); }
   };
 
@@ -114,7 +118,7 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
             </div>
             <div className="flex-1">
               <Label className="text-[10px] text-muted-foreground">Estratégia</Label>
-              <Select value={strategy} onValueChange={(v) => setStrategy(v as any)}>
+              <Select value={strategy} onValueChange={(v) => { if(v === "hooks" || v === "styles" || v === "generic") setStrategy(v); }}>
                 <SelectTrigger className="h-8 mt-1 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hooks">Hooks / ângulos</SelectItem>
@@ -146,9 +150,9 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
           <div className="space-y-2">
             {rows.map(r => {
               const isBase = r.id === baseId;
-              const preview = r.output?.url;
-              const kind = r.output?.kind;
-              const scoreData = r.variant_score_data || {};
+              const preview = record(r.output).url;
+              const kind = record(r.output).kind;
+              const scoreData = record(r.variant_score_data);
               return (
                 <div
                   key={r.id}
@@ -178,13 +182,13 @@ export function BatchVariationsPanel({ node, onPromote, onFocusNode }: Props) {
                     </div>
                   </div>
 
-                  {preview && kind === "image" && <img src={preview} className="w-full h-20 object-cover rounded" alt="" />}
-                  {preview && kind === "video" && <video src={preview} className="w-full h-20 object-cover rounded" muted />}
+                  {typeof preview === "string" && preview && kind === "image" && <img src={preview} className="w-full h-20 object-cover rounded" alt="" />}
+                  {typeof preview === "string" && preview && kind === "video" && <video src={preview} className="w-full h-20 object-cover rounded" muted />}
 
-                  {scoreData?.veredito && (
+                  {typeof scoreData.veredito === "string" && (
                     <p className="text-[10px] text-foreground/80 leading-4">{scoreData.veredito}</p>
                   )}
-                  {scoreData?.diagnostico && (
+                  {typeof scoreData.diagnostico === "string" && (
                     <p className="text-[9px] text-muted-foreground leading-4 line-clamp-2">{scoreData.diagnostico}</p>
                   )}
 

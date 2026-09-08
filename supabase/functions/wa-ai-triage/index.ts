@@ -1,6 +1,8 @@
 // WhatsApp AI Triage — classifica msgs antes de responder + escalona
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,7 +16,7 @@ async function classifyMessage(
   message: string,
   lastMessages: string[] = [],
   openrouterKey: string,
-  triageStages: any[] | null = null,
+  triageStages: { id: string; label: string; description?: string | null }[] | null = null,
   triagePrompt: string | null = null
 ) {
   const stages = Array.isArray(triageStages) && triageStages.length > 0
@@ -26,8 +28,8 @@ async function classifyMessage(
         { id: "cliente", label: "Cliente", description: "Já é cliente ou comprou o produto" }
       ];
 
-  const stagesDesc = stages.map((s: any) => `- "${s.id}" (${s.label}): ${s.description || ""}`).join("\n");
-  const stageIds = stages.map((s: any) => `"${s.id}"`).join(" | ");
+  const stagesDesc = stages.map((s) => `- "${s.id}" (${s.label}): ${s.description || ""}`).join("\n");
+  const stageIds = stages.map((s) => `"${s.id}"`).join(" | ");
 
   const sys = `Você é classificador de mensagens WhatsApp para vendas online. Responda apenas JSON válido com:
 {
@@ -130,7 +132,7 @@ Deno.serve(async (req) => {
         .eq("from_me", false)
         .order("created_at", { ascending: false })
         .limit(3);
-      lastMessages = (prev || []).map((m: any) => m.content).filter(Boolean);
+      lastMessages = (prev || []).map((m) => m.content).filter(Boolean);
     }
 
     const classification = await classifyMessage(message, lastMessages, OPENROUTER_API_KEY, triageStages, triagePrompt);
@@ -140,7 +142,7 @@ Deno.serve(async (req) => {
     if (classification.intent === "objecao" && classification.objecao && projeto_id) {
       const { data: obj } = await supabase
         .from("imphq_wa_objections")
-        .select("id, resposta_padrao")
+        .select("id, resposta_padrao, score_uso")
         .eq("status", "ativa")
         .or(`projeto_id.eq.${projeto_id},projeto_id.is.null`)
         .ilike("objecao", `%${classification.objecao.slice(0, 30)}%`)
@@ -148,9 +150,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (obj?.resposta_padrao) {
         suggestedReply = obj.resposta_padrao;
-        await supabase.rpc("increment_objection_score", { obj_id: obj.id }).catch(() => {
+        await Promise.resolve(supabase.rpc("increment_objection_score", { obj_id: obj.id })).catch(() => {
           // fallback se RPC não existir
-          supabase.from("imphq_wa_objections").update({ score_uso: (obj as any).score_uso + 1 || 1 }).eq("id", obj.id);
+          supabase.from("imphq_wa_objections").update({ score_uso: obj.score_uso + 1 || 1 }).eq("id", obj.id);
         });
       } else {
         // Propõe nova objeção pro Imperius
@@ -220,8 +222,8 @@ Deno.serve(async (req) => {
             });
             console.log(`[triage] Push sent to user ${proj.user_id} for hot lead`);
           }
-        } catch (pushErr: any) {
-          console.warn("[triage] Push notification failed:", pushErr.message);
+        } catch (pushErr) {
+          console.warn("[triage] Push notification failed:", errorMessage(pushErr));
         }
       }
     }
@@ -259,7 +261,7 @@ Deno.serve(async (req) => {
             if (addedTags.length > 0) {
               await supabase.from("imphq_lead_tag_history").insert(
                 addedTags.map(tag => ({ lead_id, project_id: projeto_id || null, tag, action: "added", source: "triage" }))
-              ).catch(() => {});
+              ).then(() => undefined, () => undefined);
             }
           }
         } catch (autoTagErr) {
@@ -309,7 +311,7 @@ Deno.serve(async (req) => {
           const currentTags = currentLead?.tags || [];
           const currentData = currentLead?.data || {};
           
-          const updatePayload: any = {
+          const updatePayload: { updated_at: string; tags?: string[]; data?: Record<string, unknown> } = {
             updated_at: new Date().toISOString()
           };
           
@@ -364,7 +366,7 @@ Deno.serve(async (req) => {
 
         let needsProfileUpdate = false;
 
-        const addUnique = (arr: string[], val: any) => {
+        const addUnique = (arr: string[], val: unknown) => {
           if (val && typeof val === "string" && val.trim() !== "" && !val.toLowerCase().includes("null") && !arr.some(v => v.toLowerCase() === val.trim().toLowerCase())) {
             arr.push(val.trim());
             return true;
@@ -401,8 +403,8 @@ Deno.serve(async (req) => {
             .eq("id", lead_id);
           console.log(`[triage] Updated lead ${lead_id} AI profile:`, newProfile);
         }
-      } catch (profileErr: any) {
-        console.warn("[triage] Failed to update lead AI profile:", profileErr?.message);
+      } catch (profileErr) {
+        console.warn("[triage] Failed to update lead AI profile:", errorMessage(profileErr));
       }
     }
 
@@ -465,8 +467,8 @@ Deno.serve(async (req) => {
             console.warn(`[triage] Lovable embedding failed: ${embRes.status}`);
           }
         }
-      } catch (embErr: any) {
-        console.error("[triage] Error storing lead memory:", embErr.message);
+      } catch (embErr) {
+        console.error("[triage] Error storing lead memory:", errorMessage(embErr));
       }
     }
 
@@ -477,8 +479,8 @@ Deno.serve(async (req) => {
           .update({ status: classification.stage, updated_at: new Date().toISOString() })
           .eq("id", lead_id);
         console.log(`[triage] Updated lead ${lead_id} status to: ${classification.stage}`);
-      } catch (leadStageErr: any) {
-        console.warn("[triage] Failed to update lead stage status:", leadStageErr?.message);
+      } catch (leadStageErr) {
+        console.warn("[triage] Failed to update lead stage status:", errorMessage(leadStageErr));
       }
     }
 
@@ -487,15 +489,15 @@ Deno.serve(async (req) => {
       try {
         const { data: aLead } = await supabase
           .from("imphq_leads").select("awareness_level").eq("id", lead_id).maybeSingle();
-        const currentLevel = Number((aLead as any)?.awareness_level || 0);
+        const currentLevel = Number(aLead?.awareness_level || 0);
         if (classification.awareness_level > currentLevel) {
           await supabase.from("imphq_leads")
             .update({ awareness_level: classification.awareness_level, updated_at: new Date().toISOString() })
             .eq("id", lead_id);
           console.log(`[triage] awareness_level lead ${lead_id}: ${currentLevel} → ${classification.awareness_level}`);
         }
-      } catch (awErr: any) {
-        console.warn("[triage] Failed to update awareness_level:", awErr?.message);
+      } catch (awErr) {
+        console.warn("[triage] Failed to update awareness_level:", errorMessage(awErr));
       }
     }
 
@@ -518,9 +520,9 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, classification, suggestedReply, escalated }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
     console.error("wa-ai-triage:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(errorMessage(e) || e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

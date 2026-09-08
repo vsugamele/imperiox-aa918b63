@@ -1,10 +1,11 @@
+import type { Product } from "@/lib/funis-data";
 import { useMemo } from "react";
 import { ChecklistItem } from "@/hooks/useProductChecklist";
 import { cn } from "@/lib/utils";
 
 interface Props {
   byProduct: Map<string, ChecklistItem[]>;
-  products: any[];
+  products: Product[];
   currentProductName?: string | null;
   onSwitchProduct?: (name: string) => void;
 }
@@ -43,7 +44,7 @@ export function CrossProductRadar({ byProduct, products, currentProductName, onS
     const now = Date.now();
     const all: Array<ChecklistItem & { prodName: string }> = [];
     for (const [k, list] of byProduct.entries()) {
-      const prod = products.find((p: any) => (p?.nome || p?.name || "").trim().toLowerCase() === k);
+      const prod = products.find((p) => (p?.nome || p?.name || "").trim().toLowerCase() === k);
       const name = prod?.nome || prod?.name || (k === "__projeto__" ? "Projeto" : k);
       for (const it of list) {
         if (it.status !== "done" && it.due_date) {

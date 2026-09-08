@@ -1,3 +1,5 @@
+import { record, toJson, type Product } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -34,8 +36,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   asset: HubAsset | null;
-  product: any; // produto resolvido (vinculado OU produto atual do canvas)
-  products?: any[]; // todos produtos do projeto, p/ seletor de vínculo
+  product: Product; // produto resolvido (vinculado OU produto atual do canvas)
+  products?: Product[]; // todos produtos do projeto, p/ seletor de vínculo
   projectId: string;
   onSaveOutput: (assetId: string, output: string) => void;
   onLinkProduct?: (assetId: string, produtoNome: string | null) => void;
@@ -92,12 +94,12 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
         },
       });
       if (error) throw error;
-      const content = (data as any)?.content || "";
-      if (!content) throw new Error("Sem conteúdo retornado");
+      const content = record(data).content;
+      if (typeof content !== "string" || !content) throw new Error("Sem conteúdo retornado");
       onSaveOutput(asset.id, content);
       toast.success("Conteúdo gerado!");
-    } catch (err: any) {
-      toast.error(err?.message || "Erro ao gerar");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro ao gerar");
     } finally {
       setGenerating(false);
     }
@@ -114,15 +116,15 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
           produto_nome: product?.nome || product?.name || null,
           title: `${item.label} (DSL)`,
           source: "dsl",
-          blueprint: bp as any,
+          blueprint: toJson(bp),
         })
         .select().single();
       if (error) throw error;
       toast.success(`Fluxo criado com ${bp.nodes.length} passos`);
       onOpenBlueprint?.(data.id);
       onClose();
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao converter");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao converter");
     } finally {
       setConverting(false);
     }
@@ -144,12 +146,12 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
         },
       });
       if (error) throw error;
-      const content = (data as any)?.content;
-      if (!content) throw new Error("Sem conteúdo retornado");
+      const content = record(data).content;
+      if (typeof content !== "string" || !content) throw new Error("Sem conteúdo retornado");
       onSaveOutput(asset.id, content);
       toast.success(intent === "breakthrough_techniques" ? "7 manobras aplicadas" : "Copy blindada com provas");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setGenerating(false);
     }
@@ -195,7 +197,7 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
               <div className={`rounded-xl border ${colors.border} ${colors.bg} p-3 flex gap-3 items-start`}>
                 {(product.imagem || product.image) && (
                   <img
-                    src={product.imagem || product.image}
+                    src={typeof product.imagem === "string" ? product.imagem : typeof product.image === "string" ? product.image : undefined}
                     alt=""
                     className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                   />
@@ -220,7 +222,7 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
             {isProductLinkedAsset(asset.catId, asset.itemId) && (() => {
               const role = PRODUCT_LINKED_ASSETS[`${asset.catId}:${asset.itemId}`];
               const linkedNome = asset.linked_product_nome || null;
-              const linked = linkedNome ? products.find((p: any) => (p?.nome || p?.name) === linkedNome) : null;
+              const linked = linkedNome ? products.find((p) => (p?.nome || p?.name) === linkedNome) : null;
               const productLinks = linked ? normalizeProductLinks(linked) : [];
               const best = linked ? pickBestLink(productLinks, { tipo: role.preferredLinkType as ProductLinkTipo | undefined }) : null;
               return (
@@ -242,7 +244,7 @@ Formato: markdown organizado em blocos com títulos H3 (###) para cada seção. 
                     className="w-full h-9 rounded-md bg-[#0a0608] border border-border/60 px-2 text-sm"
                   >
                     <option value="">— Selecionar produto —</option>
-                    {products.map((p: any, i: number) => {
+                    {products.map((p, i) => {
                       const nome = p?.nome || p?.name || `Produto ${i + 1}`;
                       return <option key={i} value={nome}>{nome}</option>;
                     })}

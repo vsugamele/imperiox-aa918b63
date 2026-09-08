@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { parseFunnelData, toJson, type FunnelData } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,15 +18,15 @@ interface Snapshot {
   funil_id: string;
   label?: string;
   motivo: string;
-  canvas: any;
+  canvas: Json;
   created_at: string;
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  funil: { id: string; nome: string; project_id?: string; data: any } | null;
-  onRestore: (canvas: any) => void;
+  funil: { id: string; nome: string; project_id?: string; data: FunnelData } | null;
+  onRestore: (canvas: Json) => void | Promise<void>;
 }
 
 export function FunnelSnapshotsDialog({ open, onOpenChange, funil, onRestore }: Props) {
@@ -32,33 +35,33 @@ export function FunnelSnapshotsDialog({ open, onOpenChange, funil, onRestore }: 
   const [label, setLabel] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!funil) return;
     setLoading(true);
     const { data, error } = await supabase
-      .from("imphq_funnel_snapshots" as any)
+      .from("imphq_funnel_snapshots")
       .select("*")
       .eq("funil_id", funil.id)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) toast.error("Erro: " + error.message);
-    else setSnapshots((data as any) || []);
+    else setSnapshots(data || []);
     setLoading(false);
-  };
+  }, [funil]);
 
   useEffect(() => {
     if (open && funil) load();
-  }, [open, funil?.id]);
+  }, [open, funil, load]);
 
   const handleSave = async () => {
     if (!funil) return;
     setSaving(true);
-    const { error } = await supabase.from("imphq_funnel_snapshots" as any).insert([{
+    const { error } = await supabase.from("imphq_funnel_snapshots").insert([{
       projeto_id: funil.project_id || "global",
       funil_id: funil.id,
       label: label.trim() || `Snapshot ${new Date().toLocaleString("pt-BR")}`,
       motivo: "manual",
-      canvas: funil.data,
+      canvas: toJson(funil.data),
     }]);
     setSaving(false);
     if (error) { toast.error("Erro: " + error.message); return; }
@@ -69,23 +72,26 @@ export function FunnelSnapshotsDialog({ open, onOpenChange, funil, onRestore }: 
 
   const handleRestore = async (snap: Snapshot) => {
     if (!confirm(`Restaurar "${snap.label || snap.id}"? O canvas atual será substituído (mas salvamos um backup antes).`)) return;
+    try {
     if (funil) {
-      await supabase.from("imphq_funnel_snapshots" as any).insert([{
+      const { error } = await supabase.from("imphq_funnel_snapshots").insert([{
         projeto_id: funil.project_id || "global",
         funil_id: funil.id,
         label: `Auto-backup antes de restaurar ${snap.label || snap.id}`,
         motivo: "auto_before_restore",
-        canvas: funil.data,
+        canvas: toJson(funil.data),
       }]);
+      if (error) throw error;
     }
-    onRestore(snap.canvas);
+    await onRestore(snap.canvas);
     toast.success("Versão restaurada");
     onOpenChange(false);
+    } catch (error) { toast.error(errorMessage(error)); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apagar este snapshot?")) return;
-    await supabase.from("imphq_funnel_snapshots" as any).delete().eq("id", id);
+    await supabase.from("imphq_funnel_snapshots").delete().eq("id", id);
     load();
   };
 
@@ -125,7 +131,7 @@ export function FunnelSnapshotsDialog({ open, onOpenChange, funil, onRestore }: 
         ) : (
           <div className="space-y-2">
             {snapshots.map((s) => {
-              const etapas = (s.canvas?.etapas || []).length;
+              const etapas = (parseFunnelData(s.canvas).etapas || []).length;
               return (
                 <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
                   <div className="flex-1 min-w-0">

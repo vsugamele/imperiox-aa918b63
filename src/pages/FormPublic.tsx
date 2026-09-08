@@ -1,3 +1,7 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { parseFormFields, type FormField } from "@/components/leads/form-builder-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,11 +13,11 @@ interface Field {
 
 export default function FormPublic() {
   const { formId } = useParams<{ formId: string }>();
-  const [form, setForm] = useState<any>(null);
+  const [form, setForm] = useState<Pick<Tables<"imphq_capture_forms">, "id" | "nome" | "settings" | "is_active"> & { fields: FormField[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +26,7 @@ export default function FormPublic() {
       const { data } = await supabase.from("imphq_capture_forms")
         .select("id,nome,fields,settings,is_active").eq("id", formId).maybeSingle();
       if (!data || !data.is_active) setError("Formulário não disponível");
-      else setForm(data);
+      else { try { setForm({ ...data, fields: parseFormFields(data.fields) }); } catch { setError("Campos do formulário indisponíveis"); } }
       setLoading(false);
     })();
   }, [formId]);
@@ -32,7 +36,7 @@ export default function FormPublic() {
     setSubmitting(true);
     try {
       const url = new URL(window.location.href);
-      const utms: any = {};
+      const utms: Record<string, string> = {};
       ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(u => {
         const v = url.searchParams.get(u);
         if (v) utms[u] = v;
@@ -43,8 +47,8 @@ export default function FormPublic() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setDone(true);
-    } catch (err: any) {
-      setError(err.message || "Erro ao enviar");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Erro ao enviar");
     } finally {
       setSubmitting(false);
     }
@@ -53,14 +57,14 @@ export default function FormPublic() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">Carregando…</div>;
   if (error && !form) return <div className="min-h-screen flex items-center justify-center bg-background text-destructive">{error}</div>;
 
-  const fields = (form?.fields || []) as Field[];
-  const settings = (form?.settings || {}) as any;
+  const fields = form?.fields || [];
+  const settings = jsonFields(form?.settings);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-secondary/40 border border-border rounded-2xl p-6 md:p-8">
         <h1 className="font-display text-2xl text-primary mb-2">{form.nome}</h1>
-        {settings.description && <p className="text-sm text-muted-foreground leading-7 mb-6">{settings.description}</p>}
+        {jsonText(settings.description) && <p className="text-sm text-muted-foreground leading-7 mb-6">{jsonText(settings.description)}</p>}
 
         {done ? (
           <div className="text-center py-8">

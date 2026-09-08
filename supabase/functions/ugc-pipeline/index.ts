@@ -21,38 +21,35 @@ const TONES = new Set(['confessional','urgent','casual','expert']);
 const LANES = new Set(['pain','desire','curiosity','contrarian']);
 
 // ------------ Gates ------------
-function validateScript(j: any): string[] {
+function isObject(value: unknown): value is Record<string,unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
+function validateScript(j: unknown): string[] {
   const e: string[] = [];
-  if (!j || typeof j !== 'object') return ['script: not an object'];
+  if (!isObject(j)) return ['script: not an object'];
   if (typeof j.hook !== 'string' || j.hook.split(' ').length > 12) e.push('hook: must be string ≤12 words');
   if (!Array.isArray(j.beats) || j.beats.length < 2) e.push('beats: need ≥2');
-  else j.beats.forEach((b: any, i: number) => {
+  else j.beats.forEach((b: unknown, i: number) => {
+    if (!isObject(b)) { e.push(`beats[${i}] must be object`); return; }
     if (typeof b.t !== 'number') e.push(`beats[${i}].t must be number`);
     if (typeof b.line !== 'string' || !b.line) e.push(`beats[${i}].line required`);
-    if (b.behavior && !MICRO_BEHAVIORS.has(b.behavior)) e.push(`beats[${i}].behavior '${b.behavior}' not in glossary`);
+    if (b.behavior && (typeof b.behavior !== 'string' || !MICRO_BEHAVIORS.has(b.behavior))) e.push(`beats[${i}].behavior '${b.behavior}' not in glossary`);
   });
   if (!j.cta || typeof j.cta !== 'string') e.push('cta required');
-  if (!TONES.has(j.tone)) e.push(`tone must be one of ${[...TONES].join('|')}`);
-  if (!LANES.has(j.lane)) e.push(`lane must be one of ${[...LANES].join('|')}`);
-  if (!AGE_BRACKETS.has(j.age_bracket)) e.push(`age_bracket must be one of ${[...AGE_BRACKETS].join('|')}`);
+  if (typeof j.tone !== 'string' || !TONES.has(j.tone)) e.push(`tone must be one of ${[...TONES].join('|')}`);
+  if (typeof j.lane !== 'string' || !LANES.has(j.lane)) e.push(`lane must be one of ${[...LANES].join('|')}`);
+  if (typeof j.age_bracket !== 'string' || !AGE_BRACKETS.has(j.age_bracket)) e.push(`age_bracket must be one of ${[...AGE_BRACKETS].join('|')}`);
   return e;
 }
-
-function validateCasting(j: any): string[] {
+function validateCasting(j: unknown): string[] {
   const e: string[] = [];
-  if (!j || typeof j !== 'object') return ['casting: not an object'];
-  for (const f of ['physiology','wardrobe','environment','camera','lighting']) {
-    if (!j[f]) e.push(`casting.${f} required`);
-  }
+  if (!isObject(j)) return ['casting: not an object'];
+  for (const f of ['physiology','wardrobe','environment','camera','lighting']) if (!j[f]) e.push(`casting.${f} required`);
   if (!Array.isArray(j.micro_behaviors) || j.micro_behaviors.length < 2) e.push('micro_behaviors: need ≥2');
-  else j.micro_behaviors.forEach((b: string, i: number) => {
-    if (!MICRO_BEHAVIORS.has(b)) e.push(`micro_behaviors[${i}] '${b}' not in glossary`);
-  });
+  else j.micro_behaviors.forEach((b:unknown,i:number)=>{if(typeof b !== 'string' || !MICRO_BEHAVIORS.has(b)) e.push(`micro_behaviors[${i}] '${b}' not in glossary`);});
   return e;
 }
 
 // ------------ LLM call via Lovable AI Gateway ------------
-async function llmJSON(system: string, user: string): Promise<any> {
+async function llmJSON(system: string, user: string): Promise<unknown> {
   const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -161,6 +158,6 @@ Gere o casting/cena.`;
     return new Response(JSON.stringify({ error: 'unknown step', step }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('ugc-pipeline error', e);
-    return new Response(JSON.stringify({ error: String(e?.message ?? e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: String((e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined) ?? e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

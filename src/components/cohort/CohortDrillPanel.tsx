@@ -47,7 +47,7 @@ export function CohortDrillPanel({ open, onOpenChange, cohortMonth, monthOffset,
                   <div className="mt-2 text-[11px] text-muted-foreground space-y-0.5">
                     {vs.map((v) => (
                       <div key={v.id} className="flex justify-between">
-                        <span className="truncate">{(v as any).data?.produto_nome || "Venda"}</span>
+                        <span className="truncate">{("data" in v && v.data && typeof v.data === "object" && "produto_nome" in v.data && typeof v.data.produto_nome === "string" ? v.data.produto_nome : undefined) || "Venda"}</span>
                         <span>{v.data_venda?.slice(0, 10)}</span>
                       </div>
                     ))}

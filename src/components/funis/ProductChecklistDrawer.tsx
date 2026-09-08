@@ -1,3 +1,4 @@
+import type { Product } from "@/lib/funis-data";
 import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   projectId: string | null;
-  products: any[];
+  products: Product[];
   currentProductName?: string | null;
   onSwitchProduct?: (idx: number) => void;
 }
@@ -117,7 +118,7 @@ export function ProductChecklistDrawer({ open, onOpenChange, projectId, products
             products={products}
             currentProductName={currentProductName}
             onSwitchProduct={(name) => {
-              const idx = products.findIndex((p: any) => (p?.nome || p?.name) === name);
+              const idx = products.findIndex((p) => (p?.nome || p?.name) === name);
               if (idx >= 0) onSwitchProduct?.(idx);
             }}
           />

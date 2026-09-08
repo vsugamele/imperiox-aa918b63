@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Provider { id: string; provider: string; api_url: string; api_key: string; instance_name: string }
 // Processa fila de mensagens WA do webinar + reconcilia vendas (cancela mensagens pendentes se lead comprou)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
@@ -9,7 +12,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function findActiveProvider(supabase: any, projectId: string) {
+async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string) {
   const { data } = await supabase
     .from("imphq_wa_providers")
     .select("*")
@@ -27,7 +30,7 @@ async function findActiveProvider(supabase: any, projectId: string) {
   return g;
 }
 
-async function sendWA(provider: any, phone: string, message: string) {
+async function sendWA(provider: Provider | null, phone: string, message: string) {
   if (!provider || provider.provider !== "evolution") return { ok: false, error: "no_provider" };
   try {
     const url = `${provider.api_url.replace(/\/$/, "")}/message/sendText/${provider.instance_name}`;
@@ -38,8 +41,9 @@ async function sendWA(provider: any, phone: string, message: string) {
     });
     if (!res.ok) return { ok: false, error: `evolution_${res.status}` };
     return { ok: true };
-  } catch (e: any) {
-    return { ok: false, error: String(e?.message || e) };
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return { ok: false, error: String(eMessage || e) };
   }
 }
 
@@ -55,21 +59,21 @@ Deno.serve(async (req) => {
     .select("id, registration_id, session_id, clicked_at, imphq_webinar_registrations(email, phone, lead_id, status, session_id)")
     .is("recovered_at", null)
     .is("sale_id", null)
-    .gte("clicked_at", new Date(Date.now() - 48 * 3600_000).toISOString());
+    .gte("clicked_at", new Date(Date.now() - 48 * 3600_000).toISOString()).returns<{ id: string; registration_id: string; clicked_at: string; imphq_webinar_registrations: { email: string | null; phone: string | null } | null }[]>();
 
   for (const c of openClicks || []) {
-    const reg: any = (c as any).imphq_webinar_registrations;
+    const reg = c.imphq_webinar_registrations;
     if (!reg?.email && !reg?.phone) continue;
     const { data: vendas } = await supabase
       .from("imphq_vendas")
       .select("id, data, data_venda")
       .gte("data_venda", c.clicked_at)
       .limit(50);
-    let matched: any = null;
+    let matched: { id: string } | null = null;
     for (const v of vendas || []) {
-      const d: any = typeof v.data === "string" ? JSON.parse(v.data) : v.data || {};
-      const emails = [d.email, d.customer_email, d.payer?.email].filter(Boolean).map((x: string) => x.toLowerCase());
-      const phones = [d.phone, d.customer_phone, d.payer?.phone].filter(Boolean).map((x: string) => x.replace(/\D/g, ""));
+      const d = z.object({ email: z.string().nullish(), customer_email: z.string().nullish(), phone: z.string().nullish(), customer_phone: z.string().nullish(), payer: z.object({ email: z.string().nullish(), phone: z.string().nullish() }).passthrough().nullish() }).passthrough().parse(typeof v.data === "string" ? JSON.parse(v.data) : v.data || {});
+      const emails = [d.email, d.customer_email, d.payer?.email].filter((x): x is string => !!x).map((x) => x.toLowerCase());
+      const phones = [d.phone, d.customer_phone, d.payer?.phone].filter((x): x is string => !!x).map((x) => x.replace(/\D/g, ""));
       if ((reg.email && emails.includes(reg.email.toLowerCase())) ||
           (reg.phone && phones.includes(reg.phone.replace(/\D/g, "")))) {
         matched = v; break;
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
     }
     if (matched) {
       await supabase.from("imphq_webinar_clicks").update({ sale_id: matched.id, recovered_at: now }).eq("id", c.id);
-      await supabase.from("imphq_webinar_registrations").update({ status: "bought" }).eq("id", reg ? (c as any).registration_id : c.registration_id);
+      await supabase.from("imphq_webinar_registrations").update({ status: "bought" }).eq("id", c.registration_id);
       await supabase.from("imphq_webinar_wa_queue").update({ status: "cancelled" })
         .eq("click_id", c.id).eq("status", "pending");
     }
@@ -91,7 +95,7 @@ Deno.serve(async (req) => {
     .lte("send_at", now)
     .limit(50);
 
-  const providersByProject: Record<string, any> = {};
+  const providersByProject: Record<string, Provider | null> = {};
   let sent = 0, failed = 0;
 
   for (const msg of pending || []) {

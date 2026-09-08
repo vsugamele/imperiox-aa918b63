@@ -1,3 +1,6 @@
+import { errorMessage } from "@/lib/error-message";
+import { record } from "@/lib/funis-data";
+function actionPayload(value: unknown) { const raw = record(value); const evidence = record(raw.pattern_evidence); return { ...raw, pattern_evidence: { ...evidence, estimated_recovery: String(evidence.estimated_recovery || ""), metric: String(evidence.metric || "") }, acoes: Array.isArray(raw.acoes) ? raw.acoes.map(value => { const step = record(value); return { ...step, tipo: String(step.tipo || ""), delay_min: Number(step.delay_min || 0), template: String(step.template || "") }; }) : [] }; }
 import { useEffect, useState } from "react";
 import { Bot, Check, X, RotateCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,12 +15,12 @@ import { ptBR } from "date-fns/locale";
 type AIAction = {
   id: string;
   kind: string;
-  risk_level: "low" | "medium" | "high";
+  risk_level: string;
   status: string;
   confidence: number;
   title: string;
   reason: string | null;
-  payload: any;
+  payload: ReturnType<typeof actionPayload>;
   auto_executed: boolean;
   executed_at: string | null;
   error: string | null;
@@ -55,7 +58,7 @@ export function ActionInbox() {
       .order("priority_score", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(50);
-    setActions((data as any) || []);
+    setActions((data || []).map(row => ({ ...row, payload: actionPayload(row.payload) })));
     setLoading(false);
   };
 
@@ -75,7 +78,7 @@ export function ActionInbox() {
     setBusyId(a.id);
     try {
       if (mode === "reject") {
-        await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", a.id);
+        await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", a.id).throwOnError();
         toast.success("Ação rejeitada");
       } else {
         const { data, error } = await supabase.functions.invoke("imperius-executor", {
@@ -94,8 +97,8 @@ export function ActionInbox() {
         }
       }
       await load();
-    } catch (e: any) {
-      toast.error(`Erro: ${e?.message || e}`);
+    } catch (e) {
+      toast.error(`Erro: ${errorMessage(e)}`);
     } finally {
       setBusyId(null);
     }
@@ -158,7 +161,7 @@ export function ActionInbox() {
                       )}
                       {a.kind === "createFlow" && Array.isArray(a.payload?.acoes) && (
                         <div className="mt-2 space-y-1 pl-2 border-l border-violet-500/30">
-                          {a.payload.acoes.map((step: any, i: number) => (
+                          {a.payload.acoes.map((step, i) => (
                             <p key={i} className="text-[11px] text-muted-foreground">
                               <span className="text-violet-300 font-mono">{i + 1}.</span>{" "}
                               <span className="uppercase tracking-wider text-[10px]">{step.tipo}</span>

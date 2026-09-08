@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { z } from "zod";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,16 +13,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
 
+const boardsSchema = z.array(z.object({board:z.string(),columns:z.array(z.object({title:z.string(),cards:z.array(z.string()).optional()}).passthrough())}).passthrough());
 interface ProjectTemplate {
   id: string;
   name: string;
   description: string;
   icon: string;
   category: string;
-  boards_json: any[];
+  boards_json: Array<{board:string;columns:Array<{title:string;cards?:string[]}>}>;
 }
 
 const DEFAULT_TEMPLATES: Omit<ProjectTemplate, "id">[] = [
@@ -111,7 +115,7 @@ function fmtBRL(v: number) {
 }
 
 export default function Projetos() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Tables<"imphq_projects">[]>([]);
   const [kpisMap, setKpisMap] = useState<Record<string, ProjectKpis>>({});
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -125,7 +129,7 @@ export default function Projetos() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const loadKpis = async (projs: any[]) => {
+  const loadKpis = useCallback(async (projs: Tables<"imphq_projects">[]) => {
     const now = new Date();
     const d7 = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
     const d30 = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
@@ -136,36 +140,36 @@ export default function Projetos() {
       supabase.from("imphq_vendas").select("project_id, valor, valor_liquido, data_venda").gte("data_venda", d60).limit(5000),
       supabase.from("imphq_ads_spend").select("project_id, valor, data_ref").gte("data_ref", d30).limit(5000),
       supabase.from("imphq_leads").select("project_id, criado_em").gte("criado_em", ts7).limit(5000),
-    ]) as any;
+    ]);
 
     const map: Record<string, ProjectKpis> = {};
     for (const p of projs) {
-      const vs = (vRes.data || []).filter((v: any) => v.project_id === p.id);
-      const r7 = vs.filter((v: any) => v.data_venda >= d7).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
-      const r30 = vs.filter((v: any) => v.data_venda >= d30).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
-      const rPrev = vs.filter((v: any) => v.data_venda < d30 && v.data_venda >= d60).reduce((s: number, v: any) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
-      const spend30 = (aRes.data || []).filter((a: any) => a.project_id === p.id).reduce((s: number, a: any) => s + Number(a.valor ?? 0), 0);
-      const leads7 = (lRes.data || []).filter((l: any) => l.project_id === p.id).length;
+      const vs = (vRes.data || []).filter((v) => v.project_id === p.id);
+      const r7 = vs.filter((v) => v.data_venda >= d7).reduce((s: number, v) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const r30 = vs.filter((v) => v.data_venda >= d30).reduce((s: number, v) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const rPrev = vs.filter((v) => v.data_venda < d30 && v.data_venda >= d60).reduce((s: number, v) => s + Number(v.valor_liquido ?? v.valor ?? 0), 0);
+      const spend30 = (aRes.data || []).filter((a) => a.project_id === p.id).reduce((s: number, a) => s + Number(a.valor ?? 0), 0);
+      const leads7 = (lRes.data || []).filter((l) => l.project_id === p.id).length;
       const delta = rPrev > 0 ? ((r30 - rPrev) / rPrev) * 100 : (r30 > 0 ? 100 : 0);
       const roas = spend30 > 0 ? r30 / spend30 : 0;
       const health: ProjectKpis["health"] = r7 > 0 || leads7 >= 5 ? "hot" : (r30 > 0 || leads7 > 0 ? "warm" : "cold");
       map[p.id] = { receita7: r7, receita30: r30, receitaPrev30: rPrev, delta, spend30, roas, leads7, health };
     }
     setKpisMap(map);
-  };
+  }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [projRes, tplRes] = await Promise.all([
       supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_project_templates").select("*").order("created_at", { ascending: false }),
     ]);
     const projs = projRes.data || [];
     setProjects(projs);
-    setTemplates((tplRes.data || []) as ProjectTemplate[]);
+    setTemplates((tplRes.data || []).map(t=>({...t,boards_json:boardsSchema.parse(t.boards_json).map(b=>({...b,board:b.board,columns:b.columns.map(c=>({...c,title:c.title}))}))})));
     loadKpis(projs);
-  };
+  }, [loadKpis]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // Get unique folders from categories
   const folders = [...new Set(projects.map(p => p.category || "").filter(Boolean))].sort();
@@ -178,7 +182,7 @@ export default function Projetos() {
   });
 
   // Smart sort: vendendo first, then by 30d revenue desc, then warm, then cold
-  const sortProjects = (items: any[]) => {
+  const sortProjects = (items: Tables<"imphq_projects">[]) => {
     if (sortMode === "name") return [...items].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     if (sortMode === "recent") return items;
     return [...items].sort((a, b) => {
@@ -192,8 +196,8 @@ export default function Projetos() {
   // Group by folder
   const groupedByFolder = () => {
     if (activeFolder !== "all") return [{ folder: activeFolder, items: sortProjects(filtered) }];
-    const groups: { folder: string; items: any[] }[] = [];
-    const folderMap = new Map<string, any[]>();
+    const groups: { folder: string; items: Tables<"imphq_projects">[] }[] = [];
+    const folderMap = new Map<string, Tables<"imphq_projects">[]>();
     filtered.forEach(p => {
       const f = p.category || "";
       if (!folderMap.has(f)) folderMap.set(f, []);
@@ -212,9 +216,9 @@ export default function Projetos() {
       "imphq_leads", "imphq_vendas", "imphq_automacoes", "imphq_ads_spend",
       "imphq_ads_reports", "imphq_content_library", "imphq_referencias",
       "imphq_kanban_cards", "imphq_wa_campaigns", "imphq_events",
-    ];
+    ] as const;
     for (const table of tables) {
-      await supabase.from(table as any).delete().eq("project_id", id);
+      await supabase.from(table).delete().eq("project_id", id);
     }
     const { error } = await supabase.from("imphq_projects").delete().eq("id", id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
@@ -265,8 +269,8 @@ export default function Projetos() {
       setTemplateOpen(false);
       load();
       navigate(`/projetos/${projectId}`);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: errorMessage(err), variant: "destructive" });
     } finally {
       setCreatingFromTemplate(false);
     }
@@ -387,7 +391,7 @@ export default function Projetos() {
             payload: { project_name: name, source: "projetos_portfolio" },
             source: "projetos_portfolio",
             priority_score: 80,
-          } as any);
+          });
           toast({ title: "Enviado ao Imperius", description: `${name} entrou na fila de triagem.` });
         };
 
@@ -569,9 +573,9 @@ export default function Projetos() {
                   </div>
                   <p className="text-xs text-muted-foreground">{tpl.description}</p>
                   <div className="flex items-center gap-1 flex-wrap">
-                    {tpl.boards_json.map((b: any, bi: number) => (
+                    {tpl.boards_json.map((b, bi) => (
                       <span key={bi} className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                        {b.board} ({b.columns?.reduce((s: number, c: any) => s + (c.cards?.length || 0), 0)} cards)
+                        {b.board} ({b.columns?.reduce((s, c) => s + (c.cards?.length || 0), 0)} cards)
                       </span>
                     ))}
                   </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +13,7 @@ import { Plus, Trash2, Tag, Loader2, Eye, X } from "lucide-react";
 import { useLeadTags } from "@/hooks/useLeadTags";
 
 interface OrphanTag { tag: string; count: number; }
-interface Rule {
-  id: string;
-  tag: string | null;
-  tags_all: string[] | null;
-  origem: string | null;
-  plataforma: string | null;
-  project_id: string;
-  priority: number;
-}
+type Rule = Tables<"imphq_tag_project_rules">;
 
 const PLATFORMS = ["Meta", "Google", "TikTok", "Hotmart", "Kiwify", "Ticto", "Orgânico", "Indicação"];
 
@@ -47,11 +40,11 @@ export function TagRoutingRulesTab() {
       supabase.from("imphq_tag_project_rules").select("*").order("priority", { ascending: true }),
       supabase.from("imphq_projects").select("id,name").eq("is_archived", false).order("name"),
       supabase.from("imphq_leads").select("tags").is("project_id", null).not("tags", "is", null).gte("created_at", since).limit(1000),
-    ] as PromiseLike<any>[]);
-    setRules((r || []) as any);
-    setProjects((p || []) as any);
+    ]);
+    setRules(r || []);
+    setProjects(p || []);
     const counts = new Map<string, number>();
-    (leads || []).forEach((l: any) => {
+    (leads || []).forEach((l) => {
       (l.tags || []).forEach((t: string) => {
         if (!t) return;
         counts.set(t, (counts.get(t) || 0) + 1);
@@ -74,7 +67,7 @@ export function TagRoutingRulesTab() {
     setBusy(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setBusy(false); return; }
-    const payload: any = {
+    const payload: TablesInsert<"imphq_tag_project_rules"> = {
       user_id: user.id,
       tag: tagsAll[0], // retrocompat
       tags_all: tagsAll,
@@ -130,7 +123,7 @@ export function TagRoutingRulesTab() {
         results.push({ ruleLabel: `${ruleLabel(r)} → ${projectName(r.project_id)}`, count: count || 0 });
       }
       setPreview(results);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Não foi possível concluir a operação"); }
     setPreviewing(false);
   };
 
@@ -151,7 +144,7 @@ export function TagRoutingRulesTab() {
         if (rule.origem) q = q.eq("data->>origem", rule.origem);
         const { data: leads } = await q;
         if (leads && leads.length) {
-          const ids = leads.map((l: any) => l.id);
+          const ids = leads.map((l) => l.id);
           for (let i = 0; i < ids.length; i += 500) {
             const chunk = ids.slice(i, i + 500);
             await supabase.from("imphq_leads").update({ project_id: rule.project_id }).in("id", chunk);
@@ -161,13 +154,13 @@ export function TagRoutingRulesTab() {
       }
       toast.success(`${total} leads atualizados`);
       setPreview(null);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Não foi possível concluir a operação"); }
     setBackfilling(false);
   };
 
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || id;
 
-  const useOrphanTag = (t: string) => {
+  const selectOrphanTag = (t: string) => {
     if (!tagsAll.includes(t)) setTagsAll([...tagsAll, t]);
     setTimeout(() => document.getElementById("tag-rule-project-trigger")?.focus(), 50);
   };
@@ -245,7 +238,7 @@ export function TagRoutingRulesTab() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {orphanTags.map(o => (
-                <button key={o.tag} onClick={() => useOrphanTag(o.tag)}>
+                <button key={o.tag} onClick={() => selectOrphanTag(o.tag)}>
                   <Badge variant="outline" className="text-[10px] hover:bg-primary/10 cursor-pointer">
                     {o.tag} <span className="text-muted-foreground ml-1">({o.count})</span>
                   </Badge>

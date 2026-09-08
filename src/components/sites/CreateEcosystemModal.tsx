@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { Site } from "./SiteCard";
+import type { Site } from "@/components/sites/SiteCard";
 
 export function CreateEcosystemModal({
   site, onOpenChange,
@@ -19,7 +21,7 @@ export function CreateEcosystemModal({
   const [nicho, setNicho] = useState("");
   const [tom, setTom] = useState("consultivo premium");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{ avatar_nome?: string; produtos_criados?: number; criativos_ids: Json[]; funil_id?: string; projeto_id?: string } | null>(null);
 
   useEffect(() => {
     if (!site) return;
@@ -27,7 +29,7 @@ export function CreateEcosystemModal({
     setNovoNome(site.titulo);
     setNicho(site.tags?.join(", ") || "");
     supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      setProjects((data || []) as any);
+      setProjects(data || []);
     });
   }, [site]);
 
@@ -37,16 +39,17 @@ export function CreateEcosystemModal({
 
     setLoading(true);
     setResult(null);
-    const body: any = { site_id: site.id, nicho, tom };
+    const body: Record<string, string> = { site_id: site.id, nicho, tom };
     if (destino === "__new__") body.novo_projeto_nome = novoNome.trim();
     else body.projeto_id = destino;
 
-    const { data, error } = await supabase.functions.invoke("site-to-ecosystem", { body });
+    const { data, error } = await supabase.functions.invoke<Json>("site-to-ecosystem", { body });
     setLoading(false);
-    if (error || !data?.success) {
-      return toast.error(error?.message || data?.error || "Falha ao gerar ecossistema");
+    if (error || !jsonFields(data).success) {
+      return toast.error(error?.message || jsonText(jsonFields(data).error) || "Falha ao gerar ecossistema");
     }
-    setResult(data);
+    const fields = jsonFields(data);
+    setResult({ avatar_nome: jsonText(fields.avatar_nome), produtos_criados: jsonNumber(fields.produtos_criados), criativos_ids: Array.isArray(fields.criativos_ids) ? fields.criativos_ids : [], funil_id: jsonText(fields.funil_id), projeto_id: jsonText(fields.projeto_id) });
     toast.success("Ecossistema gerado!");
   }
 

@@ -52,10 +52,10 @@ export function MobileReferenciasFeed() {
     setLoading(true);
     const { data } = await supabase
       .from("imphq_referencias")
-      .select("id, titulo, url, image_url, tipo, content_category, tags, plataforma, notas, created_at, project_id, is_video")
+      .select("id, titulo, url, image_url, tipo, tags, plataforma, notas, created_at, project_id")
       .order("created_at", { ascending: false })
       .limit(300);
-    setItems((data as any[]) || []);
+    setItems(data || []);
     setLoading(false);
   };
 
@@ -296,11 +296,12 @@ function NewRefSheet({ onClose, onCreated }: { onClose: () => void; onCreated: (
     if (!titulo.trim()) { toast.error("Título obrigatório"); return; }
     setSaving(true);
     const { error } = await supabase.from("imphq_referencias").insert({
+      id: crypto.randomUUID(),
       titulo: titulo.trim(),
       url: url.trim() || null,
       tipo,
       notas: notas.trim() || null,
-    } as any);
+    });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Referência salva");

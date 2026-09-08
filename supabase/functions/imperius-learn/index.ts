@@ -80,7 +80,9 @@ Deno.serve(async (req) => {
 // Inferência simples: ação 'approved'/'auto_executed' há +24h sem outcome => neutro;
 // se for pauseAd e CPA do projeto melhorou nos 3d seguintes => success, senão neutro.
 // Aqui fazemos a versão mínima para começar a popular o histórico.
-async function inferOutcomes(supabase: any) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+
+async function inferOutcomes(supabase: ReturnType<typeof makeClient>) {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: actions } = await supabase
     .from("imphq_ai_actions")
@@ -91,16 +93,16 @@ async function inferOutcomes(supabase: any) {
 
   if (!actions?.length) return;
 
-  const ids = actions.map((a: any) => a.id);
+  const ids = actions.map((a) => a.id);
   const { data: existing } = await supabase
     .from("imphq_ai_action_outcomes")
     .select("action_id")
     .in("action_id", ids);
-  const have = new Set((existing ?? []).map((o: any) => o.action_id));
+  const have = new Set((existing ?? []).map((o) => o.action_id));
 
   const toInsert = actions
-    .filter((a: any) => !have.has(a.id))
-    .map((a: any) => ({
+    .filter((a) => !have.has(a.id))
+    .map((a) => ({
       action_id: a.id,
       projeto_id: a.projeto_id,
       kind: a.kind,

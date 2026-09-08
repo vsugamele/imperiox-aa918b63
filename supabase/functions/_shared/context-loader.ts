@@ -1,3 +1,4 @@
+import { record } from "./value.ts";
 // Carrega contexto unificado (projeto, avatar, branding, produto, expert) para o Motor de Copy.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { formatOfertasAtivas } from "./oferta-context.ts";
@@ -10,12 +11,12 @@ export interface CopyContextInput {
 }
 
 export interface CopyContextOutput {
-  project: any | null;
-  product: any | null;
-  branding: any | null;
-  avatar: any | null;
-  expert: any | null;
-  lead: any | null;
+  project: Record<string, unknown> | null;
+  product: unknown;
+  branding: unknown;
+  avatar: unknown;
+  expert: unknown;
+  lead: Record<string, unknown> | null;
   ofertas_block: string;
 }
 
@@ -34,12 +35,12 @@ export async function loadCopyContext(
     const { data } = await sb.from("imphq_projects").select("*").eq("id", input.project_id).maybeSingle();
     if (data) {
       out.project = data;
-      const d = (data as any).data || {};
+      const d = record(data.data);
       out.branding = d.branding || d.brand || null;
       out.avatar = d.avatar || d.avatars_por_produto || null;
       out.expert = d.expert || null;
       if (input.product_slug && Array.isArray(d.produtos)) {
-        out.product = d.produtos.find((p: any) => p.slug === input.product_slug || p.nome === input.product_slug) || null;
+        out.product = d.produtos.find((p: unknown) => record(p).slug === input.product_slug || record(p).nome === input.product_slug) || null;
       }
       if (Array.isArray(d.produtos)) {
         out.ofertas_block = formatOfertasAtivas(d.produtos, input.product_slug || null);

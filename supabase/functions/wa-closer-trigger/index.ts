@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
           .is("provider_id", null)
           .limit(1);
 
-        const aiCfg = aiConfigs?.[0] || {};
+        const aiCfg: {personality?:string|null;tone?:string|null;expert_persona?:string|null;product_focus?:string|null;payment_link?:string|null;closer_mode_enabled?:boolean|null} = aiConfigs?.[0] || {};
 
         // Se closer_mode está desativado no projeto, pula
         if (aiCfg.closer_mode_enabled === false) {
@@ -272,9 +272,10 @@ MISSÃO: Escrever UMA mensagem curta e direta de fechamento que:
         // Pausa entre envios
         await new Promise(r => setTimeout(r, 600));
 
-      } catch (leadErr: any) {
-        console.error(`[wa-closer-trigger] Erro ao processar ${lead.phone}:`, leadErr.message);
-        results.errors.push(`${lead.phone}: ${leadErr.message}`);
+      } catch (leadErr) {
+    const leadErrMessage = leadErr instanceof Error ? leadErr.message : leadErr && typeof leadErr === "object" && "message" in leadErr && typeof leadErr.message === "string" ? leadErr.message : undefined;
+        console.error(`[wa-closer-trigger] Erro ao processar ${lead.phone}:`, leadErrMessage);
+        results.errors.push(`${lead.phone}: ${leadErrMessage}`);
       }
     }
 
@@ -283,9 +284,10 @@ MISSÃO: Escrever UMA mensagem curta e direta de fechamento que:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[wa-closer-trigger] Fatal:", e.message);
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[wa-closer-trigger] Fatal:", eMessage);
+    return new Response(JSON.stringify({ ok: false, error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

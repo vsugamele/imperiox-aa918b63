@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Merge, Loader2 } from "lucide-react";
@@ -18,14 +18,14 @@ export default function MergeDuplicatesButton({ projectId }: { projectId: string
   const [dups, setDups] = useState<Dup[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const scan = async () => {
+  const scan = useCallback(async () => {
     if (!projectId || projectId === "all") { setDups([]); return; }
-    const { data, error } = await supabase.rpc("find_wa_phone_duplicates", { p_project_id: projectId } as any);
+    const { data, error } = await supabase.rpc("find_wa_phone_duplicates", { p_project_id: projectId });
     if (error) { console.warn("[MergeDuplicates]", error.message); return; }
-    setDups((data as any) || []);
-  };
+    setDups(data || []);
+  }, [projectId]);
 
-  useEffect(() => { scan(); }, [projectId]);
+  useEffect(() => { scan(); }, [scan]);
 
   if (!projectId || projectId === "all" || dups.length === 0) return null;
 
@@ -35,7 +35,7 @@ export default function MergeDuplicatesButton({ projectId }: { projectId: string
     for (const d of dups) {
       const { error } = await supabase.rpc("merge_wa_conversations", {
         p_keep_id: d.keep_id, p_drop_id: d.drop_id,
-      } as any);
+      });
       if (error) { fail++; console.error("[merge]", d, error.message); }
       else ok++;
     }

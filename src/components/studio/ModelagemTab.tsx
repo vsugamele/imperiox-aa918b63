@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,10 +14,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ReferenciasPicker, type PickerSelection } from "@/components/funis/ReferenciasPicker";
 
-type Ref = { id: string; url: string; titulo: string | null; thumbnail_url: string | null; tipo: string | null };
+type Ref = { id: string; url: string; titulo: string | null; tipo: string | null };
 type Model = {
   id: string; title: string | null; status: string; output_type: string | null;
-  source_assets: any; ficha: any; storyboard: any; created_at: string;
+  source_assets: Json; ficha: Json; storyboard: Json; created_at: string;
 };
 
 const OUTPUT_TYPES = [
@@ -39,11 +42,11 @@ export function ModelagemTab() {
 
   const load = async () => {
     const [{ data: r }, { data: m }] = await Promise.all([
-      supabase.from("imphq_referencias").select("id, url, titulo, thumbnail_url, tipo").order("created_at", { ascending: false }).limit(300),
-      supabase.from("imphq_studio_reference_models" as any).select("*").order("created_at", { ascending: false }).limit(40),
+      supabase.from("imphq_referencias").select("id, url, titulo, tipo").order("created_at", { ascending: false }).limit(300),
+      supabase.from("imphq_studio_reference_models").select("*").order("created_at", { ascending: false }).limit(40),
     ]);
-    setRefs((r ?? []) as any);
-    setModels((m ?? []) as any);
+    setRefs((r ?? []));
+    setModels((m ?? []));
   };
   useEffect(() => { load(); }, []);
 
@@ -61,7 +64,7 @@ export function ModelagemTab() {
 
   const toggle = (id: string) => {
     const n = new Set(selected);
-    n.has(id) ? n.delete(id) : n.add(id);
+    if (n.has(id)) { n.delete(id); } else { n.add(id); }
     setSelected(n);
   };
 
@@ -77,7 +80,7 @@ export function ModelagemTab() {
     setLoading(true);
     try {
       const fromLib = refs.filter((r) => selected.has(r.id)).map((r) => ({
-        url: r.thumbnail_url ?? r.url, title: r.titulo ?? "", kind: "image",
+        url: r.url, title: r.titulo ?? "", kind: "image",
       }));
       const fromExt = external.map((e) => ({
         url: e.thumbnail ?? e.url, title: e.title, kind: e.kind === "site" ? "image" : e.kind,
@@ -89,9 +92,9 @@ export function ModelagemTab() {
       if (error) throw error;
       toast.success("Modelagem criada");
       await load();
-      const created = (await supabase.from("imphq_studio_reference_models" as any).select("*").eq("id", (data as any).id).single()).data as any;
+      const created = (await supabase.from("imphq_studio_reference_models").select("*").eq("id", String(record(data).id)).single()).data;
       if (created) setActive(created);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(errorMessage(e)); }
     finally { setLoading(false); }
   };
 
@@ -104,12 +107,15 @@ export function ModelagemTab() {
       if (error) throw error;
       toast.success("Storyboard gerado");
       await load();
-      const updated = (await supabase.from("imphq_studio_reference_models" as any).select("*").eq("id", m.id).single()).data as any;
+      const updated = (await supabase.from("imphq_studio_reference_models").select("*").eq("id", m.id).single()).data;
       if (updated) setActive(updated);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(errorMessage(e)); }
     finally { setLoading(false); }
   };
 
+  const storyboardData = record(active?.storyboard);
+  const rawScenes = Array.isArray(active?.storyboard) ? active.storyboard : storyboardData.cenas;
+  const scenes = Array.isArray(rawScenes) ? rawScenes.map(record) : [];
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
       <div className="space-y-4">
@@ -153,7 +159,7 @@ export function ModelagemTab() {
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2 max-h-[420px] overflow-y-auto p-1">
               {visible.map((r) => {
                 const on = selected.has(r.id);
-                const src = r.thumbnail_url ?? r.url;
+                const src = r.url;
                 return (
                   <button key={r.id} onClick={() => toggle(r.id)}
                     className={cn("relative aspect-square rounded-lg overflow-hidden border-2 transition",
@@ -209,23 +215,23 @@ export function ModelagemTab() {
                   </div>
                 </div>
               )}
-              {active.storyboard?.cenas && (
+              {scenes.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Storyboard ({active.storyboard.cenas.length} cenas)</div>
+                  <div className="text-sm font-medium">Storyboard ({scenes.length} cenas)</div>
                   <div className="space-y-2">
-                    {active.storyboard.cenas.map((c: any, i: number) => (
+                    {scenes.map((c, i) => (
                       <div key={i} className="border border-border/50 rounded p-3 space-y-1">
                         <div className="flex justify-between text-xs">
-                          <Badge variant="outline">Cena {c.n ?? i + 1}</Badge>
-                          <span className="text-muted-foreground">{c.duracao_seg ?? "?"}s</span>
+                          <Badge variant="outline">Cena {String(c.n ?? i + 1)}</Badge>
+                          <span className="text-muted-foreground">{String(c.duracao_seg ?? "?")}s</span>
                         </div>
-                        {c.prompt_imagem && <div className="text-xs"><b>Visual:</b> {c.prompt_imagem}</div>}
-                        {c.narracao && <div className="text-xs"><b>Voz:</b> {c.narracao}</div>}
-                        {c.on_screen_text && <div className="text-xs"><b>Texto:</b> {c.on_screen_text}</div>}
-                        {c.acao && <div className="text-xs text-muted-foreground">{c.acao}</div>}
+                        {typeof c.prompt_imagem === "string" && <div className="text-xs"><b>Visual:</b> {c.prompt_imagem}</div>}
+                        {typeof c.narracao === "string" && <div className="text-xs"><b>Voz:</b> {c.narracao}</div>}
+                        {typeof c.on_screen_text === "string" && <div className="text-xs"><b>Texto:</b> {c.on_screen_text}</div>}
+                        {typeof c.acao === "string" && <div className="text-xs text-muted-foreground">{c.acao}</div>}
                       </div>
                     ))}
-                    {active.storyboard.cta_final && <div className="text-xs pt-2"><b>CTA:</b> {active.storyboard.cta_final}</div>}
+                    {typeof storyboardData.cta_final === "string" && <div className="text-xs pt-2"><b>CTA:</b> {storyboardData.cta_final}</div>}
                   </div>
                 </div>
               )}
@@ -242,11 +248,11 @@ export function ModelagemTab() {
             className={cn("w-full text-left border rounded-lg p-3 hover:border-primary/50 transition",
               active?.id === m.id ? "border-primary bg-primary/5" : "border-border/40")}>
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium truncate">{m.title ?? m.ficha?.estilo_visual ?? "Modelo"}</div>
+              <div className="text-sm font-medium truncate">{m.title ?? String(record(m.ficha).estilo_visual || "Modelo")}</div>
               <Badge variant="outline" className="text-[10px]">{m.status}</Badge>
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {m.output_type ?? "-"} · {(m.source_assets?.length ?? 0)} refs
+              {m.output_type ?? "-"} · {(Array.isArray(m.source_assets) ? m.source_assets.length : 0)} refs
             </div>
           </button>
         ))}

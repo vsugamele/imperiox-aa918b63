@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface StepStat {
@@ -19,7 +21,7 @@ export interface LiveExecution {
   error_message: string | null;
   created_at: string;
   updated_at: string;
-  step_results?: any[] | null;
+  step_results?: Json | null;
 }
 
 interface Options {
@@ -42,24 +44,25 @@ export function useFlowNodeStats({ automacaoId, totalSteps, enabled = true }: Op
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<number | null>(null);
 
-  const compute = (rows: LiveExecution[]) => {
+  const compute = useCallback((rows: LiveExecution[]) => {
     const acc: Record<number, StepStat> = {};
     for (let i = 0; i < totalSteps; i++) acc[i] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
     for (const exec of rows) {
       const steps = Array.isArray(exec.step_results) ? exec.step_results : [];
-      for (const sr of steps) {
-        const idx = typeof sr?.step === "number" ? sr.step : parseInt(sr?.step);
+      for (const value of steps) {
+        const sr = jsonFields(value);
+        const idx = typeof sr?.step === "number" ? sr.step : parseInt(jsonText(sr.step));
         if (isNaN(idx) || idx < 0 || idx >= totalSteps) continue;
         acc[idx] = acc[idx] || { reached: 0, completed: 0, waiting: 0, failed: 0 };
         acc[idx].reached++;
-        const cls = classifyStepStatus(sr?.status);
+        const cls = classifyStepStatus(jsonText(sr.status));
         if (cls) acc[idx][cls]++;
       }
     }
     setStats(acc);
-  };
+  }, [totalSteps]);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     if (!automacaoId || !enabled) return;
     setLoading(true);
     try {
@@ -69,13 +72,13 @@ export function useFlowNodeStats({ automacaoId, totalSteps, enabled = true }: Op
         .eq("automacao_id", automacaoId)
         .order("created_at", { ascending: false })
         .limit(500);
-      const rows = (data || []) as LiveExecution[];
+      const rows = data || [];
       setExecutions(rows);
       compute(rows);
     } finally {
       setLoading(false);
     }
-  };
+  }, [automacaoId, enabled, compute]);
 
   useEffect(() => {
     if (!automacaoId || !enabled) {

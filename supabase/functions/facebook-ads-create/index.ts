@@ -37,7 +37,7 @@ interface CreateBody {
       age_max?: number;
       genders?: number[];           // [1] M, [2] F, [1,2] todos
       geo_countries?: string[];     // ex: ["BR"]
-      flexible_spec?: any[];        // [{interests:[{id,name}]}]
+      flexible_spec?: Array<Record<string, Array<{ id: string; name?: string }>>>;        // [{interests:[{id,name}]}]
     };
   };
   creative: {
@@ -255,8 +255,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true, ...created }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    const msg = e?.message || String(e);
+  } catch (e) {
+      const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
+    const msg = message || String(e);
     console.error("[facebook-ads-create] error", msg, created);
     await rollback();
     await logAction("erro", msg);

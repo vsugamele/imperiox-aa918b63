@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,7 +16,7 @@ interface FileEntry {
 
 interface Props {
   agentId: string;
-  files: any[];
+  files: Json;
   onChange: (files: FileEntry[]) => void;
 }
 
@@ -24,16 +27,16 @@ export default function ArquivosTab({ agentId, files, onChange }: Props) {
   const [reprocessing, setReprocessing] = useState<string | null>(null);
   const [chunkCounts, setChunkCounts] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const list: FileEntry[] = Array.isArray(files) ? files as FileEntry[] : [];
+  const list: FileEntry[] = Array.isArray(files) ? files.flatMap(value => { const entry = jsonFields(value); const name = jsonText(entry.name); const path = jsonText(entry.path); return name && path ? [{ ...entry, name, path, size: jsonNumber(entry.size), chunks: jsonNumber(entry.chunks) }] : []; }) : [];
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from("imphq_agent_knowledge" as any)
+        .from("imphq_agent_knowledge")
         .select("source_path")
         .eq("agent_id", agentId);
       const counts: Record<string, number> = {};
-      ((data as any[]) || []).forEach((r) => {
+      (data || []).forEach((r) => {
         if (r.source_path) counts[r.source_path] = (counts[r.source_path] || 0) + 1;
       });
       setChunkCounts(counts);
@@ -49,14 +52,14 @@ export default function ArquivosTab({ agentId, files, onChange }: Props) {
         const path = `${agentId}/${Date.now()}-${f.name.replace(/[^\w.-]+/g, "_")}`;
         const up = await supabase.storage.from("agent-knowledge").upload(path, f, { upsert: false });
         if (up.error) throw up.error;
-        const { data, error } = await supabase.functions.invoke("agent-ingest-file", {
+        const { data, error } = await supabase.functions.invoke<Json>("agent-ingest-file", {
           body: { agent_id: agentId, file_path: path, file_name: f.name },
         });
-        if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
-        next.push({ name: f.name, path, size: f.size, chunks: (data as any)?.chunks });
-        toast.success(`${f.name} — ${(data as any)?.chunks || 0} trechos indexados`);
-      } catch (e: any) {
-        toast.error(`${f.name}: ${e?.message || "falha"}`);
+        if (error || jsonText(jsonFields(data).error)) throw new Error(error?.message || jsonText(jsonFields(data).error));
+        next.push({ name: f.name, path, size: f.size, chunks: jsonNumber(jsonFields(data).chunks) });
+        toast.success(`${f.name} — ${jsonNumber(jsonFields(data).chunks) || 0} trechos indexados`);
+      } catch (e: unknown) {
+        toast.error(`${f.name}: ${errorMessage(e) || "falha"}`);
       }
     }
     onChange(next);
@@ -68,25 +71,25 @@ export default function ArquivosTab({ agentId, files, onChange }: Props) {
     if (!confirm(`Remover "${fe.name}" e seus trechos?`)) return;
     try {
       await supabase.storage.from("agent-knowledge").remove([fe.path]);
-      await supabase.from("imphq_agent_knowledge" as any).delete().eq("agent_id", agentId).eq("source_path", fe.path);
+      await supabase.from("imphq_agent_knowledge").delete().eq("agent_id", agentId).eq("source_path", fe.path);
       onChange(list.filter((x) => x.path !== fe.path));
       toast.success("Arquivo removido");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao remover");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao remover");
     }
   };
 
   const reprocess = async (fe: FileEntry) => {
     setReprocessing(fe.path);
     try {
-      const { data, error } = await supabase.functions.invoke("agent-ingest-file", {
+      const { data, error } = await supabase.functions.invoke<Json>("agent-ingest-file", {
         body: { agent_id: agentId, file_path: fe.path, file_name: fe.name },
       });
-      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
-      onChange(list.map((x) => (x.path === fe.path ? { ...x, chunks: (data as any)?.chunks } : x)));
-      toast.success(`${fe.name} reprocessado — ${(data as any)?.chunks || 0} trechos`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha");
+      if (error || jsonText(jsonFields(data).error)) throw new Error(error?.message || jsonText(jsonFields(data).error));
+      onChange(list.map((x) => (x.path === fe.path ? { ...x, chunks: jsonNumber(jsonFields(data).chunks) } : x)));
+      toast.success(`${fe.name} reprocessado — ${jsonNumber(jsonFields(data).chunks) || 0} trechos`);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha");
     } finally {
       setReprocessing(null);
     }

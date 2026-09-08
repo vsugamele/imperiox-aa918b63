@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +30,38 @@ export interface AudienceFilters {
   exclude_segment_id?: string;
 }
 
+interface AudienceMember {
+  id: string;
+  phone?: string | null;
+  contact_name?: string | null;
+  nome?: string | null;
+  temperature?: string | null;
+}
+
+function parseFilters(value: unknown): AudienceFilters {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const filters: AudienceFilters = {};
+  for (const key of ["temperature", "conv_status", "current_intent", "intent_tags_any", "emotional_state"] as const) {
+    const item = source[key];
+    if (Array.isArray(item)) filters[key] = item.filter((entry): entry is string => typeof entry === "string");
+  }
+  for (const key of ["buy_intent_detected", "has_pitch", "never_bought"] as const) {
+    if (typeof source[key] === "boolean") filters[key] = source[key];
+  }
+  for (const key of ["last_message_within_days", "last_message_older_than_days"] as const) {
+    if (typeof source[key] === "number") filters[key] = source[key];
+  }
+  for (const key of ["bought_produto", "nome_search", "exclude_segment_id"] as const) {
+    if (typeof source[key] === "string") filters[key] = source[key];
+  }
+  return filters;
+}
+
 interface Props {
   projectId: string;
   value?: AudienceFilters;
-  onChange?: (f: AudienceFilters, sample: any[]) => void;
+  onChange?: (f: AudienceFilters, sample: AudienceMember[]) => void;
   compact?: boolean;
 }
 
@@ -42,11 +72,11 @@ const INTENT_OPTS = ["comprar", "duvida", "objecao", "curioso", "reclamacao", "s
 export default function AudiencePreviewPanel({ projectId, value, onChange, compact }: Props) {
   const [filters, setFilters] = useState<AudienceFilters>(value || {});
   const [count, setCount] = useState<number | null>(null);
-  const [sample, setSample] = useState<any[]>([]);
+  const [sample, setSample] = useState<AudienceMember[]>([]);
   const [breakdown, setBreakdown] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [saveName, setSaveName] = useState("");
-  const [segments, setSegments] = useState<any[]>([]);
+  const [segments, setSegments] = useState<Tables<"imphq_wa_audience_segments">[]>([]);
 
   const set = <K extends keyof AudienceFilters>(k: K, v: AudienceFilters[K]) =>
     setFilters((f) => ({ ...f, [k]: v }));
@@ -70,25 +100,25 @@ export default function AudiencePreviewPanel({ projectId, value, onChange, compa
       setSample(data.sample || []);
       setBreakdown(data.breakdown || {});
       onChange?.(filters, data.sample || []);
-    } catch (e: any) {
-      toast.error(e.message || "Falha no preview");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha no preview");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadSegments = async () => {
+  const loadSegments = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_audience_segments")
       .select("*")
       .eq("project_id", projectId)
       .order("updated_at", { ascending: false });
     setSegments(data || []);
-  };
+  }, [projectId]);
 
   useEffect(() => {
     loadSegments();
-  }, [projectId]);
+  }, [loadSegments]);
 
   // Debounced auto-preview
   useEffect(() => {
@@ -102,7 +132,7 @@ export default function AudiencePreviewPanel({ projectId, value, onChange, compa
     const { error } = await supabase.from("imphq_wa_audience_segments").insert({
       project_id: projectId,
       nome: saveName.trim(),
-      filters: filters as any,
+      filters: { ...filters },
       last_count: count,
       last_previewed_at: new Date().toISOString(),
     });
@@ -112,8 +142,8 @@ export default function AudiencePreviewPanel({ projectId, value, onChange, compa
     loadSegments();
   };
 
-  const applySegment = (s: any) => {
-    setFilters(s.filters || {});
+  const applySegment = (s: Tables<"imphq_wa_audience_segments">) => {
+    setFilters(parseFilters(s.filters));
     toast.success(`Carregado: ${s.nome}`);
   };
 
@@ -345,7 +375,7 @@ export default function AudiencePreviewPanel({ projectId, value, onChange, compa
           <Label className="text-xs">Prévia (até 20)</Label>
           <ScrollArea className="h-40 mt-1 rounded border border-border">
             <div className="p-2 space-y-1">
-              {sample.map((r: any) => (
+              {sample.map((r) => (
                 <div key={r.id} className="flex items-center gap-2 text-xs py-1 border-b border-border/50">
                   <span className="font-mono w-32 truncate">{r.phone}</span>
                   <span className="flex-1 truncate">{r.contact_name || r.nome || "—"}</span>

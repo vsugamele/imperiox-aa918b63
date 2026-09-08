@@ -13,7 +13,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function pick(...vals: any[]) {
+function pick<T>(...vals: T[]): T | null {
   for (const v of vals) if (v !== undefined && v !== null && v !== "") return v;
   return null;
 }
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
             lead_data: {
               canal: "messenger",
               channel_session_id: session.id,
-              nome: session.nome || "Lead Messenger",
+              nome: "nome" in session && typeof session.nome === "string" && session.nome ? session.nome : "Lead Messenger",
               message_content: text,
               mensagem_recebida: text,
             },

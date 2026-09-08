@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,7 @@ import { FileUpload } from "@/components/FileUpload";
 
 type Generation = {
   id: string;
-  kind: "image" | "video" | "audio";
+  kind: string;
   provider: string;
   model: string;
   prompt: string;
@@ -121,7 +123,7 @@ export function StudioGenerator() {
       .not("output_url", "is", null)
       .order("created_at", { ascending: false })
       .limit(20);
-    setGeneratedAudios((data as any) || []);
+    setGeneratedAudios(data || []);
   }
 
   // Audio form
@@ -135,7 +137,7 @@ export function StudioGenerator() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(40);
-    setItems((data as any) || []);
+    setItems(data || []);
     setLoading(false);
   }
 
@@ -159,7 +161,7 @@ export function StudioGenerator() {
   async function generate() {
     setBusy(true);
     try {
-      let payload: any;
+      let payload: Record<string, Json>;
       if (activeKind === "image") {
         if (!imgPrompt.trim()) return toast.error("Prompt vazio");
         payload = {
@@ -179,7 +181,7 @@ export function StudioGenerator() {
         if (isLipsync && !vidImage) {
           return toast.error("Seedance 2 com lipsync exige uma imagem inicial (first frame)");
         }
-        const params: Record<string, any> = {
+        const params: Record<string, Json> = {
           duration: Number(vidDuration),
           aspect_ratio: vidAspect,
           resolution: isLipsync ? vidResolution : "720p",
@@ -206,8 +208,8 @@ export function StudioGenerator() {
       if (!data?.ok) throw new Error(data?.error || "Falha na geração");
       toast.success(data.status === "processing" ? "Job enviado — aguardando renderização..." : "Gerado!");
       loadGallery();
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setBusy(false);
     }
@@ -240,7 +242,8 @@ export function StudioGenerator() {
             <>
               <div>
                 <Label className="text-xs">Provider</Label>
-                <Select value={imgProvider} onValueChange={(v: any) => {
+                <Select value={imgProvider} onValueChange={(v) => {
+                  if (v !== "openrouter" && v !== "kie" && v !== "luma") return;
                   setImgProvider(v);
                   setImgModel(v === "openrouter" ? IMAGE_MODELS_OPENROUTER[0].value : v === "kie" ? IMAGE_MODELS_KIE[0].value : IMAGE_MODELS_LUMA[0].value);
                 }}>
@@ -295,7 +298,7 @@ export function StudioGenerator() {
             <>
               <div>
                 <Label className="text-xs">Provider</Label>
-                <Select value={vidProvider} onValueChange={(v: any) => { setVidProvider(v); setVidModel(v === "openrouter" ? VIDEO_MODELS_OPENROUTER[0].value : VIDEO_MODELS_KIE[0].value); }}>
+                <Select value={vidProvider} onValueChange={(v) => { if (v !== "openrouter" && v !== "kie") return; setVidProvider(v); setVidModel(v === "openrouter" ? VIDEO_MODELS_OPENROUTER[0].value : VIDEO_MODELS_KIE[0].value); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="openrouter">OpenRouter (Seedance — síncrono)</SelectItem>

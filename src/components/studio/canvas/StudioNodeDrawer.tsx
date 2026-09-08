@@ -1,3 +1,6 @@
+import { record, toJson } from "@/lib/funis-data";
+import type { Node } from "@xyflow/react";
+import type { TablesUpdate, Json } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -13,14 +16,14 @@ import { StoryboardNodePanel } from "./StoryboardNodePanel";
 import { BatchVariationsPanel } from "./BatchVariationsPanel";
 
 interface Props {
-  node: any | null;
+  node: Node<Record<string,unknown> & {tipo?:string;titulo?:string;status?:string}> | null;
   onClose: () => void;
   onGenerate: (id: string) => void;
   onDelete: (id: string) => void;
-  onUpdate: (id: string, patch: any) => Promise<void>;
+  onUpdate: (id: string, patch: TablesUpdate<"imphq_studio_canvas_nodes">) => Promise<void>;
   onDuplicate?: (id: string) => void;
   onRunFrom?: (id: string) => void;
-  onExplodeStoryboard?: (opts: { sourceNodeId: string; scenes: any[]; ficha: any; targetKind: "image" | "video" }) => Promise<void>;
+  onExplodeStoryboard?: (opts: { sourceNodeId: string; scenes: Json[]; ficha: Json; targetKind: "image" | "video" }) => Promise<void>;
   onPromoteVariant?: (winnerId: string, baseId: string) => Promise<void>;
   onFocusNode?: (id: string) => void;
 }
@@ -61,47 +64,49 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
   useEffect(() => {
     if (node) {
       setTitulo(node.data.titulo || "");
-      setPrompt(node.data.config?.prompt || node.data.config?.texto || "");
-      setModel(node.data.config?.model || "");
-      setVoice(node.data.config?.voice_id || "");
-      setRefUrls(node.data.config?.reference_urls || []);
-      setRefKinds(node.data.config?.reference_kinds || []);
-      setPubChannel(node.data.config?.channel || "salvar");
-      setPubScheduledAt(node.data.config?.scheduled_at || "");
-      setPubCaption(node.data.config?.caption || "");
+      setPrompt(String(record(node.data.config).prompt || record(node.data.config).texto || ""));
+      setModel(String(record(node.data.config).model || ""));
+      setVoice(String(record(node.data.config).voice_id || ""));
+      const urls=record(node.data.config).reference_urls;
+      setRefUrls(Array.isArray(urls) ? urls.filter((v):v is string=>typeof v === "string") : []);
+      const kinds=record(node.data.config).reference_kinds;
+      setRefKinds(Array.isArray(kinds) ? kinds.filter((v):v is string=>typeof v === "string") : []);
+      setPubChannel(String(record(node.data.config).channel || "salvar"));
+      setPubScheduledAt(String(record(node.data.config).scheduled_at || ""));
+      setPubCaption(String(record(node.data.config).caption || ""));
     }
-  }, [node?.id]);
+  }, [node]);
 
   if (!node) return null;
   const meta = CANVAS_BLOCKS.find(b => b.id === node.data.tipo);
   const kind = meta?.kind;
-  const output = node.data.output || {};
+  const output = record(node.data.output);
   const isMedia = node.data.tipo === "media";
-  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? node.data.config?.url : undefined);
+  const preview = [output.url,output.image_url,output.video_url,output.audio_url,isMedia ? record(node.data.config).url : undefined].find((v):v is string=>typeof v === "string" && !!v);
   const supportsRefs = kind === "image" || kind === "video" || node.data.tipo === "avatar";
 
   const save = async () => {
     setSaving(true);
-    const cfg: any = { ...(node.data.config || {}), model, prompt, voice_id: voice, reference_urls: refUrls, reference_kinds: refKinds };
+    const cfg: Record<string,unknown> = { ...record(node.data.config), model, prompt, voice_id: voice, reference_urls: refUrls, reference_kinds: refKinds };
     if (kind === "prompt") cfg.texto = prompt;
     if (kind === "publish") {
       cfg.channel = pubChannel;
       cfg.scheduled_at = pubScheduledAt || null;
       cfg.caption = pubCaption;
     }
-    await onUpdate(node.id, { titulo, config: cfg });
+    await onUpdate(node.id, { titulo, config: toJson(cfg) });
     setSaving(false);
   };
 
   const updateRefs = async (urls: string[], kinds: string[]) => {
     setRefUrls(urls);
     setRefKinds(kinds);
-    const cfg = { ...(node.data.config || {}), reference_urls: urls, reference_kinds: kinds };
-    await onUpdate(node.id, { config: cfg });
+    const cfg = { ...record(node.data.config), reference_urls: urls, reference_kinds: kinds };
+    await onUpdate(node.id, { config: toJson(cfg) });
   };
 
   const clearOutput = async () => {
-    await onUpdate(node.id, { output: {}, status: "pendente", cost_actual: null, duration_ms: null, config_hash: null } as any);
+    await onUpdate(node.id, { output: {}, status: "pendente", cost_actual: null, duration_ms: null, config_hash: null });
   };
 
   return (
@@ -127,17 +132,17 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
                 Envie do computador ou cole com Ctrl+V. Essa mídia vira o ponto de partida do fluxo — puxe uma seta para animar, narrar ou publicar.
               </p>
               <ReferenceUploader
-                urls={node.data.config?.url ? [node.data.config.url] : []}
-                kinds={node.data.config?.url ? [node.data.config?.kind || "image"] : []}
+                urls={record(node.data.config).url ? [String(record(node.data.config).url)] : []}
+                kinds={record(node.data.config).url ? [String(record(node.data.config).kind || "image")] : []}
                 onChange={(urls, kinds) => {
                   const url = urls[urls.length - 1] || "";
                   const k = kinds[kinds.length - 1] || "image";
-                  const cfg = { ...(node.data.config || {}), url, kind: k };
+                  const cfg = { ...record(node.data.config), url, kind: k };
                   onUpdate(node.id, {
-                    config: cfg,
+                    config: toJson(cfg),
                     status: url ? "gerado" : "pendente",
                     output: url ? { url, kind: k } : {},
-                  } as any);
+                  });
                 }}
               />
             </div>
@@ -145,10 +150,10 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
 
           {kind === "modeling" && (
             <ModelingNodePanel
-              modelId={node.data.config?.model_id || null}
+              modelId={typeof record(node.data.config).model_id === "string" ? String(record(node.data.config).model_id) : null}
               onChange={(mid, ficha) => {
-                const cfg = { ...(node.data.config || {}), model_id: mid, ficha_snapshot: ficha };
-                onUpdate(node.id, { config: cfg });
+                const cfg = { ...record(node.data.config), model_id: mid, ficha_snapshot: ficha };
+                onUpdate(node.id, { config: toJson(cfg) });
               }}
             />
           )}
@@ -156,9 +161,9 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
           {kind === "storyboard" && onExplodeStoryboard && (
             <StoryboardNodePanel
               nodeId={node.id}
-              modelId={node.data.config?.model_id || null}
-              targetKind={(node.data.config?.target_kind as any) || "image"}
-              onChangeConfig={(patch) => onUpdate(node.id, { config: { ...(node.data.config || {}), ...patch } })}
+              modelId={typeof record(node.data.config).model_id === "string" ? String(record(node.data.config).model_id) : null}
+              targetKind={record(node.data.config).target_kind === "video" ? "video" : "image"}
+              onChangeConfig={(patch) => onUpdate(node.id, { config: toJson({ ...record(node.data.config), ...patch }) })}
               onExplode={onExplodeStoryboard}
             />
           )}
@@ -271,10 +276,10 @@ export function StudioNodeDrawer({ node, onClose, onGenerate, onDelete, onUpdate
             </Button>
           )}
 
-          {(node.data.duration_ms || node.data.cost_actual) && (
+          {Boolean(node.data.duration_ms || node.data.cost_actual) && (
             <div className="text-[10px] text-muted-foreground flex gap-3">
-              {node.data.duration_ms && <span>⏱ {(node.data.duration_ms / 1000).toFixed(1)}s</span>}
-              {node.data.cost_actual && <span>💎 {node.data.cost_actual} créditos</span>}
+              {typeof node.data.duration_ms === "number" && <span>⏱ {(node.data.duration_ms / 1000).toFixed(1)}s</span>}
+              {typeof node.data.cost_actual === "number" && <span>💎 {node.data.cost_actual} créditos</span>}
             </div>
           )}
 

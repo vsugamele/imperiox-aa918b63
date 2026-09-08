@@ -5,7 +5,7 @@ import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -69,7 +69,7 @@ export default function Dashboard() {
   const [view, setView] = useState<DashView>(() => {
     try { return (localStorage.getItem(VIEW_LS_KEY) as DashView) || "completo"; } catch { return "completo"; }
   });
-  useEffect(() => { try { localStorage.setItem(VIEW_LS_KEY, view); } catch {} }, [view]);
+  useEffect(() => { try { localStorage.setItem(VIEW_LS_KEY, view); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ } }, [view]);
   const show = (id: string) => VIEW_SECTIONS[view].has(id);
 
   // Reference queries — shared hook (TanStack) deduplicates across the whole app
@@ -84,7 +84,7 @@ export default function Dashboard() {
         .select("produto_nome")
         .neq("produto_nome", "")
         .not("produto_nome", "is", null);
-      return [...new Set((data || []).map((v: any) => v.produto_nome as string))].sort();
+      return [...new Set((data || []).map((v) => v.produto_nome as string))].sort();
     },
     staleTime: 10 * 60_000,
   });
@@ -201,7 +201,7 @@ export default function Dashboard() {
             <SelectTrigger className="w-[180px] h-8 text-xs bg-transparent border-border/60"><SelectValue placeholder="Projeto" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Projetos</SelectItem>
-              {allProjects.map((p: any) => (
+              {allProjects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.icon || "📁"} {p.name}</SelectItem>
               ))}
             </SelectContent>

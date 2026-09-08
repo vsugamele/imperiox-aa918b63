@@ -1,4 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -11,10 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Bot, Save, Loader2, Brain, Clock, Shield, Zap, Sparkles, Plus, Trash2, RefreshCw, MessageSquare, Info, Sliders, Server, GraduationCap, CheckCircle, Copy, Mic, Upload, FileIcon, Eye, Download, FileText, HelpCircle, Target, Wand2, Package } from "lucide-react";
-import AIWizardDialog from "./AIWizardDialog";
-import SectorPackDialog from "./SectorPackDialog";
-import { RefineAIDialog } from "./RefineAIDialog";
-import AILearnedRulesPanel from "./AILearnedRulesPanel";
+import AIWizardDialog from "@/components/whatsapp/AIWizardDialog";
+import SectorPackDialog from "@/components/whatsapp/SectorPackDialog";
+import { RefineAIDialog } from "@/components/whatsapp/RefineAIDialog";
+import AILearnedRulesPanel from "@/components/whatsapp/AILearnedRulesPanel";
 import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
 import { MENTES_DATA } from "@/data/mentesData";
 
@@ -28,47 +30,15 @@ function parseDocContent(content: string | null | undefined): { kind: "file" | "
 
 interface FaqItem { pergunta: string; resposta: string; }
 
-interface AIConfig {
-  id?: string;
-  project_id: string;
-  provider_id?: string | null;
-  enabled: boolean;
-  personality: string;
-  tone: string;
-  max_tokens: number;
-  escalation_keywords: string[];
-  welcome_message: string;
-  context_sources: string[];
-  response_delay_seconds: number;
-  business_hours_only: boolean;
-  business_hours_start: string;
-  business_hours_end: string;
-  expert_persona?: string;
-  custom_instructions?: string;
-  banned_phrases?: string[];
-  auto_audit_enabled?: boolean;
-  last_audit_at?: string | null;
-  audit_findings?: any[];
-  auto_tune_enabled?: boolean;
-  auto_tune_apply?: boolean;
-  last_tune_at?: string | null;
-  tune_history?: any[];
-  auto_escalation_enabled?: boolean;
-  auto_drift_enabled?: boolean;
-  auto_scoring_enabled?: boolean;
-  last_drift_at?: string | null;
-  drift_score?: number | null;
-  product_focus?: string;
-  faq?: FaqItem[];
-  ignored_phones?: string[];
-  voice_reply_enabled?: boolean;
-  voice_provider?: string;
-  voice_name?: string;
-  voice_stability?: number;
-  voice_clarity?: number;
-  closer_mode_enabled?: boolean;
-  payment_link?: string | null;
-}
+type AIConfig = Omit<TablesInsert<"imphq_wa_ai_config">, "faq"> & { owner_phone?: string | null; faq?: FaqItem[] };
+type Product = { nome: string; preco: string | number; link: string };
+type Simulation = { detectedSentiment?: string; detectedToneExplanation?: string; replyText: string; systemPrompt: string; vectorMemories?: Array<{ type: string; similarity: number; title: string; content: string }>; matchedObjection?: { similarity: number; objecao: string; resposta_padrao: string } };
+function record(value: unknown): Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function text(value: unknown): string { return typeof value === "string" ? value : typeof value === "number" ? String(value) : ""; }
+function strings(value: unknown): string[] { return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []; }
+function arrayLength(value: unknown): number { return Array.isArray(value) ? value.length : 0; }
+function faqs(value: unknown): FaqItem[] { return Array.isArray(value) ? value.flatMap(item => { const row = record(item); return typeof row.pergunta === "string" && typeof row.resposta === "string" ? [{ pergunta: row.pergunta, resposta: row.resposta }] : []; }) : []; }
+
 
 const PERSONALITIES = [
   { id: "assistente", label: "Assistente Geral", desc: "Cordial, acolhedor e informativo." },
@@ -123,10 +93,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     payment_link: "",
   });
   const [saving, setSaving] = useState(false);
-  const [customSkills, setCustomSkills] = useState<any[]>([]);
+  const [customSkills, setCustomSkills] = useState<Pick<Tables<"imphq_skills">, "id" | "nome" | "descricao">[]>([]);
   const [loading, setLoading] = useState(true);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
+  const [referenceUploadUrl, setReferenceUploadUrl] = useState("");
   const [refUploaded, setRefUploaded] = useState(false);
   const refAudioInputRef = useRef<HTMLInputElement>(null);
   const [keywordsText, setKeywordsText] = useState("");
@@ -134,21 +105,21 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   const [simulating, setSimulating] = useState(false);
   const [testMessage, setTestMessage] = useState("");
   const [testImageUrl, setTestImageUrl] = useState("");
-  const [simulationResult, setSimulationResult] = useState<any>(null);
+  const [simulationResult, setSimulationResult] = useState<Simulation | null>(null);
   const [copied, setCopied] = useState(false);
   const [ignoredPhonesText, setIgnoredPhonesText] = useState("");
-  const [projectProducts, setProjectProducts] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
+  const [projectProducts, setProjectProducts] = useState<Product[]>([]);
+  const [leads, setLeads] = useState<Pick<Tables<"imphq_leads">, "id" | "nome" | "phone">[]>([]);
   const [testPhone, setTestPhone] = useState<string>("");
   const [metricsLoading, setMetricsLoading] = useState(false);
-  const [docs, setDocs] = useState<any[]>([]);
+  const [docs, setDocs] = useState<Tables<"imphq_docs">[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [trainingIds, setTrainingIds] = useState<string[]>([]);
   const [fileUploading, setFileUploading] = useState(false);
-  const [viewingDoc, setViewingDoc] = useState<any>(null);
+  const [viewingDoc, setViewingDoc] = useState<Tables<"imphq_docs"> | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [unanswered, setUnanswered] = useState<any[]>([]);
+  const [logs, setLogs] = useState<Pick<Tables<"imphq_wa_ai_logs">, "id" | "latency_seconds" | "cost_usd" | "success" | "prompt_tokens" | "completion_tokens" | "total_tokens" | "created_at" | "model" | "error_message">[]>([]);
+  const [unanswered, setUnanswered] = useState<Pick<Tables<"imphq_wa_knowledge">, "id" | "project_id" | "pergunta" | "resposta" | "source" | "score_uso" | "aprovada" | "answered" | "conversation_id" | "lead_id" | "created_at" | "updated_at" | "last_applied_at">[]>([]);
   const [unansweredLoading, setUnansweredLoading] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [approvingIds, setApprovingIds] = useState<string[]>([]);
@@ -164,7 +135,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     failedCalls: 0
   });
 
-  const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<{ id: string; name: string; category?: string; preview_url?: string }[]>([]);
   const [elevenLabsLoading, setElevenLabsLoading] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [packOpen, setPackOpen] = useState(false);
@@ -182,8 +153,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         console.warn("ElevenLabs loading warning:", data.error);
         toast.warning(data.error);
       }
-    } catch (err: any) {
-      console.error("Error fetching ElevenLabs voices:", err.message);
+    } catch (err: unknown) {
+      console.error("Error fetching ElevenLabs voices:", errorMessage(err));
     } finally {
       setElevenLabsLoading(false);
     }
@@ -195,7 +166,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     }
   }, [config.voice_reply_enabled, config.voice_provider]);
 
-  const loadMetrics = async () => {
+  const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
     try {
       const thirtyDaysAgo = new Date();
@@ -228,19 +199,19 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         successCalls,
         failedCalls
       });
-    } catch (err: any) {
-      console.error("Error loading AI metrics:", err.message);
+    } catch (err: unknown) {
+      console.error("Error loading AI metrics:", errorMessage(err));
     } finally {
       setMetricsLoading(false);
     }
-  };
+  }, [projectId]);
 
   const isProductSelected = (productName: string) => {
     if (!config.product_focus) return false;
     return config.product_focus.toLowerCase().includes(productName.toLowerCase());
   };
 
-  const handleToggleProduct = (product: any) => {
+  const handleToggleProduct = (product: Product) => {
     if (isProductSelected(product.nome)) {
       const currentSelected = projectProducts.filter(p => p.nome !== product.nome && isProductSelected(p.nome));
       const newFocus = currentSelected.map(p => `Produto: ${p.nome}${p.preco ? ` · Preço: ${p.preco}` : ""}${p.link ? ` · Link: ${p.link}` : ""}`).join(" | ");
@@ -283,8 +254,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       } else {
         toast.error(data?.error || "Falha na simulação");
       }
-    } catch (err: any) {
-      toast.error("Erro ao simular: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao simular: " + errorMessage(err));
     } finally {
       setSimulating(false);
     }
@@ -297,7 +268,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     setDocsLoading(true);
     try {
       const { data, error } = await supabase
@@ -312,9 +283,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     } finally {
       setDocsLoading(false);
     }
-  };
+  }, [projectId]);
 
-  const fetchUnanswered = async () => {
+  const fetchUnanswered = useCallback(async () => {
     setUnansweredLoading(true);
     try {
       const { data, error } = await supabase
@@ -326,12 +297,12 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       setUnanswered(data || []);
-    } catch (err: any) {
-      console.error("Erro ao buscar dúvidas não respondidas:", err.message);
+    } catch (err: unknown) {
+      console.error("Erro ao buscar dúvidas não respondidas:", errorMessage(err));
     } finally {
       setUnansweredLoading(false);
     }
-  };
+  }, [projectId]);
 
   const handleApproveUnanswered = async (id: string, question: string) => {
     const answer = answers[id]?.trim();
@@ -379,9 +350,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         delete next[id];
         return next;
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao aprovar dúvida pendente:", err);
-      toast.error(`Erro ao aprovar: ${err.message}`);
+      toast.error(`Erro ao aprovar: ${errorMessage(err)}`);
     } finally {
       setApprovingIds(prev => prev.filter(x => x !== id));
     }
@@ -415,8 +386,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       toast.success("Exemplo salvo! A IA já aprenderá com ele.");
       setExampleQuestion("");
       setExampleAnswer("");
-    } catch (err: any) {
-      toast.error(`Erro ao salvar: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Erro ao salvar: ${errorMessage(err)}`);
     } finally {
       setSavingExample(false);
     }
@@ -432,12 +403,12 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       if (error) throw error;
       toast.success("Dúvida excluída com sucesso.");
       setUnanswered(prev => prev.filter(q => q.id !== id));
-    } catch (err: any) {
-      toast.error(`Erro ao excluir: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Erro ao excluir: ${errorMessage(err)}`);
     }
   };
 
-  const triggerEmbedder = async (doc: any, active: boolean) => {
+  const triggerEmbedder = async (doc: Tables<"imphq_docs">, active: boolean) => {
     setTrainingIds(prev => [...prev, doc.id]);
     try {
       const { data, error } = await supabase.functions.invoke("wa-doc-embedder", {
@@ -455,9 +426,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
         : "Conhecimento removido da IA com sucesso!"
       );
       fetchDocs();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[triggerEmbedder] Error:", err);
-      toast.error(`Falha no processamento: ${err.message || err}`);
+      toast.error(`Falha no processamento: ${errorMessage(err) || err}`);
     } finally {
       setTrainingIds(prev => prev.filter(id => id !== doc.id));
     }
@@ -502,7 +473,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
             title,
             content,
             tags: ["ia_treinada"]
-          } as any)
+          })
           .select()
           .single();
           
@@ -513,8 +484,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
           ok++;
           triggerEmbedder(data, true);
         }
-      } catch (err: any) {
-        toast.error(`Erro ao salvar ${file.name}: ${err.message}`);
+      } catch (err: unknown) {
+        toast.error(`Erro ao salvar ${file.name}: ${errorMessage(err)}`);
       }
     }
     setFileUploading(false);
@@ -522,11 +493,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     if (ok > 0) toast.success(`${ok} documento(s) importado(s) e enviado(s) para treinamento!`);
   };
 
-  const toggleAiDoc = async (doc: any) => {
-    const isTrained = doc.tags?.includes("ia_treinada") || false;
+  const toggleAiDoc = async (doc: Tables<"imphq_docs">) => {
+    const isTrained = strings(doc.tags).includes("ia_treinada") || false;
     const newTags = isTrained
-      ? (doc.tags || []).filter((t: string) => t !== "ia_treinada")
-      : [...(doc.tags || []), "ia_treinada"];
+      ? strings(doc.tags).filter((t: string) => t !== "ia_treinada")
+      : [...strings(doc.tags), "ia_treinada"];
 
     // Optimistic UI update
     setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, tags: newTags } : d));
@@ -540,8 +511,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       if (updateErr) throw updateErr;
 
       await triggerEmbedder(doc, !isTrained);
-    } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Erro: ${errorMessage(err)}`);
       // Rollback
       setDocs(prev => prev.map(d => d.id === doc.id ? doc : d));
     }
@@ -551,7 +522,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     if (!confirm("Excluir este documento da base de conhecimento da IA?")) return;
     try {
       const doc = docs.find(d => d.id === id);
-      if (doc && doc.tags?.includes("ia_treinada")) {
+      if (doc && strings(doc.tags).includes("ia_treinada")) {
         await supabase.functions.invoke("wa-doc-embedder", {
           body: {
             doc_id: id,
@@ -566,23 +537,14 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       
       setDocs(prev => prev.filter(d => d.id !== id));
       toast.success("Documento excluído com sucesso!");
-    } catch (err: any) {
-      toast.error(`Erro ao excluir: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Erro ao excluir: ${errorMessage(err)}`);
     }
   };
 
-  useEffect(() => {
-    loadConfig();
-    loadMetrics();
-    fetchDocs();
-    fetchUnanswered();
-    supabase
-      .from("imphq_skills")
-      .select("id, nome, descricao")
-      .then(({ data }) => setCustomSkills(data || []));
-  }, [projectId, providerId]);
 
-  const loadConfig = async () => {
+
+  const loadConfig = useCallback(async () => {
     setLoading(true);
     const query = supabase
       .from("imphq_wa_ai_config")
@@ -597,7 +559,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
     const { data } = await query.maybeSingle();
     if (data) {
-      setConfig(data as any);
+      setConfig({ ...data, faq: faqs(data.faq) });
       setKeywordsText((data.escalation_keywords || []).join(", "));
       setIgnoredPhonesText((data.ignored_phones || []).join(", "));
     } else {
@@ -636,28 +598,28 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
     if (proj) {
       // Carrega owner_phone no config para exibir no formulário
-      if ((proj as any).owner_phone) {
-        setConfig(p => ({ ...p, owner_phone: (proj as any).owner_phone } as any));
+      if (proj.owner_phone) {
+        setConfig(p => ({ ...p, owner_phone: proj.owner_phone }));
       }
-      const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
-      let list: any[] = [];
+      const d = record(typeof proj.data === "string" ? JSON.parse(proj.data) : proj.data);
+      let list: Product[] = [];
       if (Array.isArray(d.produtos)) {
-        list = d.produtos.map((p: any) => ({
-          nome: p.nome || p.name || "",
-          preco: p.preco || p.price || "",
-          link: p.link_checkout || p.link || ""
-        })).filter((p: any) => p.nome);
+        list = d.produtos.map((value: unknown) => { const p = record(value); return ({
+          nome: text(p.nome || p.name),
+          preco: text(p.preco || p.price),
+          link: text(p.link_checkout || p.link)
+        }); }).filter(p => p.nome);
       }
       
-      const mainProductName = d.produto_principal?.nome || d.produto_principal?.name || d.produto || d.produto_principal || "";
-      const mainProductPrice = d.produto_principal?.preco || d.produto_principal?.price || d.preco || "";
-      const mainProductLink = d.produto_principal?.link_checkout || d.produto_principal?.link || "";
+      const mainProductName = record(d.produto_principal).nome || record(d.produto_principal).name || d.produto || d.produto_principal || "";
+      const mainProductPrice = record(d.produto_principal).preco || record(d.produto_principal).price || d.preco || "";
+      const mainProductLink = record(d.produto_principal).link_checkout || record(d.produto_principal).link || "";
 
       if (mainProductName && typeof mainProductName === "string" && !list.some(p => p.nome.toLowerCase() === mainProductName.toLowerCase())) {
         list.unshift({
           nome: mainProductName,
-          preco: mainProductPrice,
-          link: mainProductLink
+          preco: text(mainProductPrice),
+          link: text(mainProductLink)
         });
       }
       setProjectProducts(list);
@@ -684,14 +646,26 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
     }
 
     setLoading(false);
-  };
+  }, [projectId, providerId]);
+
+  useEffect(() => {
+    loadConfig();
+    loadMetrics();
+    fetchDocs();
+    fetchUnanswered();
+    supabase
+      .from("imphq_skills")
+      .select("id, nome, descricao")
+      .then(({ data }) => setCustomSkills(data || []));
+  }, [projectId, providerId, loadConfig, fetchDocs, fetchUnanswered, loadMetrics]);
 
   const handleSave = async () => {
     setSaving(true);
     const keywords = keywordsText.split(",").map(k => k.trim()).filter(Boolean);
     const ignored = ignoredPhonesText.split(",").map(n => n.trim()).filter(Boolean);
-    const payload: any = {
+    const payload: TablesInsert<"imphq_wa_ai_config"> & { owner_phone?: string | null } = {
       ...config,
+      faq: config.faq?.map(item => ({ ...item })),
       escalation_keywords: keywords,
       ignored_phones: ignored,
       provider_id: providerId || null,
@@ -705,7 +679,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       : await supabase.from("imphq_wa_ai_config").insert(payload);
 
     // Salva owner_phone no projeto (para relatório semanal)
-    const ownerPhone = (config as any).owner_phone;
+    const ownerPhone = config.owner_phone;
     if (ownerPhone !== undefined && projectId) {
       await supabase
         .from("imphq_projects")
@@ -729,16 +703,16 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       .eq("id", projectId)
       .maybeSingle();
     if (!proj) { toast.error("Projeto não encontrado"); return; }
-    const d: any = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
-    const bk: any = proj.brand_kit || {};
-    const expert = d.expert || d.especialista || {};
+    const d = record(typeof proj.data === "string" ? JSON.parse(proj.data) : proj.data);
+    const bk = record(proj.brand_kit);
+    const expert = record(d.expert || d.especialista);
     const persona = [
       expert?.nome && `Expert: ${expert.nome}`,
       expert?.bio && `Bio: ${expert.bio}`,
       bk?.voice && `Voz da marca: ${bk.voice}`,
       bk?.tom && `Tom: ${bk.tom}`,
     ].filter(Boolean).join("\n");
-    const prod = d.produto_principal || d.produtos?.[0];
+    const prod = record(d.produto_principal || (Array.isArray(d.produtos) ? d.produtos[0] : undefined));
     const focus = prod ? [
       prod.nome && `Produto: ${prod.nome}`,
       prod.preco && `Preço: ${prod.preco}`,
@@ -778,7 +752,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
   );
 
   const handleUploadReference = async (file: File) => {
-    const ttsUrl = (config as any).local_tts_url?.trim();
+    const ttsUrl = referenceUploadUrl.trim();
     if (!ttsUrl) {
       toast.error("Configure a URL do servidor TTS local primeiro.");
       return;
@@ -799,8 +773,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
       const data = await res.json();
       setRefUploaded(true);
       toast.success(`Áudio de referência enviado (${data.size_kb ?? "?"} KB). O servidor já usa esta voz.`);
-    } catch (e: any) {
-      toast.error(`Erro ao enviar áudio: ${e.message}`);
+    } catch (e: unknown) {
+      toast.error(`Erro ao enviar áudio: ${errorMessage(e)}`);
     } finally {
       setUploadingRef(false);
     }
@@ -907,7 +881,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   </div>
                 </div>
 
-                <div className={`p-4 rounded-lg border transition-all ${(config as any).draft_mode === true ? "bg-amber-500/5 border-amber-500/20" : "bg-secondary/20 border-border/40"}`}>
+                <div className={`p-4 rounded-lg border transition-all ${config.draft_mode === true ? "bg-amber-500/5 border-amber-500/20" : "bg-secondary/20 border-border/40"}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
@@ -918,7 +892,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                         A IA elabora a resposta perfeita no chat, mas **não envia**. Você revisa, edita e aprova com 1 clique antes do disparo.
                       </p>
                     </div>
-                    <Switch checked={(config as any).draft_mode === true} onCheckedChange={v => setConfig(p => ({ ...p, draft_mode: v } as any))} className="mt-1" />
+                    <Switch checked={config.draft_mode === true} onCheckedChange={v => setConfig(p => ({ ...p, draft_mode: v }))} className="mt-1" />
                   </div>
                 </div>
               </div>
@@ -1045,8 +1019,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     </Label>
                     <Input
                       placeholder="CNPJ, e-mail, telefone ou chave aleatória"
-                      value={(config as any).pix_key || ""}
-                      onChange={e => setConfig(p => ({ ...p, pix_key: e.target.value } as any))}
+                      value={config.pix_key || ""}
+                      onChange={e => setConfig(p => ({ ...p, pix_key: e.target.value }))}
                       className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
                     />
                     <p className="text-[10px] text-muted-foreground leading-normal">
@@ -1070,8 +1044,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                   <Label className="text-xs font-semibold text-muted-foreground">Seu número (WhatsApp) para receber o relatório</Label>
                   <Input
                     placeholder="5511999999999"
-                    value={(config as any).owner_phone || ""}
-                    onChange={e => setConfig(p => ({ ...p, owner_phone: e.target.value } as any))}
+                    value={config.owner_phone || ""}
+                    onChange={e => setConfig(p => ({ ...p, owner_phone: e.target.value }))}
                     className="text-xs bg-secondary/40 border-border/30 h-9"
                   />
                   <p className="text-[10px] text-muted-foreground">Apenas números, com DDI + DDD. Ex: 5511999887766</p>
@@ -1287,16 +1261,16 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       <div className="space-y-3 border-t border-border/20 pt-3">
                         <div className="space-y-1.5">
                           <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                            <Server className="h-3.5 w-3.5 text-primary" /> URL do Servidor TTS Local
+                            <Server className="h-3.5 w-3.5 text-primary" /> URL para enviar áudio de referência
                           </Label>
                           <Input
                             placeholder="https://seu-tunnel.trycloudflare.com  ou  http://localhost:8765"
-                            value={(config as any).local_tts_url || ""}
-                            onChange={e => setConfig(p => ({ ...p, local_tts_url: e.target.value } as any))}
+                            value={referenceUploadUrl}
+                            onChange={e => setReferenceUploadUrl(e.target.value)}
                             className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
                           />
                           <p className="text-[9px] text-muted-foreground/70 leading-relaxed">
-                            A Edge Function do Supabase precisa alcançar essa URL. Use o Cloudflare Tunnel para expor sua máquina publicamente.
+                            Esta URL é usada somente no envio do áudio nesta tela e não é salva. Para respostas automáticas, configure LOCAL_TTS_URL nos segredos do Supabase.
                           </p>
                         </div>
 
@@ -1368,13 +1342,9 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                         <Label className="text-xs font-semibold text-muted-foreground">
                           Chave ElevenLabs (fallback automático se servidor offline)
                         </Label>
-                        <Input
-                          type="password"
-                          placeholder="sk_... (opcional — usado apenas se o servidor local falhar)"
-                          value={(config as any).elevenlabs_api_key || ""}
-                          onChange={e => setConfig(p => ({ ...p, elevenlabs_api_key: e.target.value } as any))}
-                          className="text-xs bg-secondary/40 border-border/30 h-9.5 font-mono"
-                        />
+                        <p className="text-xs text-muted-foreground">
+                          Configure ELEVENLABS_API_KEY nos segredos do Supabase. A chave não é armazenada neste formulário.
+                        </p>
                         <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
                           Se o servidor local não responder em 30s, o sistema usa o ElevenLabs com a Voice ID configurada acima como backup automático.
                         </p>
@@ -1542,7 +1512,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">Provedor de IA (Gateway)</Label>
-                  <Select value={(config as any).ai_provider || "lovable"} onValueChange={v => setConfig(p => ({ ...p, ai_provider: v } as any))}>
+                  <Select value={config.ai_provider || "lovable"} onValueChange={v => setConfig(p => ({ ...p, ai_provider: v }))}>
                     <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="lovable" className="text-xs">Lovable AI (Gemini, GPT-5 Integrado)</SelectItem>
@@ -1553,10 +1523,10 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">Modelo de Linguagem (LLM)</Label>
-                  <Select value={(config as any).ai_model || ""} onValueChange={v => setConfig(p => ({ ...p, ai_model: v } as any))}>
+                  <Select value={config.ai_model || ""} onValueChange={v => setConfig(p => ({ ...p, ai_model: v }))}>
                     <SelectTrigger className="bg-secondary/40 border-border/30 text-xs h-9.5"><SelectValue placeholder="Padrão do sistema (Flash)" /></SelectTrigger>
                     <SelectContent>
-                      {((config as any).ai_provider === "openrouter" ? [
+                      {(config.ai_provider === "openrouter" ? [
                         "anthropic/claude-3.5-sonnet",
                         "anthropic/claude-3.5-haiku",
                         "openai/gpt-4o",
@@ -1588,11 +1558,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-xs">
-                      <Label className="font-semibold text-muted-foreground">Criatividade (Temp: {Number((config as any).ai_temperature ?? 0.7).toFixed(1)})</Label>
+                      <Label className="font-semibold text-muted-foreground">Criatividade (Temp: {Number(config.ai_temperature ?? 0.7).toFixed(1)})</Label>
                     </div>
                     <input type="range" min={0} max={1.5} step={0.1}
-                      value={(config as any).ai_temperature ?? 0.7}
-                      onChange={e => setConfig(p => ({ ...p, ai_temperature: parseFloat(e.target.value) } as any))}
+                      value={config.ai_temperature ?? 0.7}
+                      onChange={e => setConfig(p => ({ ...p, ai_temperature: parseFloat(e.target.value) }))}
                       className="w-full h-1.5 bg-secondary accent-primary rounded-lg cursor-pointer" />
                     <p className="text-[9px] text-muted-foreground leading-normal">
                       Valores menores = mais estável e direto. Valores maiores = mais criativo e variado.
@@ -1601,11 +1571,11 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
 
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-xs">
-                      <Label className="font-semibold text-muted-foreground">Filtro Top P ({Number((config as any).ai_top_p ?? 1).toFixed(1)})</Label>
+                      <Label className="font-semibold text-muted-foreground">Filtro Top P ({Number(config.ai_top_p ?? 1).toFixed(1)})</Label>
                     </div>
                     <input type="range" min={0.1} max={1} step={0.1}
-                      value={(config as any).ai_top_p ?? 1}
-                      onChange={e => setConfig(p => ({ ...p, ai_top_p: parseFloat(e.target.value) } as any))}
+                      value={config.ai_top_p ?? 1}
+                      onChange={e => setConfig(p => ({ ...p, ai_top_p: parseFloat(e.target.value) }))}
                       className="w-full h-1.5 bg-secondary accent-primary rounded-lg cursor-pointer" />
                     <p className="text-[9px] text-muted-foreground leading-normal">
                       Limita o vocabulário avaliado pela IA para reduzir gírias ou repetições.
@@ -1640,8 +1610,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     Indexa automaticamente respostas que você dá no chat humano <strong>e também pelo celular</strong>. O cérebro da IA fica mais inteligente a cada conversa real.
                   </p>
                 </div>
-                <Switch checked={(config as any).learning_mode !== false}
-                  onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v } as any))} />
+                <Switch checked={config.learning_mode !== false}
+                  onCheckedChange={v => setConfig(p => ({ ...p, learning_mode: v }))} />
               </div>
 
               {/* Backfill histórico */}
@@ -1661,8 +1631,8 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       });
                       if (error) throw error;
                       toast.success(`✓ ${data?.aprendidas || 0} aprendidas · ${data?.dedupadas || 0} já existiam · ${data?.puladas || 0} puladas`);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Erro no backfill");
+                    } catch (e: unknown) {
+                      toast.error(errorMessage(e) || "Erro no backfill");
                     } finally {
                       setBackfillLoading(false);
                     }
@@ -1865,7 +1835,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       Último: {new Date(config.last_audit_at).toLocaleString("pt-BR")}
                       {Array.isArray(config.audit_findings) && config.audit_findings.length > 0 && config.audit_findings[0] && (
                         <span className="text-muted-foreground ml-2">
-                          · {config.audit_findings[0].phrases_added?.length || 0}f, {config.audit_findings[0].rules_added?.length || 0}r
+                          · {arrayLength(record(config.audit_findings[0]).phrases_added) || 0}f, {arrayLength(record(config.audit_findings[0]).rules_added) || 0}r
                         </span>
                       )}
                     </p>
@@ -1901,7 +1871,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                       Último: {new Date(config.last_tune_at).toLocaleString("pt-BR")}
                       {Array.isArray(config.tune_history) && config.tune_history.length > 0 && config.tune_history[0] && (
                         <span className="text-muted-foreground ml-2">
-                          · {config.tune_history[0].wins_analyzed}w vs {config.tune_history[0].losses_analyzed}l · {config.tune_history[0].applied ? "aplicado" : "proposto"}
+                          · {text(record(config.tune_history[0]).wins_analyzed)}w vs {text(record(config.tune_history[0]).losses_analyzed)}l · {record(config.tune_history[0]).applied ? "aplicado" : "proposto"}
                         </span>
                       )}
                     </p>
@@ -2063,7 +2033,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                     </div>
                   ) : (
                     docs.map((d) => {
-                      const isTrained = d.tags?.includes("ia_treinada") || false;
+                      const isTrained = strings(d.tags).includes("ia_treinada") || false;
                       const isProcessing = trainingIds.includes(d.id);
                       const parsed = parseDocContent(d.content);
                       const isFile = parsed.kind === "file";
@@ -2585,7 +2555,7 @@ export default function WhatsAppAIConfig({ projectId, providerId }: Props) {
                         <TabsContent value="rag" className="space-y-3 mt-0">
                           {simulationResult.vectorMemories && simulationResult.vectorMemories.length > 0 ? (
                             <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                              {simulationResult.vectorMemories.map((m: any, idx: number) => (
+                              {simulationResult.vectorMemories.map((m, idx: number) => (
                                 <div key={idx} className="p-3 rounded-lg border border-border/30 bg-secondary/15 flex flex-col gap-1.5">
                                   <div className="flex justify-between items-center">
                                     <span className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center gap-1">

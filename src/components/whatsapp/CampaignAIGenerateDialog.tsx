@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useState, type ComponentProps } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, Database, Plus, CheckCircle, ChevronDown, ChevronUp, Wand2, PencilRuler } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import CampaignAIDiffDialog from "./CampaignAIDiffDialog";
+import CampaignAIDiffDialog from "@/components/whatsapp/CampaignAIDiffDialog";
 
 interface Props {
   open: boolean;
@@ -43,7 +44,7 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
   const [allowTiming, setAllowTiming] = useState(true);
 
   const [loading, setLoading] = useState(false);
-  const [diff, setDiff] = useState<any[] | null>(null);
+  const [diff, setDiff] = useState<ComponentProps<typeof CampaignAIDiffDialog>["diff"] | null>(null);
 
   const handleGenerateCreate = async () => {
     setLoading(true);
@@ -82,8 +83,8 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
       onDone();
       onClose();
       setMainTheme(""); setOfferDetail(""); setBriefing(""); setReference(""); setShowAdvancedBriefing(false);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar sequência");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar sequência");
     } finally {
       setLoading(false);
     }
@@ -117,8 +118,8 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
         return;
       }
       setDiff(d);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar ajuste");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar ajuste");
     } finally {
       setLoading(false);
     }
@@ -179,7 +180,7 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-semibold text-muted-foreground">Escopo</Label>
-                  <Select value={adjustScope} onValueChange={(v: any) => setAdjustScope(v)}>
+                  <Select value={adjustScope} onValueChange={(v) => { if (v === "all" || v === "active") setAdjustScope(v); }}>
                     <SelectTrigger className="h-9 text-xs bg-secondary/30"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-xs">Toda a sequência</SelectItem>
@@ -326,7 +327,7 @@ export default function CampaignAIGenerateDialog({ open, onClose, campaignId, pr
           open={!!diff}
           onClose={() => setDiff(null)}
           campaignId={campaignId}
-          diff={diff as any}
+          diff={diff}
           onApplied={handleDiffApplied}
         />
       )}

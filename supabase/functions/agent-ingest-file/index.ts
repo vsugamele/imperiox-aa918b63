@@ -104,9 +104,9 @@ Deno.serve(async (req) => {
         source_path: file_path || null,
         chunk_index: b + i,
         content,
-        embedding: embs[i] as any,
+        embedding: embs[i],
       }));
-      const { error } = await sb.from("imphq_agent_knowledge").insert(rows as any);
+      const { error } = await sb.from("imphq_agent_knowledge").insert(rows);
       if (error) throw new Error(`Insert falhou: ${error.message}`);
       inserted += rows.length;
     }
@@ -114,9 +114,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, chunks: inserted }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[agent-ingest-file]", e);
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+    return new Response(JSON.stringify({ error: eMessage || "erro" }), {
       status: 500,
       headers: { ...cors, "Content-Type": "application/json" },
     });

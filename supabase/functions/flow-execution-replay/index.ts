@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     if (!exec) throw new Error("execution not found");
 
     const truncated = Array.isArray(exec.step_results)
-      ? exec.step_results.filter((s: any) => (typeof s?.step === "number" ? s.step : 0) < from_step)
+      ? exec.step_results.filter((s: unknown) => (s !== null && typeof s === "object" && "step" in s && typeof s.step === "number" ? s.step : 0) < from_step)
       : [];
 
     const { error } = await supa

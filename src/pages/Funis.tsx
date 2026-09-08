@@ -1,4 +1,8 @@
-﻿import { useEffect, useState, useRef, useCallback } from "react";
+import type { LucideIcon } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
+import { parseEtapa, parseFunnelData, parseProjectData, readRecord, serializeFunnelStages, toJson, type Etapa, type FunnelData, type Product, type ProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,16 +35,12 @@ import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
 
-interface Etapa {
-  nome: string; tipo?: string; visitantes: number; conversoes: number;
-  url?: string; image_url?: string; pos_x?: number; pos_y?: number;
-  descricao?: string; connects_to?: number[];
-  width?: number; height?: number;
-}
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
-  project_id?: string; data: { etapas?: Etapa[]; pipeline_assets?: Record<string, unknown> }; criado_em?: string;
+  project_id?: string; data: FunnelData; criado_em?: string;
 }
+
+type Project = Pick<Tables<"imphq_projects">, "id" | "name" | "data"> & { briefing: ProjectData; description?: string };
 
 const DEFAULT_ETAPAS: Etapa[] = [
   { nome: "AnÃºncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
@@ -50,7 +50,7 @@ const DEFAULT_ETAPAS: Etapa[] = [
   { nome: "Upsell", tipo: "upsell", visitantes: 0, conversoes: 0, pos_x: 1360, pos_y: 80 },
 ];
 
-const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: any; hasMetrics: boolean }> = {
+const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: LucideIcon; hasMetrics: boolean }> = {
   criativo:  { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo", icon: Megaphone, hasMetrics: true },
   pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "PÃ¡gina", icon: FileText, hasMetrics: true },
   vsl:       { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL", icon: Video, hasMetrics: true },
@@ -106,7 +106,7 @@ const IMG_MIN = 80;
 
 export default function Funis() {
   const [funis, setFunis] = useState<Funil[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [filterProject, setFilterProject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -128,8 +128,8 @@ export default function Funis() {
   const [connectingFrom, setConnectingFrom] = useState<number | null>(null);
   const [connectLine, setConnectLine] = useState<{ x: number; y: number } | null>(null);
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
-  const [projectProductsFull, setProjectProductsFull] = useState<any[]>([]);
-  const [projectData, setProjectData] = useState<any>(null);
+  const [projectProductsFull, setProjectProductsFull] = useState<Product[]>([]);
+  const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [usePixelData, setUsePixelData] = useState(false);
   const [pixelMetrics, setPixelMetrics] = useState<Record<string, { pageviews: number; conversions: number }>>({});
   const [showProjectPanel, setShowProjectPanel] = useState(false);
@@ -167,8 +167,8 @@ export default function Funis() {
     setAiGenerating(true);
     try {
       const proj = selectedFunil.project_id ? projects.find(p => p.id === selectedFunil.project_id) : null;
-      const briefing = proj?.briefing ? (typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing) : {};
-      const prodList = projectProductsFull.map((p: any) => ({
+      const briefing = proj?.briefing || {};
+      const prodList = projectProductsFull.map((p) => ({
         nome: p.nome || p.name,
         tipo: p.tipo_oferta || p.tipo || "",
         preco: p.preco_por || p.preco || p.price || "",
@@ -191,7 +191,7 @@ export default function Funis() {
       });
       if (error) throw error;
 
-      const etapas = (data?.etapas || []).map((e: any) => ({
+      const etapas = (Array.isArray(data?.etapas) ? data.etapas : []).map((value: unknown) => { const e = parseEtapa(value); return ({
         nome: e.nome || "Etapa",
         tipo: e.tipo || "outro",
         visitantes: 0,
@@ -201,7 +201,7 @@ export default function Funis() {
         pos_y: e.pos_y ?? 200,
         descricao: e.descricao || "",
         connects_to: e.connects_to || [],
-      }));
+      }); });
 
       if (etapas.length > 0) {
         setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
@@ -212,16 +212,16 @@ export default function Funis() {
       } else {
         toast.error("A IA nÃ£o retornou etapas. Tente reformular o prompt.");
       }
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
-      else if (err?.message?.includes("402")) toast.error("CrÃ©ditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar funil");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit excedido.");
+      else if (errorMessage(err)?.includes("402")) toast.error("CrÃ©ditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar funil");
     } finally { setAiGenerating(false); }
   };
 
   const handlePipelineApply = (etapas: unknown[], estrategia: string, assets?: Record<string, unknown>) => {
     if (!selectedFunil) return;
-    const mapped = (etapas as Array<Record<string, unknown>>).map(e => ({
+    const mapped = etapas.map(parseEtapa).map(e => ({
       nome: (e.nome as string) || "Etapa",
       tipo: (e.tipo as string) || "outro",
       visitantes: 0,
@@ -234,7 +234,7 @@ export default function Funis() {
     }));
     const pipeline_assets = assets && Object.keys(assets).length > 0
       ? { ...assets, estrategia, generated_at: new Date().toISOString() }
-      : (selectedFunil.data as any).pipeline_assets;
+      : selectedFunil.data.pipeline_assets;
     const assetCount = assets
       ? Object.values(assets).filter(v => Array.isArray(v) ? v.length > 0 : !!v).length
       : 0;
@@ -257,8 +257,8 @@ export default function Funis() {
     setAiOrganizing(true);
     try {
       const proj = projects.find(p => p.id === selectedFunil.project_id);
-      const briefing = proj?.briefing ? (typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing) : {};
-      const prodList = projectProductsFull.map((p: any) => ({
+      const briefing = proj?.briefing || {};
+      const prodList = projectProductsFull.map((p) => ({
         nome: p.nome || p.name,
         tipo: p.tipo_oferta || p.tipo || "",
         preco: p.preco_por || p.preco || p.price || "",
@@ -289,7 +289,7 @@ export default function Funis() {
       const estrategia = data?.estrategia || "";
 
       if (organized.length > 0) {
-        const aiEtapas: Etapa[] = organized.map((e: any) => ({
+        const aiEtapas: Etapa[] = organized.map((value: unknown) => { const e = parseEtapa(value); return ({
           nome: e.nome || "Etapa",
           tipo: e.tipo || "outro",
           visitantes: 0,
@@ -299,7 +299,7 @@ export default function Funis() {
           pos_y: e.pos_y ?? 200,
           descricao: e.descricao || "",
           connects_to: e.connects_to || [],
-        }));
+        }); });
         setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: aiEtapas } });
         triggerAutoSave();
         toast.success(`IA organizou ${aiEtapas.length} etapas no funil!${estrategia ? `\n\n📋 ${estrategia}` : ""}`, { duration: 6000 });
@@ -336,41 +336,29 @@ export default function Funis() {
         triggerAutoSave();
         toast.success(`${sorted.length} produtos organizados no funil (fallback local)`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI organize error:", err);
-      toast.error("Erro ao organizar com IA: " + (err?.message || "tente novamente"));
+      toast.error("Erro ao organizar com IA: " + (errorMessage(err) || "tente novamente"));
     } finally {
       setAiOrganizing(false);
     }
   };
 
-  const load = async () => {
-    const [fRes, pRes] = await Promise.all([
-      supabase.from("imphq_funis").select("*").order("updated_at", { ascending: false }),
-      supabase.from("imphq_projects").select("id, name, data").order("name"),
-    ]);
-    setFunis((fRes.data || []).map((f: any) => ({ ...f, data: f.data || {} })));
-    const projRows = (pRes.data || []).map((p: any) => {
-      const d = typeof p.data === "string" ? (() => { try { return JSON.parse(p.data); } catch { return {}; } })() : (p.data || {});
-      return { ...p, briefing: d.briefing || d };
-    });
-    setProjects(projRows);
-    loadKpis();
-  };
 
-  const loadKpis = async () => {
+
+  const loadKpis = useCallback(async () => {
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const [leadsRes, vendasRes] = await Promise.all([
       supabase.from("imphq_leads").select("project_id").gte("created_at", since),
       supabase.from("imphq_vendas").select("project_id, status, valor, valor_liquido").gte("created_at", since),
     ]);
     const map: Record<string, { leads: number; vendas: number; receita: number; conv: number }> = {};
-    for (const l of (leadsRes.data || []) as any[]) {
+    for (const l of (leadsRes.data || [])) {
       if (!l.project_id) continue;
       if (!map[l.project_id]) map[l.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
       map[l.project_id].leads++;
     }
-    for (const v of (vendasRes.data || []) as any[]) {
+    for (const v of (vendasRes.data || [])) {
       if (!v.project_id) continue;
       if (!map[v.project_id]) map[v.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
       if ((v.status || "").toLowerCase() === "aprovado") {
@@ -383,9 +371,23 @@ export default function Funis() {
       m.conv = m.leads > 0 ? (m.vendas / m.leads) * 100 : 0;
     }
     setKpisByProject(map);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => {
+    const [fRes, pRes] = await Promise.all([
+      supabase.from("imphq_funis").select("*").order("updated_at", { ascending: false }),
+      supabase.from("imphq_projects").select("id, name, data").order("name"),
+    ]);
+    setFunis((fRes.data || []).map((f) => ({ ...f, data: parseFunnelData(f.data) })));
+    const projRows = (pRes.data || []).map((p) => {
+      const d = readRecord(p.data);
+      return { ...p, briefing: parseProjectData(d.briefing || d) };
+    });
+    setProjects(projRows);
+    loadKpis();
+  }, [loadKpis]);
+
+  useEffect(() => { load(); }, [load]);
 
   // Sync viewMode from URL query param (e.g. /funis?view=mapa)
   useEffect(() => {
@@ -402,12 +404,12 @@ export default function Funis() {
     if (selectedFunil?.project_id) {
       const proj = projects.find(p => p.id === selectedFunil.project_id);
       if (proj?.briefing) {
-        const b = typeof proj.briefing === "string" ? JSON.parse(proj.briefing) : proj.briefing;
-        const d = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
+        const b = proj.briefing;
+        const d = parseProjectData(proj.data);
         const prods = b?.produtos || b?.products || [];
         const prodArray = Array.isArray(prods) ? prods : [];
-        setProjectProducts(prodArray.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
-        setProjectProductsFull(prodArray.map((p: any) => typeof p === "string" ? { nome: p } : p));
+        setProjectProducts(prodArray.map((p) => typeof p === "string" ? p : p.nome || p.name || ""));
+        setProjectProductsFull(prodArray.map((p) => typeof p === "string" ? { nome: p } : p));
         setProjectData({ ...b, ...d, links: d?.links || b?.links || {}, webhooks: d?.webhooks || b?.webhooks || [] });
       } else {
         setProjectProducts([]);
@@ -430,7 +432,7 @@ export default function Funis() {
         supabase.from("imphq_events").select("page_url, event_name").eq("project_id", pid),
         supabase.from("imphq_leads").select("id").eq("project_id", pid),
         supabase.from("imphq_vendas").select("id, valor, status").eq("project_id", pid).eq("status", "aprovado"),
-        supabase.from("imphq_ads_spend" as any).select("valor").eq("project_id", pid),
+        supabase.from("imphq_ads_spend").select("valor").eq("project_id", pid),
       ]);
       // Pixel metrics
       const metrics: Record<string, { pageviews: number; conversions: number }> = {};
@@ -445,8 +447,8 @@ export default function Funis() {
       // Real metrics
       const totalLeads = leadsRes.data?.length || 0;
       const totalVendasCount = vendasRes.data?.length || 0;
-      const totalVendasValor = vendasRes.data?.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0) || 0;
-      const totalSpend = adsRes.data?.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0) || 0;
+      const totalVendasValor = vendasRes.data?.reduce((s: number, v) => s + (Number(v.valor) || 0), 0) || 0;
+      const totalSpend = adsRes.data?.reduce((s: number, a) => s + (Number(a.valor) || 0), 0) || 0;
       setRealMetrics({
         leads: totalLeads,
         vendas: totalVendasCount,
@@ -474,7 +476,7 @@ export default function Funis() {
     const { error } = await supabase.from("imphq_funis").insert([{
       id, nome: form.nome, tipo: form.tipo, status: form.status,
       project_id: form.project_id || null,
-      data: { etapas: DEFAULT_ETAPAS } as any,
+      data: toJson({ etapas: DEFAULT_ETAPAS }),
     }]);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Funil criado!"); setShowNew(false);
@@ -486,10 +488,10 @@ export default function Funis() {
     toast.success("Funil removido"); setSelectedFunil(null); load();
   };
 
-  const updateEtapa = async (funilId: string, etapas: Etapa[]) => {
-    await supabase.from("imphq_funis").update({ data: { etapas } as any }).eq("id", funilId);
+  const updateEtapa = useCallback(async (funilId: string, etapas: Etapa[]) => {
+    await supabase.from("imphq_funis").update({ data: serializeFunnelStages(selectedFunil?.id === funilId ? selectedFunil.data : funis.find(f => f.id === funilId)?.data || {}, etapas) }).eq("id", funilId);
     setSelectedFunil(prev => prev ? { ...prev, data: { ...prev.data, etapas } } : null);
-  };
+  }, [selectedFunil, funis]);
 
   const triggerAutoSave = useCallback(() => {
     if (!selectedFunil) return;
@@ -497,7 +499,7 @@ export default function Funis() {
     autoSaveTimer.current = setTimeout(() => {
       updateEtapa(selectedFunil.id, selectedFunil.data.etapas || []);
     }, 1200);
-  }, [selectedFunil]);
+  }, [selectedFunil, updateEtapa]);
 
   const addEtapaOfType = (tipo: string) => {
     if (!selectedFunil) return;
@@ -514,7 +516,7 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
   };
 
-  const uploadImageFile = async (file: File): Promise<string | null> => {
+  const uploadImageFile = useCallback(async (file: File): Promise<string | null> => {
     if (!selectedFunil) return null;
     if (!file.type.startsWith("image/")) {
       toast.error(`${file.name} nÃ£o Ã© uma imagem`);
@@ -529,9 +531,9 @@ export default function Funis() {
     }
     const { data } = supabase.storage.from("project-media").getPublicUrl(path);
     return data.publicUrl;
-  };
+  }, [selectedFunil]);
 
-  const addImageNodesFromFiles = async (files: FileList | File[], originCanvasX?: number, originCanvasY?: number) => {
+  const addImageNodesFromFiles = useCallback(async (files: FileList | File[], originCanvasX?: number, originCanvasY?: number) => {
     if (!selectedFunil) return;
     const arr = Array.from(files).filter(f => f.type.startsWith("image/"));
     if (arr.length === 0) return;
@@ -568,7 +570,7 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: updated } });
     triggerAutoSave();
     toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
-  };
+  }, [selectedFunil, pan, zoom, uploadImageFile, triggerAutoSave]);
 
   const handleCanvasPaste = useCallback(async (e: ClipboardEvent) => {
     if (!selectedFunil) return;
@@ -584,7 +586,7 @@ export default function Funis() {
     if (files.length === 0) return;
     e.preventDefault();
     await addImageNodesFromFiles(files);
-  }, [selectedFunil, pan, zoom]);
+  }, [selectedFunil, addImageNodesFromFiles]);
 
   useEffect(() => {
     if (!selectedFunil) return;
@@ -613,7 +615,7 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas: remapped } });
   };
 
-  const setEtapaField = (idx: number, field: string, value: any) => {
+  const setEtapaField = (idx: number, field: keyof Etapa, value: Etapa[keyof Etapa]) => {
     if (!selectedFunil) return;
     const etapas = [...(selectedFunil.data.etapas || [])];
     etapas[idx] = { ...etapas[idx], [field]: value };
@@ -626,7 +628,7 @@ export default function Funis() {
     toast.success("Etapas salvas!");
   };
 
-  const addProductAsEtapa = (prod: any) => {
+  const addProductAsEtapa = (prod: Product) => {
     if (!selectedFunil) return;
     const etapas = selectedFunil.data.etapas || [];
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -676,7 +678,7 @@ export default function Funis() {
   };
 
   // --- Add a connection ---
-  const addConnection = (fromIdx: number, toIdx: number) => {
+  const addConnection = useCallback((fromIdx: number, toIdx: number) => {
     if (!selectedFunil || fromIdx === toIdx) return;
     const etapas = [...(selectedFunil.data.etapas || [])];
     const e = etapas[fromIdx];
@@ -686,7 +688,7 @@ export default function Funis() {
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
     triggerAutoSave();
     toast.success("ConexÃ£o criada");
-  };
+  }, [selectedFunil, triggerAutoSave]);
 
   // --- Drag handlers ---
   const handleCardMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
@@ -743,9 +745,9 @@ export default function Funis() {
     }
   }, [connectingFrom, draggingIdx, selectedFunil, zoom, dragOffset, isPanning, pan, panStart, resizingIdx, resizeStart]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback((e?: React.MouseEvent) => {
     // Finish connection: check if mouse is over a card
-    if (connectingFrom !== null && selectedFunil && canvasRef.current) {
+    if (e && connectingFrom !== null && selectedFunil && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       const mx = (e.clientX - rect.left - pan.x) / zoom;
       const my = (e.clientY - rect.top - pan.y) / zoom;
@@ -780,7 +782,7 @@ export default function Funis() {
     }
     setDraggingIdx(null);
     setIsPanning(false);
-  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom, resizingIdx]);
+  }, [connectingFrom, draggingIdx, triggerAutoSave, selectedFunil, pan, zoom, resizingIdx, addConnection]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".etapa-card")) return;
@@ -921,7 +923,7 @@ export default function Funis() {
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp({} as any); }}
+          onMouseLeave={() => { setConnectingFrom(null); setConnectLine(null); handleMouseUp(); }}
           onWheel={handleWheel}
           onDragOver={(e) => {
             if (Array.from(e.dataTransfer.types || []).includes("Files")) {
@@ -1188,7 +1190,7 @@ export default function Funis() {
                         }}>
                           <SelectTrigger className="h-6 text-[9px] bg-primary/5 border-primary/20"><SelectValue placeholder="📦 Vincular Produto" /></SelectTrigger>
                           <SelectContent>
-                            {projectProductsFull.map((p: any, pi: number) => (
+                            {projectProductsFull.map((p, pi: number) => (
                               <SelectItem key={pi} value={String(pi)} className="text-xs">
                                 <span className="flex items-center gap-1.5">
                                   <Package className="h-3 w-3" />
@@ -1295,7 +1297,7 @@ export default function Funis() {
                 <h4 className="text-xs font-bold flex items-center gap-1.5"><Package className="h-3 w-3 text-primary" /> Produtos do Projeto</h4>
                 <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setShowProjectPanel(false)}><X className="h-3 w-3" /></Button>
               </div>
-              {projectProductsFull.map((prod: any, idx: number) => {
+              {projectProductsFull.map((prod, idx: number) => {
                 const nome = prod.nome || prod.name || `Produto ${idx + 1}`;
                 const preco = prod.preco_por || prod.preco || prod.price || "";
                 const tipo = prod.tipo_oferta || prod.tipo || "";
@@ -1310,7 +1312,7 @@ export default function Funis() {
                     {url && <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1"><Link2 className="h-2.5 w-2.5 shrink-0" />{url}</p>}
                     {prod.ofertas?.length > 0 && (
                       <div className="space-y-0.5">
-                        {prod.ofertas.map((of: any, oi: number) => (
+                        {prod.ofertas.map((of, oi: number) => (
                           <div key={oi} className="flex items-center justify-between text-[9px] text-muted-foreground">
                             <span className="truncate">{of.nome || `Oferta ${oi + 1}`}</span>
                             {of.preco_por && <span className="font-mono text-primary">R${of.preco_por}</span>}
@@ -1337,7 +1339,7 @@ export default function Funis() {
               {projectData?.webhooks?.length > 0 && (
                 <div className="border-t border-border pt-2 space-y-1">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase">Webhooks</p>
-                  {projectData.webhooks.map((wh: any, wi: number) => (
+                  {projectData.webhooks.map((wh, wi: number) => (
                     <Badge key={wi} variant="outline" className="text-[8px]">{wh.nome || wh.plataforma || `Webhook ${wi + 1}`}</Badge>
                   ))}
                 </div>
@@ -1493,7 +1495,7 @@ export default function Funis() {
           onClose={() => setShowPipelineWizard(false)}
           onApply={handlePipelineApply}
           projectId={selectedFunil?.project_id}
-          products={projectProductsFull.map((p: any) => ({
+          products={projectProductsFull.map((p) => ({
             nome: p.nome || p.name || "",
             tipo: p.tipo_oferta || p.tipo || "",
             preco: p.preco_por || p.preco || p.price || "",
@@ -1505,7 +1507,7 @@ export default function Funis() {
         <PipelineAssetsDialog
           open={showPipelineAssets}
           onOpenChange={setShowPipelineAssets}
-          assets={selectedFunil?.data.pipeline_assets as any}
+          assets={selectedFunil?.data.pipeline_assets}
         />
       </div>
     );
@@ -1719,8 +1721,9 @@ export default function Funis() {
         funil={selectedFunil}
         onRestore={async (canvas) => {
           if (!selectedFunil) return;
-          await supabase.from("imphq_funis").update({ data: canvas as any }).eq("id", selectedFunil.id);
-          setSelectedFunil({ ...selectedFunil, data: canvas });
+          const { error } = await supabase.from("imphq_funis").update({ data: toJson(canvas) }).eq("id", selectedFunil.id);
+          if (error) throw error;
+          setSelectedFunil({ ...selectedFunil, data: parseFunnelData(canvas) });
         }}
       />
 
@@ -1761,7 +1764,7 @@ export default function Funis() {
       <ProductEcosystemDrawer
         open={showEcosystem}
         onOpenChange={setShowEcosystem}
-        projects={projects as any}
+        projects={projects}
         initialProjectId={hubProjectId || projects[0]?.id}
       />
     </div>
@@ -1783,15 +1786,15 @@ const PLATFORM_BADGES: Record<string, string> = {
 
 interface ProductCard {
   projectId: string; projectName: string; nome: string; preco?: string;
-  plataforma?: string; tipo?: string; descricao?: string; cluster: string; ofertas?: any[];
+  plataforma?: string; tipo?: string; descricao?: string; cluster: string; ofertas?: Product[];
 }
 
-function EcossistemaView({ projects }: { projects: any[] }) {
+function EcossistemaView({ projects }: { projects: Project[] }) {
   const allProducts: ProductCard[] = [];
 
   for (const proj of projects) {
-    const b = typeof proj.briefing === "string" ? (() => { try { return JSON.parse(proj.briefing); } catch { return {}; } })() : (proj.briefing || {});
-    const data = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
+    const b = proj.briefing || {};
+    const data = parseProjectData(proj.data);
     const produtos = b?.produtos || data?.produtos || [];
     const webhooks = data?.webhooks || b?.webhooks || [];
     const plataforma = webhooks[0]?.nome?.toLowerCase() || "";
@@ -1851,7 +1854,7 @@ function EcossistemaView({ projects }: { projects: any[] }) {
                         {prod.ofertas && prod.ofertas.length > 0 && (
                           <div className="border-t border-border pt-1.5 space-y-1">
                             <p className="text-[9px] font-medium text-muted-foreground uppercase">Ofertas</p>
-                            {prod.ofertas.map((of: any, oi: number) => (
+                            {prod.ofertas.map((of, oi: number) => (
                               <div key={oi} className="flex items-center justify-between text-[10px]">
                                 <span className="truncate flex-1">{of.nome || `Oferta ${oi + 1}`}</span>
                                 {of.preco_por && <span className="font-mono text-primary">R${of.preco_por}</span>}

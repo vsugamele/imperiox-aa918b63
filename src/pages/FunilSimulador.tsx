@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,34 +36,34 @@ export default function FunilSimulador() {
     if (!projectId && projects.length) setProjectId(projects[0].id);
   }, [projects, projectId]);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     const dateFrom = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-    const adsQ: any = supabase.from("imphq_ads_spend")
+    const adsQ = supabase.from("imphq_ads_spend")
       .select("valor, impressoes, cliques, checkouts_iniciados")
       .eq("project_id", projectId)
       .gte("data_ref", dateFrom);
-    const vendasQ: any = supabase.from("imphq_vendas")
+    const vendasQ = supabase.from("imphq_vendas")
       .select("valor, status")
       .eq("project_id", projectId)
       .gte("data_venda", dateFrom);
     const [adsR, vendasR] = await Promise.all([adsQ, vendasQ]);
 
-    const spend = (adsR.data || []).reduce((s: number, r: any) => s + (+r.valor || 0), 0);
-    const impressoes = (adsR.data || []).reduce((s: number, r: any) => s + (+r.impressoes || 0), 0);
-    const cliques = (adsR.data || []).reduce((s: number, r: any) => s + (+r.cliques || 0), 0);
-    const checkouts = (adsR.data || []).reduce((s: number, r: any) => s + (+r.checkouts_iniciados || 0), 0);
-    const vendasAprovadas = (vendasR.data || []).filter((v: any) => v.status === "approved" || v.status === "aprovado");
+    const spend = (adsR.data || []).reduce((s: number, r) => s + (+r.valor || 0), 0);
+    const impressoes = (adsR.data || []).reduce((s: number, r) => s + (+r.impressoes || 0), 0);
+    const cliques = (adsR.data || []).reduce((s: number, r) => s + (+r.cliques || 0), 0);
+    const checkouts = (adsR.data || []).reduce((s: number, r) => s + (+r.checkouts_iniciados || 0), 0);
+    const vendasAprovadas = (vendasR.data || []).filter((v) => v.status === "approved" || v.status === "aprovado");
     const vendas = vendasAprovadas.length;
-    const receita = vendasAprovadas.reduce((s: number, v: any) => s + (+v.valor || 0), 0);
+    const receita = vendasAprovadas.reduce((s: number, v) => s + (+v.valor || 0), 0);
 
     setBaseline({ spend, impressoes, cliques, checkouts, vendas, receita });
     setLoading(false);
-  }
+  }, [projectId, days]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [projectId, days]);
+  useEffect(() => { load();   }, [load]);
 
   const scenario = useMemo(() => {
     if (!baseline) return null;
@@ -180,7 +180,7 @@ export default function FunilSimulador() {
                   <tr><th className="text-left py-2">Métrica</th><th className="text-right">Atual</th><th className="text-right">Cenário</th><th className="text-right">Δ</th></tr>
                 </thead>
                 <tbody className="text-xs">
-                  {[
+                  {([
                     ["Cliques", real!.cliques, scenario!.cliques, fmt],
                     ["Checkouts", real!.checkouts, scenario!.checkouts, fmt],
                     ["Vendas", real!.vendas, scenario!.vendas, fmt],
@@ -189,7 +189,7 @@ export default function FunilSimulador() {
                     ["Investimento", real!.spend, real!.spend, brl],
                     ["Lucro", real!.lucro, scenario!.lucro, brl],
                     ["ROAS", real!.roas, scenario!.roas, (n: number) => n.toFixed(2) + "x"],
-                  ].map(([label, a, b, f]: any) => {
+                  ] as Array<[string, number, number, (value: number) => string]>).map(([label, a, b, f]) => {
                     const d = delta(b, a);
                     return (
                       <tr key={label} className="border-b border-border/10">
@@ -217,7 +217,7 @@ export default function FunilSimulador() {
                     projeto_id: projectId,
                     label: `Simulação ${new Date().toLocaleDateString("pt-BR")}`,
                     motivo: "simulador",
-                    canvas: { baseline, scenario, sliders: { ctrMult, cvrLpMult, cvrCheckoutMult, ticketMult, comissao } } as any,
+                    canvas: { baseline, scenario, sliders: { ctrMult, cvrLpMult, cvrCheckoutMult, ticketMult, comissao } },
                   });
                   if (error) toast.error(error.message);
                   else toast.success("Cenário salvo");

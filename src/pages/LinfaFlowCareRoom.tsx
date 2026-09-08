@@ -1,4 +1,6 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+interface VoiceRecognition { lang: string; interimResults: boolean; maxAlternatives: number; onstart: () => void; onend: () => void; onerror: () => void; onresult: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; start: () => void; stop: () => void; }
+type VoiceWindow = Window & { SpeechRecognition?: new () => VoiceRecognition; webkitSpeechRecognition?: new () => VoiceRecognition };
+import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -502,7 +504,7 @@ export default function LinfaFlowCareRoom() {
   const [attachments, setAttachments] = useState<LeadAttachment[]>([]);
   const [voiceReplies, setVoiceReplies] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<VoiceRecognition | null>(null);
   const [sessionId, setSessionId] = useState(() => localStorage.getItem(SESSION_KEY) || "");
   const sessionIdRef = useRef(sessionId);
   const voiceRepliesRef = useRef(false);
@@ -518,10 +520,6 @@ export default function LinfaFlowCareRoom() {
     },
   ]);
 
-  useEffect(() => {
-    const demo = careDemos.find((item) => item.id === requestedDemoId);
-    if (demo) loadCareDemo(demo);
-  }, [requestedDemoId]);
 
   useEffect(() => {
     const resumeToken = searchParams.get("resume");
@@ -691,7 +689,7 @@ export default function LinfaFlowCareRoom() {
     return intake.name.trim().split(/\s+/)[0] || "there";
   }
 
-  async function hydrateDemoAudio(demo: CareDemo) {
+  const hydrateDemoAudio = useCallback(async (demo: CareDemo) => {
     for (const message of demo.messages) {
       if (message.sender !== "assistant" || !message.voice_cache_key) continue;
       try {
@@ -708,9 +706,9 @@ export default function LinfaFlowCareRoom() {
         // Demo review remains useful even if a signed audio URL cannot be generated.
       }
     }
-  }
+  }, []);
 
-  function loadCareDemo(demo: CareDemo) {
+  const loadCareDemo = useCallback((demo: CareDemo) => {
     setActiveDemoId(demo.id);
     setIntake(demo.intake);
     setScriptStep(demo.scriptStep);
@@ -724,7 +722,13 @@ export default function LinfaFlowCareRoom() {
     setPersisted(false);
     setMessages(demo.messages.map((message) => ({ ...message })));
     void hydrateDemoAudio(demo);
-  }
+  }, [hydrateDemoAudio]);
+
+  useEffect(() => {
+    const demo = careDemos.find((item) => item.id === requestedDemoId);
+    if (demo) loadCareDemo(demo);
+  }, [requestedDemoId, loadCareDemo]);
+
 
   function cachedVoicePlan(cacheKey: string) {
     const cacheLines: Record<string, string> = {
@@ -874,7 +878,7 @@ export default function LinfaFlowCareRoom() {
   }
 
   function startVoiceInput() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as VoiceWindow).SpeechRecognition || (window as VoiceWindow).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setDraft((current) => current || "Voice typing is not available in this browser. I will type my answer.");
       return;
@@ -886,7 +890,7 @@ export default function LinfaFlowCareRoom() {
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       setDraft((current) => `${current ? `${current} ` : ""}${transcript}`.trim());
       setAttachments((current) => ([

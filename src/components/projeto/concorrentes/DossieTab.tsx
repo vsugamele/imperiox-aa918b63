@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { Upload, Trash2 } from "lucide-react";
-import { Competitor } from "./types";
+import { Competitor } from "@/components/projeto/concorrentes/types";
 
 interface Props {
   competitors: Competitor[];
-  updateField: (id: string, field: string, value: any) => void;
+  updateField: <K extends keyof Competitor>(id: string, field: K, value: Competitor[K]) => void;
   uploadScreenshot: (id: string, file: File) => void;
   removeCompetitor: (id: string) => void;
 }

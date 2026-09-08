@@ -1,7 +1,10 @@
+import { processPayload } from "@/lib/tarefas-data";
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +33,7 @@ import { ProjectSellingGrid } from "@/components/dashboard/cockpit/ProjectSellin
 import { DecisionQueue } from "@/components/dashboard/cockpit/DecisionQueue";
 import { BlendedFunnelStrip } from "@/components/dashboard/cockpit/BlendedFunnelStrip";
 import { OperationsFooter } from "@/components/dashboard/cockpit/OperationsFooter";
-import Chat from "./Chat";
+import Chat from "@/pages/Chat";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -40,7 +43,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toLocalDateStr } from "@/lib/periodUtils";
 
-const KanbanPage = lazy(() => import("./KanbanPage"));
+const KanbanPage = lazy(() => import("@/pages/KanbanPage"));
 const KanbanLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -109,6 +112,9 @@ interface RoutineCheck {
   checked_at: string;
 }
 
+  type Process = Omit<Tables<"imphq_processes">, "steps"> & { steps: { text: string; done: boolean }[]; horario?: string; referencias?: { tipo: "imagem" | "link"; url: string; label?: string }[] };
+  const parseProcess = (row: Tables<"imphq_processes">): Process => ({ ...row, steps: Array.isArray(row.steps) ? row.steps.map(value => { const step = record(value); return { ...step, text: typeof step.text === "string" ? step.text : "", done: !!step.done }; }) : [] });
+
 const DONE_TITLES = ["feito", "done", "concluído", "concluido"];
 const FIRST_COL_TITLES = ["backlog", "a fazer", "to do", "todo"];
 
@@ -141,11 +147,11 @@ export default function Tarefas() {
     return v === null ? true : v === "1";
   });
   useEffect(() => {
-    try { localStorage.setItem("cockpit.open", cockpitOpen ? "1" : "0"); } catch {}
+    try { localStorage.setItem("cockpit.open", cockpitOpen ? "1" : "0"); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [cockpitOpen]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; icon: string | null }[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
@@ -171,7 +177,7 @@ export default function Tarefas() {
   const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [] as number[], time_of_day: "" });
 
   // Calendar state
-  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calEvents, setCalEvents] = useState<(Tables<"imphq_calendar_events"> & { imphq_projects: { name: string; icon: string | null } | null })[]>([]);
   const [calDate, setCalDate] = useState<Date | undefined>(new Date());
   const [calFilterProject, setCalFilterProject] = useState("all");
   const [calFilterType, setCalFilterType] = useState("all");
@@ -179,7 +185,7 @@ export default function Tarefas() {
   const [eventForm, setEventForm] = useState({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
 
   // Process state
-  interface Process { id: string; title: string; description?: string; steps: any[]; member_id?: string; project_id?: string; category: string; is_active: boolean; created_at: string; }
+
   const [processes, setProcesses] = useState<Process[]>([]);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
@@ -208,29 +214,29 @@ export default function Tarefas() {
     const [colRes, cardRes, projRes, memberRes, routineRes, checksRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
       cardQuery,
-      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role").eq("is_active", true),
       supabase.from("imphq_daily_routines").select("*").eq("is_active", true).order("position", { ascending: true }),
       supabase.from("imphq_routine_checks").select("*").eq("check_date", todayStr),
     ]);
-    setColumns((colRes.data as any[]) || []);
-    setCards((cardRes.data as any[]) || []);
-    setProjects((projRes.data as any[]) || []);
-    setMembers((memberRes.data as any[]) || []);
-    setRoutines((routineRes.data as any[]) || []);
-    setChecks((checksRes.data as any[]) || []);
+    setColumns(colRes.data || []);
+    setCards(cardRes.data || []);
+    setProjects(projRes.data || []);
+    setMembers(memberRes.data || []);
+    setRoutines(routineRes.data || []);
+    setChecks(checksRes.data || []);
     // Fetch processes
     const { data: procData } = await supabase.from("imphq_processes").select("*").eq("is_active", true).order("position", { ascending: true });
-    setProcesses((procData as any[]) || []);
+    setProcesses((procData || []).map(parseProcess));
     setLoading(false);
-  }, [todayStr]);
+  }, [todayStr, user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Calendar data
   const fetchCalEvents = useCallback(async () => {
     const { data } = await supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon)").order("event_date", { ascending: true });
-    setCalEvents((data as any[]) || []);
+    setCalEvents(data || []);
   }, []);
   useEffect(() => { fetchCalEvents(); }, [fetchCalEvents]);
 
@@ -264,7 +270,7 @@ export default function Tarefas() {
       description: eventForm.description,
       project_id: eventForm.project_id !== "none" ? eventForm.project_id : null,
       user_id: user.id,
-    } as any);
+    });
     if (error) { toast.error("Erro ao criar evento"); return; }
     toast.success("Evento criado!");
     setShowEventDialog(false);
@@ -294,9 +300,9 @@ export default function Tarefas() {
         routine_id: routineId,
         check_date: todayStr,
         checked_by: user.id,
-      } as any).select().single();
+      }).select().single();
       if (!error && data) {
-        setChecks(prev => [...prev, data as any]);
+        setChecks(prev => [...prev, data]);
       }
     }
   };
@@ -319,7 +325,7 @@ export default function Tarefas() {
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         ...scheduleFields,
-      } as any).eq("id", editingRoutine.id);
+      }).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
           ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
@@ -340,9 +346,9 @@ export default function Tarefas() {
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         position: routines.length,
         ...scheduleFields,
-      } as any).select().single();
+      }).select().single();
       if (!error && data) {
-        setRoutines(prev => [...prev, data as any]);
+        setRoutines(prev => [...prev, data]);
         toast.success("Rotina criada! ✅");
       }
     }
@@ -359,7 +365,7 @@ export default function Tarefas() {
 
   const toggleCategory = async (routine: Routine) => {
     const newCat = routine.category === "team" ? "personal" : "team";
-    await supabase.from("imphq_daily_routines").update({ category: newCat } as any).eq("id", routine.id);
+    await supabase.from("imphq_daily_routines").update({ category: newCat }).eq("id", routine.id);
     setRoutines(prev => prev.map(r => r.id === routine.id ? { ...r, category: newCat } : r));
     toast.success(`Movida para ${newCat === "team" ? "Time" : "Pessoal"}`);
   };
@@ -411,16 +417,7 @@ export default function Tarefas() {
 
   const saveProcess = async () => {
     if (!user || !processForm.title.trim()) { toast.error("Título obrigatório"); return; }
-    const payload = {
-      title: processForm.title.trim(),
-      description: processForm.description || null,
-      steps: processForm.steps,
-      category: processForm.category,
-      member_id: processForm.member_id !== "none" ? processForm.member_id : null,
-      project_id: processForm.project_id !== "none" ? processForm.project_id : null,
-      horario: processForm.horario || null,
-      referencias: processForm.referencias.length > 0 ? processForm.referencias : null,
-    } as any;
+    const payload = processPayload(processForm);
 
     if (editingProcess) {
       const { error } = await supabase.from("imphq_processes").update(payload).eq("id", editingProcess.id);
@@ -428,11 +425,9 @@ export default function Tarefas() {
       setProcesses(prev => prev.map(p => p.id === editingProcess.id ? { ...p, ...payload } : p));
       toast.success("Processo atualizado!");
     } else {
-      payload.user_id = user.id;
-      payload.position = processes.length;
-      const { data, error } = await supabase.from("imphq_processes").insert(payload).select().single();
+      const { data, error } = await supabase.from("imphq_processes").insert({ ...payload, user_id: user.id, position: processes.length }).select().single();
       if (error) { toast.error("Erro: " + error.message); return; }
-      setProcesses(prev => [...prev, data as any]);
+      setProcesses(prev => [...prev, parseProcess(data)]);
       toast.success("Processo criado!");
     }
     setShowProcessDialog(false);
@@ -448,7 +443,7 @@ export default function Tarefas() {
 
   const openEditProcess = (proc: Process) => {
     setEditingProcess(proc);
-    const procData = proc as any;
+    const procData = proc;
     setProcessForm({
       title: proc.title, description: proc.description || "",
       steps: Array.isArray(proc.steps) ? proc.steps : [],
@@ -465,7 +460,7 @@ export default function Tarefas() {
   const toggleProcessStepDone = async (proc: Process, stepIndex: number) => {
     const steps = Array.isArray(proc.steps) ? [...proc.steps] : [];
     steps[stepIndex] = { ...steps[stepIndex], done: !steps[stepIndex].done };
-    await supabase.from("imphq_processes").update({ steps } as any).eq("id", proc.id);
+    await supabase.from("imphq_processes").update({ steps }).eq("id", proc.id);
     setProcesses(prev => prev.map(p => p.id === proc.id ? { ...p, steps } : p));
   };
 
@@ -504,13 +499,13 @@ export default function Tarefas() {
     if (done) {
       const firstCol = findFirstColumn(card.board);
       if (!firstCol) { toast.error("Coluna inicial não encontrada"); return; }
-      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: firstCol.id } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: firstCol.id }).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: firstCol.id } : c));
     } else {
       const doneCol = findDoneColumn(card.board);
       if (!doneCol) { toast.error("Coluna 'Concluído' não encontrada neste board"); return; }
-      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id }).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: doneCol.id } : c));
       toast.success("Tarefa concluída! ✅");
@@ -544,11 +539,11 @@ export default function Tarefas() {
         tags: [],
         project_id: newProjectId !== "none" ? newProjectId : null,
         member_id: newMemberId !== "none" ? newMemberId : null,
-      } as any)
+      })
       .select()
       .single();
     if (error) { toast.error("Erro ao criar tarefa"); return; }
-    setCards(prev => [...prev, data as any]);
+    setCards(prev => [...prev, data]);
     // Notificação instantânea
     if (data && user) {
       const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
@@ -556,7 +551,7 @@ export default function Tarefas() {
         if (m.user_id && m.user_id !== user.id) {
           await supabase.from("imphq_notifications").insert({
             user_id: m.user_id, title: `📝 Nova tarefa: ${newTask.trim()}`,
-            type: "tarefa", entity_type: "card", entity_id: (data as any).id,
+            type: "tarefa", entity_type: "card", entity_id: (data).id,
           });
         }
       }
@@ -581,11 +576,11 @@ export default function Tarefas() {
         tags: [],
         project_id: createForm.project_id !== "none" ? createForm.project_id : null,
         member_id: createForm.member_id !== "none" ? createForm.member_id : null,
-      } as any)
+      })
       .select()
       .single();
     if (error) { toast.error("Erro ao criar tarefa"); return; }
-    setCards(prev => [...prev, data as any]);
+    setCards(prev => [...prev, data]);
     // Notificação instantânea
     if (data && user) {
       const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
@@ -594,7 +589,7 @@ export default function Tarefas() {
           await supabase.from("imphq_notifications").insert({
             user_id: m.user_id, title: `📝 Nova tarefa: ${createForm.title.trim()}`,
             message: createForm.description || null,
-            type: "tarefa", entity_type: "card", entity_id: (data as any).id,
+            type: "tarefa", entity_type: "card", entity_id: (data).id,
           });
         }
       }
@@ -841,7 +836,8 @@ export default function Tarefas() {
                 if (rows.length === 0) return;
                 doc.setFontSize(12); doc.setTextColor(60); doc.text(title, 14, startY); startY += 2;
                 autoTable(doc, { head, body: rows, startY, theme: "grid", headStyles: { fillColor: [30, 30, 30], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 14, right: 14 } });
-                startY = (doc as any).lastAutoTable.finalY + 8;
+                const table = record("lastAutoTable" in doc ? doc.lastAutoTable : undefined);
+                if (typeof table.finalY === "number") startY = table.finalY + 8;
               };
               addSection(`⚠️ Atrasadas (${overdue.length})`, buildRows(overdue));
               addSection(`🔥 Hoje (${todayCards.length})`, buildRows(todayCards));
@@ -1179,7 +1175,7 @@ export default function Tarefas() {
                       <div className="flex flex-col items-center gap-0.5 w-full">
                         <span className="text-sm">{date.getDate()}</span>
                         <div className="flex gap-0.5 flex-wrap justify-center max-w-full">
-                          {dayEvents.slice(0, 3).map((ev: any, i: number) => {
+                          {dayEvents.slice(0, 3).map((ev, i: number) => {
                             const typeColors: Record<string, string> = {
                               launch: "bg-orange-500", live: "bg-red-500", deadline: "bg-amber-500",
                               meeting: "bg-blue-500", content: "bg-emerald-500", general: "bg-primary",
@@ -1227,7 +1223,7 @@ export default function Tarefas() {
                   }
                   return (
                     <>
-                      {eventsOnDate.map((ev: any) => {
+                      {eventsOnDate.map((ev) => {
                         const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
                         const proj = ev.imphq_projects;
                         return (
@@ -1256,7 +1252,7 @@ export default function Tarefas() {
                                 <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-400/30">Rotina</Badge>
                                 {r.time_of_day && <Badge variant="outline" className="text-[10px] font-mono">{r.time_of_day.slice(0,5)}</Badge>}
                                 {r.recurrence === "weekdays" && <Badge variant="outline" className="text-[10px]">Dias úteis</Badge>}
-                                {proj && <Badge variant="secondary" className="text-[10px]">{(proj as any).icon || "📁"} {proj.name}</Badge>}
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
                               </div>
                             </div>
                           </div>
@@ -1291,7 +1287,7 @@ export default function Tarefas() {
                 {filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento futuro</p>
                 ) : (
-                  filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 12).map((ev: any) => {
+                  filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 12).map((ev) => {
                     const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
                     const proj = ev.imphq_projects;
                     return (
@@ -1348,7 +1344,7 @@ export default function Tarefas() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredProcesses.map(proc => {
                 const steps = Array.isArray(proc.steps) ? proc.steps : [];
-                const doneSteps = steps.filter((s: any) => s.done).length;
+                const doneSteps = steps.filter((s) => s.done).length;
                 const member = members.find(m => m.id === proc.member_id);
                 const project = projects.find(p => p.id === proc.project_id);
                 return (
@@ -1359,7 +1355,7 @@ export default function Tarefas() {
                           <CardTitle className="text-sm font-semibold truncate">{proc.title}</CardTitle>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{proc.category}</Badge>
-                            {(proc as any).horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{(proc as any).horario}</Badge>}
+                            {proc.horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{proc.horario}</Badge>}
                             {member && <Badge variant="secondary" className="text-[10px]"><User className="h-2.5 w-2.5 mr-0.5" />{member.name}</Badge>}
                             {project && <Badge variant="secondary" className="text-[10px]">📁 {project.name}</Badge>}
                           </div>
@@ -1382,7 +1378,7 @@ export default function Tarefas() {
                             <span>{doneSteps}/{steps.length}</span>
                           </div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {steps.map((step: any, idx: number) => (
+                            {steps.map((step, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 py-0.5">
                                 <Checkbox checked={step.done} onCheckedChange={() => toggleProcessStepDone(proc, idx)} className="h-3.5 w-3.5" />
                                 <span className={`text-xs ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.text || `Etapa ${idx + 1}`}</span>
@@ -1392,9 +1388,9 @@ export default function Tarefas() {
                         </>
                       )}
                       {/* Referências thumbnails */}
-                      {Array.isArray((proc as any).referencias) && (proc as any).referencias.length > 0 && (
+                      {Array.isArray(proc.referencias) && proc.referencias.length > 0 && (
                         <div className="flex gap-1.5 flex-wrap mt-1">
-                          {(proc as any).referencias.map((ref: any, idx: number) => (
+                          {proc.referencias.map((ref, idx: number) => (
                             ref.tipo === "imagem" ? (
                               <img key={idx} src={ref.url} alt={ref.label || "ref"} className="h-10 w-10 rounded object-cover border border-border" />
                             ) : (
@@ -1429,7 +1425,7 @@ export default function Tarefas() {
               </div>
               <div>
                 <Label>Horário</Label>
-                <Input type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
+                <Input disabled aria-describedby="process-storage-note" type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1454,8 +1450,9 @@ export default function Tarefas() {
                 </Select>
               </div>
             </div>
+            <p id="process-storage-note" className="text-xs text-muted-foreground">Horário e referências estão indisponíveis: o armazenamento atual de processos não suporta esses campos. Os demais dados podem ser salvos.</p>
             {/* Referências */}
-            <div>
+            <fieldset disabled aria-describedby="process-storage-note" className="opacity-60">
               <div className="flex items-center justify-between mb-2">
                 <Label>Referências (fotos / links)</Label>
               </div>
@@ -1490,7 +1487,7 @@ export default function Tarefas() {
                   onUpload={(url) => setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: "imagem", url }] }))}
                 />
               </div>
-            </div>
+            </fieldset>
             {/* Steps */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -1771,14 +1768,14 @@ export default function Tarefas() {
                 tags: [],
                 project_id: nextStepCard.project_id || null,
                 member_id: nextStepForm.member_id !== "none" ? nextStepForm.member_id : null,
-              } as any).select().single();
+              }).select().single();
               if (error) { toast.error("Erro ao criar próximo passo"); return; }
               // Create relation
               await supabase.from("imphq_card_relations").insert({
                 card_id: nextStepCard.id,
-                related_card_id: (newCard as any).id,
+                related_card_id: newCard.id,
                 relation_type: "sequencia",
-              } as any);
+              });
               // Notify assigned member
               if (nextStepForm.member_id !== "none" && user) {
                 const assignedMember = members.find(m => m.id === nextStepForm.member_id);
@@ -1788,11 +1785,11 @@ export default function Tarefas() {
                     user_id: memberRecord.data.user_id,
                     title: `➡️ Próximo passo: ${nextStepForm.title.trim()}`,
                     message: `${nextStepCard.title} foi concluída. Agora é com você!`,
-                    type: "tarefa", entity_type: "card", entity_id: (newCard as any).id,
+                    type: "tarefa", entity_type: "card", entity_id: newCard.id,
                   });
                 }
               }
-              setCards(prev => [...prev, newCard as any]);
+              setCards(prev => [...prev, newCard]);
               setShowNextStepDialog(false); setNextStepCard(null);
               setNextStepForm({ title: "", member_id: "none", observation: "" });
               toast.success("Próximo passo criado! ➡️");

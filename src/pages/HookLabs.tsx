@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles, Copy, Star, StarOff, Filter, Loader2, Wand2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -81,8 +82,8 @@ export default function HookLabs() {
       });
       if (error) throw error;
       setVariacoes(data?.variacoes || []);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha");
     } finally {
       setGerando(false);
     }
@@ -105,8 +106,8 @@ export default function HookLabs() {
       });
       if (error) throw error;
       setNovosHooks(data?.hooks || []);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha");
     } finally {
       setGerando(false);
     }

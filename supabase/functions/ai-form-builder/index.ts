@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireUser } from "../_shared/require-auth.ts";
 
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
         const { data: resps } = await sb.from("imphq_lead_responses")
           .select("field_key,answer").eq("form_id", optimize_form_id).gte("created_at", since).limit(2000);
         const stats: Record<string, { total: number; empty: number }> = {};
-        (resps || []).forEach((r: any) => {
+        (resps || []).forEach((r) => {
           stats[r.field_key] = stats[r.field_key] || { total: 0, empty: 0 };
           stats[r.field_key].total++;
           if (!r.answer || r.answer.trim() === "") stats[r.field_key].empty++;
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
     if (resolvedProjectId) {
       const { data: proj } = await sb.from("imphq_projects").select("name, data").eq("id", resolvedProjectId).maybeSingle();
       if (proj) {
-        const d: any = proj.data || {};
+        const d = z.object({ avatar: z.unknown().optional(), produtos: z.unknown().optional(), branding: z.object({ tom: z.unknown().optional() }).passthrough().nullish() }).passthrough().parse(proj.data || {});
         contexto = `PROJETO: ${proj.name}\n`;
         if (d.avatar) contexto += `AVATAR (resumo): ${JSON.stringify(d.avatar).slice(0, 1500)}\n`;
         if (d.produtos) contexto += `PRODUTOS: ${JSON.stringify(d.produtos).slice(0, 800)}\n`;
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
       const { data: priorForms } = await sb.from("imphq_capture_forms")
         .select("nome,settings,fields").eq("project_id", resolvedProjectId).limit(8);
       if (priorForms?.length) {
-        const resumo = priorForms.map((f: any) => `- ${f.nome} [${(f.settings || {}).form_type || "?"}]: ${(f.fields || []).map((x: any) => x.label).join(", ")}`).join("\n");
+        const resumo = priorForms.map((f) => `- ${f.nome} [${(f.settings || {}).form_type || "?"}]: ${(f.fields || []).map((x: { label?: string }) => x.label).join(", ")}`).join("\n");
         contexto += `FORMULÁRIOS JÁ EXISTENTES NO PROJETO (evite duplicar perguntas):\n${resumo}\n`;
       }
     }
@@ -156,13 +157,14 @@ REGRAS:
       return new Response(JSON.stringify(responseBody), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof Response) return e;
       throw e;
     }
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[ai-form-builder]", err);
-    return new Response(JSON.stringify({ error: err.message || "Falha ao gerar formulário" }), {
+    return new Response(JSON.stringify({ error: errMessage || "Falha ao gerar formulário" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

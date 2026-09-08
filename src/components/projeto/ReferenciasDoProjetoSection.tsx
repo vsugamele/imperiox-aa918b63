@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ interface Ref {
   created_at: string;
 }
 
-const TIPO_LABEL: Record<string, { label: string; icon: any }> = {
+const TIPO_LABEL: Record<string, { label: string; icon: LucideIcon }> = {
   criativo: { label: "Criativos", icon: ImageIcon },
   landing: { label: "Landing Pages", icon: FileText },
   lp: { label: "Landing Pages", icon: FileText },

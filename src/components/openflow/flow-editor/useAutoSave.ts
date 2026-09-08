@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "error";
@@ -25,38 +26,37 @@ export function useAutoSave<T>({ value, onSave, debounce = 1500, enabled = true 
 
   const timerRef = useRef<number | null>(null);
   const lastSavedValueRef = useRef<T>(value);
-  const savingRef = useRef(false);
-  const pendingRef = useRef<T | null>(null);
+  const latestValueRef = useRef<T>(value);
+  latestValueRef.current = value;
+  const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
 
-  const runSave = useCallback(async (v: T) => {
-    if (savingRef.current) {
-      pendingRef.current = v;
-      return;
-    }
-    savingRef.current = true;
-    setStatus("saving");
-    setError(null);
-    try {
-      await onSaveRef.current(v);
-      lastSavedValueRef.current = v;
-      setLastSavedAt(new Date());
-      if (pendingRef.current !== null && pendingRef.current !== v) {
-        const next = pendingRef.current;
-        pendingRef.current = null;
-        savingRef.current = false;
-        runSave(next);
-        return;
+  const runSave = useCallback((v: T): Promise<boolean> => {
+    // A forced save must wait for older writes and its own database response.
+    // Returning immediately while another write runs could close an unsaved editor.
+    const task = saveQueueRef.current.then(async () => {
+      if (v === lastSavedValueRef.current) {
+        setError(null);
+        setStatus(latestValueRef.current === v ? "idle" : "dirty");
+        return true;
       }
-      pendingRef.current = null;
-      setStatus("idle");
-    } catch (e: any) {
-      setError(e?.message || "Erro ao salvar");
-      setStatus("error");
-    } finally {
-      savingRef.current = false;
-    }
+      setStatus("saving");
+      setError(null);
+      try {
+        await onSaveRef.current(v);
+        lastSavedValueRef.current = v;
+        setLastSavedAt(new Date());
+        setStatus(latestValueRef.current === v ? "idle" : "dirty");
+        return true;
+      } catch (e: unknown) {
+        setError(errorMessage(e) || "Erro ao salvar");
+        setStatus("error");
+        return false;
+      }
+    });
+    saveQueueRef.current = task;
+    return task;
   }, []);
 
   // Detect changes → debounce → save
@@ -97,7 +97,7 @@ export function useAutoSave<T>({ value, onSave, debounce = 1500, enabled = true 
   useEffect(() => {
     if (!enabled) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (status === "dirty" || status === "saving") {
+      if (status === "dirty" || status === "saving" || status === "error") {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -108,8 +108,7 @@ export function useAutoSave<T>({ value, onSave, debounce = 1500, enabled = true 
 
   const forceSave = useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    if (value !== lastSavedValueRef.current) return runSave(value);
-    return Promise.resolve();
+    return runSave(value).then((saved) => saved && latestValueRef.current === value);
   }, [value, runSave]);
 
   // Sync baseline when parent replaces value with a fresh loaded record

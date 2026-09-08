@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +19,7 @@ import { ROTEIROS_TEMPLATES, ROTEIROS_CATEGORIAS, type RoteiroTemplate } from "@
 
 interface Props {
   projectId: string;
-  project: any;
+  project: Tables<"imphq_projects">;
 }
 
 export function RoteirosViraisLibrary({ projectId, project }: Props) {
@@ -26,8 +29,9 @@ export function RoteirosViraisLibrary({ projectId, project }: Props) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState("");
   const [extraInstructions, setExtraInstructions] = useState("");
-  const produtos: any[] = project?.data?.produtos || [];
-  const [selectedProduct, setSelectedProduct] = useState(produtos[0]?.nome || produtos[0]?.name || "");
+  const rawProducts = jsonFields(project?.data).produtos;
+  const produtos = Array.isArray(rawProducts) ? rawProducts.map(jsonFields) : [];
+  const [selectedProduct, setSelectedProduct] = useState(jsonText(produtos[0]?.nome) || jsonText(produtos[0]?.name) || "");
 
   const filtered = useMemo(() => {
     return ROTEIROS_TEMPLATES.filter((t) => {
@@ -73,10 +77,10 @@ export function RoteirosViraisLibrary({ projectId, project }: Props) {
         });
       }
       toast.success("Roteiro gerado e salvo!");
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar");
     } finally {
       setGenerating(false);
     }
@@ -228,8 +232,8 @@ export function RoteirosViraisLibrary({ projectId, project }: Props) {
                       <Select value={selectedProduct} onValueChange={setSelectedProduct}>
                         <SelectTrigger className="bg-secondary text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {produtos.map((p: any, i: number) => (
-                            <SelectItem key={i} value={p.nome || p.name}>{p.nome || p.name}</SelectItem>
+                          {produtos.map((p, i: number) => (
+                            <SelectItem key={i} value={jsonText(p.nome) || jsonText(p.name)}>{jsonText(p.nome) || jsonText(p.name)}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

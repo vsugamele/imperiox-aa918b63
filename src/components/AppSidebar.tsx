@@ -7,12 +7,9 @@
   Inbox, Pencil, Workflow, Globe, Coins, Stethoscope, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarFooter, useSidebar,
-} from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/auth-context";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar-context";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ export function OutboundWebhooksTab() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [viewingDeliveries, setViewingDeliveries] = useState<Webhook | null>(null);
-  const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [deliveries, setDeliveries] = useState<Tables<"imphq_outbound_webhook_deliveries">[]>([]);
 
   // form
   const [name, setName] = useState("");
@@ -52,8 +52,8 @@ export function OutboundWebhooksTab() {
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
 
   const load = async () => {
-    const { data } = await supabase.from("imphq_outbound_webhooks" as any).select("*").order("created_at", { ascending: false });
-    setHooks((data as any) || []);
+    const { data } = await supabase.from("imphq_outbound_webhooks").select("*").order("created_at", { ascending: false });
+    setHooks(data || []);
     setLoading(false);
   };
 
@@ -66,7 +66,7 @@ export function OutboundWebhooksTab() {
     }
     try { new URL(url); } catch { toast.error("URL inválida"); return; }
     const secret = `whsec_${crypto.randomUUID().replace(/-/g, "")}`;
-    const { error } = await supabase.from("imphq_outbound_webhooks" as any).insert({
+    const { error } = await supabase.from("imphq_outbound_webhooks").insert({
       user_id: user.id, name: name.trim(), url: url.trim(), events: selectedEvents, secret, active: true,
     });
     if (error) { toast.error(error.message); return; }
@@ -76,36 +76,38 @@ export function OutboundWebhooksTab() {
   };
 
   const toggle = async (h: Webhook) => {
-    await supabase.from("imphq_outbound_webhooks" as any).update({ active: !h.active }).eq("id", h.id);
+    const { error } = await supabase.from("imphq_outbound_webhooks").update({ active: !h.active }).eq("id", h.id);
+    if (error) { toast.error(error.message); return; }
     load();
   };
 
   const remove = async (id: string) => {
     if (!confirm("Excluir este webhook?")) return;
-    await supabase.from("imphq_outbound_webhooks" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_outbound_webhooks").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
     toast.success("Removido");
     load();
   };
 
   const test = async (h: Webhook) => {
     toast.info("Disparando teste...");
-    const { data, error } = await supabase.functions.invoke("outbound-webhook-dispatcher", {
+    const { data, error } = await supabase.functions.invoke<{ dispatched?: number }>("outbound-webhook-dispatcher", {
       body: { webhook_id: h.id, event: "webhook.test", payload: { message: "Teste do Imperius", timestamp: new Date().toISOString() } },
     });
     if (error) toast.error(error.message);
-    else toast.success(`Enviado (${(data as any)?.dispatched ?? 0} entrega)`);
+    else toast.success(`Enviado (${data?.dispatched ?? 0} entrega)`);
     setTimeout(load, 1500);
   };
 
   const openDeliveries = async (h: Webhook) => {
     setViewingDeliveries(h);
     const { data } = await supabase
-      .from("imphq_outbound_webhook_deliveries" as any)
+      .from("imphq_outbound_webhook_deliveries")
       .select("*").eq("webhook_id", h.id).order("created_at", { ascending: false }).limit(50);
-    setDeliveries((data as any) || []);
+    setDeliveries(data || []);
   };
 
-  const resend = async (deliveryId: string, event: string, payload: any, webhookId: string) => {
+  const resend = async (deliveryId: string, event: string, payload: Json, webhookId: string) => {
     const { error } = await supabase.functions.invoke("outbound-webhook-dispatcher", {
       body: { webhook_id: webhookId, event, payload },
     });
@@ -261,3 +263,4 @@ export function OutboundWebhooksTab() {
     </div>
   );
 }
+import type { Tables, Json } from "@/integrations/supabase/types";

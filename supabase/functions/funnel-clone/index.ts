@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const summary: any = { funil: null, automacoes: 0, flows: 0, checklists: 0 };
+    const summary: {funil:string|null;automacoes:number;flows:number;checklists:number} = { funil: null, automacoes: 0, flows: 0, checklists: 0 };
 
     // 1. Clona funil
     const { data: src } = await supabase.from("imphq_funis").select("*").eq("id", funil_id).single();
@@ -110,8 +110,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, ...summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
+    return new Response(JSON.stringify({ ok: false, error: String(message || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

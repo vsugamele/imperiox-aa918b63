@@ -19,7 +19,7 @@ export function isPushSupported() {
 }
 
 export function isStandalonePwa() {
-  return window.matchMedia?.("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
+  return window.matchMedia?.("(display-mode: standalone)").matches || ("standalone" in window.navigator && window.navigator.standalone === true);
 }
 
 export function isIOSDevice() {
@@ -101,7 +101,7 @@ export async function subscribeCurrentDevice() {
     throw new Error("Usuario ou subscription invalida.");
   }
 
-  await (supabase.from("imphq_push_subscriptions") as any).upsert(
+  await (supabase.from("imphq_push_subscriptions")).upsert(
     {
       user_id: user.id,
       endpoint: json.endpoint,
@@ -131,7 +131,7 @@ export async function unsubscribeCurrentDevice() {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
-    await (supabase.from("imphq_push_subscriptions") as any)
+    await (supabase.from("imphq_push_subscriptions"))
       .delete()
       .eq("user_id", user.id)
       .eq("endpoint", endpoint);

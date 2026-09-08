@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -35,10 +36,10 @@ export function SalesScriptAutopilotDialog({ open, onClose, projectId, produtoNo
 
   useEffect(() => {
     if (!open) return;
-    (supabase.from("imphq_wa_providers") as any)
-      .select("id, name, instance_name")
-      .eq("active", true)
-      .then(({ data }: any) => setProviders((data as Provider[]) || []));
+    supabase.from("imphq_wa_providers")
+      .select("id, name:display_name, instance_name")
+      .eq("is_active", true)
+      .then(({ data }) => setProviders(data || []));
   }, [open]);
 
   const addKw = () => {
@@ -73,8 +74,8 @@ export function SalesScriptAutopilotDialog({ open, onClose, projectId, produtoNo
       } else {
         toast.error(data?.error || "Falha na geração");
       }
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setLoading(false);
       setProgress("");

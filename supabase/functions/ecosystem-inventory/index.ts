@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const inventoryProjectSchema = z.object({ avatar: z.unknown().optional(), produtos: z.array(z.unknown()).nullish(), avatares_por_produto: z.record(z.unknown()).nullish(), briefing: z.object({ produtos: z.array(z.unknown()).nullish(), avatares_por_produto: z.record(z.unknown()).nullish() }).passthrough().nullish() }).passthrough();
 // Inventário read-only do ecossistema de um produto dentro de um projeto.
 // Retorna mapa { etapa: 'ok' | 'fraco' | 'faltando' } pra alimentar o
 // modo "Organizar Existente" do One Click.
@@ -42,8 +44,8 @@ Deno.serve(async (req) => {
     // Projeto + briefing
     const { data: proj } = await sb.from("imphq_projects")
       .select("data, avatar, brand_kit, name").eq("id", projeto_id).maybeSingle();
-    const projData = (proj?.data as any) || {};
-    const briefingProdutos: any[] = Array.isArray(projData?.briefing?.produtos)
+    const projData = inventoryProjectSchema.parse(proj?.data || {});
+    const briefingProdutos: unknown[] = Array.isArray(projData?.briefing?.produtos)
       ? projData.briefing.produtos : Array.isArray(projData?.produtos) ? projData.produtos : [];
     const avatarPorProduto = projData?.avatares_por_produto || projData?.briefing?.avatares_por_produto || {};
 
@@ -57,13 +59,13 @@ Deno.serve(async (req) => {
       .eq("project_id", projeto_id);
 
     const swipesByFormat = (formato: string) => {
-      const matching = (swipes || []).filter((s: any) =>
+      const matching = (swipes || []).filter((s) =>
         s.formato === formato &&
         (!produto_nome || (s.title || "").toLowerCase().includes(produto_nome.toLowerCase()))
       );
       return {
         count: matching.length,
-        latest: matching.map((s: any) => s.updated_at || s.created_at).sort().slice(-1)[0] || null,
+        latest: matching.map((s) => s.updated_at || s.created_at).sort().slice(-1)[0] || null,
       };
     };
 
@@ -80,7 +82,8 @@ Deno.serve(async (req) => {
     // Hub
     const { data: hub } = await sb.from("imphq_funis")
       .select("id, data").eq("project_id", projeto_id).eq("tipo", "hub").maybeSingle();
-    const hubAssets = hub ? ((hub.data as any)?.hub?.[produto_nome] || []) : [];
+    const hubData = z.object({ hub: z.record(z.array(z.unknown())).nullish() }).passthrough().parse(hub?.data || {});
+    const hubAssets = hubData.hub?.[produto_nome] || [];
 
     const inventario: Record<string, Status> = {
       avatar: (hasAvatarProd || hasAvatarGlobal) ? "ok" : "faltando",
@@ -143,7 +146,7 @@ Deno.serve(async (req) => {
     const perfil = PROFILES[estrategia];
 
     const checklist = perfil.map((it) => {
-      const st = (inventario as any)[it.etapa] as Status | undefined;
+      const st = inventario[it.etapa];
       const done = st === "ok";
       const partial = st === "fraco";
       return { ...it, status: st || "faltando", done, partial };
@@ -195,8 +198,9 @@ Deno.serve(async (req) => {
         hub_assets: hubAssets.length,
       },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

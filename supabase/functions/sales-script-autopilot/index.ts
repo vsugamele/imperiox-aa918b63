@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Sales Script Autopilot — orquestra geração completa de fluxo de venda:
 // 1. flow-generator (blueprint base x1_vendas)
 // 2. copy-engine breakthrough_techniques nos nodes-chave
@@ -22,29 +23,33 @@ interface ReqBody {
   pitch_link?: string;
 }
 
+const BlueprintBlock = z.object({ type: z.string().nullish(), text: z.string().nullish() }).passthrough();
+const BlueprintNode = z.object({ id: z.string().optional(), title: z.string().nullish(), blocks: z.array(BlueprintBlock).nullish() }).passthrough();
+const ScriptBlueprint = z.object({ nodes: z.array(BlueprintNode).nullish(), meta: z.object({ skill_log: z.array(z.unknown()).nullish(), wa: z.unknown().optional() }).passthrough().nullish() }).passthrough();
+type ScriptNode = z.infer<typeof BlueprintNode>;
 const KEY_NODE_HINTS = ["hook", "abertura", "pitch", "oferta", "dor", "solu", "prova", "garantia"];
 
-function nodeIsKey(node: any): boolean {
-  const t = `${node?.title || ""} ${(node?.blocks || []).map((b: any) => b.text || "").join(" ")}`.toLowerCase();
+function nodeIsKey(node: ScriptNode): boolean {
+  const t = `${node?.title || ""} ${(node?.blocks || []).map((b) => b.text || "").join(" ")}`.toLowerCase();
   return KEY_NODE_HINTS.some((k) => t.includes(k));
 }
 
-function nodeIsProof(node: any): boolean {
-  const t = `${node?.title || ""} ${(node?.blocks || []).map((b: any) => b.text || "").join(" ")}`.toLowerCase();
+function nodeIsProof(node: ScriptNode): boolean {
+  const t = `${node?.title || ""} ${(node?.blocks || []).map((b) => b.text || "").join(" ")}`.toLowerCase();
   return /prova|garantia|caso|depoimento|testem|result|pitch|oferta/.test(t);
 }
 
-function nodeTextDump(node: any): string {
+function nodeTextDump(node: ScriptNode): string {
   return (node?.blocks || [])
-    .filter((b: any) => b.type === "text" || !b.type)
-    .map((b: any) => b.text || "")
+    .filter((b) => b.type === "text" || !b.type)
+    .map((b) => b.text || "")
     .filter(Boolean)
     .join("\n\n");
 }
 
-function rewriteNodeText(node: any, newText: string): void {
+function rewriteNodeText(node: ScriptNode, newText: string): void {
   const blocks = node.blocks || [];
-  const textBlocks = blocks.filter((b: any) => b.type === "text" || !b.type);
+  const textBlocks = blocks.filter((b) => b.type === "text" || !b.type);
   if (!textBlocks.length) return;
   // Distribui parágrafos do newText entre os blocos existentes
   const parts = newText.split(/\n{2,}/).filter(Boolean);
@@ -119,12 +124,12 @@ Deno.serve(async (req) => {
       .select("blueprint")
       .eq("id", blueprint_id)
       .single();
-    const blueprint: any = bpRow?.blueprint || {};
+    const blueprint = ScriptBlueprint.parse(bpRow?.blueprint || {});
     blueprint.meta = blueprint.meta || {};
     blueprint.meta.skill_log = blueprint.meta.skill_log || [];
 
     // 3. Aplicar skills aos nodes-chave
-    const nodes: any[] = blueprint.nodes || [];
+    const nodes = blueprint.nodes || [];
     for (const node of nodes) {
       const original = nodeTextDump(node);
       if (!original || original.length < 30) continue;
@@ -194,9 +199,9 @@ Deno.serve(async (req) => {
       skill_count: blueprint.meta.skill_log.length,
       log,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[sales-script-autopilot] error", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

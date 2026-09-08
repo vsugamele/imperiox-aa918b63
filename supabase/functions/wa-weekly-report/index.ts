@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         }).limit(3);
 
         // ── Calcular métricas ──────────────────────────────────────────────
-        const totalRevenue = vendas.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
+        const totalRevenue = vendas.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
         const convCount = vendas.length;
         const topFlows = (roiData || []).slice(0, 3);
 
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
             new_leads: novosLeads.length,
             active_conversations: leadsAtivos.length,
             unanswered_questions: perguntasSemResposta.length,
-            top_flows: topFlows.slice(0, 3).map((f: any) => ({
+            top_flows: topFlows.slice(0, 3).map((f: { automacao_nome: string; conversions: number; revenue_total: number }) => ({
               nome: f.automacao_nome,
               conversions: f.conversions,
               revenue: f.revenue_total,
@@ -214,9 +214,10 @@ Deno.serve(async (req) => {
         // Pausa entre projetos
         await new Promise(r => setTimeout(r, 500));
 
-      } catch (projErr: any) {
-        console.error(`[wa-weekly-report] Erro no projeto ${proj.id}:`, projErr.message);
-        results.errors.push(`${proj.id}: ${projErr.message}`);
+      } catch (projErr) {
+    const projErrMessage = projErr instanceof Error ? projErr.message : projErr && typeof projErr === "object" && "message" in projErr && typeof projErr.message === "string" ? projErr.message : undefined;
+        console.error(`[wa-weekly-report] Erro no projeto ${proj.id}:`, projErrMessage);
+        results.errors.push(`${proj.id}: ${projErrMessage}`);
       }
     }
 
@@ -225,9 +226,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[wa-weekly-report] Fatal:", e.message);
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[wa-weekly-report] Fatal:", eMessage);
+    return new Response(JSON.stringify({ ok: false, error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

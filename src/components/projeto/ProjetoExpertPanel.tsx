@@ -1,3 +1,6 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { migrateToMonthly, type ContentItem, type WeekPlan, type WeekSummary, type MonthlyPlan } from "@/components/projeto/expert-plan-data";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,44 +20,13 @@ import { Calendar, CheckCircle2, Clock, FileText, Link2, Plus, RefreshCw, Trash2
 import { toast } from "sonner";
 import { format, addDays, startOfMonth, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AIGenerateButton } from "./AIGenerateButton";
-import { DailyStoriesGenerator } from "./expert/DailyStoriesGenerator";
-
-interface ContentItem {
-  id: string;
-  platform: string;
-  type: string;
-  description: string;
-  copy?: string;
-  hashtags?: string;
-  cross_platforms?: string[];
-  hook?: string;
-  cta?: string;
-  recording_tips?: string;
-}
-
-interface WeekPlan {
-  [day: string]: ContentItem[];
-}
-
-interface WeekSummary {
-  focus?: string;
-  event?: string;
-}
-
-interface MonthlyPlan {
-  semana_1: WeekPlan;
-  semana_2: WeekPlan;
-  semana_3: WeekPlan;
-  semana_4: WeekPlan;
-  week_labels?: Record<string, string>;
-  week_summaries?: Record<string, WeekSummary>;
-}
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
+import { DailyStoriesGenerator } from "@/components/projeto/expert/DailyStoriesGenerator";
 
 interface Props {
   projectId: string;
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Pick<Tables<"imphq_projects">, "data">;
+  onUpdateData: (data: Json) => void;
 }
 
 const ALL_PLATFORMS = ["Instagram", "YouTube", "TikTok", "LinkedIn", "Blog", "Email", "WhatsApp"];
@@ -101,18 +73,11 @@ function getWeekDates(weekIndex: number): string[] {
   });
 }
 
-function migrateToMonthly(plan: any): MonthlyPlan {
-  const empty: WeekPlan = {};
-  if (!plan) return { semana_1: empty, semana_2: empty, semana_3: empty, semana_4: empty };
-  if (plan.semana_1) return plan as MonthlyPlan;
-  return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
-}
-
 export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) {
-  const [events, setEvents] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [processes, setProcesses] = useState<any[]>([]);
-  const [activeWeek, setActiveWeek] = useState<string>("semana_1");
+  const [events, setEvents] = useState<Array<Tables<"imphq_calendar_events"> & { start_date: string }>>([]);
+  const [tasks, setTasks] = useState<Array<Pick<Tables<"imphq_kanban_cards">, "id" | "title" | "priority" | "due_date" | "board" | "column_id">>>([]);
+  const [processes, setProcesses] = useState<Array<Tables<"imphq_processes">>>([]);
+  const [activeWeek, setActiveWeek] = useState<typeof WEEKS[number]>("semana_1");
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiObjective, setAiObjective] = useState("");
   const [aiFrequency, setAiFrequency] = useState("2");
@@ -120,10 +85,10 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [aiPlatforms, setAiPlatforms] = useState<string[]>(["Instagram", "YouTube"]);
   const [aiStoriesPerDay, setAiStoriesPerDay] = useState("3");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
-  const [expertLogs, setExpertLogs] = useState<any[]>([]);
+  const [expertLogs, setExpertLogs] = useState<Array<Tables<"imphq_expert_logs">>>([]);
 
   // Operational status
-  const [opsStatus, setOpsStatus] = useState<any>(null);
+  const [opsStatus, setOpsStatus] = useState<{ ads_connected: boolean; ads_active: number; ads_accounts: Array<{ platform: string; name: string; active: boolean }>; wa_campaigns_active: number; wa_campaigns: Array<{ name: string }> } | null>(null);
 
   // Card detail modal state
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -138,17 +103,17 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
   const [editCta, setEditCta] = useState("");
   const [editRecordingTips, setEditRecordingTips] = useState("");
 
-  const data = project.data || {};
+  const data = jsonFields(project.data);
   const monthlyPlan = migrateToMonthly(data.content_plan);
-  const currentWeekPlan: WeekPlan = (monthlyPlan as any)[activeWeek] || {};
-  const expertNotes: string = data.expert_notes || "";
-  const shareToken: string = data.expert_share_token || "";
-  const movementContext: string = data.movement_context || "";
-  const expertDocIds: string[] = data.expert_doc_ids || [];
-  const [allDocs, setAllDocs] = useState<any[]>([]);
+  const currentWeekPlan: WeekPlan = monthlyPlan[activeWeek] || {};
+  const expertNotes: string = jsonText(data.expert_notes) || "";
+  const shareToken: string = jsonText(data.expert_share_token) || "";
+  const movementContext: string = jsonText(data.movement_context) || "";
+  const expertDocIds = useMemo(() => Array.isArray(data.expert_doc_ids) ? data.expert_doc_ids.filter((value): value is string => typeof value === "string") : [], [data.expert_doc_ids]);
+  const [allDocs, setAllDocs] = useState<Array<Pick<Tables<"imphq_docs">, "id" | "title">>>([]);
   const contentObjectives: string[] = Array.isArray(data.content_objectives)
-    ? data.content_objectives
-    : data.content_objective ? [data.content_objective] : [""];
+    ? data.content_objectives.filter((value): value is string => typeof value === "string")
+    : jsonText(data.content_objective) ? [jsonText(data.content_objective)!] : [""];
   const weekLabels: Record<string, string> = monthlyPlan.week_labels || {};
   const weekSummaries: Record<string, WeekSummary> = monthlyPlan.week_summaries || {};
 
@@ -164,11 +129,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
   const products = useMemo(() => {
     const prods = data.produtos || [];
-    return Array.isArray(prods) ? prods.map((p: any) => p.nome || p.name || "").filter(Boolean) : [];
+    return Array.isArray(prods) ? prods.map((p) => jsonText(jsonFields(p).nome) || jsonText(jsonFields(p).name) || "").filter(Boolean) : [];
   }, [data.produtos]);
 
   const sharedExpertDocs = useMemo(
-    () => allDocs.filter((doc: any) => expertDocIds.includes(doc.id)),
+    () => allDocs.filter((doc) => expertDocIds.includes(doc.id)),
     [allDocs, expertDocIds]
   );
 
@@ -178,11 +143,11 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     Promise.all([
       supabase.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", now.toISOString()).lte("event_date", weekEnd.toISOString()).order("event_date"),
       supabase.from("imphq_kanban_cards").select("id, title, priority, due_date, board, column_id").contains("tags", [projectId]).order("position"),
-      supabase.from("imphq_processes" as any).select("*").eq("project_id", projectId),
-      supabase.from("imphq_expert_logs" as any).select("*").eq("project_id", projectId),
+      supabase.from("imphq_processes").select("*").eq("project_id", projectId),
+      supabase.from("imphq_expert_logs").select("*").eq("project_id", projectId),
       supabase.from("imphq_docs").select("id, title").eq("project_id", projectId).order("created_at", { ascending: false }),
     ]).then(([evRes, taskRes, procRes, logsRes, docsRes]) => {
-      const mappedEvents = (evRes.data || []).map((e: any) => ({
+      const mappedEvents = (evRes.data || []).map((e) => ({
         ...e,
         start_date: e.event_date,
       }));
@@ -196,21 +161,21 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     // Fetch operational status
     Promise.all([
       supabase.from("imphq_ad_accounts").select("id, plataforma, nome, status"),
-      supabase.from("imphq_wa_campaigns" as any).select("id, name, status").eq("project_id", projectId).eq("status", "active"),
+      supabase.from("imphq_wa_campaigns").select("id, name, status").eq("project_id", projectId).eq("status", "active"),
     ]).then(([adsRes, waRes]) => {
-      const ads = (adsRes.data || []).map((a: any) => ({
+      const ads = (adsRes.data || []).map((a) => ({
         id: a.id,
         platform: a.plataforma,
         account_name: a.nome,
         is_active: a.status === "ativo",
       }));
-      const activeAds = ads.filter((a: any) => a.is_active);
+      const activeAds = ads.filter((a) => a.is_active);
       setOpsStatus({
         ads_connected: ads.length > 0,
         ads_active: activeAds.length,
-        ads_accounts: ads.map((a: any) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
+        ads_accounts: ads.map((a) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
         wa_campaigns_active: (waRes.data || []).length,
-        wa_campaigns: (waRes.data || []).map((c: any) => ({ name: c.name })),
+        wa_campaigns: (waRes.data || []).map((c) => ({ name: c.name })),
       });
     });
   }, [projectId]);
@@ -222,7 +187,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     onUpdateData({ ...data, content_plan: plan });
   }, [data, onUpdateData]);
 
-  const getWeekPlan = (wk: string): WeekPlan => (monthlyPlan as any)[wk] || {};
+  const getWeekPlan = (wk: typeof WEEKS[number]): WeekPlan => monthlyPlan[wk] || {};
 
   const addContentItem = (day: string) => {
     const plan = { ...monthlyPlan };
@@ -230,7 +195,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     const items = [...(week[day] || [])];
     items.push({ id: crypto.randomUUID(), platform: "Instagram", type: "Post", description: "" });
     week[day] = items;
-    (plan as any)[activeWeek] = week;
+    plan[activeWeek] = week;
     updateMonthlyPlan(plan);
   };
 
@@ -238,7 +203,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     const plan = { ...monthlyPlan };
     const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).map(item => item.id === itemId ? { ...item, ...patch } : item);
-    (plan as any)[activeWeek] = week;
+    plan[activeWeek] = week;
     updateMonthlyPlan(plan);
   };
 
@@ -246,14 +211,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     const plan = { ...monthlyPlan };
     const week = { ...getWeekPlan(activeWeek) };
     week[day] = (week[day] || []).filter(item => item.id !== itemId);
-    (plan as any)[activeWeek] = week;
+    plan[activeWeek] = week;
     updateMonthlyPlan(plan);
   };
 
   /** Clear all content from a specific week */
-  const clearWeek = (wk: string) => {
+  const clearWeek = (wk: typeof WEEKS[number]) => {
     const plan = { ...monthlyPlan };
-    (plan as any)[wk] = {};
+    plan[wk] = {};
     updateMonthlyPlan(plan);
     toast.success("Semana limpa com sucesso!");
   };
@@ -348,9 +313,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     setAiPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
   };
 
-  const handleContentPlanAI = (result: any) => {
-    if (result?.content_plan) {
-      const aiPlan = migrateToMonthly(result.content_plan);
+  const handleContentPlanAI = (result: Json) => {
+    if (jsonFields(result).content_plan) {
+      const aiPlan = migrateToMonthly(jsonFields(result).content_plan);
       const currentPlan = { ...monthlyPlan };
       let filled = 0;
       let preserved = 0;
@@ -377,7 +342,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             preserved++;
           }
         }
-        (currentPlan as any)[wk] = mergedWeek;
+        currentPlan[wk] = mergedWeek;
       }
 
       onUpdateData({ ...data, content_plan: currentPlan });
@@ -385,19 +350,19 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
     }
   };
 
-  const handleExpertNotesAI = (result: any) => {
-    if (result?.expert_notes) {
-      onUpdateData({ ...data, expert_notes: result.expert_notes });
+  const handleExpertNotesAI = (result: Json) => {
+    if (jsonFields(result).expert_notes) {
+      onUpdateData({ ...data, expert_notes: jsonFields(result).expert_notes });
       toast.success("Instruções geradas com IA!");
     }
   };
 
-  const handleCopyAI = (result: any) => {
-    if (result?.copy) {
-      setEditCopy(result.copy);
+  const handleCopyAI = (result: Json) => {
+    if (jsonFields(result).copy) {
+      setEditCopy(jsonText(jsonFields(result).copy) || "");
     }
-    if (result?.hashtags) {
-      setEditHashtags(result.hashtags);
+    if (jsonFields(result).hashtags) {
+      setEditHashtags(jsonText(jsonFields(result).hashtags) || "");
     }
   };
 
@@ -480,7 +445,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             recording_tips: `Formato: ${story.formato} · ${story.duracao_segundos}s · Origem: ${story.gatilho_origem}`,
           });
           week[dayKey] = items;
-          (plan as any)[activeWeek] = week;
+          plan[activeWeek] = week;
           updateMonthlyPlan(plan);
         }}
       />
@@ -504,7 +469,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                       {opsStatus.ads_active > 0 ? `✅ ${opsStatus.ads_active} conta(s) ativa(s)` : "⏸ Contas pausadas"}
                     </Badge>
                     <div className="mt-1 space-y-0.5">
-                      {opsStatus.ads_accounts.map((a: any, i: number) => (
+                      {opsStatus.ads_accounts.map((a, i: number) => (
                         <p key={i} className="text-[9px] text-muted-foreground">
                           {a.platform} — {a.name} {a.active ? "🟢" : "🔴"}
                         </p>
@@ -522,7 +487,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                   <>
                     <Badge variant="default" className="text-[9px]">✅ {opsStatus.wa_campaigns_active} ativa(s)</Badge>
                     <div className="mt-1 space-y-0.5">
-                      {opsStatus.wa_campaigns.map((c: any, i: number) => (
+                      {opsStatus.wa_campaigns.map((c, i: number) => (
                         <p key={i} className="text-[9px] text-muted-foreground">• {c.name}</p>
                       ))}
                     </div>
@@ -604,14 +569,14 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {processes.map((p: any) => {
-              const steps = p.steps || [];
-              const done = steps.filter((s: any) => s.done).length;
+            {processes.map((p) => {
+              const steps = Array.isArray(p.steps) ? p.steps : [];
+              const done = steps.filter((s) => jsonFields(s).done === true).length;
               const pct = steps.length > 0 ? Math.round((done / steps.length) * 100) : 0;
               return (
                 <div key={p.id} className="p-3 rounded bg-secondary/50 border border-border">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium">{p.title || p.name}</p>
+                    <p className="text-xs font-medium">{p.title}</p>
                     <Badge variant="outline" className="text-[9px] h-4">{pct}%</Badge>
                   </div>
                   <Progress value={pct} className="h-1.5" />
@@ -727,7 +692,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
           </div>
 
           {/* Week Tabs */}
-          <Tabs value={activeWeek} onValueChange={setActiveWeek}>
+          <Tabs value={activeWeek} onValueChange={value => { const week = WEEKS.find(w => w === value); if (week) setActiveWeek(week); }}>
             <TabsList className="w-full grid grid-cols-4">
               {WEEKS.map((wk, i) => {
                 const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
@@ -743,7 +708,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
 
             {WEEKS.map((wk, wi) => {
               const dates = getWeekDates(wi);
-              const weekItemCount = DAYS.reduce((s, d) => s + (((monthlyPlan as any)[wk] || {})[d]?.length || 0), 0);
+              const weekItemCount = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
               return (
                 <TabsContent key={wk} value={wk} className="space-y-3">
                   {/* Week label + summary bar + clear button */}
@@ -798,7 +763,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                             {items.map(item => {
                               const done = isLogDone(item.id);
                               const videoLog = getLogVideo(item.id);
-                              const videoMeta = videoLog?.metadata as any;
+                              const videoMeta = jsonFields(videoLog?.metadata);
                               return (
                                 <div
                                   key={item.id}
@@ -821,9 +786,9 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
                                   {(done || videoLog) && (
                                     <div className="mt-1 pt-1 border-t border-current/10 flex flex-wrap gap-1">
                                       {done && <Badge variant="secondary" className="text-[7px] h-3.5 gap-0.5"><CheckCircle2 className="h-2 w-2" /> Feito</Badge>}
-                                      {videoLog && videoMeta?.url && (
+                                      {videoLog && jsonText(videoMeta.url) && (
                                         <a
-                                          href={videoMeta.url}
+                                          href={jsonText(videoMeta.url)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={e => e.stopPropagation()}
@@ -1047,7 +1012,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
               projectId={projectId}
               action="generate_content_plan"
               label="Gerar Plano Mensal"
-              onResult={(result) => {
+              onResult={(result: Json) => {
                 handleContentPlanAI(result);
                 setAiDialogOpen(false);
               }}
@@ -1109,7 +1074,7 @@ export function ProjetoExpertPanel({ projectId, project, onUpdateData }: Props) 
             <p className="text-xs text-muted-foreground">Nenhum documento liberado ainda. Vá na aba Docs e habilite os arquivos que devem aparecer para o expert.</p>
           ) : (
             <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-              {sharedExpertDocs.map((doc: any) => (
+              {sharedExpertDocs.map((doc) => (
                 <div key={doc.id} className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border">
                   <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs truncate">{doc.title}</span>

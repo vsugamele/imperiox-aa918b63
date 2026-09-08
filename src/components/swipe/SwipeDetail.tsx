@@ -1,3 +1,6 @@
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -56,25 +59,26 @@ const VSL7_BLOCKS = [
 ];
 
 
+type SwipeDraft = Partial<Tables<"imphq_swipes">> & { __new?:boolean };
 interface Props {
-  swipe: any;
+  swipe: SwipeDraft;
   onClose: () => void;
   onSaved: () => void;
 }
 
 export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
-  const [data, setData] = useState<any>(swipe);
+  const [data, setData] = useState<SwipeDraft>(swipe);
   const [saving, setSaving] = useState(false);
   const [engineering, setEngineering] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [nVar, setNVar] = useState(5);
   const [briefing, setBriefing] = useState("");
-  const [linkedBatches, setLinkedBatches] = useState<any[]>([]);
+  const [linkedBatches, setLinkedBatches] = useState<Array<Pick<Tables<"imphq_creative_batches">,"id"|"nome"|"status"|"total_gerado"|"created_at">>>([]);
 
-  useEffect(() => setData(swipe), [swipe?.id]);
+  useEffect(() => setData(swipe), [swipe]);
 
-  const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || data?.blocks?.__schema === "vsl7";
+  const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || record(data?.blocks).__schema === "vsl7";
   const BLOCK_KEYS = isVsl ? VSL7_BLOCKS : SHORT_BLOCKS;
   const videoUrl = data?.media_urls?.[0];
 
@@ -89,9 +93,9 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       .contains("source_swipe_ids", [data.id])
       .order("created_at", { ascending: false })
       .then(({ data: rows }) => setLinkedBatches(rows || []));
-  }, [data?.id]);
+  }, [data?.id, data?.__new]);
 
-  const updateBlock = (k: string, v: string) => setData({ ...data, blocks: { ...(data.blocks || {}), [k]: v } });
+  const updateBlock = (k: string, v: string) => setData({ ...data, blocks: toJson({ ...record(data.blocks), [k]: v }) });
 
   const save = async () => {
     setSaving(true);
@@ -99,18 +103,18 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       if (data.__new) {
         const { __new, ...payload } = data;
         const { data: u } = await supabase.auth.getUser();
-        const { error } = await supabase.from("imphq_swipes" as any).insert({ ...payload, user_id: u.user?.id } as any);
+        const { error } = await supabase.from("imphq_swipes").insert({ ...payload, title:payload.title || "", user_id: u.user?.id });
         if (error) throw error;
       } else {
         const { id, created_at, updated_at, user_id, ...payload } = data;
-        const { error } = await supabase.from("imphq_swipes" as any).update(payload as any).eq("id", id);
+        const { error } = await supabase.from("imphq_swipes").update(payload).eq("id", id);
         if (error) throw error;
       }
       toast.success("Salvo");
       onSaved();
       onClose();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -125,8 +129,8 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       setData({ ...data, reverse_engineering: res.reverse_engineering });
       toast.success("Engenharia reversa pronta");
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setEngineering(false);
     }
@@ -142,8 +146,8 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       if (error) throw error;
       toast.success(`${res.count} variações geradas!`);
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setGenerating(false);
     }
@@ -158,15 +162,15 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       });
       if (error) throw error;
       toast.success(`Template "${res.template?.name}" criado`);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setGenerating(false);
     }
   };
 
   const copyAll = () => {
-    const txt = BLOCK_KEYS.map((b: any) => `## ${b.label}\n${data.blocks?.[b.key] || ""}`).join("\n\n");
+    const txt = BLOCK_KEYS.map((b) => `## ${b.label}\n${typeof record(data.blocks)[b.key] === "string" ? String(record(data.blocks)[b.key]) : ""}`).join("\n\n");
     navigator.clipboard.writeText(`# ${data.title}\n\n${txt}`);
     toast.success("Copiado");
   };
@@ -181,8 +185,8 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
       if (error) throw error;
       toast.success(`VSL gerada: "${res.swipe?.title}"`);
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setGenerating(false);
     }
@@ -195,18 +199,18 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     setTranscribing(true);
     try {
       const isStoragePath = !/^https?:\/\//i.test(first);
-      const body: any = { swipe_id: data.id, auto_engineer: false };
+      const body: {swipe_id:string;auto_engineer:boolean;storage_path?:string;video_url?:string} = { swipe_id: data.id, auto_engineer: false };
       if (isStoragePath) body.storage_path = first;
       else body.video_url = first;
       const { data: res, error } = await supabase.functions.invoke("swipe-video-transcribe", { body });
       if (error) throw error;
       toast.success("Transcrição concluída");
       // recarrega
-      const { data: fresh } = await supabase.from("imphq_swipes" as any).select("*").eq("id", data.id).single();
+      const { data: fresh } = await supabase.from("imphq_swipes").select("*").eq("id", data.id).single();
       if (fresh) setData(fresh);
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao transcrever");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao transcrever");
     } finally {
       setTranscribing(false);
     }
@@ -216,24 +220,25 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
     if (data.__new) return toast.error("Salve a swipe primeiro");
     setSaving(true);
     try {
-      const blocks = { ...(data.blocks || {}) };
+      const blocks = { ...record(data.blocks) };
       if (!blocks.narrativa) blocks.narrativa = data.raw_text || "";
       const { error } = await supabase
-        .from("imphq_swipes" as any)
-        .update({ raw_text: data.raw_text || null, blocks } as any)
+        .from("imphq_swipes")
+        .update({ raw_text: data.raw_text || null, blocks: toJson(blocks) })
         .eq("id", data.id);
       if (error) throw error;
       toast.success("Transcrição salva");
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }
   };
 
 
-  const re = data.reverse_engineering || {};
+  const rawRe = record(data.reverse_engineering);
+  const re = { formula_nome:typeof rawRe.formula_nome === "string" ? rawRe.formula_nome : "",publico_alvo:typeof rawRe.publico_alvo === "string" ? rawRe.publico_alvo : "",tom_voz:typeof rawRe.tom_voz === "string" ? rawRe.tom_voz : "",ritmo:typeof rawRe.ritmo === "string" ? rawRe.ritmo : "",observacoes:typeof rawRe.observacoes === "string" ? rawRe.observacoes : "", gatilhos: Array.isArray(rawRe.gatilhos) ? rawRe.gatilhos.filter((v):v is string=>typeof v === "string") : [], esqueleto:record(rawRe.esqueleto) };
 
   return (
     <Sheet open={true} onOpenChange={onClose}>
@@ -365,12 +370,12 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
                   Estrutura VSL em 7 blocos · 19m30s
                 </p>
               )}
-              {BLOCK_KEYS.map((b: any) => (
+              {BLOCK_KEYS.map((b) => (
                 <div key={b.key}>
                   <Label className="text-xs">{b.label}</Label>
-                  {b.hint && <p className="text-[10px] text-muted-foreground mb-1">{b.hint}</p>}
+                  {"hint" in b && typeof b.hint === "string" && b.hint && <p className="text-[10px] text-muted-foreground mb-1">{b.hint}</p>}
                   <Textarea
-                    value={data.blocks?.[b.key] || ""}
+                    value={typeof record(data.blocks)[b.key] === "string" ? String(record(data.blocks)[b.key]) : ""}
                     onChange={(e) => updateBlock(b.key, e.target.value)}
                     className="bg-secondary text-sm min-h-[80px] leading-7"
                   />

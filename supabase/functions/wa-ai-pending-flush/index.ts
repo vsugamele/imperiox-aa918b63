@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const results: any[] = [];
+  const results: Array<{id:string;action:string;status?:number;response?:unknown;error?:string}> = [];
   console.log(`[wa-ai-pending-flush] Encontradas ${conversations?.length || 0} conversas com ai_pending_since`);
 
   for (const conv of conversations || []) {
@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
       .eq("project_id", conv.project_id);
 
     const cfg =
-      cfgs?.find((c: any) => c.provider_id && c.provider_id === conv.provider_id) ??
-      cfgs?.find((c: any) => !c.provider_id) ??
+      cfgs?.find((c: {provider_id:string|null}) => c.provider_id && c.provider_id === conv.provider_id) ??
+      cfgs?.find((c: {provider_id:string|null}) => !c.provider_id) ??
       cfgs?.[0] ??
       null;
 
@@ -125,9 +125,10 @@ Deno.serve(async (req) => {
       const json = await resp.json().catch(() => ({}));
       console.log(`[wa-ai-pending-flush] conv=${conv.id} invoked status=${resp.status}`);
       results.push({ id: conv.id, action: "invoked", status: resp.status, response: json });
-    } catch (e: any) {
-      console.error(`[wa-ai-pending-flush] conv=${conv.id} error: ${e?.message}`);
-      results.push({ id: conv.id, action: "error", error: e?.message });
+    } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+      console.error(`[wa-ai-pending-flush] conv=${conv.id} error: ${eMessage}`);
+      results.push({ id: conv.id, action: "error", error: eMessage });
     }
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Json, Tables } from "@/integrations/supabase/types";
 
 export type ChecklistStatus = "todo" | "doing" | "done";
 export type ChecklistPriority = "low" | "med" | "high";
@@ -21,10 +22,17 @@ export interface ChecklistItem {
   kanban_card_id: string | null;
   auto_generated: boolean;
   source: string | null;
-  metadata: any;
+  metadata: Json;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+function parseChecklistItem(row: Tables<"imphq_funnel_checklist">): ChecklistItem {
+  const { status, priority } = row;
+  if (status !== "todo" && status !== "doing" && status !== "done") throw new Error("Status de checklist inválido");
+  if (priority !== "low" && priority !== "med" && priority !== "high") throw new Error("Prioridade de checklist inválida");
+  return { ...row, status, priority };
 }
 
 export function productKey(name?: string | null) {
@@ -39,12 +47,13 @@ export function useProductChecklist(projectId: string | null) {
     if (!projectId) { setItems([]); return; }
     setLoading(true);
     const { data, error } = await supabase
-      .from("imphq_funnel_checklist" as any)
+      .from("imphq_funnel_checklist")
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
     if (error) console.warn(error.message);
-    setItems(((data as any) || []) as ChecklistItem[]);
+    try { setItems((data || []).map(parseChecklistItem)); }
+    catch (validationError) { toast.error(validationError instanceof Error ? validationError.message : "Checklist inválido"); }
     setLoading(false);
   }, [projectId]);
 
@@ -54,7 +63,7 @@ export function useProductChecklist(projectId: string | null) {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user || !projectId) return;
     const { error, data } = await supabase
-      .from("imphq_funnel_checklist" as any)
+      .from("imphq_funnel_checklist")
       .insert({
         user_id: u.user.id,
         project_id: projectId,
@@ -73,17 +82,17 @@ export function useProductChecklist(projectId: string | null) {
       .single();
     if (error) { toast.error(error.message); return null; }
     await reload();
-    return data as any;
+    return data ? parseChecklistItem(data) : null;
   }, [projectId, reload]);
 
   const update = useCallback(async (id: string, patch: Partial<ChecklistItem>) => {
-    const { error } = await supabase.from("imphq_funnel_checklist" as any).update(patch).eq("id", id);
+    const { error } = await supabase.from("imphq_funnel_checklist").update(patch).eq("id", id);
     if (error) { toast.error(error.message); return; }
     await reload();
   }, [reload]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("imphq_funnel_checklist" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_funnel_checklist").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     await reload();
   }, [reload]);
@@ -93,15 +102,15 @@ export function useProductChecklist(projectId: string | null) {
     if (!u.user) return;
     // pega primeira coluna do projeto, ou cria fallback
     const { data: cols } = await supabase
-      .from("imphq_kanban_columns" as any)
+      .from("imphq_kanban_columns")
       .select("id")
       .eq("project_id", item.project_id)
       .order("position", { ascending: true })
       .limit(1);
-    const colId = (cols as any)?.[0]?.id;
+    const colId = (cols)?.[0]?.id;
     if (!colId) { toast.error("Crie ao menos uma coluna no Kanban do projeto"); return; }
     const { data: card, error } = await supabase
-      .from("imphq_kanban_cards" as any)
+      .from("imphq_kanban_cards")
       .insert({
         column_id: colId,
         project_id: item.project_id,
@@ -110,11 +119,11 @@ export function useProductChecklist(projectId: string | null) {
         due_date: item.due_date,
         priority: item.priority,
         tags: item.product_id ? [item.product_id] : null,
-      } as any)
+      })
       .select()
       .single();
     if (error) { toast.error(error.message); return; }
-    await update(item.id, { kanban_card_id: (card as any).id });
+    await update(item.id, { kanban_card_id: (card).id });
     toast.success("Tarefa enviada ao Kanban");
   }, [update]);
 

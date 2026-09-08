@@ -21,7 +21,7 @@ async function getEmbedding(text: string): Promise<number[] | null> {
         const d = await res.json();
         if (d?.data?.[0]?.embedding) return d.data[0].embedding;
       }
-    } catch (_) {}
+    } catch { /* Fall through to OpenRouter when the primary embedding provider fails. */ }
   }
   const OR_KEY = Deno.env.get("OPENROUTER_API_KEY");
   if (!OR_KEY) return null;
@@ -135,9 +135,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
-    console.error("[ig-feedback] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "Unknown error";
+    console.error("[ig-feedback] Error:", message);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

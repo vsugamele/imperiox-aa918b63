@@ -1,3 +1,6 @@
+import { record, parseProduct, type Product } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -60,7 +63,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [novoNome, setNovoNome] = useState("");
 
   // Produtos do projeto + modo de produto
-  const [produtosDoProjeto, setProdutosDoProjeto] = useState<any[]>([]);
+  const [produtosDoProjeto, setProdutosDoProjeto] = useState<Product[]>([]);
   const [produtoSel, setProdutoSel] = useState<string>("__new_prod__"); // "__new_prod__" ou nome do produto
   const [produtoNome, setProdutoNome] = useState("");
   const [ticket, setTicket] = useState("");
@@ -75,16 +78,16 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   const [estrategia, setEstrategia] = useState<Estrategia>("perpetuo");
   const [invScore, setInvScore] = useState<number | null>(null);
   const [invBlocos, setInvBlocos] = useState<Record<string, { score: number }> | null>(null);
-  const [topGaps, setTopGaps] = useState<any[]>([]);
-  const [ondas, setOndas] = useState<{ onda1: any[]; onda2: any[]; onda3: any[] } | null>(null);
+  const [topGaps, setTopGaps] = useState<{ partial?: boolean; label: string; bloco: string; esforco: string | number }[]>([]);
+  const [ondas, setOndas] = useState<{ onda1: { label: string; etapa: string }[]; onda2: { label: string; etapa: string }[]; onda3: { label: string; etapa: string }[] } | null>(null);
   const [nextAction, setNextAction] = useState<string>("");
   const [loadingInv, setLoadingInv] = useState(false);
 
   const [rodando, setRodando] = useState(false);
   const [progresso, setProgresso] = useState<Record<string, { state: StepState; preview?: string; error?: string }>>(
-    Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any
+    Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" as const }]))
   );
-  const [audit, setAudit] = useState<any>(null);
+  const [audit, setAudit] = useState<Record<string, unknown> | null>(null);
   const [auditState, setAuditState] = useState<StepState>("pending");
   const [finalProjectId, setFinalProjectId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -94,14 +97,14 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   useEffect(() => {
     if (!open) return;
     supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      setProjects((data || []) as any);
+      setProjects(data || []);
     });
     supabase.from("imphq_swipes")
       .select("id, title, formato")
       .in("formato", ["vsl","lp","webinar"])
       .order("created_at", { ascending: false })
       .limit(50)
-      .then(({ data }) => setSwipes((data || []) as any));
+      .then(({ data }) => setSwipes(data || []));
   }, [open]);
 
   // Carrega produtos do projeto selecionado
@@ -112,10 +115,11 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       return;
     }
     supabase.from("imphq_projects").select("data").eq("id", destino).maybeSingle().then(({ data }) => {
-      const d: any = data?.data || {};
-      const lista = Array.isArray(d?.briefing?.produtos) ? d.briefing.produtos
+      const d = record(data?.data);
+      const b = record(d.briefing);
+      const lista = Array.isArray(b.produtos) ? b.produtos
         : Array.isArray(d?.produtos) ? d.produtos : [];
-      setProdutosDoProjeto(lista);
+      setProdutosDoProjeto(lista.map(parseProduct));
       if (lista.length > 0) setProdutoSel(typeof lista[0] === "string" ? lista[0] : lista[0]?.nome || "__new_prod__");
     });
   }, [destino]);
@@ -123,14 +127,14 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
   // Autofill quando seleciona produto existente
   useEffect(() => {
     if (produtoSel === "__new_prod__") return;
-    const p = produtosDoProjeto.find((x: any) => (typeof x === "string" ? x : x?.nome) === produtoSel);
+    const p = produtosDoProjeto.find((x) => (typeof x === "string" ? x : x?.nome) === produtoSel);
     if (!p || typeof p === "string") {
       setProdutoNome(produtoSel);
       return;
     }
     setProdutoNome(p.nome || produtoSel);
     if (p.preco || p.ticket) setTicket(String(p.preco || p.ticket));
-    if (p.promessa) setPromessa(p.promessa);
+    if (typeof p.promessa === "string") setPromessa(p.promessa);
   }, [produtoSel, produtosDoProjeto]);
 
   // Carregar inventário quando modo organizar + projeto + produto definidos
@@ -168,8 +172,8 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       });
       setEtapasSel(sel);
       toast.success(`Score ${j.score}/100 — ${(j.top_gaps || []).length} gaps detectados`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao inventariar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao inventariar");
     } finally {
       setLoadingInv(false);
     }
@@ -184,7 +188,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
       setAuditState("pending");
       setInventario(null);
       setInvScore(null); setInvBlocos(null); setTopGaps([]); setOndas(null); setNextAction("");
-      setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
+      setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" as const }])));
     }
   }, [open]);
 
@@ -197,7 +201,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
 
   function toggleStep(s: Step) {
     const ns = new Set(etapasSel);
-    ns.has(s) ? ns.delete(s) : ns.add(s);
+    if (ns.has(s)) { ns.delete(s); } else { ns.add(s); }
     setEtapasSel(ns);
   }
 
@@ -211,12 +215,12 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
     setRodando(true);
     setAudit(null);
     setAuditState("pending");
-    setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" }])) as any);
+    setProgresso(Object.fromEntries(DISPLAY_STEPS.map(s => [s, { state: "pending" as const }])));
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setRodando(false); return toast.error("Sessão expirada"); }
 
-    const body: any = {
+    const body: Record<string, Json> = {
       produto_nome: nomeFinal,
       ticket: ticket.trim() || undefined,
       promessa: promessa.trim() || undefined,
@@ -283,15 +287,17 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
           } catch { /* ignore */ }
         }
       }
-    } catch (e: any) {
-      if (e?.name !== "AbortError") toast.error(e?.message || "Falha ao executar");
+    } catch (e: unknown) {
+      if (!(e instanceof Error && e.name === "AbortError")) toast.error(errorMessage(e) || "Falha ao executar");
     } finally {
       setRodando(false);
     }
   }
 
-  const score = audit?.score ?? audit?.diagnostico?.score ?? audit?.audit?.score;
-  const gaps: string[] = audit?.gaps ?? audit?.diagnostico?.gaps ?? audit?.recomendacoes ?? [];
+  const rawScore = audit?.score ?? record(audit?.diagnostico).score ?? record(audit?.audit).score;
+  const score = typeof rawScore === "number" ? rawScore : undefined;
+  const rawGaps = audit?.gaps ?? record(audit?.diagnostico).gaps ?? audit?.recomendacoes;
+  const gaps = Array.isArray(rawGaps) ? rawGaps : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -369,7 +375,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__new_prod__">➕ Novo produto</SelectItem>
-                      {produtosDoProjeto.map((p: any, i: number) => {
+                      {produtosDoProjeto.map((p, i: number) => {
                         const nome = typeof p === "string" ? p : p?.nome;
                         if (!nome) return null;
                         return <SelectItem key={`${nome}-${i}`} value={nome}>{nome}</SelectItem>;
@@ -487,7 +493,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                           <div key={o.key} className="rounded border border-border/40 bg-background/40 p-2 space-y-1">
                             <div className="font-medium">{o.label}</div>
                             {o.items.length === 0 && <div className="text-muted-foreground text-[10px]">Nada pendente</div>}
-                            {o.items.map((it: any, i: number) => (
+                            {o.items.map((it, i: number) => (
                               <div key={i} className="text-[11px] text-muted-foreground">• {it.label}</div>
                             ))}
                             {o.items.length > 0 && (
@@ -497,7 +503,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                                 className="w-full h-7 text-[11px] mt-1"
                                 onClick={() => {
                                   const steps = new Set<Step>();
-                                  o.items.forEach((it: any) => {
+                                  o.items.forEach((it) => {
                                     if (ALL_STEPS.includes(it.etapa as Step)) steps.add(it.etapa as Step);
                                   });
                                   setEtapasSel(steps);
@@ -550,7 +556,7 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
             <ul className="space-y-2">
               {[...Array.from(etapasSel), "hub"].map(s => {
                 const st = progresso[s];
-                const label = (STEP_LABELS as any)[s] || STEP_HUB[s] || s;
+                const label = (s === "hub" ? undefined : STEP_LABELS[s]) || STEP_HUB[s] || s;
                 return (
                   <li key={s} className="flex items-start gap-3 p-3 rounded bg-background/40 border border-border/30">
                     <div className="mt-0.5">
@@ -582,8 +588,8 @@ export function OneClickModal({ open, onOpenChange, onComplete }: Props) {
                         {typeof score !== "undefined" && <div>Score: <strong className="text-primary">{score}</strong></div>}
                         {Array.isArray(gaps) && gaps.length > 0 && (
                           <ul className="list-disc ml-4 space-y-0.5">
-                            {gaps.slice(0, 3).map((g: any, i: number) => (
-                              <li key={i}>{typeof g === "string" ? g : (g?.titulo || g?.gap || JSON.stringify(g))}</li>
+                            {gaps.slice(0, 3).map((g, i: number) => (
+                              <li key={i}>{typeof g === "string" ? g : (g && typeof g === "object" && "titulo" in g && typeof g.titulo === "string" ? g.titulo : g && typeof g === "object" && "gap" in g && typeof g.gap === "string" ? g.gap : JSON.stringify(g))}</li>
                             ))}
                           </ul>
                         )}

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { record } from "@/lib/funis-data";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,17 +32,17 @@ export function FlowVariantsPanel({ open, onClose, blueprintId, nodeId, nodeTitl
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_flow_node_variants")
       .select("*")
       .eq("blueprint_id", blueprintId)
       .eq("node_id", nodeId)
       .order("variant_key");
-    setVariants((data as any) || []);
-  };
+    setVariants(data || []);
+  }, [blueprintId, nodeId]);
 
-  useEffect(() => { if (open) load(); /* eslint-disable-next-line */ }, [open, nodeId]);
+  useEffect(() => { if (open) load();   }, [open, load]);
 
   const addVariant = async () => {
     const nextKey = String.fromCharCode(65 + variants.length);
@@ -89,8 +90,8 @@ export function FlowVariantsPanel({ open, onClose, blueprintId, nodeId, nodeTitl
     });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    const suggestion = (data as any)?.suggestion;
-    if (!suggestion) { toast.error("Sem sugestão gerada"); return; }
+    const suggestion = record(data).suggestion;
+    if (typeof suggestion !== "string" || !suggestion) { toast.error("Sem sugestão gerada"); return; }
     // injeta como nova variante neste nó
     const nextKey = String.fromCharCode(65 + variants.length);
     await supabase.from("imphq_flow_node_variants").insert({

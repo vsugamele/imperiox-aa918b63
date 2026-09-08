@@ -1,6 +1,7 @@
+import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MobileLeadCard } from "./MobileLeadCard";
+import { MobileLeadCard } from "@/components/mobile/MobileLeadCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -41,7 +42,7 @@ export function MobileLeadsList() {
   const [limit, setLimit] = useState(PAGE);
   const [kpis, setKpis] = useState({ total: 0, hot: 0, noResp: 0, avgScore: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from("imphq_leads")
@@ -57,7 +58,7 @@ export function MobileLeadsList() {
     }
 
     const { data } = await query;
-    const mapped = ((data as any[]) || []).map(l => ({
+    const mapped = (data || []).map(l => ({
       id: l.id, nome: l.nome, phone: l.phone, email: l.email,
       score: l.score, status: l.status, created_at: l.criado_em, tags: l.tags,
     })) as Lead[];
@@ -78,9 +79,9 @@ export function MobileLeadsList() {
       noResp: 0,
       avgScore: avg,
     });
-  };
+  }, [seg]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [seg]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -99,7 +100,8 @@ export function MobileLeadsList() {
   }, []);
 
   const onArchive = useCallback(async (lead: Lead) => {
-    await supabase.from("imphq_leads").update({ status: "arquivado" } as any).eq("id", lead.id);
+    const { error } = await supabase.from("imphq_leads").update({ status: "arquivado" }).eq("id", lead.id);
+    if (error) { toast.error(error.message); return; }
     setLeads(prev => prev.filter(l => l.id !== lead.id));
     toast.success("Lead arquivado");
   }, []);
@@ -214,7 +216,7 @@ export function MobileLeadsList() {
   );
 }
 
-function KpiPill({ icon: Icon, label, value, accent }: { icon?: any; label: string; value: number | string; accent?: string }) {
+function KpiPill({ icon: Icon, label, value, accent }: { icon?: LucideIcon; label: string; value: number | string; accent?: string }) {
   return (
     <div className={cn(
       "shrink-0 flex items-center gap-2 px-3 h-11 rounded-lg border bg-secondary/40 border-border/50",

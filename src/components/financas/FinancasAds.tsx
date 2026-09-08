@@ -308,11 +308,11 @@ export function FinancasAds({ ads, projects, onRefresh, filterProjectId, vendas 
       leads: parseInt(form.leads) || 0,
     };
     if (editing) {
-      const { error } = await supabase.from("imphq_ads_spend").update(payload as any).eq("id", editing.id);
+      const { error } = await supabase.from("imphq_ads_spend").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Atualizado!");
     } else {
-      const { error } = await supabase.from("imphq_ads_spend").insert(payload as any);
+      const { error } = await supabase.from("imphq_ads_spend").insert(payload);
       if (error) { toast.error(error.message); return; }
       toast.success("Gasto adicionado!");
     }

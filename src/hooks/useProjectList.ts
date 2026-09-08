@@ -29,7 +29,7 @@ export function useProjectList(opts?: { includeArchived?: boolean }) {
     queryFn: async (): Promise<ProjectListItem[]> => {
       let q = supabase
         .from("imphq_projects")
-        .select("id, name, icon, category, is_archived" as any)
+        .select("id, name, icon, category, is_archived")
         .order("name", { ascending: true });
 
       if (!includeArchived) {
@@ -41,7 +41,7 @@ export function useProjectList(opts?: { includeArchived?: boolean }) {
         console.error("[useProjectList] error", error);
         return [];
       }
-      return (data || []) as unknown as ProjectListItem[];
+      return data || [];
     },
   });
 }

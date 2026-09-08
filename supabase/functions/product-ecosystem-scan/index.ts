@@ -2,6 +2,8 @@
 // Retorna: nodes/edges pra canvas + gaps + score, e permite salvar snapshot.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -70,9 +72,9 @@ Deno.serve(async (req) => {
       const { data: last } = await sb.from("imphq_product_blueprints")
         .select("versao").eq("project_id", project_id).eq("produto_nome", produto_nome)
         .order("versao", { ascending: false }).limit(1).maybeSingle();
-      const versao = ((last as any)?.versao || 0) + 1;
+      const versao = (last?.versao || 0) + 1;
 
-      const row: any = {
+      const row: { project_id: string; produto_nome: string; versao: number; snapshot: unknown; gaps: unknown; score: number; is_current: boolean; created_by: string; approved_by?: string; approved_at?: string } = {
         project_id, produto_nome, versao,
         snapshot: snapshot || {}, gaps: gaps || [], score: score || 0,
         is_current: true, created_by: u.user.id,
@@ -95,10 +97,11 @@ Deno.serve(async (req) => {
     // Projeto (avatar + briefing)
     const { data: proj } = await sb.from("imphq_projects")
       .select("data, avatar, name").eq("id", project_id).maybeSingle();
-    const projData = (proj?.data as any) || {};
-    const briefingProdutos: any[] = Array.isArray(projData?.briefing?.produtos)
-      ? projData.briefing.produtos : Array.isArray(projData?.produtos) ? projData.produtos : [];
-    const avatarPorProduto = projData?.avatares_por_produto || projData?.briefing?.avatares_por_produto || {};
+    const projData = record(proj?.data);
+    const briefing = record(projData.briefing);
+    const products = Array.isArray(briefing.produtos) ? briefing.produtos : Array.isArray(projData.produtos) ? projData.produtos : [];
+    const briefingProdutos = products.map(record);
+    const avatarPorProduto = record(projData.avatares_por_produto || briefing.avatares_por_produto);
     const hasAvatar = !!(proj?.avatar || projData?.avatar || (produto_nome && avatarPorProduto?.[produto_nome]));
 
     // Blueprint anterior (se existir)
@@ -108,29 +111,29 @@ Deno.serve(async (req) => {
 
     // Paralelo: sites, fluxos, WA campaigns, WA providers, IG triggers, emails, criativos, swipes
     const [sitesR, flowsR, waCampR, waProvR, igTrigR, nurtureR, creativesR, swipesR, hubR] = await Promise.all([
-      sb.from("imphq_sites").select("id, url, tipo, produto_nome, titulo, screenshot_url").eq("project_id", project_id) as any,
-      sb.from("imphq_flow_blueprints").select("id, title, produto_nome, source").eq("project_id", project_id) as any,
-      sb.from("imphq_wa_campaigns").select("id, name, produto_nome, status").eq("project_id", project_id) as any,
-      sb.from("imphq_wa_providers").select("id, nome, ativo").eq("project_id", project_id) as any,
-      sb.from("imphq_ig_comment_triggers").select("id, palavra_chave, dm_message, produto_nome").eq("project_id", project_id) as any,
-      sb.from("imphq_nurture_sequences").select("id, nome, produto_nome").eq("project_id", project_id) as any,
-      sb.from("imphq_creative_assets").select("id, kind, produto_nome").eq("project_id", project_id) as any,
-      sb.from("imphq_swipes").select("id, title, formato").eq("project_id", project_id) as any,
-      sb.from("imphq_funis").select("id, data").eq("project_id", project_id).eq("tipo", "hub").maybeSingle() as any,
+      sb.from("imphq_sites").select("id, url, tipo, produto_nome, titulo, screenshot_url").eq("project_id", project_id),
+      sb.from("imphq_flow_blueprints").select("id, title, produto_nome, source").eq("project_id", project_id),
+      sb.from("imphq_wa_campaigns").select("id, name, produto_nome, status").eq("project_id", project_id),
+      sb.from("imphq_wa_providers").select("id, nome, ativo").eq("project_id", project_id),
+      sb.from("imphq_ig_comment_triggers").select("id, palavra_chave, dm_message, produto_nome").eq("project_id", project_id),
+      sb.from("imphq_nurture_sequences").select("id, nome, produto_nome").eq("project_id", project_id),
+      sb.from("imphq_creative_assets").select("id, kind, produto_nome").eq("project_id", project_id),
+      sb.from("imphq_swipes").select("id, title, formato").eq("project_id", project_id),
+      sb.from("imphq_funis").select("id, data").eq("project_id", project_id).eq("tipo", "hub").maybeSingle(),
     ]);
 
-    const matchProd = (v: any) =>
+    const matchProd = (v: unknown) =>
       !prodLower || !v ? true : String(v).toLowerCase().includes(prodLower);
 
-    const sites = (sitesR.data || []).filter((s: any) => matchProd(s.produto_nome) || matchProd(s.titulo));
-    const flows = (flowsR.data || []).filter((f: any) => matchProd(f.produto_nome) || matchProd(f.title));
-    const waCamps = (waCampR.data || []).filter((c: any) => matchProd(c.produto_nome) || matchProd(c.name));
+    const sites = (sitesR.data || []).filter((s) => matchProd(s.produto_nome) || matchProd(s.titulo));
+    const flows = (flowsR.data || []).filter((f) => matchProd(f.produto_nome) || matchProd(f.title));
+    const waCamps = (waCampR.data || []).filter((c) => matchProd(c.produto_nome) || matchProd(c.name));
     const waProviders = (waProvR.data || []);
-    const igTrigs = (igTrigR.data || []).filter((t: any) =>
+    const igTrigs = (igTrigR.data || []).filter((t) =>
       matchProd(t.produto_nome) || matchProd(t.palavra_chave) || matchProd(t.dm_message));
-    const nurture = (nurtureR.data || []).filter((n: any) => matchProd(n.produto_nome) || matchProd(n.nome));
-    const creatives = (creativesR.data || []).filter((c: any) => matchProd(c.produto_nome));
-    const swipes = (swipesR.data || []).filter((s: any) => matchProd(s.title));
+    const nurture = (nurtureR.data || []).filter((n) => matchProd(n.produto_nome) || matchProd(n.nome));
+    const creatives = (creativesR.data || []).filter((c) => matchProd(c.produto_nome));
+    const swipes = (swipesR.data || []).filter((s) => matchProd(s.title));
 
     const nodes: EcoNode[] = [];
     const edges: EcoEdge[] = [];
@@ -143,12 +146,12 @@ Deno.serve(async (req) => {
     });
 
     // Sites — separa por tipo
-    const bucketByTipo: Record<string, any[]> = {};
+    const bucketByTipo: Record<string, typeof sites> = {};
     for (const s of sites) {
       const tipo = String(s.tipo || "site").toLowerCase();
       (bucketByTipo[tipo] ||= []).push(s);
     }
-    const pushSite = (kind: NodeKind, list: any[], defaultLabel: string) => {
+    const pushSite = (kind: NodeKind, list: typeof sites, defaultLabel: string) => {
       list.forEach((s, i) => {
         nodes.push({
           id: `${kind}-${s.id}`, kind, label: s.titulo || defaultLabel,
@@ -164,8 +167,8 @@ Deno.serve(async (req) => {
     pushSite("upsell", bucketByTipo["upsell"] || [], "Upsell");
     pushSite("downsell", bucketByTipo["downsell"] || [], "Downsell");
     // sites sem tipo mapeado → genéricos
-    const restSites = sites.filter((s: any) => !["vsl","lp","landing","checkout","orderbump","order-bump","upsell","downsell"].includes(String(s.tipo || "").toLowerCase()));
-    restSites.forEach((s: any, i: number) => {
+    const restSites = sites.filter((s) => !["vsl","lp","landing","checkout","orderbump","order-bump","upsell","downsell"].includes(String(s.tipo || "").toLowerCase()));
+    restSites.forEach((s, i: number) => {
       nodes.push({ id: `site-${s.id}`, kind: "site", label: s.titulo || s.url, status: "ok", meta: { url: s.url }, ...laneCoords("site", i) });
     });
 
@@ -183,7 +186,7 @@ Deno.serve(async (req) => {
 
     // WhatsApp
     if (waCamps.length || waProviders.length) {
-      waCamps.slice(0, 3).forEach((c: any, i: number) => {
+      waCamps.slice(0, 3).forEach((c, i: number) => {
         nodes.push({
           id: `wa-${c.id}`, kind: "whatsapp",
           label: `WA: ${c.name || "Campanha"}`,
@@ -200,7 +203,7 @@ Deno.serve(async (req) => {
 
     // Instagram
     if (igTrigs.length) {
-      igTrigs.slice(0, 3).forEach((t: any, i: number) => {
+      igTrigs.slice(0, 3).forEach((t, i: number) => {
         nodes.push({
           id: `ig-${t.id}`, kind: "instagram",
           label: `IG: ${t.palavra_chave || "gatilho"}`,
@@ -213,7 +216,7 @@ Deno.serve(async (req) => {
 
     // Emails
     if (nurture.length) {
-      nurture.slice(0, 3).forEach((n: any, i: number) => {
+      nurture.slice(0, 3).forEach((n, i: number) => {
         nodes.push({ id: `email-${n.id}`, kind: "email", label: `Email: ${n.nome || "Sequência"}`, status: "ok", ...laneCoords("email", i) });
       });
     } else {
@@ -222,7 +225,7 @@ Deno.serve(async (req) => {
 
     // Fluxos OpenFlow
     if (flows.length) {
-      flows.slice(0, 3).forEach((f: any, i: number) => {
+      flows.slice(0, 3).forEach((f, i: number) => {
         nodes.push({ id: `flow-${f.id}`, kind: "flow", label: `Flow: ${f.title || "Fluxo"}`, status: "ok", ...laneCoords("flow", i) });
       });
     } else {
@@ -285,7 +288,7 @@ Deno.serve(async (req) => {
     return json({
       project_id, produto_nome,
       project_name: proj?.name,
-      briefing_produtos: briefingProdutos.map((p: any) => p.nome || p.name).filter(Boolean),
+      briefing_produtos: briefingProdutos.map((p) => p.nome || p.name).filter(Boolean),
       nodes, edges, gaps, score,
       current_blueprint: lastBp || null,
       counts: {
@@ -294,9 +297,9 @@ Deno.serve(async (req) => {
         swipes: swipes.length,
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[product-ecosystem-scan]", e);
-    return json({ error: String(e?.message || e) }, 400);
+    return json({ error: String((e instanceof Error ? e.message : record(e).message) || e) }, 400);
   }
 });
 

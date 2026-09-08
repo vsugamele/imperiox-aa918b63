@@ -1,3 +1,4 @@
+import { record, text as stringValue, errorText } from "./value.ts";
 // CRM Bridge JP Freitas — escopo isolado para project_id === 'jp_freitas'.
 // Área de membros: https://jphaireducation.com.br
 // Endpoint único: https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/crm-bridge
@@ -14,7 +15,7 @@ function getSecret(): string | null {
   return Deno.env.get("JPFREITAS_CRM_BRIDGE_SECRET") || null;
 }
 
-async function callBridge(action: string, payload: Record<string, any>): Promise<any> {
+async function callBridge(action: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
   const secret = getSecret();
   if (!secret) {
     console.warn("[crmBridgeJP] JPFREITAS_CRM_BRIDGE_SECRET not set");
@@ -30,16 +31,16 @@ async function callBridge(action: string, payload: Record<string, any>): Promise
       body: JSON.stringify({ action, ...payload }),
     });
     const text = await res.text();
-    let json: any = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+    let json: Record<string, unknown> = {};
+    try { json = text ? record(JSON.parse(text)) : {}; } catch { json = { raw: text }; }
     if (!res.ok) {
       console.warn(`[crmBridgeJP] ${action} HTTP ${res.status}: ${text.slice(0, 200)}`);
       return { ok: false, status: res.status, ...json };
     }
     return { ok: true, ...json };
-  } catch (e: any) {
-    console.error(`[crmBridgeJP] ${action} fetch error: ${e?.message}`);
-    return { ok: false, error: e?.message };
+  } catch (e: unknown) {
+    console.error(`[crmBridgeJP] ${action} fetch error: ${errorText(e)}`);
+    return { ok: false, error: errorText(e) };
   }
 }
 
@@ -56,7 +57,7 @@ export async function jpLookupLeadByPhone(phone: string) {
 }
 
 /** Resolve lead trying email first then phone. Returns { lookup, source, emailFound }. */
-export async function jpResolveLead(opts: { email?: string; phone?: string }): Promise<{ lookup: any; source: "email" | "phone" | "none"; emailFound: string }> {
+export async function jpResolveLead(opts: { email?: string; phone?: string }): Promise<{ lookup: Record<string, unknown> | null; source: "email" | "phone" | "none"; emailFound: string }> {
   const email = (opts.email || "").trim().toLowerCase();
   if (email) {
     const r = await jpLookupLead(email);
@@ -65,8 +66,8 @@ export async function jpResolveLead(opts: { email?: string; phone?: string }): P
   if (opts.phone) {
     const r = await jpLookupLeadByPhone(opts.phone);
     if (r && r.ok !== false) {
-      const data = r?.data || r;
-      const found = (data?.email || data?.user?.email || "").toString().trim().toLowerCase();
+      const data = record(r?.data || r);
+      const found = (data?.email || record(data.user).email || "").toString().trim().toLowerCase();
       return { lookup: r, source: "phone", emailFound: found };
     }
   }
@@ -83,14 +84,14 @@ export async function jpAddTags(email: string, tags: string[]) {
   return callBridge("add_tags", { email, tags });
 }
 
-export async function jpLogEvent(email: string, event_type: string, metadata: Record<string, any> = {}) {
+export async function jpLogEvent(email: string, event_type: string, metadata: Record<string, unknown> = {}) {
   if (!email || !event_type) return null;
   return callBridge("log_event", { email, event_type, metadata });
 }
 
 export async function jpGrantAccess(email: string, program_ids?: string[], expires_at?: string) {
   if (!email) return null;
-  const payload: any = { email };
+  const payload: Record<string, unknown> = { email };
   if (program_ids?.length) payload.program_ids = program_ids;
   if (expires_at) payload.expires_at = expires_at;
   return callBridge("grant_access", payload);
@@ -100,9 +101,9 @@ export async function jpGrantAccess(email: string, program_ids?: string[], expir
  * Bloco de contexto a injetar no system prompt quando o lead tem email conhecido.
  * Resume status do aluno na área de membros do JP Freitas.
  */
-export function jpBuildContextBlock(lookup: any, email: string): string {
+export function jpBuildContextBlock(lookup: Record<string, unknown> | null, email: string): string {
   if (!lookup || lookup.ok === false) return "";
-  const data = lookup.data || lookup;
+  const data = record(lookup.data || lookup);
   const has_account = data?.has_account ?? data?.user_exists ?? false;
   const has_premium = data?.has_premium ?? data?.has_active_access ?? false;
   const stage = data?.stage || data?.lead_stage || "";
@@ -113,7 +114,7 @@ export function jpBuildContextBlock(lookup: any, email: string): string {
     `- Tem acesso ativo (compra/cortesia): ${has_premium ? "SIM" : "NÃO"}`,
   ];
   if (stage) lines.push(`- Estágio: ${stage}`);
-  if (programs.length) lines.push(`- Programas ativos: ${programs.slice(0, 5).map((p: any) => p?.name || p?.id || p).join(", ")}`);
+  if (programs.length) lines.push(`- Programas ativos: ${programs.slice(0, 5).map((p: unknown) => record(p).name || record(p).id || p).join(", ")}`);
   return lines.join("\n") + "\n";
 }
 
@@ -180,8 +181,8 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
     const email = resolveEmail(m[1]);
     if (!email) { out = out.replace(m[0], "https://jphaireducation.com.br"); continue; }
     const res = await jpIssueMagicLink(email);
-    const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
-    if (link) {
+    const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
+    if (typeof link === "string" && link) {
       out = out.replace(m[0], link);
       console.log(`[crmBridgeJP] magic_link gerado para ${email}`);
     } else {

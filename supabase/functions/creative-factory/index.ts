@@ -1,3 +1,7 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const requestSchema = z.object({ action: z.string().nullish(), project_id: z.string().nullish(), nome: z.string().nullish(), briefing: z.unknown().optional(), referencias_urls: z.array(z.string()).nullish(), expert_fotos: z.array(z.string()).nullish(), angulos: z.array(z.string()).nullish(), formato: z.string().nullish(), asset_id: z.string().nullish(), instruction: z.string().nullish(), image_provider: z.string().nullish(), asset_ids: z.array(z.string()).nullish() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
@@ -48,7 +52,7 @@ async function scrapeReferencias(urls: string[]): Promise<string> {
 }
 
 async function generateImageGemini(prompt: string, referenceImages: string[] = []): Promise<string | null> {
-  const content: any[] = [{ type: "text", text: prompt }];
+  const content: ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] = [{ type: "text", text: prompt }];
   for (const img of referenceImages.slice(0, 3)) content.push({ type: "image_url", image_url: { url: img } });
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -150,7 +154,7 @@ async function generateImageOpenAIEdit(imageUrl: string, instruction: string, fo
 }
 
 async function uploadBase64ToStorage(
-  sb: any,
+  sb: ReturnType<typeof makeClient>,
   base64DataUrl: string,
   projectId: string,
   batchId: string,
@@ -294,9 +298,9 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    let bodyParsed: any = null;
+    let bodyParsed: z.infer<typeof requestSchema> | null = null;
     if (req.method === "POST") {
-      try { bodyParsed = await req.json(); } catch { bodyParsed = null; }
+      try { bodyParsed = requestSchema.parse(await req.json()); } catch { bodyParsed = null; }
     }
     const action = bodyParsed?.action || url.searchParams.get("action") || (req.method === "POST" ? "start" : "get");
 
@@ -343,9 +347,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      // @ts-ignore
-      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
-        // @ts-ignore
+      // Edge runtime background task.
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+        // Edge runtime background task.
         EdgeRuntime.waitUntil(processBatch(batch.id));
       } else {
         processBatch(batch.id).catch((e) => console.error("bg fail", e));
@@ -376,7 +380,7 @@ Deno.serve(async (req) => {
       const editProvider: ImageProvider =
         providerOverride === "openai-image" || providerOverride === "lovable-gemini"
           ? providerOverride
-          : ((asset as any).image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
+          : (asset.image_provider === "openai-image" ? "openai-image" : "lovable-gemini");
 
       let newDataUrl: string | null = null;
       let editError: string | null = null;
@@ -416,7 +420,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const parentVersion = (asset as any).version || 1;
+      const parentVersion = asset.version || 1;
       const { data: newAsset, error: insErr } = await sb.from("imphq_creative_assets").insert({
         batch_id: asset.batch_id, project_id: asset.project_id, user_id: userId,
         angulo: asset.angulo, prompt_usado: `EDIT [${editProvider}]: ${instruction}`,
@@ -462,10 +466,10 @@ Deno.serve(async (req) => {
 
       let exported = 0;
       for (const asset of assets) {
-        if ((asset as any).exported_to_midia) continue;
+        if (asset.exported_to_midia) continue;
         const { data: midia, error: mErr } = await sb.from("imphq_content_library").insert({
           project_id: asset.project_id, user_id: userId,
-          title: `Criativo ${asset.angulo} ${(asset as any).version || 1}`,
+          title: `Criativo ${asset.angulo} ${asset.version || 1}`,
           file_url: asset.image_url, file_type: "image",
           tags: ["criativo", "ia", asset.angulo],
           content_category: "criativos",
@@ -486,9 +490,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("fatal", e);
-    return new Response(JSON.stringify({ error: e?.message || "fatal" }), {
+    return new Response(JSON.stringify({ error: eMessage || "fatal" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

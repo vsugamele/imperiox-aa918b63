@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export function ProjetoSitesTab({ projectId }: { projectId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("imphq_project_sites")
@@ -33,11 +33,11 @@ export function ProjetoSitesTab({ projectId }: { projectId: string }) {
       .eq("projeto_id", projectId)
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setRows((data || []) as any);
+    setRows(data || []);
     setLoading(false);
-  }
+  }, [projectId]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   async function handleRemove(id: string) {
     if (!confirm("Desvincular este site do projeto?")) return;

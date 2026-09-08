@@ -4,6 +4,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireUser } from "../_shared/require-auth.ts";
 
+interface ImportedProduct extends Record<string, unknown> { nome?: string | null; imagem?: string | null; cor_primaria?: string | null }
+function parseImportedProduct(content: string): ImportedProduct {
+  const value: unknown = JSON.parse(content);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid product response");
+  if ("nome" in value && value.nome !== null && typeof value.nome !== "string") throw new Error("Invalid product name");
+  if ("imagem" in value && value.imagem !== null && typeof value.imagem !== "string") throw new Error("Invalid product image");
+  if ("cor_primaria" in value && value.cor_primaria !== null && typeof value.cor_primaria !== "string") throw new Error("Invalid product color");
+  return { ...value };
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -100,9 +110,9 @@ Deno.serve(async (req) => {
       return json({ success: false, error: `gemini ${extractRes.status}: ${t.slice(0, 300)}` }, 502);
     }
     const ext = await extractRes.json();
-    let produto: any = {};
+    let produto: ImportedProduct = {};
     try {
-      produto = JSON.parse(ext.choices?.[0]?.message?.content || "{}");
+      produto = parseImportedProduct(ext.choices?.[0]?.message?.content || "{}");
     } catch {
       produto = {};
     }
@@ -124,7 +134,7 @@ Deno.serve(async (req) => {
       if (reRes.ok) {
         const j = await reRes.json();
         try {
-          const novo = JSON.parse(j.choices?.[0]?.message?.content || "{}");
+          const novo = parseImportedProduct(j.choices?.[0]?.message?.content || "{}");
           if (novo?.nome) produto = { ...produto, ...novo, _origem: "novo_mecanismo" };
         } catch { /* ignore */ }
       }

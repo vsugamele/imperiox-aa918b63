@@ -112,8 +112,9 @@ Deno.serve(async (req) => {
       }
       bytes = buf;
       contentType = dl.headers.get("content-type") || contentType;
-    } catch (e: any) {
-      const msg = e?.message || "download failed";
+    } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+      const msg = eMessage || "download failed";
       await supabase
         .from("imphq_referencias")
         .update({ transcribe_status: "error", transcribe_error: msg })
@@ -211,9 +212,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, provider, transcript, length: transcript.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[referencia-video-transcribe] fatal", e);
-    return new Response(JSON.stringify({ error: e?.message || "internal error" }), {
+    return new Response(JSON.stringify({ error: eMessage || "internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

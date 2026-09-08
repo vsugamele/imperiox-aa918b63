@@ -1,3 +1,20 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+import type { Database, Json } from "../../../src/integrations/supabase/types.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.10";
+import { record } from "../_shared/value.ts";
+import { safeError } from "../_shared/errors.ts";
+const requestSchema = z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant", "system", "tool"]), content: z.string() }).passthrough()), projectId: z.string().nullish(), threadId: z.string().nullish() });
+const toolCallSchema = z.object({ id: z.string(), type: z.literal("function"), function: z.object({ name: z.string(), arguments: z.string() }) });
+const responseSchema = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().nullish(), tool_calls: z.array(toolCallSchema).optional() }).optional() })).optional() });
+type ModelMessage = { role: string; content: string | null; tool_call_id?: string; tool_calls?: z.infer<typeof toolCallSchema>[] };
+type ToolActivity = { name: string; args: unknown; result: unknown; ts: string };
+function jsonValue(value: unknown): Json {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(item => item === undefined ? null : jsonValue(item));
+  if (typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([,item]) => item !== undefined).map(([key,item]) => [key,jsonValue(item)]));
+  throw new Error("Valor não serializável na conversa");
+}
 // Imperius Copilot — agente com tool calling (OpenRouter) + streaming SSE final
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -42,7 +59,7 @@ function preMatchTool(text: string): string | null {
   return null;
 }
 
-async function callAI(body: any, signal: AbortSignal, model = MODEL_PRIMARY) {
+async function callAI(body: Record<string, unknown>, signal: AbortSignal, model = MODEL_PRIMARY) {
   const { url, apiKey } = resolveProvider(model);
   return await fetch(url, {
     method: "POST",
@@ -83,12 +100,12 @@ interface ContextHints {
   projeto_atual: string | null;
 }
 
-async function buildHints(supabase: any, projectId: string | null): Promise<ContextHints> {
+async function buildHints(supabase: SupabaseClient<Database>, projectId: string | null): Promise<ContextHints> {
   const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
   let q = supabase.from("imphq_vendas").select("valor").eq("status", "aprovado").gte("data_venda", since30).limit(2000);
   if (projectId) q = q.eq("project_id", projectId);
   const { data } = await q;
-  const total = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const total = (data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   let projNome: string | null = null;
   if (projectId) {
     const { data: p } = await supabase.from("imphq_projects").select("name").eq("id", projectId).single();
@@ -97,21 +114,21 @@ async function buildHints(supabase: any, projectId: string | null): Promise<Cont
   return { vendas30d_total: total, vendas30d_count: data?.length || 0, projeto_atual: projNome };
 }
 
-async function persistThread(supabase: any, userId: string, projectId: string | null, threadId: string | null, messages: any[], extraMeta: any) {
-  const title = messages.find((m: any) => m.role === "user")?.content?.slice(0, 60) || "Nova conversa";
+async function persistThread(supabase: SupabaseClient<Database>, userId: string, projectId: string | null, threadId: string | null, messages: unknown[], extraMeta: unknown) {
+  const title = String(record(messages.find(m => record(m).role === "user")).content || "").slice(0, 60) || "Nova conversa";
   try {
     if (threadId) {
       await supabase.from("imphq_copilot_threads").update({
-        messages, updated_at: new Date().toISOString(),
+        messages: jsonValue(messages), updated_at: new Date().toISOString(),
       }).eq("id", threadId).eq("user_id", userId);
       return threadId;
     }
     const { data: inserted } = await supabase.from("imphq_copilot_threads").insert({
-      user_id: userId, project_id: projectId, title, messages,
+      user_id: userId, project_id: projectId, title, messages: jsonValue(messages),
     }).select("id").single();
     return inserted?.id || null;
-  } catch (e: any) {
-    console.error("[copilot-imperius] persist failed:", e?.message);
+  } catch (e) {
+    console.error("[copilot-imperius] persist failed:", safeError(e));
     return threadId;
   }
 }
@@ -122,15 +139,17 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "Não autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const supabase = createClient<Database>(SUPABASE_URL, SERVICE_ROLE);
+    const userClient = createClient<Database>(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Não autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const body = await req.json();
-    const { messages, projectId, threadId } = body as { messages: any[]; projectId: string | null; threadId?: string };
+    const parsed = requestSchema.safeParse(await req.json());
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Conversa inválida" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { messages, threadId } = parsed.data;
+    const projectId = parsed.data.projectId ?? null;
 
     const hints = await buildHints(supabase, projectId);
     const ctx: ToolCtx = { supabase, userId: user.id, projectId };
@@ -143,16 +162,16 @@ CONTEXTO ATUAL:
 - Data/hora agora: ${new Date().toISOString()}`;
 
     // Mensagens do modelo
-    const modelMessages: any[] = [
+    const modelMessages: ModelMessage[] = [
       { role: "system", content: systemPrompt },
-      ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
     // Coletar tool activity para persistir e expor pro frontend
-    const toolActivity: any[] = [];
+    const toolActivity: ToolActivity[] = [];
 
     // Pré-matcher: força tool específica no primeiro step quando reconhecemos intenção
-    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content || "";
     const forcedTool = preMatchTool(lastUserMsg);
     console.log("[copilot] start", { user_id: user.id, msg_preview: lastUserMsg.slice(0, 80), forced_tool: forcedTool, project_id: projectId });
 
@@ -178,10 +197,10 @@ CONTEXTO ATUAL:
         if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({ error: `Falha na IA (${res.status})` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const data = await res.json();
+      const data = responseSchema.parse(await res.json());
       const choice = data.choices?.[0];
       const msg = choice?.message;
-      console.log("[copilot] step", step, { tool_calls: msg?.tool_calls?.map((t: any) => t.function?.name), content_len: msg?.content?.length || 0 });
+      console.log("[copilot] step", step, { tool_calls: msg?.tool_calls?.map((t) => t.function?.name), content_len: msg?.content?.length || 0 });
       if (!msg) break;
 
       const toolCalls = msg.tool_calls || [];
@@ -193,8 +212,8 @@ CONTEXTO ATUAL:
       modelMessages.push({ role: "assistant", content: msg.content || null, tool_calls: toolCalls });
       for (const tc of toolCalls) {
         const name = tc.function?.name;
-        let parsedArgs: any = {};
-        try { parsedArgs = JSON.parse(tc.function?.arguments || "{}"); } catch {}
+        let parsedArgs: unknown = {};
+        try { parsedArgs = JSON.parse(tc.function?.arguments || "{}"); } catch { /* A malformed optional stream frame does not invalidate earlier content. */ }
         const result = await runTool(name, parsedArgs, ctx);
         toolActivity.push({ name, args: parsedArgs, result, ts: new Date().toISOString() });
         modelMessages.push({
@@ -246,10 +265,11 @@ CONTEXTO ATUAL:
               const payload = line.slice(6).trim();
               if (!payload || payload === "[DONE]") continue;
               try {
-                const j = JSON.parse(payload);
-                const delta = j.choices?.[0]?.delta?.content;
-                if (delta) fullText += delta;
-              } catch {}
+                const j: unknown = JSON.parse(payload);
+                const choices = record(j).choices;
+                const delta = Array.isArray(choices) ? record(record(choices[0]).delta).content : undefined;
+                if (typeof delta === "string") fullText += delta;
+              } catch { /* A malformed optional stream frame does not invalidate earlier content. */ }
             }
           }
         } catch (e) { console.warn("[copilot] stream interrupted", e); }
@@ -259,13 +279,14 @@ CONTEXTO ATUAL:
         if (!finalText) {
           console.error("[copilot] EMPTY final response", { tool_count: toolActivity.length, tools: toolActivity.map(t => t.name) });
           const semMatch = toolActivity.find(
-            (a) => a.name === "buscarProjeto" && a.result?.fallback === "sem_match_exato",
+            (a) => a.name === "buscarProjeto" && record(a.result).fallback === "sem_match_exato",
           );
           if (semMatch) {
-            const termo = semMatch.result?.termo_buscado || "esse nome";
-            const cands = (semMatch.result?.candidatos || [])
+            const termo = record(semMatch.result).termo_buscado || "esse nome";
+            const candidates = record(semMatch.result).candidatos;
+            const cands = (Array.isArray(candidates) ? candidates : [])
               .slice(0, 5)
-              .map((c: any) => c.nome)
+              .map((c) => record(c).nome)
               .filter(Boolean);
             finalText = cands.length
               ? `Não encontrei projeto com "${termo}". Quis dizer: ${cands.join(", ")}?`
@@ -274,14 +295,15 @@ CONTEXTO ATUAL:
             // Tenta verbalizar fallbacks específicos por tool antes de mostrar JSON.
             const wa = toolActivity.find((a) => a.name === "ultimasMensagensWhatsapp");
             if (wa) {
-              const leads = wa.result?.leads || wa.result?.mensagens || [];
-              const horas = wa.result?.horas ?? 24;
+              const leadData = record(wa.result).leads || record(wa.result).mensagens;
+              const leads = Array.isArray(leadData) ? leadData.map(record) : [];
+              const horas = record(wa.result).horas ?? 24;
               if (!leads.length) {
                 finalText = `Ninguém mandou mensagem no WhatsApp nas últimas ${horas}h.`;
               } else {
-                const linhas = leads.slice(0, 10).map((l: any) => {
+                const linhas = leads.slice(0, 10).map((l) => {
                   const quem = l.nome || l.phone;
-                  const min = Math.round((Date.now() - new Date(l.em).getTime()) / 60000);
+                  const min = Math.round((Date.now() - new Date(typeof l.em === "string" ? l.em : 0).getTime()) / 60000);
                   const quando = min < 60 ? `${min}min` : `${Math.round(min / 60)}h`;
                   return `- **${quem}** (há ${quando}): ${l.ultima || l.conteudo || ""}`;
                 }).join("\n");
@@ -298,7 +320,7 @@ CONTEXTO ATUAL:
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: finalText } }] })}\n\n`),
             );
-          } catch {}
+          } catch { /* A malformed optional stream frame does not invalidate earlier content. */ }
         }
 
         // Persistir
@@ -310,7 +332,7 @@ CONTEXTO ATUAL:
           const savedId = await persistThread(supabase, user.id, projectId, threadId || null, newMessages, {});
           try {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", threadId: savedId })}\n\n`));
-          } catch {}
+          } catch { /* A malformed optional stream frame does not invalidate earlier content. */ }
         }
         controller.close();
       },
@@ -319,9 +341,9 @@ CONTEXTO ATUAL:
     return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[copilot-imperius] fatal", err);
-    return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
+    return new Response(JSON.stringify({ error: safeError(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

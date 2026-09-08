@@ -16,7 +16,7 @@ Regras:
 - Use dados reais do avatar/produto quando disponíveis. Sem inventar números.
 - Se receber template com [colchetes], preencha TODOS com base no contexto — o hook final não pode ter colchete nenhum.`;
 
-async function callAI(user: string, jsonSchema: any) {
+async function callAI(user: string, jsonSchema: Record<string, unknown>) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     if (project_id) {
       const sb = createClient(SUPABASE_URL, SERVICE_KEY);
       const { data: proj } = await sb.from("imphq_projects").select("nome,data").eq("id", project_id).maybeSingle();
-      const d = (proj as any)?.data || {};
+      const d = proj?.data || {};
       const av = d.avatar || d.avatars_por_produto;
       contexto = `# PROJETO\n${proj?.nome || ""}\nNicho: ${d.nicho || "—"}\nPromessa: ${d.promessa || d.big_idea || "—"}\nAvatar: ${typeof av === "string" ? av.slice(0, 1500) : JSON.stringify(av || {}).slice(0, 1500)}\n`;
     }
@@ -81,8 +81,9 @@ Deno.serve(async (req) => {
       required: ["hooks"],
     });
     return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

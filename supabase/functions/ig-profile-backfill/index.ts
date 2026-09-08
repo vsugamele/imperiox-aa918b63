@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const conversationSchema = z.object({ _id: z.string().nullish(), participantId: z.string().nullish(), participantName: z.string().nullish(), participantUsername: z.string().nullish(), participantPicture: z.string().nullish(), participants: z.array(z.object({ id: z.string().nullish(), platformId: z.string().nullish(), name: z.string().nullish(), username: z.string().nullish(), profilePicture: z.string().nullish() }).passthrough()).nullish() }).passthrough();
 // ig-profile-backfill — Sincroniza nome/foto de todos os leads do Instagram
 // usando a API do Zernio (muito mais confiável que chamar o Graph API direto)
 // Endpoint: GET https://zernio.com/api/v1/inbox/conversations?platform=instagram&accountId=X
@@ -85,13 +88,13 @@ Deno.serve(async (req) => {
         // Zernio retorna: { conversations: [...], total, page, limit }
         // Cada conversa tem: { _id, participantName, participantUsername, participantPicture,
         //                      participants: [{ id, name, username, profilePicture, instagramProfile }] }
-        const conversations: any[] = data.conversations || data.data || [];
+        const conversations = z.array(conversationSchema).parse(data.conversations || data.data || []);
 
         if (conversations.length === 0) { hasMore = false; break; }
 
         for (const conv of conversations) {
           // Extrai dados do participante (lado do cliente, não nosso)
-          const participant = conv.participants?.find((p: any) => p.id !== account.ig_user_id)
+          const participant = conv.participants?.find((p) => p.id !== account.ig_user_id)
             || conv.participants?.[0];
 
           const name     = conv.participantName     || participant?.name     || null;
@@ -154,9 +157,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[backfill] Erro geral:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[backfill] Erro geral:", eMessage);
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -164,7 +168,7 @@ Deno.serve(async (req) => {
 });
 
 // Fallback: usa Graph API para projetos sem Zernio
-async function fallbackGraphApi(supa: any, account: any, creds: any) {
+async function fallbackGraphApi(supa: ReturnType<typeof makeClient>, account: { id: string }, creds: { page_access_token?: string } | null) {
   const pageAccessToken = creds?.page_access_token;
   if (!pageAccessToken) return;
 
@@ -191,7 +195,7 @@ async function fallbackGraphApi(supa: any, account: any, creds: any) {
         continue;
       }
       const profile = await res.json();
-      const updateData: any = {};
+      const updateData: { participant_username?: string; participant_name?: string; participant_avatar?: string } = {};
       if (profile.username) updateData.participant_username = profile.username;
       if (profile.name)     updateData.participant_name     = profile.name;
       if (profile.profile_pic) updateData.participant_avatar = profile.profile_pic;
@@ -204,8 +208,9 @@ async function fallbackGraphApi(supa: any, account: any, creds: any) {
         await supa.from("imphq_ig_conversations").update(updateData).eq("id", conv.id);
       }
       await new Promise(r => setTimeout(r, 250));
-    } catch (e: any) {
-      console.warn(`[backfill-graph] Erro ${conv.participant_id}:`, e.message);
+    } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+      console.warn(`[backfill-graph] Erro ${conv.participant_id}:`, eMessage);
     }
   }
 }

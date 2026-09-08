@@ -1,7 +1,7 @@
 // DSL Conversacional executável → FlowBlueprint compatível com FlowBlueprintCanvas
 // Comandos: WAIT:, SEND:, QUESTION:, INPUT:, AUDIO:, VIDEO:, IF:, GOTO:
 
-import type { FlowBlock, FlowNode, FlowEdge } from "./typebot-parser";
+import type { FlowBlock, FlowNode, FlowEdge, FlowVariable } from "@/lib/typebot-parser";
 
 const CMD_RE = /^\s*(WAIT|SEND|QUESTION|INPUT|AUDIO|VIDEO|IF|GOTO)\s*:\s*(.+)$/i;
 
@@ -9,7 +9,7 @@ export interface FlowBlueprintLite {
   title: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
-  variables: any[];
+  variables: FlowVariable[];
   meta: { source: "dsl"; objetivo?: string };
 }
 

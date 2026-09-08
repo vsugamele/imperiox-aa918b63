@@ -34,14 +34,14 @@ Deno.serve(async (req) => {
 
     // KPIs rápidos
     const totalVendas = vendas?.length || 0;
-    const ticketMedio = totalVendas ? (vendas!.reduce((s, v: any) => s + Number(v.valor || 0), 0) / totalVendas) : 0;
-    const totalSpend = ads?.reduce((s, a: any) => s + Number(a.spend || 0), 0) || 0;
+    const ticketMedio = totalVendas ? (vendas!.reduce((s, v) => s + Number(v.valor || 0), 0) / totalVendas) : 0;
+    const totalSpend = ads?.reduce((s, a) => s + Number(a.spend || 0), 0) || 0;
     const totalLeads = leads?.length || 0;
     const cpa = totalVendas ? totalSpend / totalVendas : 0;
-    const avgCtr = ads?.length ? (ads.reduce((s, a: any) => s + Number(a.ctr || 0), 0) / ads.length) : 0;
+    const avgCtr = ads?.length ? (ads.reduce((s, a) => s + Number(a.ctr || 0), 0) / ads.length) : 0;
 
-    const briefing = (project?.briefing as any) || {};
-    const existing = (existing_assets || []).map((a: any) => `${a.catId}:${a.itemId}=${a.status}`).join(', ');
+    const briefing = project?.briefing || {};
+    const existing = (existing_assets || []).map((a: { catId?: string; itemId?: string; status?: string }) => `${a.catId}:${a.itemId}=${a.status}`).join(', ');
 
     const systemPrompt = `Você é o Imperius Funnel Auditor. Analise o funil de um produto e retorne um diagnóstico estratégico em JSON.
 
@@ -99,15 +99,16 @@ Priorize 5-7 ativos faltantes alinhados ao gargalo. Score alto = mais urgente.`;
     }
     const aiData = await aiRes.json();
     const content = aiData?.choices?.[0]?.message?.content || '{}';
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(content); } catch { parsed = { raw: content }; }
 
     return new Response(JSON.stringify({
       audit: parsed,
       kpis: { totalVendas, ticketMedio, totalLeads, totalSpend, cpa, avgCtr },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'unknown' }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || 'unknown' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -70,7 +70,7 @@ export default function CampanhaTag() {
       const { data: history } = await tagQ;
 
       const firstEntry = new Map<string, string>();
-      (history || []).forEach((h: any) => {
+      (history || []).forEach((h) => {
         const prev = firstEntry.get(h.lead_id);
         if (!prev || new Date(h.created_at) < new Date(prev)) firstEntry.set(h.lead_id, h.created_at);
       });
@@ -78,7 +78,7 @@ export default function CampanhaTag() {
       let leadsWithTagQ = supabase.from("imphq_leads").select("id, project_id, tags").contains("tags", [tag]);
       if (projectId !== "all") leadsWithTagQ = leadsWithTagQ.eq("project_id", projectId);
       const { data: leadsWithTag } = await leadsWithTagQ;
-      (leadsWithTag || []).forEach((l: any) => {
+      (leadsWithTag || []).forEach((l) => {
         if (!firstEntry.has(l.id)) firstEntry.set(l.id, "");
       });
 
@@ -90,47 +90,47 @@ export default function CampanhaTag() {
       }
 
       const [{ data: leads }, { data: responses }, { data: convs }, { data: vendas }, projectRow] = await Promise.all([
-        supabase.from("imphq_leads").select("id, nome, phone, email, project_id").in("id", leadIds) as PromiseLike<any>,
-        supabase.from("imphq_lead_responses").select("lead_id, question, answer, created_at").in("lead_id", leadIds).order("created_at", { ascending: false }) as PromiseLike<any>,
-        supabase.from("imphq_wa_conversations").select("id, lead_id, phone, status, assigned_to").in("lead_id", leadIds) as PromiseLike<any>,
-        supabase.from("imphq_vendas").select("lead_id, produto_nome, valor, data_venda").in("lead_id", leadIds) as PromiseLike<any>,
-        projectId !== "all" ? supabase.from("imphq_projects").select("name").eq("id", projectId).maybeSingle() as PromiseLike<any> : Promise.resolve({ data: null }),
+        supabase.from("imphq_leads").select("id, nome, phone, email, project_id").in("id", leadIds),
+        supabase.from("imphq_lead_responses").select("lead_id, question, answer, created_at").in("lead_id", leadIds).order("created_at", { ascending: false }),
+        supabase.from("imphq_wa_conversations").select("id, lead_id, phone, status, assigned_to").in("lead_id", leadIds),
+        supabase.from("imphq_vendas").select("lead_id, produto_nome, valor, data_venda").in("lead_id", leadIds),
+        projectId !== "all" ? supabase.from("imphq_projects").select("name").eq("id", projectId).maybeSingle() : Promise.resolve({ data: null }),
       ]);
 
       if (projectRow?.data?.name) setProjectName(projectRow.data.name);
 
-      const convIds = (convs || []).map((c: any) => c.id);
+      const convIds = (convs || []).map((c) => c.id);
       const { data: messages } = convIds.length > 0
-        ? await supabase.from("imphq_wa_messages").select("conversation_id, content, created_at, direction").in("conversation_id", convIds).eq("direction", "inbound").order("created_at", { ascending: false })
-        : { data: [] as any };
+        ? await supabase.from("imphq_wa_messages").select("conversation_id, content, created_at, direction").in("conversation_id", convIds).in("direction", ["in", "incoming", "inbound"]).order("created_at", { ascending: false })
+        : { data: [] };
 
-      const leadIdx = new Map((leads || []).map((l: any) => [l.id, l]));
-      const respByLead = new Map<string, any[]>();
-      (responses || []).forEach((r: any) => {
+      const leadIdx = new Map((leads || []).map((l) => [l.id, l]));
+      const respByLead = new Map<string, NonNullable<typeof responses>>();
+      (responses || []).forEach((r) => {
         const arr = respByLead.get(r.lead_id) || [];
         arr.push(r);
         respByLead.set(r.lead_id, arr);
       });
-      const convByLead = new Map<string, any>();
-      (convs || []).forEach((c: any) => { if (!convByLead.has(c.lead_id)) convByLead.set(c.lead_id, c); });
-      const msgsByConv = new Map<string, any[]>();
-      (messages || []).forEach((m: any) => {
+      const convByLead = new Map<string, NonNullable<typeof convs>[number]>();
+      (convs || []).forEach((c) => { if (!convByLead.has(c.lead_id)) convByLead.set(c.lead_id, c); });
+      const msgsByConv = new Map<string, NonNullable<typeof messages>>();
+      (messages || []).forEach((m) => {
         const arr = msgsByConv.get(m.conversation_id) || [];
         arr.push(m);
         msgsByConv.set(m.conversation_id, arr);
       });
-      const vendasByLead = new Map<string, any[]>();
-      (vendas || []).forEach((v: any) => {
+      const vendasByLead = new Map<string, NonNullable<typeof vendas>>();
+      (vendas || []).forEach((v) => {
         const arr = vendasByLead.get(v.lead_id) || [];
         arr.push(v);
         vendasByLead.set(v.lead_id, arr);
       });
 
       const out: Row[] = leadIds.map((lid) => {
-        const l: any = leadIdx.get(lid) || { id: lid, nome: null, phone: null, email: null };
+        const l = leadIdx.get(lid) || { id: lid, nome: null, phone: null, email: null, project_id: null };
         const resp = respByLead.get(lid) || [];
-        const optin = resp.filter((r: any) => isOptin(r.question));
-        const quiz = resp.filter((r: any) => !isOptin(r.question));
+        const optin = resp.filter((r) => isOptin(r.question));
+        const quiz = resp.filter((r) => !isOptin(r.question));
         const conv = convByLead.get(lid);
         const inbound = conv ? (msgsByConv.get(conv.id) || []) : [];
         return {
@@ -142,7 +142,7 @@ export default function CampanhaTag() {
           tagAddedAt: firstEntry.get(lid) || null,
           lastOptin: optin[0] ? { question: optin[0].question, answer: optin[0].answer, created_at: optin[0].created_at } : null,
           optinCount: optin.length,
-          quizResponses: quiz.map((q: any) => ({ question: q.question, answer: q.answer, created_at: q.created_at })),
+          quizResponses: quiz.map((q) => ({ question: q.question, answer: q.answer, created_at: q.created_at })),
           lastInbound: inbound[0] ? { content: inbound[0].content, created_at: inbound[0].created_at } : null,
           inboundCount: inbound.length,
           conversationStatus: conv?.status || null,
@@ -281,7 +281,7 @@ export default function CampanhaTag() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Input placeholder="Buscar nome, telefone ou email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
+        <Select value={filter} onValueChange={(v) => { if (v === "all" || v === "responded_wa" || v === "responded_form" || v === "responded_quiz" || v === "buyers") setFilter(v); }}>
           <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>

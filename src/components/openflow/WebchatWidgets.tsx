@@ -43,17 +43,17 @@ export function WebchatWidgets({ projects, automacoes }: Props) {
   const [msgProject, setMsgProject] = useState<string>("");
 
   const load = async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("imphq_webchat_widgets")
       .select("*")
       .order("created_at", { ascending: false });
-    setWidgets((data || []) as Widget[]);
+    setWidgets(data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
   const create = async () => {
-    const { error } = await (supabase as any).from("imphq_webchat_widgets").insert({
+    const { error } = await supabase.from("imphq_webchat_widgets").insert({
       nome: "Chat do site",
       titulo: "Fale com a gente",
     });
@@ -64,12 +64,12 @@ export function WebchatWidgets({ projects, automacoes }: Props) {
 
   const patch = async (id: string, values: Partial<Widget>) => {
     setWidgets(ws => ws.map(w => (w.id === id ? { ...w, ...values } : w)));
-    const { error } = await (supabase as any).from("imphq_webchat_widgets").update(values).eq("id", id);
+    const { error } = await supabase.from("imphq_webchat_widgets").update(values).eq("id", id);
     if (error) toast.error(error.message);
   };
 
   const remove = async (id: string) => {
-    const { error } = await (supabase as any).from("imphq_webchat_widgets").delete().eq("id", id);
+    const { error } = await supabase.from("imphq_webchat_widgets").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Widget removido");
     load();

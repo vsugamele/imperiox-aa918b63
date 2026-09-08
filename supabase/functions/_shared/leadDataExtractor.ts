@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { record, errorText } from "./value.ts";
 // leadDataExtractor — Extrai dados explícitos do lead a partir de uma mensagem do WhatsApp
 // e persiste em imphq_leads sem sobrescrever dados existentes.
 //
@@ -86,10 +88,10 @@ NÃO infira nada — só extraia o que está literal no texto.
     const raw = j?.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(raw);
     const out: ExtractedLeadData = {};
-    for (const k of Object.keys(parsed)) {
+    for (const k of ["email", "nome", "telefone_alternativo", "cidade", "profissao", "objetivo", "dor_principal", "objecao_atual", "interesse_produto", "data_nascimento"] as const) {
       const v = parsed[k];
       if (v && typeof v === "string" && v.trim() && v.toLowerCase() !== "null") {
-        (out as any)[k] = v.trim();
+        out[k] = v.trim();
       }
     }
     return out;
@@ -99,8 +101,8 @@ NÃO infira nada — só extraia o que está literal no texto.
 }
 
 export async function extractAndPersistLeadData(
-  supabase: any,
-  lead: { id?: string; email?: string | null; phone?: string | null; nome?: string | null; lead_memory?: any },
+  supabase: SupabaseClient,
+  lead: { id?: string; email?: string | null; phone?: string | null; nome?: string | null; lead_memory?: unknown },
   message: string,
 ): Promise<ExtractAndPersistResult> {
   try {
@@ -124,9 +126,9 @@ export async function extractAndPersistLeadData(
     const effectiveEmail = detectedEmail || storedEmail;
 
     // Monta update
-    const update: Record<string, any> = {};
-    const memory: Record<string, any> = { ...(lead?.lead_memory || {}) };
-    const memInfo: Record<string, any> = { ...(memory.informacoes_pessoais || {}) };
+    const update: Record<string, unknown> = {};
+    const memory: Record<string, unknown> = { ...record(lead?.lead_memory) };
+    const memInfo: Record<string, unknown> = { ...record(memory.informacoes_pessoais) };
     const changedFields: string[] = [];
 
     // EMAIL — só preenche se vazio (nunca sobrescreve)
@@ -184,10 +186,12 @@ export async function extractAndPersistLeadData(
       update.updated_at = new Date().toISOString();
 
       try {
-        await supabase.from("imphq_leads").update(update).eq("id", lead.id);
+        const { error } = await supabase.from("imphq_leads").update(update).eq("id", lead.id);
+        if (error) throw error;
         console.log(`[leadDataExtractor] lead=${lead.id} changed=${changedFields.join(",")}${emailDivergent ? " emailDivergent" : ""}`);
-      } catch (e: any) {
-        console.warn(`[leadDataExtractor] update failed: ${e?.message}`);
+      } catch (e: unknown) {
+        console.warn(`[leadDataExtractor] update failed: ${errorText(e)}`);
+        changedFields.length = 0;
       }
     }
 
@@ -196,8 +200,8 @@ export async function extractAndPersistLeadData(
     }
 
     return { extracted, detectedEmail, effectiveEmail, emailDivergent, changedFields };
-  } catch (e: any) {
-    console.warn(`[leadDataExtractor] fatal: ${e?.message}`);
+  } catch (e: unknown) {
+    console.warn(`[leadDataExtractor] fatal: ${errorText(e)}`);
     return EMPTY;
   }
 }

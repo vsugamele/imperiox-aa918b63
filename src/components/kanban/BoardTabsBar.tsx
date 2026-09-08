@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, MoreHorizontal, Pencil, Trash2, Copy } from "lucide-react";
-import { ColumnColorMenu, hexToTint } from "./ColumnColorMenu";
+import { ColumnColorMenu } from "./ColumnColorMenu";
+import { hexToTint } from "@/components/kanban/column-color";
 import { toast } from "sonner";
 
 export interface KanbanBoard {

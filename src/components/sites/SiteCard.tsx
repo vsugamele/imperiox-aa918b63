@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
 import { ExternalLink, Link2, Sparkles, Archive, Trash2, RefreshCw, MoreVertical, Globe, Github } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +17,7 @@ export type Site = {
   status: string;
   tags: string[];
   thumbnail_url: string | null;
-  branding_json: any;
+  branding_json: Json;
   content_md: string | null;
   summary: string | null;
   last_scraped_at: string | null;
@@ -38,8 +40,8 @@ export function SiteCard({
   onRescrape: () => void;
   onCreateEcosystem?: () => void;
 }) {
-  const colors: string[] = site.branding_json?.colors
-    ? Object.values(site.branding_json.colors).filter((v): v is string => typeof v === "string").slice(0, 5)
+  const colors: string[] = jsonFields(site.branding_json).colors
+    ? Object.values(jsonFields(jsonFields(site.branding_json).colors)).filter((v): v is string => typeof v === "string").slice(0, 5)
     : [];
 
   const thumb = site.thumbnail_url;

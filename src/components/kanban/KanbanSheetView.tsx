@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { record, toJson } from "@/lib/funis-data";
+import type { TablesUpdate } from "@/integrations/supabase/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,7 @@ interface KanbanCard {
   board: string;
   member_id?: string;
   project_id?: string;
-  metrics?: Record<string, any> | null;
+  metrics?: Record<string, unknown> | null;
   status_color?: string | null;
 }
 
@@ -64,7 +66,7 @@ const GROUP_LABELS: Record<GroupKey, string> = {
 
 const PRESETS: Array<{ id: string; label: string; test: (c: KanbanCard) => boolean }> = [
   { id: "winners", label: "Vencedores (ROI ≥ 2)", test: (c) => Number(c.metrics?.roi) >= 2 },
-  { id: "testing", label: "Testando", test: (c) => /test|rodando|validando/i.test(c.metrics?.stage || "") || (Number(c.metrics?.roi) >= 1 && Number(c.metrics?.roi) < 1.5) },
+  { id: "testing", label: "Testando", test: (c) => /test|rodando|validando/i.test(String(c.metrics?.stage || "")) || (Number(c.metrics?.roi) >= 1 && Number(c.metrics?.roi) < 1.5) },
   { id: "losing", label: "Perdendo (ROI < 1)", test: (c) => Number(c.metrics?.roi) < 1 && Number.isFinite(Number(c.metrics?.roi)) },
   { id: "unassigned", label: "Sem responsável", test: (c) => !c.member_id },
   { id: "duesoon", label: "Vence em 3 dias", test: (c) => {
@@ -89,12 +91,12 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
   useEffect(() => {
     if (!activeBoard) return;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("imphq_kanban_boards")
         .select("saved_views")
         .eq("id", activeBoard)
         .maybeSingle();
-      const list = Array.isArray(data?.saved_views) ? (data!.saved_views as SavedView[]) : [];
+      const list: SavedView[] = Array.isArray(data?.saved_views) ? data.saved_views.map(value => { const row=record(value); const groupBy=row.groupBy; return { id:String(row.id || ""),name:String(row.name || ""),preset:String(row.preset || "all"),search:String(row.search || ""),groupBy: groupBy === "column" || groupBy === "board" || groupBy === "member" || groupBy === "roi" || groupBy === "priority" || groupBy === "none" ? groupBy : "column" }; }) : [];
       setSavedViews(list);
     })();
   }, [activeBoard]);
@@ -102,9 +104,9 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
   const persistViews = async (next: SavedView[]) => {
     if (!activeBoard) return;
     setSavedViews(next);
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("imphq_kanban_boards")
-      .update({ saved_views: next })
+      .update({ saved_views: toJson(next) })
       .eq("id", activeBoard);
     if (error) toast.error("Erro ao salvar view");
   };
@@ -130,8 +132,8 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
     if (activeView === id) setActiveView(null);
   };
 
-  const colName = (id: string) => columns.find((c) => c.id === id)?.title || "—";
-  const memberName = (id?: string) => members.find((m) => m.id === id)?.name || "—";
+  const colName = useCallback((id: string) => columns.find((c) => c.id === id)?.title || "—", [columns]);
+  const memberName = useCallback((id?: string) => members.find((m) => m.id === id)?.name || "—", [members]);
   const projectName = (id?: string) => projects.find((p) => p.id === id)?.name || "—";
 
   const filtered = useMemo(() => {
@@ -169,7 +171,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
       map.get(key)!.push(c);
     });
     return Array.from(map.entries()).map(([label, rows]) => ({ key: label, label, rows }));
-  }, [filtered, groupBy]);
+  }, [filtered, groupBy, colName, memberName]);
 
   const groupAgg = (rows: KanbanCard[]) => {
     const rois = rows.map((r) => Number(r.metrics?.roi)).filter((n) => Number.isFinite(n));
@@ -181,13 +183,13 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
   const toggle = (key: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };
 
-  const updateField = async (id: string, patch: Record<string, any>) => {
-    const { error } = await (supabase as any).from("imphq_kanban_cards").update(patch).eq("id", id);
+  const updateField = async (id: string, patch: TablesUpdate<"imphq_kanban_cards">) => {
+    const { error } = await supabase.from("imphq_kanban_cards").update(patch).eq("id", id);
     if (error) { toast.error("Erro ao salvar"); return; }
     onReload();
   };
@@ -198,13 +200,13 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
     const metrics = { ...(card?.metrics || {}) };
     if (parsed === undefined || !Number.isFinite(parsed)) delete metrics[key];
     else metrics[key] = parsed;
-    await updateField(id, { metrics });
+    await updateField(id, { metrics: toJson(metrics) });
   };
 
   const bulkMove = async (colId: string) => {
     if (!selected.size) return;
     const ids = Array.from(selected);
-    const { error } = await (supabase as any).from("imphq_kanban_cards").update({ column_id: colId }).in("id", ids);
+    const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: colId }).in("id", ids);
     if (error) { toast.error("Erro"); return; }
     toast.success(`${ids.length} cards movidos`);
     setSelected(new Set());
@@ -358,7 +360,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
                             onChange={(e) => {
                               setSelected((prev) => {
                                 const next = new Set(prev);
-                                e.target.checked ? next.add(c.id) : next.delete(c.id);
+                                if (e.target.checked) { next.add(c.id); } else { next.delete(c.id); }
                                 return next;
                               });
                             }}
@@ -455,7 +457,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
                               {isEditing ? (
                                 <Input
                                   autoFocus
-                                  defaultValue={val ?? ""}
+                                  defaultValue={String(val ?? "")}
                                   onBlur={(e) => { updateMetric(c.id, m.key, e.target.value); setEditing(null); }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
@@ -468,7 +470,7 @@ export function KanbanSheetView({ cards, columns, members, projects, boards = []
                                   onClick={() => setEditing({ id: c.id, field: m.key })}
                                   className="text-xs hover:text-foreground text-muted-foreground w-full text-right"
                                 >
-                                  {val !== undefined && val !== null && val !== "" ? formatMetric(val, m.format) : <span className="text-muted-foreground/30">—</span>}
+                                  {val !== undefined && val !== null && val !== "" ? formatMetric(typeof val === "string" || typeof val === "number" ? val : "", m.format) : <span className="text-muted-foreground/30">—</span>}
                                 </button>
                               )}
                             </TableCell>

@@ -1,3 +1,4 @@
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,14 @@ interface SequenceStep {
   delay_seconds?: number;
   media_url?: string;
   media_type?: string;
+}
+
+function parseSequence(value: unknown): SequenceStep[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(step => {
+    if (typeof step !== "object" || step === null || !("content" in step) || typeof step.content !== "string") return [];
+    return [{ content: step.content, delay_seconds: typeof step.delay_seconds === "number" ? step.delay_seconds : undefined, media_url: typeof step.media_url === "string" ? step.media_url : undefined, media_type: typeof step.media_type === "string" ? step.media_type : undefined }];
+  });
 }
 
 interface Command {
@@ -56,7 +65,7 @@ export default function CommandManager({ projects }: Props) {
       .from("imphq_wa_commands")
       .select("*")
       .order("created_at", { ascending: false });
-    setCommands((data as any[]) || []);
+    setCommands((data || []).map(command => ({ ...command, sequence: parseSequence(command.sequence) })));
     setLoading(false);
   }, []);
 
@@ -79,11 +88,11 @@ export default function CommandManager({ projects }: Props) {
 
   const save = async () => {
     if (!form.trigger_word || !form.project_id) { toast.error("Projeto e palavra-chave obrigatórios"); return; }
-    const payload: any = {
+    const payload: TablesInsert<"imphq_wa_commands"> = {
       project_id: form.project_id,
       trigger_word: form.trigger_word.toLowerCase().trim().replace(/^\//, ""),
       response_text: form.mode === "single" ? (form.response_text || null) : null,
-      sequence: form.mode === "sequence" ? form.sequence.filter(s => s.content.trim()) : [],
+      sequence: form.mode === "sequence" ? form.sequence.filter(s => s.content.trim()).map(step => ({ ...step })) : [],
       media_type: "text",
       is_active: true,
     };
@@ -103,7 +112,7 @@ export default function CommandManager({ projects }: Props) {
   };
 
   const toggle = async (id: string, active: boolean) => {
-    await supabase.from("imphq_wa_commands").update({ is_active: active } as any).eq("id", id);
+    await supabase.from("imphq_wa_commands").update({ is_active: active }).eq("id", id);
     setCommands(prev => prev.map(c => c.id === id ? { ...c, is_active: active } : c));
   };
 

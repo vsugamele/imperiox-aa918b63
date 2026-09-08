@@ -3,6 +3,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
+interface Variant {id:string;blueprint_id:string;node_id:string;impressions:number;conversions:number;variant_key:string}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -24,7 +26,7 @@ Deno.serve(async (req) => {
     const { data: variants } = await supa
       .from("imphq_flow_node_variants")
       .select("*")
-      .eq("status", "testing");
+      .eq("status", "testing").returns<Variant[]>();
 
     if (!variants?.length) {
       return new Response(JSON.stringify({ ok: true, evaluated: 0 }), {
@@ -33,7 +35,7 @@ Deno.serve(async (req) => {
     }
 
     // Group by blueprint+node
-    const groups = new Map<string, any[]>();
+    const groups = new Map<string, Variant[]>();
     for (const v of variants) {
       const k = `${v.blueprint_id}::${v.node_id}`;
       if (!groups.has(k)) groups.set(k, []);
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
     }
 
     let promoted = 0;
-    const results: any[] = [];
+    const results: Array<{ key:string } & ({status:"collecting";minN:number} | {status:"promoted";winner:string;winner_rate:string;loser_rate:string} | {status:"no_significance";n:number})> = [];
 
     for (const [key, group] of groups) {
       if (group.length < 2) continue;

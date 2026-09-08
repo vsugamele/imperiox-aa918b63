@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Check, ShoppingBag, MousePointerClick, Sparkles, CornerDownRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { Json } from "@/integrations/supabase/types";
+import { objectFields } from "@/lib/json-fields";
 
 type UtmSet = {
   utm_source?: string | null;
@@ -15,7 +17,7 @@ type UtmSet = {
 };
 
 interface Props {
-  lead: { id: string; email?: string | null; data?: any; _vendas?: any[] };
+  lead: { id: string; email?: string | null; data?: Json; _vendas?: { data?: Json; created_at?: string }[] };
 }
 
 const UTM_KEYS: (keyof UtmSet)[] = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
@@ -32,16 +34,16 @@ function hasAny(u?: UtmSet | null) {
 }
 
 /** Varre vários formatos comuns de payload e devolve um UtmSet normalizado. */
-function extractUtms(source: any): UtmSet {
-  if (!source || typeof source !== "object") return {};
-  const candidates: any[] = [
+function extractUtms(rawSource: unknown): UtmSet {
+  const source = objectFields(rawSource);
+  const candidates = [
     source.utms,
     source.tracking,
     source.checkout,
-    source.checkout?.utms,
-    source.tracking?.utms,
+    objectFields(source.checkout).utms,
+    objectFields(source.tracking).utms,
     source, // flat na raiz
-  ].filter(Boolean);
+  ].map(objectFields);
 
   const out: UtmSet = {};
   for (const c of candidates) {
@@ -143,17 +145,19 @@ export default function LeadUtmsPanel({ lead }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setFirstClick(null);
+      setFirstClickAt(null);
       if (!lead.id) return;
-      const client = supabase as any;
+      const client = supabase;
       const { data } = await client
         .from("imphq_clicks")
         .select("utm_source, utm_medium, utm_campaign, utm_content, utm_term, created_at")
-        .eq("visitor_id", lead.id)
+        .eq("lead_id", lead.id)
         .order("created_at", { ascending: true })
         .limit(1);
       if (cancelled) return;
       if (data && data.length > 0) {
-        const c = data[0] as any;
+        const c = data[0];
         setFirstClick({
           utm_source: c.utm_source, utm_medium: c.utm_medium, utm_campaign: c.utm_campaign,
           utm_content: c.utm_content, utm_term: c.utm_term,

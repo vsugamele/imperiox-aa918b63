@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,9 +15,11 @@ import { Sprout, Plus, Flame, ShieldAlert, DollarSign, Pencil, Activity, Heart, 
 import { toast } from "sonner";
 import { calcFarmHealth, nextWarmupAction } from "@/lib/farmHealthScore";
 
-type Conta = any;
-type Conteudo = any;
-type Evento = any;
+type Conta = Tables<"imphq_empresa">;
+type Conteudo = Tables<"imphq_empresa_conteudo">;
+type Evento = Tables<"imphq_empresa_eventos">;
+
+const riskSignals = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 const WARMUP = ["novo", "aquecendo", "pronto", "pausado", "banido"];
 const STATUS_VENDA = ["mantida", "listada", "negociando", "vendida"];
@@ -50,17 +54,17 @@ export function FarmTab() {
   };
 
   // Health por conta + agregados
-  const enriched = useMemo(() => contas.map(c => ({ ...c, _h: calcFarmHealth(c) })), [contas]);
+  const enriched = useMemo(() => contas.map(c => ({ ...c, _h: calcFarmHealth({ ...c, sinais_risco: riskSignals(c.sinais_risco) }) })), [contas]);
   const stats = useMemo(() => {
     const total = enriched.length || 1;
     const avgScore = Math.round(enriched.reduce((a, c) => a + c._h.score, 0) / total);
     return {
       total: enriched.length,
       prontas: enriched.filter(c => c.pronta_venda).length,
-      risco: enriched.filter(c => (c.sinais_risco?.length || 0) > 0 || c._h.status === "critico" || c._h.status === "banido").length,
+      risco: enriched.filter(c => riskSignals(c.sinais_risco).length > 0 || c._h.status === "critico" || c._h.status === "banido").length,
       vendidas: enriched.filter(c => c.status_venda === "vendida").length,
       avgScore,
-      alertas: enriched.filter(c => c._h.status === "banido" || (c.sinais_risco?.length || 0) > 0),
+      alertas: enriched.filter(c => c._h.status === "banido" || riskSignals(c.sinais_risco).length > 0),
     };
   }, [enriched]);
 
@@ -73,15 +77,15 @@ export function FarmTab() {
 
   const marcarBanido = async (c: Conta) => {
     if (!confirm(`Marcar ${c.nome} como BANIDA?`)) return;
-    const { error } = await supabase.from("imphq_empresa").update({ warmup_status: "banido", status_venda: "mantida" } as any).eq("id", c.id);
+    const { error } = await supabase.from("imphq_empresa").update({ warmup_status: "banido", status_venda: "mantida" }).eq("id", c.id);
     if (error) return toast.error(error.message);
-    await supabase.from("imphq_empresa_eventos").insert({ conta_id: c.id, tipo: "banimento", payload: { motivo: "manual" } } as any);
+    await supabase.from("imphq_empresa_eventos").insert({ conta_id: c.id, tipo: "banimento", payload: { motivo: "manual" } });
     toast.success("Marcado como banido");
     load();
   };
 
   const marcarPronta = async (c: Conta) => {
-    const { error } = await supabase.from("imphq_empresa").update({ warmup_status: "pronto", pronta_venda: true } as any).eq("id", c.id);
+    const { error } = await supabase.from("imphq_empresa").update({ warmup_status: "pronto", pronta_venda: true }).eq("id", c.id);
     if (error) return toast.error(error.message);
     toast.success("Marcada como pronta");
     load();
@@ -104,7 +108,7 @@ export function FarmTab() {
               <AlertTriangle className="h-4 w-4" /> {stats.alertas.length} conta{stats.alertas.length > 1 ? "s" : ""} precisa{stats.alertas.length > 1 ? "m" : ""} de atenção
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {stats.alertas.slice(0, 10).map((c: any) => (
+              {stats.alertas.slice(0, 10).map((c) => (
                 <button key={c.id} onClick={() => setEdit(c)}
                   className={`text-[11px] px-2 py-1 rounded border ${c._h.cor_bg} ${c._h.cor} hover:brightness-125`}>
                   {c.nome} · {c._h.statusLabel}
@@ -138,7 +142,7 @@ export function FarmTab() {
                 <TableHead></TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {enriched.map((c: any) => {
+                {enriched.map((c) => {
                   const h = c._h;
                   return (
                     <TableRow key={c.id} className={h.status === "banido" ? "opacity-60" : ""}>
@@ -161,8 +165,8 @@ export function FarmTab() {
                       <TableCell>
                         {c.pronta_venda && <Badge className="mr-1">pronta</Badge>}
                         <Badge variant="secondary">{c.status_venda || "mantida"}</Badge>
-                        {(c.sinais_risco?.length || 0) > 0 && (
-                          <Badge variant="outline" className="ml-1 border-red-500/50 text-red-300 text-[9px]">⚠ {c.sinais_risco.length}</Badge>
+                        {riskSignals(c.sinais_risco).length > 0 && (
+                          <Badge variant="outline" className="ml-1 border-red-500/50 text-red-300 text-[9px]">⚠ {riskSignals(c.sinais_risco).length}</Badge>
                         )}
                       </TableCell>
                       <TableCell>
@@ -187,9 +191,9 @@ export function FarmTab() {
         <TabsContent value="warmup">
           <Card><CardContent className="p-4 space-y-3">
             <div className="text-xs text-muted-foreground">Roadmap de 21 dias por conta. Ações sugeridas pela IA baseadas no dia atual do warmup.</div>
-            {enriched.filter((c: any) => c.warmup_status !== "banido" && c.status_venda !== "vendida").map((c: any) => {
+            {enriched.filter((c) => c.warmup_status !== "banido" && c.status_venda !== "vendida").map((c) => {
               const h = c._h;
-              const action = nextWarmupAction(c, h);
+              const action = nextWarmupAction({ ...c, sinais_risco: riskSignals(c.sinais_risco) }, h);
               const total = 21;
               const done = h.warmupDiasRestantes !== null ? total - h.warmupDiasRestantes : (c.warmup_status === "pronto" ? total : 0);
               const pct = Math.max(0, Math.min(100, (done / total) * 100));
@@ -225,7 +229,7 @@ export function FarmTab() {
                 </div>
               );
             })}
-            {enriched.filter((c: any) => c.warmup_status !== "banido" && c.status_venda !== "vendida").length === 0 && (
+            {enriched.filter((c) => c.warmup_status !== "banido" && c.status_venda !== "vendida").length === 0 && (
               <div className="text-center text-sm text-muted-foreground py-8">Sem contas em warmup ativo.</div>
             )}
           </CardContent></Card>
@@ -274,7 +278,7 @@ export function FarmTab() {
         <DialogContent className="max-w-2xl bg-secondary/40 max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar conta do farm</DialogTitle></DialogHeader>
           {edit && (() => {
-            const h = calcFarmHealth(edit);
+            const h = calcFarmHealth({ ...edit, sinais_risco: riskSignals(edit.sinais_risco) });
             return (
               <div className="space-y-4">
                 <div className={`rounded-lg border p-3 flex items-center gap-3 ${h.cor_bg}`}>
@@ -324,7 +328,7 @@ export function FarmTab() {
                   <Label className="text-xs">Sinais de risco</Label>
                   <div className="flex flex-wrap gap-1.5">
                     {RISCO_OPTIONS.map(r => {
-                      const active = (edit.sinais_risco || []).includes(r);
+                      const active = riskSignals(edit.sinais_risco).includes(r);
                       return (
                         <button key={r} type="button" onClick={() => toggleRisco(r)}
                           className={`text-[11px] px-2 py-1 rounded border transition ${active ? "bg-red-500/20 border-red-500/50 text-red-300" : "bg-secondary/40 border-border/50 text-muted-foreground hover:border-border"}`}>
@@ -347,7 +351,7 @@ export function FarmTab() {
   );
 }
 
-function Kpi({ icon, label, value, suffix }: any) {
+function Kpi({ icon, label, value, suffix }: {icon:ReactNode;label:string;value:ReactNode;suffix?:string}) {
   return (
     <Card><CardContent className="p-3 flex items-center gap-3">
       {icon}
@@ -359,6 +363,6 @@ function Kpi({ icon, label, value, suffix }: any) {
   );
 }
 
-function Field({ label, children }: any) {
+function Field({ label, children }: {label:string;children:ReactNode}) {
   return <div className="space-y-1"><Label className="text-xs">{label}</Label>{children}</div>;
 }

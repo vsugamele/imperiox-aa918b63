@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { jsonFields } from "@/components/dashboard/json-fields";
 import { Flame, Brain, MessageSquare, ArrowUpRight } from "lucide-react";
 
 const brl = (v: number) =>
@@ -41,7 +42,7 @@ export function DecisionQueue() {
           .eq("status", "proposed")
           .order("priority_score", { ascending: false, nullsFirst: false })
           .limit(5);
-        (data || []).forEach((a: any) => {
+        (data || []).forEach((a) => {
           out.push({
             key: `ai:${a.id}`,
             icon: Brain,
@@ -52,7 +53,7 @@ export function DecisionQueue() {
             weight: 100 + Number(a.priority_score || 0),
           });
         });
-      } catch {}
+      } catch { console.warn("Não foi possível consultar uma fonte da fila de decisões"); }
 
       // 2) Hot leads: PIX/Boleto pendente < 2h
       try {
@@ -64,8 +65,9 @@ export function DecisionQueue() {
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(6);
-        (data || []).forEach((v: any) => {
-          const forma = v?.data?.metodo_pagamento ?? v?.data?.payment_method ?? v?.data?.forma_pagamento ?? "PIX/Boleto";
+        (data || []).forEach((v) => {
+          const saleData = jsonFields(v.data);
+          const forma = saleData.metodo_pagamento ?? saleData.payment_method ?? saleData.forma_pagamento ?? "PIX/Boleto";
           out.push({
             key: `hot:${v.id}`,
             icon: Flame,
@@ -76,19 +78,19 @@ export function DecisionQueue() {
             weight: 80,
           });
         });
-      } catch {}
+      } catch { console.warn("Não foi possível consultar uma fonte da fila de decisões"); }
 
       // 3) Conversas paradas > 2h aguardando resposta nossa
       try {
         const cutoff = new Date(now - 2 * 3600_000).toISOString();
-        const { data } = await (supabase as any)
+        const { data } = await (supabase)
           .from("imphq_wa_conversations")
           .select("id, phone, contact_name, last_message_at, last_message_direction")
           .eq("last_message_direction", "in")
           .lte("last_message_at", cutoff)
           .order("last_message_at", { ascending: false })
           .limit(4);
-        (data || []).forEach((c: any) => {
+        (data || []).forEach((c) => {
           out.push({
             key: `stale:${c.id}`,
             icon: MessageSquare,
@@ -99,7 +101,7 @@ export function DecisionQueue() {
             weight: 60,
           });
         });
-      } catch {}
+      } catch { console.warn("Não foi possível consultar uma fonte da fila de decisões"); }
 
       return out.sort((a, b) => b.weight - a.weight).slice(0, 12);
     },

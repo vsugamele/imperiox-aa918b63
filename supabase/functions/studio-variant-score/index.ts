@@ -46,7 +46,7 @@ async function scoreVision(prompt: string, imageUrl: string) {
         { role: "user", content: [
           { type: "text", text: `PROMPT USADO:\n${prompt || "(sem prompt)"}` },
           { type: "image_url", image_url: { url: imageUrl } },
-        ] as any },
+        ] },
       ],
       response_format: { type: "json_object" },
     }),
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     if (error) throw error;
     if (!nodes?.length) throw new Error("nenhuma variante encontrada");
 
-    const results: any[] = [];
+    const results: { id: string; label: string | null; score?: number; veredito?: unknown; error?: string }[] = [];
     let bestId: string | null = null;
     let bestScore = -1;
 
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         const promptTxt = n.config?.prompt || n.config?.texto || n.titulo || "";
         const outUrl = n.output?.url || "";
         const outKind = n.output?.kind;
-        let scoreData: any;
+        let scoreData: { score?: number | string; veredito?: unknown } | null;
         if (outUrl && outKind === "image") {
           scoreData = await scoreVision(promptTxt, outUrl);
         } else {
@@ -96,9 +96,10 @@ Deno.serve(async (req) => {
         }).eq("id", n.id);
         results.push({ id: n.id, label: n.variant_label, score, veredito: scoreData?.veredito });
         if (score > bestScore) { bestScore = score; bestId = n.id; }
-      } catch (e: any) {
-        console.error("score fail", n.id, e?.message);
-        results.push({ id: n.id, label: n.variant_label, error: e?.message });
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        console.error("score fail", n.id, eMessage);
+        results.push({ id: n.id, label: n.variant_label, error: eMessage });
       }
     }
 
@@ -109,9 +110,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, winner_id: bestId, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-variant-score:", e);
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+    return new Response(JSON.stringify({ error: eMessage || "erro" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

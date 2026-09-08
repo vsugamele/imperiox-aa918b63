@@ -15,9 +15,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, ...out }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+      const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("[zernio-retry-worker]", e);
-    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+    return new Response(JSON.stringify({ ok: false, error: message || String(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

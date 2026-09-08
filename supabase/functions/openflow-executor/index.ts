@@ -1,6 +1,132 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendToChannel } from "../_shared/channel-out.ts";
+import { sendToChannel, type ChannelSession } from "../_shared/channel-out.ts";
 
+
+import { z } from "https://esm.sh/zod@3.25.76";
+const stepSchema = z.object({
+id: z.string().nullish(),
+tipo: z.string(),
+template: z.string().nullish(),
+delay_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+delay_sec: z.union([z.number(), z.string()]).transform(Number).nullish(),
+personality: z.string().nullish(),
+condicao_tipo: z.string().nullish(),
+condicao_tempo_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+provider_id: z.string().nullish(),
+voice_provider: z.string().nullish(),
+voice_id: z.string().nullish(),
+voice_stability: z.union([z.number(), z.string()]).transform(Number).nullish(),
+voice_clarity: z.union([z.number(), z.string()]).transform(Number).nullish(),
+tag: z.string().nullish(),
+next_id: z.string().nullish(),
+true_next_id: z.string().nullish(),
+false_next_id: z.string().nullish(),
+else_action: z.string().nullish(),
+else_skip: z.union([z.number(), z.string()]).transform(Number).nullish(),
+wait_until: z.string().nullish(),
+awareness_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+awareness_max: z.union([z.number(), z.string()]).transform(Number).nullish(),
+intents: z.string().nullish(),
+memory_key: z.string().nullish(),
+memory_value: z.string().nullish(),
+lead_score: z.union([z.number(), z.string()]).transform(Number).nullish(),
+lead_tags: z.string().nullish(),
+lead_stage: z.string().nullish(),
+event_name: z.string().nullish(),
+event_names: z.string().nullish(),
+timeout_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+score_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+score_max: z.union([z.number(), z.string()]).transform(Number).nullish(),
+text: z.string().nullish(),
+lead_field: z.string().nullish(),
+lead_op: z.string().nullish(),
+lead_value: z.string().nullish(),
+target_stage: z.string().nullish(),
+rota_a_porcentagem: z.union([z.number(), z.string()]).transform(Number).nullish(),
+jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+ab_test_enabled: z.boolean().nullish(),
+template_b: z.string().nullish(),
+mensagem_b: z.string().nullish(),
+operator_name: z.string().nullish(),
+gpt_model: z.string().nullish(),
+gpt_temperature: z.union([z.number(), z.string()]).transform(Number).nullish(),
+gpt_max_tokens: z.union([z.number(), z.string()]).transform(Number).nullish(),
+gpt_save_variable: z.string().nullish(),
+gpt_send_message: z.boolean().nullish(),
+gpt_keep_context: z.boolean().nullish(),
+ia_model: z.string().nullish(),
+ia_search_web: z.boolean().nullish(),
+ia_search_files: z.boolean().nullish(),
+ia_vision: z.boolean().nullish(),
+ia_voice_response: z.boolean().nullish(),
+ia_routes: z.array(z.object({ name: z.string(), jump_steps: z.union([z.number(), z.string()]).transform(Number) }).passthrough()).nullish(),
+personality_prompt: z.string().nullish(),
+questioning_strategy: z.string().nullish(),
+condition_field: z.string().nullish(),
+condition_operator: z.string().nullish(),
+condition_value: z.string().nullish(),
+condition_jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+condition_else_jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+webhook_url: z.string().nullish(),
+webhook_method: z.string().nullish(),
+webhook_headers: z.string().nullish(),
+webhook_body: z.string().nullish(),
+webhook_save_variable: z.string().nullish(),
+loop_count: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_jump_back_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_interval_hours: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_until_condition_field: z.string().nullish(),
+loop_until_condition_operator: z.string().nullish(),
+loop_until_condition_value: z.string().nullish(),
+stop_event_type: z.string().nullish(),
+stop_event_value: z.string().nullish(),
+calendar_provider: z.string().nullish(),
+calendar_url: z.string().nullish(),
+scheduling_duration_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+router_definition_a: z.string().nullish(),
+router_definition_b: z.string().nullish(),
+work_hours_start: z.string().nullish(),
+work_hours_end: z.string().nullish(),
+work_days: z.string().nullish(),
+mensagem: z.string().nullish(),
+corpo: z.string().nullish(),
+assunto: z.string().nullish(),
+conteudo: z.string().nullish(),
+position_x: z.union([z.number(), z.string()]).transform(Number).nullish(),
+position_y: z.union([z.number(), z.string()]).transform(Number).nullish(),
+media: z.union([z.object({ id: z.string(), url: z.string(), label: z.string(), kind: z.union([z.literal("image"), z.literal("audio"), z.literal("video"), z.literal("doc")]) }).passthrough(), z.null()]).nullish(),
+capture_variable: z.string().nullish(),
+ai_extract_prompt: z.string().nullish(),
+question: z.string().nullish(),
+options: z.array(z.union([z.object({ label: z.string(), value: z.string().optional(), skip_n: z.union([z.number(), z.string()]).transform(Number).optional() }).passthrough(), z.string()])).nullish(),
+image_prompt: z.string().nullish(),
+image_style: z.string().nullish(),
+image_ratio: z.union([z.literal("1:1"), z.literal("9:16"), z.literal("16:9")]).nullish(),
+send_after: z.boolean().nullish(),
+ai_agent_id: z.string().nullish(),
+ai_agent_pass_context: z.boolean().nullish(),
+ai_agent_save_variable: z.string().nullish(),
+distrib_strategy: z.union([z.literal("round_robin"), z.literal("random"), z.literal("least_busy")]).nullish(),
+distrib_operators: z.string().nullish(),
+distrib_save_variable: z.string().nullish(),
+campo: z.string().nullish(),
+field: z.string().nullish(),
+operador: z.string().nullish(),
+operator: z.string().nullish(),
+template_id: z.string().nullish(),
+texto: z.string().nullish(),
+delay: z.union([z.number(), z.string()]).transform(Number).nullish(),
+minutos: z.union([z.number(), z.string()]).transform(Number).nullish(),
+else_skip_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+valor: z.unknown(), value: z.unknown()
+}).passthrough();
+function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function describeError(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+
+interface LeadRow { id: string; nome?: string | null; name?: string | null; email?: string | null; phone?: string | null; telefone?: string | null; produto?: string | null; plataforma?: string | null; tags?: string[] | null; lead_memory?: Record<string, unknown> | null; [field: string]: unknown }
+interface StepResult { step: number; tipo?: string; started_at?: string; status?: string; _failed_step_index?: number; _failed_step_kind?: string; [detail: string]: unknown }
+const stepResultSchema = z.object({ step: z.number(), tipo: z.string().optional(), started_at: z.string().optional(), status: z.string().optional(), _failed_step_index: z.number().optional(), _failed_step_kind: z.string().optional() }).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,7 +195,8 @@ function getLeadTimezoneOffset(phone: string): number {
 }
 
 // Normalize step fields from editor format to executor format
-function normalizeStep(step: any): any {
+function normalizeStep(input: unknown) {
+  const step = stepSchema.parse(input);
   const tipo = step.tipo === "aguardar" ? "delay" : step.tipo;
   return {
     ...step,
@@ -80,23 +207,24 @@ function normalizeStep(step: any): any {
     // Quando o passo define ritmo em segundos (delay_sec), NÃO forçamos 1 minuto.
     delay_min: Number(step.delay_sec || 0) > 0
       ? Number(step.delay_min || 0)
-      : (step.delay_min || step.minutos || step.delay || 1),
+      : Number(record(input).delay_min || record(input).minutos || record(input).delay || 1),
     delay_sec: Number(step.delay_sec || 0),
   };
 }
 
 
-function replaceVariables(text: string, lead_data: any, leadDb: any): string {
+function replaceVariables(text: string, leadInput: unknown, leadDb: LeadRow | null): string {
+  const lead_data = record(leadInput);
   let result = text || "";
   
   if (leadDb?.lead_memory && typeof leadDb.lead_memory === "object") {
     const regex = /\{\{([^}]+)\}\}/g;
     result = result.replace(regex, (match, path) => {
       const parts = path.trim().split(".");
-      let current = leadDb.lead_memory;
+      let current: unknown = leadDb.lead_memory;
       for (const part of parts) {
         if (current && typeof current === "object" && part in current) {
-          current = current[part];
+          current = record(current)[part];
         } else {
           return match; // return original match if not found in memory
         }
@@ -105,23 +233,23 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
     });
   }
   
-  const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
-  const linkUrl = lead_data?.link || lead_data?.link_checkout || "";
-  const nome = lead_data?.nome || leadDb?.name || "Lead";
+  const phone = String(lead_data.phone || lead_data.telefone || leadDb?.telefone || leadDb?.phone || "");
+  const linkUrl = String(lead_data.link || lead_data.link_checkout || "");
+  const nome = String(lead_data.nome || leadDb?.name || "Lead");
   
   result = result
     .replace(/\{\{nome\}\}/g, nome)
     .replace(/\{\{name\}\}/g, nome)
     .replace(/\{\{primeiro_nome\}\}/g, nome.split(" ")[0])
     .replace(/\{\{primeiro-nome\}\}/g, nome.split(" ")[0])
-    .replace(/\{\{email\}\}/g, lead_data?.email || leadDb?.email || "")
-    .replace(/\{\{produto\}\}/g, lead_data?.produto || leadDb?.produto || "")
+    .replace(/\{\{email\}\}/g, String(lead_data?.email || leadDb?.email || ""))
+    .replace(/\{\{produto\}\}/g, String(lead_data?.produto || leadDb?.produto || ""))
     .replace(/\{\{telefone\}\}/g, phone)
     .replace(/\{\{link\}\}/g, linkUrl)
     .replace(/\{\{link_checkout\}\}/g, linkUrl)
     .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-    .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || leadDb?.plataforma || "")
-    .replace(/\{\{fluxo\}\}/g, lead_data?.fluxo || "");
+    .replace(/\{\{plataforma\}\}/g, String(lead_data?.plataforma || leadDb?.plataforma || ""))
+    .replace(/\{\{fluxo\}\}/g, String(lead_data?.fluxo || ""));
     
   return result;
 }
@@ -196,7 +324,7 @@ Deno.serve(async (req) => {
         .in("exit_trigger_tipo", triggerVariants);
 
       if (exitMatches && exitMatches.length > 0) {
-        const cascade = exitMatches.some((a: any) => a.exit_cascade);
+        const cascade = exitMatches.some((a) => a.exit_cascade);
         let killQuery = supabase
           .from("imphq_flow_executions")
           .update({
@@ -209,7 +337,7 @@ Deno.serve(async (req) => {
           .in("status", ["running", "waiting"]);
 
         if (!cascade) {
-          killQuery = killQuery.in("automacao_id", exitMatches.map((a: any) => a.id));
+          killQuery = killQuery.in("automacao_id", exitMatches.map((a) => a.id));
         }
 
         const { data: killed } = await killQuery.select("id, automacao_id, current_step");
@@ -248,7 +376,7 @@ Deno.serve(async (req) => {
     // Filter by project, product, campanha and tag_filtro
     const leadCampanha = lead_data?.campanha_id;
     const leadCanal = lead_data?.canal || "whatsapp";
-    const matched = (automacoes || []).filter((a: any) => {
+    const matched = (automacoes || []).filter((a) => {
       // Canal do fluxo precisa bater com o canal de origem (whatsapp | messenger | webchat)
       if ((a.canal || "whatsapp") !== leadCanal) return false;
       if (a.project_id && a.project_id !== project_id) return false;
@@ -288,7 +416,7 @@ Deno.serve(async (req) => {
         }
       }
       return true;
-    }).sort((a: any, b: any) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
+    }).sort((a, b) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
     if (matched.length === 0) {
       return new Response(JSON.stringify({ ok: true, executed: 0, message: "Nenhuma automação encontrada" }), {
@@ -296,7 +424,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const results: any[] = [];
+    const results: Record<string, unknown>[] = [];
 
     // ── Cross-flow lock: check if lead (or phone) is already inside a DIFFERENT active flow
     // Prevent a lead in Flow A from being pulled into conflicting Flow B simultaneously.
@@ -307,7 +435,7 @@ Deno.serve(async (req) => {
     let activeFlowPrioridade = 5;
     if (!resume_from_step && !automacao_id) {
       // Resolve a set of lead_ids that share the same phone as the incoming lead (when available)
-      let relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
+      const relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
       const phoneRaw = lead_data?.telefone || lead_data?.phone || lead_data?.whatsapp;
       if (phoneRaw) {
         const phoneDigits = String(phoneRaw).replace(/\D/g, "");
@@ -393,11 +521,11 @@ Deno.serve(async (req) => {
         lead_data.link = lead_data?.link || auto.link_checkout;
         lead_data.link_checkout = lead_data?.link_checkout || auto.link_checkout;
       }
-      const rawSteps = auto.acoes || auto.etapas || [];
+      const rawSteps: unknown[] = auto.acoes || auto.etapas || [];
       const steps = rawSteps.map(normalizeStep);
 
       const startStep = resume_from_step !== undefined ? Number(resume_from_step) : 0;
-      let prevStepResults: any[] = [];
+      let prevStepResults: StepResult[] = [];
       if (resume_from_step !== undefined && lead_data?.lead_id) {
         const { data: lastExec } = await supabase
           .from("imphq_flow_executions")
@@ -408,11 +536,11 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (lastExec && Array.isArray(lastExec.step_results)) {
-          prevStepResults = lastExec.step_results;
+          prevStepResults = z.array(stepResultSchema).parse(lastExec.step_results);
         }
       }
 
-      const stepResults: any[] = [...prevStepResults];
+      const stepResults: StepResult[] = [...prevStepResults];
       let status = "completed";
       let errorMessage: string | null = null;
       let messagesSent = 0;
@@ -547,7 +675,7 @@ Deno.serve(async (req) => {
 
       // ── Sessão de canal (Messenger / Chat do site). Quando presente, os blocos de
       // mensagem são entregues pelo canal em vez do WhatsApp.
-      let channelSession: any = null;
+      let channelSession: ChannelSession | null = null;
       if (lead_data?.channel_session_id) {
         const { data: cs } = await supabase
           .from("imphq_channel_sessions")
@@ -558,7 +686,7 @@ Deno.serve(async (req) => {
       }
 
       // Load lead details once for the execution of this automation
-      let leadDb: any = null;
+      let leadDb: LeadRow | null = null;
 
       const LEAD_COLS = "id, nome, email, phone, project_id, funil_id, plataforma, status, score, tags, total_gasto, data, campanha_id, lead_memory, awareness_level, ultimo_interesse, nivel_qualificacao, dor_principal, objecao_atual, created_at, updated_at";
 
@@ -595,7 +723,7 @@ Deno.serve(async (req) => {
 
       for (let i = startStep; i < steps.length; i++) {
         const step = steps[i];
-        const stepResult: any = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
+        const stepResult: StepResult = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
 
         // Check if lead replied or purchased since the beginning of this execution
         let hasRepliedOrPurchased = false;
@@ -604,8 +732,8 @@ Deno.serve(async (req) => {
         const phone = lead_data?.phone || lead_data?.telefone;
         const leadId = lead_data?.lead_id;
         
+        let originalStart = new Date().toISOString();
         if (phone || leadId) {
-          let originalStart = new Date().toISOString();
           if (resume_from_step && Number(resume_from_step) > 0) {
             try {
               const { data: originalExec } = await supabase
@@ -674,7 +802,7 @@ Deno.serve(async (req) => {
 
           // Record flow attribution when the lead converts while inside this flow
           if (abortReason === "Lead realizou a compra") {
-            await supabase.from("imphq_events").insert({
+            await Promise.resolve(supabase.from("imphq_events").insert({
               project_id,
               event_name: "flow_attribution",
               page_url: "",
@@ -689,7 +817,7 @@ Deno.serve(async (req) => {
                 messages_sent_before_conversion: messagesSent,
                 step_at_conversion: i,
               },
-            }).catch((err: any) => console.error("[openflow-executor] flow_attribution insert error:", err.message));
+            })).catch((err: unknown) => console.error("[openflow-executor] flow_attribution insert error:", describeError(err)));
           }
 
           break; // Stop flow
@@ -716,7 +844,7 @@ Deno.serve(async (req) => {
         if (actionTypesToDelay.includes(step.tipo)) {
           const delayMin = Number(step.delay_min || 0);
           if (delayMin > 0) {
-            const alreadyDelayed = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            const alreadyDelayed = prevStepResults.some((r) => r.step === i && r.status === "waiting_delay");
             if (!alreadyDelayed) {
               if (delayMin > 5) {
                 const nextRun = new Date(Date.now() + delayMin * 60000);
@@ -746,7 +874,7 @@ Deno.serve(async (req) => {
           // Ritmo de conversa: espera curta em segundos (máx 20s), sempre inline
           const delaySec = Math.min(Number(step.delay_sec || 0), 20);
           if (delaySec > 0) {
-            const alreadyPaced = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            const alreadyPaced = prevStepResults.some((r) => r.step === i && r.status === "waiting_delay");
             if (!alreadyPaced) await delay(delaySec * 1000);
           }
         }
@@ -815,7 +943,7 @@ Deno.serve(async (req) => {
                 .in("event_name", eventNames)
                 .gt("created_at", originalStart)
                 .limit(1);
-              if (evts && evts.length > 0) detectedEvent = (evts[0] as any).event_name;
+              if (evts && evts.length > 0) detectedEvent = evts[0].event_name;
             }
 
             if (detectedEvent) {
@@ -890,7 +1018,7 @@ Deno.serve(async (req) => {
               && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
 
             if (isResumedByReply) {
-              let rawReply = String(lead_data?.reply_content || "").trim();
+              const rawReply = String(lead_data?.reply_content || "").trim();
               let finalValue = rawReply;
 
               // Opcional: passa pela IA para extrair essência
@@ -914,14 +1042,14 @@ Deno.serve(async (req) => {
                     if (ext) finalValue = ext;
                   }
                 } catch (e) {
-                  console.warn("[input_capture] extração IA falhou, salvando resposta bruta:", (e as any)?.message);
+                  console.warn("[input_capture] extração IA falhou, salvando resposta bruta:", describeError(e));
                 }
               }
 
               // Salva em lead_memory (aparece em {{VAR}} de forma nativa)
               if (varName && lead_data?.lead_id) {
                 const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-                const current = (ld as any)?.lead_memory || {};
+                const current = ld?.lead_memory || {};
                 const updated = { ...current, [varName]: finalValue };
                 await supabase.from("imphq_leads")
                   .update({ lead_memory: updated, updated_at: new Date().toISOString() })
@@ -931,7 +1059,7 @@ Deno.serve(async (req) => {
               // Espelha em conversation.variables para consulta rápida
               if (varName && convId) {
                 const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
-                const cur = (conv as any)?.variables || {};
+                const cur = conv?.variables || {};
                 await supabase.from("imphq_wa_conversations")
                   .update({ variables: { ...cur, [varName]: finalValue } })
                   .eq("id", convId);
@@ -970,10 +1098,10 @@ Deno.serve(async (req) => {
             const timeoutMin = Number(step.timeout_min || 1440);
             const convId = lead_data?.conversation_id || lead_data?.conversationId;
             const varName = String(step.capture_variable || "QUICK_CHOICE").trim();
-            const rawOptions: any[] = Array.isArray(step.options) ? step.options : [];
+            const rawOptions: NonNullable<z.infer<typeof stepSchema>["options"]> = Array.isArray(step.options) ? step.options : [];
             const options = rawOptions
-              .map((o: any) => (typeof o === "string" ? { label: o } : o))
-              .filter((o: any) => o && String(o.label || "").trim())
+              .map((o) => (typeof o === "string" ? { label: o } : o))
+              .filter((o) => o && String(o.label || "").trim())
               .slice(0, 9);
 
             const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
@@ -990,7 +1118,7 @@ Deno.serve(async (req) => {
                 if (n >= 0 && n < options.length) chosenIdx = n;
               }
               if (chosenIdx < 0) {
-                chosenIdx = options.findIndex((o: any) =>
+                chosenIdx = options.findIndex((o) =>
                   norm.includes(String(o.label || "").toLowerCase().trim())
                 );
               }
@@ -1000,7 +1128,7 @@ Deno.serve(async (req) => {
               // Salva na memória do lead
               if (varName && lead_data?.lead_id) {
                 const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-                const current = (ld as any)?.lead_memory || {};
+                const current = ld?.lead_memory || {};
                 const updated = { ...current, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 };
                 await supabase.from("imphq_leads")
                   .update({ lead_memory: updated, updated_at: new Date().toISOString() })
@@ -1009,7 +1137,7 @@ Deno.serve(async (req) => {
               }
               if (varName && convId) {
                 const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
-                const cur = (conv as any)?.variables || {};
+                const cur = conv?.variables || {};
                 await supabase.from("imphq_wa_conversations")
                   .update({ variables: { ...cur, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 } })
                   .eq("id", convId);
@@ -1031,7 +1159,7 @@ Deno.serve(async (req) => {
               // Primeira passagem: envia a pergunta + opções e pausa
               const phone = lead_data?.phone || lead_data?.telefone;
               const question = replaceVariables(String(step.question || step.template || "Escolha uma opção:"), lead_data, leadDb);
-              const listTxt = options.map((o: any, idx: number) => `${idx + 1}) ${o.label}`).join("\n");
+              const listTxt = options.map((o, idx: number) => `${idx + 1}) ${o.label}`).join("\n");
               const fullMsg = `${question}\n\n${listTxt}`.trim();
 
               if (phone && options.length > 0) {
@@ -1050,7 +1178,7 @@ Deno.serve(async (req) => {
                     content: fullMsg,
                     project_id,
                   }),
-                }).catch(e => console.warn("[quick_reply] envio falhou:", e?.message));
+                }).catch(e => console.warn("[quick_reply] envio falhou:", describeError(e)));
                 messagesSent++;
               }
 
@@ -1065,7 +1193,7 @@ Deno.serve(async (req) => {
                     status: "waiting_reply",
                     waiting_for: "reply",
                     capture_variable: varName,
-                    options_sent: options.map((o: any) => o.label),
+                    options_sent: options.map((o) => o.label),
                     conversation_id: convId || null,
                     timeout_at: timeoutAt.toISOString(),
                     notes: `Aguardando escolha entre ${options.length} opções em {{${varName}}}.`,
@@ -1168,14 +1296,14 @@ Deno.serve(async (req) => {
                     media_type: "image",
                     project_id,
                   }),
-                }).catch(e => console.warn("[generate_image] envio falhou:", e?.message));
+                }).catch(e => console.warn("[generate_image] envio falhou:", describeError(e)));
                 messagesSent++;
               }
 
               // Injeta na memória para uso downstream: {{IMG_<blockId>}}
               if (lead_data?.lead_id) {
                 const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-                const current = (ld as any)?.lead_memory || {};
+                const current = ld?.lead_memory || {};
                 const updated = { ...current, [`IMG_${blockId}`]: imageUrl };
                 await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
                 if (leadDb) leadDb.lead_memory = updated;
@@ -1217,17 +1345,17 @@ Deno.serve(async (req) => {
           // de mensagem/IA do fluxo, mas entrega pela sessão de canal em vez do WhatsApp.
           else if (
             (step.tipo === "whatsapp" || step.tipo === "audio") &&
-            (channelSession || (auto as any).canal === "messenger" || (auto as any).canal === "webchat")
+            (channelSession || auto.canal === "messenger" || auto.canal === "webchat")
           ) {
             if (!channelSession) {
               stepResult.status = "skipped";
               stepResult.reason = "Fluxo de canal sem sessão (channel_session_id ausente)";
             } else {
               const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
-              const stepMedia = (step as any).media;
+              const stepMedia = step.media;
               const chRes = await sendToChannel(
                 supabase,
-                channelSession as any,
+                channelSession,
                 msgText,
                 stepMedia?.url || null,
               );
@@ -1251,7 +1379,7 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem telefone do lead";
             } else {
               // Resolve link: lead_data.link > auto.link_checkout > ""
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
 
               // ── A/B Testing Copy override
               let selectedVariantId = null;
@@ -1329,8 +1457,8 @@ Deno.serve(async (req) => {
                       }
                     }
                   }
-                } catch (abErr: any) {
-                  console.error("[openflow-executor] Error in A/B test resolution:", abErr.message);
+                } catch (abErr) {
+                  console.error("[openflow-executor] Error in A/B test resolution:", describeError(abErr));
                 }
               }
 
@@ -1379,7 +1507,7 @@ Deno.serve(async (req) => {
                 failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
                 const mediaKindMap: Record<string, string> = { image: "image", video: "video", audio: "audio", doc: "document" };
-                const stepMedia = (step as any).media;
+                const stepMedia = step.media;
                 const mediaPayload = stepMedia?.url
                   ? { media_url: stepMedia.url, media_type: mediaKindMap[stepMedia.kind] || "image" }
                   : {};
@@ -1417,7 +1545,7 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
               const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
 
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
@@ -1491,7 +1619,7 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem email do lead";
               console.log(`[openflow-executor] Step ${i} email: skipped - sem email do lead`);
             } else {
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
               const templateId = step.template_id;
 
               // Inline message from the editor (field "template" or "mensagem")
@@ -1554,10 +1682,10 @@ Deno.serve(async (req) => {
                   .maybeSingle();
 
                 if (creds?.credentials) {
-                  resendApiKey = (creds.credentials as any).api_key || "";
-                  fromEmail = (creds.credentials as any).from_email || "";
-                  fromName = (creds.credentials as any).from_name || "";
-                  replyTo = (creds.credentials as any).reply_to || "";
+                  resendApiKey = String(record(creds.credentials).api_key || "");
+                  fromEmail = String(record(creds.credentials).from_email || "");
+                  fromName = String(record(creds.credentials).from_name || "");
+                  replyTo = String(record(creds.credentials).reply_to || "");
                 }
 
                 // Fallback to legacy JSONB
@@ -1567,12 +1695,12 @@ Deno.serve(async (req) => {
                     .select("data")
                     .eq("id", project_id)
                     .single();
-                  const emailConfig = (proj?.data as any)?.email_config || {};
-                  const briefing = (proj?.data as any)?.checklist?.resend || {};
-                  resendApiKey = emailConfig.resend_api_key || briefing.resend_api_key || "";
-                  fromEmail = fromEmail || emailConfig.from_email || briefing.from_email || "";
-                  fromName = fromName || emailConfig.from_name || briefing.from_name || "";
-                  replyTo = replyTo || emailConfig.reply_to || briefing.reply_to || "";
+                  const emailConfig = record(record(proj?.data).email_config);
+                  const briefing = record(record(record(proj?.data).checklist).resend);
+                  resendApiKey = String(emailConfig.resend_api_key || briefing.resend_api_key || "");
+                  fromEmail = String(fromEmail || emailConfig.from_email || briefing.from_email || "");
+                  fromName = String(fromName || emailConfig.from_name || briefing.from_name || "");
+                  replyTo = String(replyTo || emailConfig.reply_to || briefing.reply_to || "");
                 }
 
                 if (!resendApiKey) {
@@ -1743,7 +1871,7 @@ Deno.serve(async (req) => {
                 conditionMet = !hasOpened;
               }
             } else {
-              const field = step.campo || step.field;
+              const field = step.campo || step.field || "";
               const operator = step.operador || step.operator || "equals";
               const value = step.valor || step.value;
               const leadValue = lead_data?.[field];
@@ -1767,7 +1895,7 @@ Deno.serve(async (req) => {
                 stepResults.push(stepResult);
                 break;
               } else {
-                const skipCount = parseInt(step.else_skip || step.else_skip_steps) || 1;
+                const skipCount = parseInt(String(step.else_skip || step.else_skip_steps)) || 1;
                 i += skipCount;
                 stepResult.skipped_steps = skipCount;
               }
@@ -1855,7 +1983,7 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Sem lead_id ou campo inválido";
             } else {
-              let updatePayload: any = {};
+              const updatePayload: { score?: number; status?: string | null; awareness_level?: string | null; nome?: string | null; email?: string | null } = {};
               if (op === "inc" && field === "score") {
                 const { data: cur } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
                 const base = Number(cur?.score || 0);
@@ -1864,7 +1992,7 @@ Deno.serve(async (req) => {
               } else if (field === "score") {
                 updatePayload.score = Number(value || 0);
               } else {
-                updatePayload[field] = value;
+                updatePayload[field as "status" | "awareness_level" | "nome" | "email"] = value;
               }
               const { error: upErr } = await supabase.from("imphq_leads").update(updatePayload).eq("id", lead_data.lead_id);
               if (upErr) {
@@ -1874,7 +2002,7 @@ Deno.serve(async (req) => {
                 stepResult.status = "lead_updated";
                 stepResult.field = field;
                 stepResult.op = op;
-                stepResult.value = updatePayload[field];
+                stepResult.value = updatePayload[field as keyof typeof updatePayload];
               }
             }
           }
@@ -1912,7 +2040,7 @@ Deno.serve(async (req) => {
 
               // leadDb is already preloaded in the outer scope
 
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
               // ── A/B Testing Copy override for IA Message
               let abVariant = null;
               let selectedMsgTemplate = step.mensagem || step.template || "";
@@ -1928,6 +2056,13 @@ Deno.serve(async (req) => {
                 stepResult.ab_variant = abVariant;
               }
 
+                const { data: aiConfig } = await supabase
+                  .from("imphq_wa_ai_config")
+                  .select("*")
+                  .eq("project_id", project_id)
+                  .eq("enabled", true)
+                  .maybeSingle();
+
               let finalMsg = selectedMsgTemplate.trim();
 
               if (!finalMsg) {
@@ -1940,19 +2075,14 @@ Deno.serve(async (req) => {
 
                 const pData = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
                 const expert = pData.expert || pData.especialista || {};
-                const aiProfile = leadDb?.data?.ai_profile || {};
+                const aiProfile = record(record(leadDb?.data).ai_profile);
                 const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
                 const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
                 const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
                 const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
-                const schwartz = leadDb?.data?.desejo_schwartz || "";
+                const schwartz = record(leadDb?.data).desejo_schwartz || "";
 
-                const { data: aiConfig } = await supabase
-                  .from("imphq_wa_ai_config")
-                  .select("*")
-                  .eq("project_id", project_id)
-                  .eq("enabled", true)
-                  .maybeSingle();
+
 
                 const systemPrompt = `Você é um assessor/vendedor de alta performance especializado em reativação de leads via WhatsApp.
 Você representa o projeto/marca: "${project?.name || ''}".
@@ -2042,7 +2172,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   ? `${supabaseUrl}/functions/v1/whatsapp-api?action=send_voice_synthesis`
                   : `${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`;
                 
-                const payload: any = {
+                const payload: { provider_id: string; phone: string; project_id: string; text?: string; content?: string; voice_provider?: string; voice_id?: string; voice_stability?: number; voice_clarity?: number } = {
                   provider_id: providerId,
                   phone: normalizeBRPhone(phone),
                   project_id,
@@ -2118,7 +2248,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               awarenessLevel = Number(lead_data.awareness_level);
             } else if (lead_data?.lead_id) {
               const { data: ld } = await supabase.from("imphq_leads").select("awareness_level").eq("id", lead_data.lead_id).maybeSingle();
-              awarenessLevel = Number((ld as any)?.awareness_level || 0);
+              awarenessLevel = Number(ld?.awareness_level || 0);
             }
             const min = Number(step.awareness_min ?? 1);
             const max = Number(step.awareness_max ?? 5);
@@ -2127,7 +2257,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
             stepResult.awareness_level = awarenessLevel;
             stepResult.condition_met = conditionMet;
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
               console.log(`[openflow-executor] branch_by_awareness: level=${awarenessLevel} fora de [${min},${max}], pulando ${skipCount} step(s)`);
@@ -2141,14 +2271,14 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               const { data: tr } = await supabase.from("imphq_wa_triage")
                 .select("intent").eq("lead_id", lead_data.lead_id)
                 .order("created_at", { ascending: false }).limit(1).maybeSingle();
-              lastIntent = (tr as any)?.intent || null;
+              lastIntent = tr?.intent || null;
             }
             const conditionMet = allowedIntents.length === 0 || (lastIntent != null && allowedIntents.includes(lastIntent));
             stepResult.status = "evaluated";
             stepResult.last_intent = lastIntent;
             stepResult.condition_met = conditionMet;
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
             }
@@ -2160,7 +2290,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               score = Number(lead_data.score);
             } else if (lead_data?.lead_id) {
               const { data: ld } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
-              score = Number((ld as any)?.score || 0);
+              score = Number(ld?.score || 0);
             }
             const min = Number(step.score_min ?? 0);
             const max = Number(step.score_max ?? 100);
@@ -2169,7 +2299,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
             stepResult.score = score;
             stepResult.condition_met = conditionMet;
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
               console.log(`[openflow-executor] branch_by_score: score=${score} fora de [${min},${max}], pulando ${skipCount} step(s)`);
@@ -2202,11 +2332,11 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   stepResult.message_preview = text.slice(0, 120);
                   stepResult.response = { success: true };
                 }
-              } catch (e: any) {
+              } catch (e) {
                 stepResult.status = "error";
-                stepResult.response = { success: false, error: e?.message || "fetch falhou" };
+                stepResult.response = { success: false, error: describeError(e) || "fetch falhou" };
                 stepsFailed++;
-                failureMessages.push(`Step ${i} (slack_notify): ${e?.message || "erro"}`);
+                failureMessages.push(`Step ${i} (slack_notify): ${describeError(e) || "erro"}`);
               }
             }
           }
@@ -2219,7 +2349,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               stepResult.reason = !key ? "memory_key não definida" : "lead_id ausente";
             } else {
               const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-              const current = (ld as any)?.lead_memory || {};
+              const current = ld?.lead_memory || {};
               const updatedMemory = { ...current, [key]: rawValue };
               const { error: memErr } = await supabase.from("imphq_leads")
                 .update({ lead_memory: updatedMemory, updated_at: new Date().toISOString() })
@@ -2262,7 +2392,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
             stepResult.current_br_time = `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")} (Day ${day})`;
             
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
               console.log(`[openflow-executor] business_hours_split: Out of business hours. Skipping ${skipCount} step(s).`);
@@ -2274,7 +2404,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
           else if (step.tipo === "semantic_router") {
             const ruleA = step.router_definition_a || "cliente quer comprar ou tirando dúvidas";
             const ruleB = step.router_definition_b || "cliente quer falar com atendente ou irritado";
-            const elseSkip = parseInt(step.else_skip) || 1;
+            const elseSkip = parseInt(String(step.else_skip)) || 1;
 
             let lastUserMessage = "";
             if (lead_data?.lead_id) {
@@ -2283,7 +2413,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                 .select("content")
                 .eq("project_id", project_id)
                 .eq("direction", "incoming")
-                .order("created_at", { descending: true })
+                .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle();
               if (lastMsg) {
@@ -2339,7 +2469,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   }
                 }
               } catch (llmErr) {
-                console.error("[openflow-executor] semantic_router classification error:", llmErr.message);
+                console.error("[openflow-executor] semantic_router classification error:", describeError(llmErr));
               }
 
               stepResult.status = "evaluated";
@@ -2359,7 +2489,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
           else if (step.tipo === "ia_scheduling") {
             if (lead_data?.lead_id) {
               const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-              const current = (ld as any)?.lead_memory || {};
+              const current = ld?.lead_memory || {};
               const updatedMemory = { ...current, conversation_phase: "scheduling", calendar_url: step.calendar_url || "" };
               await supabase.from("imphq_leads").update({ lead_memory: updatedMemory }).eq("id", lead_data.lead_id);
               if (leadDb) {
@@ -2372,14 +2502,14 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
           }
 
           else if (step.tipo === "condicao_lead") {
-            const field = step.condition_field;
+            const field = step.condition_field || "";
             const operator = step.condition_operator || "equals";
             const valToCompare = replaceVariables(step.condition_value || "", lead_data, leadDb);
             const jumpSteps = Number(step.condition_jump_steps ?? 1);
             const elseJumpSteps = Number(step.condition_else_jump_steps ?? 0);
 
             // Fetch actual value
-            let leadValue: any = null;
+            let leadValue: unknown = null;
             if (field === "nome") {
               leadValue = lead_data?.nome || leadDb?.name || "";
             } else if (field === "email") {
@@ -2456,13 +2586,13 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   const replacedHeaders = replaceVariables(step.webhook_headers, lead_data, leadDb);
                   const parsedHeaders = JSON.parse(replacedHeaders);
                   headersObj = { ...headersObj, ...parsedHeaders };
-                } catch (err: any) {
+                } catch (err) {
                   console.error("[openflow-executor] Error parsing webhook headers:", err);
-                  stepResult.headers_error = err.message;
+                  stepResult.headers_error = describeError(err);
                 }
               }
 
-              let fetchBody: any = undefined;
+              let fetchBody: BodyInit | undefined = undefined;
               if (method !== "GET" && step.webhook_body) {
                 const replacedBody = replaceVariables(step.webhook_body, lead_data, leadDb);
                 fetchBody = replacedBody;
@@ -2490,7 +2620,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
 
                 if (response.ok) {
                   if (saveKey && lead_data?.lead_id) {
-                    let parsedJson: any = null;
+                    let parsedJson: unknown = null;
                     try {
                       parsedJson = JSON.parse(responseBody);
                     } catch (err) {
@@ -2522,12 +2652,12 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   stepsFailed++;
                   failureMessages.push(`Webhook ${url} retornou status ${statusCode}`);
                 }
-              } catch (fetchErr: any) {
+              } catch (fetchErr) {
                 console.error("[openflow-executor] Webhook fetch error:", fetchErr);
                 stepResult.status = "error";
-                stepResult.reason = fetchErr.message;
+                stepResult.reason = describeError(fetchErr);
                 stepsFailed++;
-                failureMessages.push(`Erro de conexão ao webhook ${url}: ${fetchErr.message}`);
+                failureMessages.push(`Erro de conexão ao webhook ${url}: ${describeError(fetchErr)}`);
               }
             }
           }
@@ -2537,13 +2667,13 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "lead_id ausente";
             } else {
-              const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+              const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
               if (step.lead_score != null) updates.score = Number(step.lead_score);
               if (step.lead_stage) updates.stage = step.lead_stage;
               if (step.lead_tags) {
                 const newTags = step.lead_tags.split(",").map((t: string) => t.trim()).filter(Boolean);
                 const { data: ld } = await supabase.from("imphq_leads").select("tags").eq("id", lead_data.lead_id).maybeSingle();
-                updates.tags = [...new Set([...((ld as any)?.tags || []), ...newTags])];
+                updates.tags = [...new Set([...(ld?.tags || []), ...newTags])];
               }
               const { error: qErr } = await supabase.from("imphq_leads").update(updates).eq("id", lead_data.lead_id);
               stepResult.status = qErr ? "error" : "completed";
@@ -2556,7 +2686,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
             const notificationMsg = replaceVariables(step.template || step.mensagem || "", lead_data, leadDb);
             const leadName = lead_data?.nome || leadDb?.name || "Lead";
 
-            let targetUserIds: string[] = [];
+            const targetUserIds: string[] = [];
 
             if (opName.toLowerCase() !== "todos") {
               const { data: member } = await supabase
@@ -2585,7 +2715,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                 .select("user_id")
                 .eq("is_active", true);
               if (members) {
-                members.forEach((m: any) => {
+                members.forEach((m) => {
                   if (m.user_id && !targetUserIds.includes(m.user_id)) {
                     targetUserIds.push(m.user_id);
                   }
@@ -2626,8 +2756,8 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                       message: notificationMsg || `O lead ${leadName} solicitou atenção do atendente.`,
                     }),
                   });
-                } catch (pushErr: any) {
-                  console.error(`[openflow-executor] Push send error for user ${uid}:`, pushErr.message);
+                } catch (pushErr) {
+                  console.error(`[openflow-executor] Push send error for user ${uid}:`, describeError(pushErr));
                 }
               }
             }
@@ -2730,7 +2860,7 @@ Instruções Adicionais:
                 "gpt-4o": "openai/gpt-4o",
                 "gpt-4o-mini": "google/gemini-2.5-flash"
               };
-              const selectedModel = modelMap[step.gpt_model] || "google/gemini-2.5-flash";
+              const selectedModel = modelMap[step.gpt_model || ""] || "google/gemini-2.5-flash";
 
               const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -2926,7 +3056,7 @@ Instruções Adicionais:
             const intervalHours = Number(step.loop_interval_hours ?? 24);
             const targetStep = Math.max(0, i - jumpBack);
 
-            const loopCountSoFar = stepResults.filter((r: any) => r.step === i && r.status === "completed").length;
+            const loopCountSoFar = stepResults.filter((r) => r.step === i && r.status === "completed").length;
 
             if (loopCountSoFar >= loopCount) {
               stepResult.status = "completed";
@@ -2940,7 +3070,7 @@ Instruções Adicionais:
                 const operator = step.loop_until_condition_operator || "equals";
                 const valToCompare = replaceVariables(step.loop_until_condition_value || "", lead_data, leadDb);
 
-                let leadValue: any = null;
+                let leadValue: unknown = null;
                 if (field === "nome") {
                   leadValue = lead_data?.nome || leadDb?.name || "";
                 } else if (field === "email") {
@@ -3033,7 +3163,7 @@ Instruções Adicionais:
                 ].filter(Boolean).join("\n") : "";
 
                 const qa = Array.isArray(agent.qa_pairs) && agent.qa_pairs.length
-                  ? `\n\nExemplos Q&A:\n${agent.qa_pairs.slice(0, 10).map((q: any) => `P: ${q.pergunta || q.q}\nR: ${q.resposta || q.a}`).join("\n\n")}`
+                  ? `\n\nExemplos Q&A:\n${agent.qa_pairs.slice(0, 10).map((q: unknown) => `P: ${record(q).pergunta || record(q).q}\nR: ${record(q).resposta || record(q).a}`).join("\n\n")}`
                   : "";
 
                 // RAG: busca trechos relevantes na base de conhecimento do agente
@@ -3052,16 +3182,16 @@ Instruções Adicionais:
                       const qEmb = ej?.data?.[0]?.embedding;
                       if (qEmb) {
                         const { data: matches } = await supabase.rpc("match_agent_knowledge", {
-                          p_agent_id: agentId, query_embedding: qEmb as any, match_count: 4, min_similarity: 0.45,
+                          p_agent_id: agentId, query_embedding: qEmb, match_count: 4, min_similarity: 0.45,
                         });
                         if (Array.isArray(matches) && matches.length) {
-                          ragContext = `\n\n# Trechos relevantes da base\n${matches.map((m: any, i: number) => `[${i + 1}] (${m.source_name}) ${String(m.content).slice(0, 500)}`).join("\n\n")}`;
+                          ragContext = `\n\n# Trechos relevantes da base\n${matches.map((m: { source_name: string; content: string }, i: number) => `[${i + 1}] (${m.source_name}) ${String(m.content).slice(0, 500)}`).join("\n\n")}`;
                         }
                       }
                     }
                   }
-                } catch (e: any) {
-                  console.warn(`[ai_agent] RAG falhou: ${e?.message}`);
+                } catch (e) {
+                  console.warn(`[ai_agent] RAG falhou: ${describeError(e)}`);
                 }
 
                 const systemPrompt = [
@@ -3098,8 +3228,8 @@ Instruções Adicionais:
                       const d = await orRes.json();
                       agentMsg = (d?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
                     }
-                  } catch (e: any) {
-                    console.warn(`[ai_agent] LLM falhou: ${e?.message}`);
+                  } catch (e) {
+                    console.warn(`[ai_agent] LLM falhou: ${describeError(e)}`);
                   }
                 }
                 if (!agentMsg) agentMsg = replaceVariables(step.mensagem || "Olá!", lead_data, leadDb);
@@ -3107,7 +3237,7 @@ Instruções Adicionais:
                 // Salva em variável opcional
                 if (step.ai_agent_save_variable && lead_data?.lead_id) {
                   const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-                  const current = (ld as any)?.lead_memory || {};
+                  const current = ld?.lead_memory || {};
                   const updated = { ...current, [step.ai_agent_save_variable]: agentMsg };
                   await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
                   if (leadDb) leadDb.lead_memory = updated;
@@ -3198,7 +3328,7 @@ Instruções Adicionais:
               // Salva variável
               if (step.distrib_save_variable && lead_data?.lead_id) {
                 const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-                const current = (ld as any)?.lead_memory || {};
+                const current = ld?.lead_memory || {};
                 const updated = { ...current, [step.distrib_save_variable]: { id: chosen.id, nome: chosen.nome } };
                 await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
                 if (leadDb) leadDb.lead_memory = updated;
@@ -3214,17 +3344,17 @@ Instruções Adicionais:
             stepResult.status = "unknown_type";
             stepResult.reason = `Tipo "${step.tipo}" não reconhecido`;
           }
-        } catch (stepErr: any) {
+        } catch (stepErr) {
           stepResult.status = "error";
-          stepResult.error = stepErr.message;
+          stepResult.error = describeError(stepErr);
           stepsFailed++;
-          failureMessages.push(`Step ${i} (${step.tipo}): ${stepErr.message}`);
+          failureMessages.push(`Step ${i} (${step.tipo}): ${describeError(stepErr)}`);
           // Só interrompe o fluxo se o step for crítico
           if (isCriticalStep(step.tipo)) {
             status = "failed";
-            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${stepErr.message}`;
-            (stepResult as any)._failed_step_index = i;
-            (stepResult as any)._failed_step_kind = step.tipo;
+            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${describeError(stepErr)}`;
+            stepResult._failed_step_index = i;
+            stepResult._failed_step_kind = step.tipo;
           }
         }
 
@@ -3253,7 +3383,7 @@ Instruções Adicionais:
           .maybeSingle();
         const retryCount = (execRow?.retry_count ?? 0) + 1;
         const maxRetries = execRow?.max_retries ?? 4;
-        const failedResult = stepResults.find((s: any) => s._failed_step_index !== undefined);
+        const failedResult = stepResults.find((s) => s._failed_step_index !== undefined);
         const failedIdx = failedResult?._failed_step_index ?? 0;
         const failedKind = failedResult?._failed_step_kind ?? "unknown";
         // Backoff exponencial (minutos): 1, 5, 15, 60, 360
@@ -3345,9 +3475,9 @@ Instruções Adicionais:
       results,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (e: any) {
+  } catch (e) {
     console.error("[openflow-executor] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: describeError(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useMemo, useEffect, useState } from "react";
 import {
   ReactFlow,
@@ -45,10 +47,12 @@ import {
   Plus,
   ChevronLeft,
 } from "lucide-react";
-import type { Acao } from "./FlowEditor";
+import type { Acao } from "@/components/openflow/FlowEditor";
+
+type ActionNodeData = { tipo: string; label: string; index: number; delay_min?: number; acao: Partial<Acao>; stats?: { reached: number; completed: number; waiting: number; failed: number } };
 
 // ── Node type metadata map ───────────────────────────────────
-const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: string; label: string }> = {
+const NODE_META: Record<string, { color: string; bg: string; icon: LucideIcon; emoji: string; label: string }> = {
   whatsapp:        { color: "#22c55e", bg: "#022c22", icon: MessageCircle, emoji: "💬", label: "WhatsApp" },
   email:           { color: "#3b82f6", bg: "#1e3a8a", icon: Mail, emoji: "✉️", label: "Email" },
   audio:           { color: "#ec4899", bg: "#881337", icon: Mic, emoji: "🎙️", label: "Áudio IA" },
@@ -83,7 +87,7 @@ const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: s
 };
 
 // ── Custom Node Component ──────────────────────────────────────
-function ActionNode({ data, selected }: { data: any; selected: boolean }) {
+function ActionNode({ data, selected }: { data: ActionNodeData; selected: boolean }) {
   const meta = NODE_META[data.tipo] || NODE_META.default;
   const acao = data.acao || {};
 
@@ -154,7 +158,7 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
       {data.tipo === "ia_message" && Array.isArray(acao.ia_routes) && acao.ia_routes.length > 0 && (
         <div className="mt-2 space-y-1.5 border-t border-white/5 pt-2 select-none">
           <p className="text-[8px] font-bold uppercase tracking-wider text-purple-400 mb-1">Rotas de Resposta:</p>
-          {acao.ia_routes.map((route: any, rIdx: number) => (
+          {acao.ia_routes.map((route, rIdx) => (
             <div key={rIdx} className="relative flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded px-2 py-1 text-[9px] text-slate-300 font-semibold shadow-sm">
               <span className="truncate pr-4">{route.name || `Rota ${rIdx + 1}`}</span>
               <Handle
@@ -348,8 +352,8 @@ function acoesToNodesEdges(
   stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>,
   flowObjective?: string,
   onUpdateObjective?: (objective: string) => void
-): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [];
+): { nodes: Node<ActionNodeData>[]; edges: Edge[] } {
+  const nodes: Node<ActionNodeData>[] = [];
   const edges: Edge[] = [];
   
   // Grid layout parameters
@@ -371,7 +375,7 @@ function acoesToNodesEdges(
 
   // Resolve unique node ids (protects React Flow from silently dropping duplicates)
   const seen = new Set<string>(["trigger"]);
-  const resolvedIds: string[] = acoes.map((acao: any, i) => {
+  const resolvedIds: string[] = acoes.map((acao, i) => {
     let candidate = acao.id || `step-${i}`;
     if (seen.has(candidate)) {
       const base = candidate;
@@ -387,7 +391,7 @@ function acoesToNodesEdges(
   });
 
   // 2. Add Action Nodes
-  acoes.forEach((acao: any, i) => {
+  acoes.forEach((acao, i) => {
     const id = resolvedIds[i];
     let label = acao.template || acao.webhook_url || acao.tag || "";
     
@@ -434,7 +438,7 @@ function acoesToNodesEdges(
 
     // ── SEQUENTIAL CONNECTIONS ──
     // Determine the source node for the sequential connection
-    let sourceId = i === 0 ? "trigger" : resolvedIds[i - 1];
+    const sourceId = i === 0 ? "trigger" : resolvedIds[i - 1];
     
     // If the action has an explicit next_id, we'll use that for the connection
     // But for now we still support the legacy sequential flow by default if no explicit connection exists
@@ -590,7 +594,7 @@ function acoesToNodesEdges(
 
     // Handle branching jumps for Conversational AI (ia_message routes)
     if (acao.tipo === "ia_message" && Array.isArray(acao.ia_routes) && acao.ia_routes.length > 0) {
-      acao.ia_routes.forEach((route: any, rIdx: number) => {
+      acao.ia_routes.forEach((route, rIdx) => {
         const jumpVal = route.jump_steps || 0;
         const jumpTarget = i + 1 + jumpVal;
         if (jumpTarget < acoes.length) {
@@ -729,7 +733,7 @@ export function FlowEditorCanvas({
   }, [initEdges, setEdges]);
 
   const handleNodeClick = useCallback(
-    (_: any, node: Node) => {
+    (_: ReactMouseEvent, node: Node) => {
       const idx = node.data?.index as number | undefined;
       if (idx !== undefined && idx >= 0 && onActionSelect) {
         onActionSelect(idx);
@@ -739,7 +743,7 @@ export function FlowEditorCanvas({
   );
 
   const handleNodeDragStop = useCallback(
-    (_event: any, node: Node) => {
+    (_event: MouseEvent | TouchEvent, node: Node) => {
       const idx = node.data?.index as number | undefined;
       if (idx !== undefined && idx >= 0) {
         const updatedAcoes = [...acoes];
@@ -769,7 +773,7 @@ export function FlowEditorCanvas({
         } else if (params.sourceHandle === "branch-false") {
           updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], false_next_id: targetId };
         } else if (params.sourceHandle?.startsWith("route-")) {
-          updatedAcoes[sourceIdx] = { ...updatedAcaoInIdx(updatedAcoes, sourceIdx), next_id: targetId };
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
         } else {
           updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
         }
@@ -778,11 +782,6 @@ export function FlowEditorCanvas({
     },
     [nodes, acoes, onChange, setEdges]
   );
-
-  // Helper function to handle potential undefined
-  function updatedAcaoInIdx(arr: any[], idx: number) {
-    return arr[idx] || {};
-  }
 
   return (
     <div className="flex-1 w-full h-full relative" style={{ minHeight: "530px" }}>
@@ -821,7 +820,7 @@ export function FlowEditorCanvas({
             boxShadow: "0 10px 30px -10px rgba(0,0,0,0.6)",
           }}
           nodeColor={(n) => {
-            const meta = NODE_META[(n.data as any)?.tipo] || NODE_META.default;
+            const meta = NODE_META[typeof n.data.tipo === "string" ? n.data.tipo : "default"] || NODE_META.default;
             return meta.color;
           }}
           nodeStrokeWidth={2}

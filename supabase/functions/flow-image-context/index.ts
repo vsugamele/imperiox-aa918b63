@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const blueprintSchema = z.object({ title: z.string().nullish(), nodes: z.array(z.object({ blocks: z.array(z.object({ id: z.string() }).passthrough()).nullish() }).passthrough()).nullish() }).passthrough();
+function makeClient(url: string, key: string) { return createClient(url, key); }
 // Geração de imagens dos nós do OpenFlow com contexto rico:
 // branding do projeto + site de referência vinculado ao funil + imagem de referência opcional.
 // Tipos: mockup_pagina | mensagem_autoridade | icone
@@ -20,7 +23,7 @@ const TEMPLATES: Record<Tipo, (ctx: string, extra: string) => string> = {
     `Gere um ÍCONE/ilustração minimalista representando o passo do funil.\n\nContexto:\n${ctx}\n\nInstruções: ${extra || "estilo flat, alto contraste"}.\n\nRequisitos: fundo transparente conceitual, paleta da marca, sem texto.`,
 };
 
-async function buildContext(supa: any, blueprint: any, projectId?: string): Promise<string> {
+async function buildContext(supa: ReturnType<typeof makeClient>, blueprint: z.infer<typeof blueprintSchema>, projectId?: string): Promise<string> {
   const parts: string[] = [];
 
   if (projectId) {
@@ -40,7 +43,7 @@ async function buildContext(supa: any, blueprint: any, projectId?: string): Prom
     // Site de referência vinculado ao projeto/funil
     const { data: sites } = await supa.from("imphq_sites").select("data,url,title").eq("project_id", projectId).limit(2);
     if (sites?.length) {
-      sites.forEach((s: any, i: number) => {
+      sites.forEach((s, i: number) => {
         const sd = typeof s.data === "string" ? JSON.parse(s.data) : (s.data || {});
         const ref: string[] = [`Site ref #${i + 1} (${s.url || s.title})`];
         if (sd?.palette || sd?.cores) ref.push(`paleta=${JSON.stringify(sd.palette || sd.cores).slice(0, 120)}`);
@@ -56,7 +59,7 @@ async function buildContext(supa: any, blueprint: any, projectId?: string): Prom
 }
 
 async function genWithGemini(prompt: string, refImageUrl?: string): Promise<Uint8Array> {
-  const content: any[] = [{ type: "text", text: prompt }];
+  const content: ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] = [{ type: "text", text: prompt }];
   if (refImageUrl) content.push({ type: "image_url", image_url: { url: refImageUrl } });
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -96,7 +99,7 @@ Deno.serve(async (req) => {
     const { data: bp } = await supa.from("imphq_flow_blueprints").select("*").eq("id", blueprint_id).maybeSingle();
     if (!bp) throw new Error("Blueprint não encontrado");
 
-    const ctx = await buildContext(supa, bp.blueprint, bp.project_id);
+    const ctx = await buildContext(supa, blueprintSchema.parse(bp.blueprint), bp.project_id);
     const tpl = TEMPLATES[tipo as Tipo] || TEMPLATES.mockup_pagina;
     const prompt = tpl(ctx, extra);
 
@@ -110,10 +113,10 @@ Deno.serve(async (req) => {
     const image_url = signed?.signedUrl;
 
     // Atualiza blueprint inline
-    const blueprint: any = bp.blueprint;
-    blueprint.nodes = (blueprint.nodes || []).map((n: any) => ({
+    const blueprint = blueprintSchema.parse(bp.blueprint);
+    blueprint.nodes = (blueprint.nodes || []).map((n) => ({
       ...n,
-      blocks: (n.blocks || []).map((b: any) =>
+      blocks: (n.blocks || []).map((b) =>
         b.id === block_id ? { ...b, image_url, image_prompt: prompt.slice(0, 500), image_tipo: tipo } : b
       ),
     }));
@@ -135,9 +138,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ image_url, prompt }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("flow-image-context", e);
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+    return new Response(JSON.stringify({ error: eMessage || "erro" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

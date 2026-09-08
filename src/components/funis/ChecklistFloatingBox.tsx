@@ -1,3 +1,4 @@
+import type { Product } from "@/lib/funis-data";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Plus, X, Minus, GripVertical, ExternalLink, AlertTriangle, Send, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   projectId: string | null;
-  products: any[];
+  products: Product[];
   currentProductName?: string | null;
   onSwitchProduct?: (idx: number) => void;
   onOpenFull?: () => void;
@@ -55,7 +56,7 @@ export function ChecklistFloatingBox({ projectId, products, currentProductName, 
         if (it.due_date && new Date(it.due_date).getTime() < now) e.overdue++;
       }
     }
-    const rows = (products || []).map((p: any) => {
+    const rows = (products || []).map((p) => {
       const name = p?.nome || p?.name || "";
       const k = name.trim().toLowerCase();
       const stats = byProd.get(k) || { pending: 0, overdue: 0 };
@@ -81,7 +82,8 @@ export function ChecklistFloatingBox({ projectId, products, currentProductName, 
   };
   const onPointerUp = (e: React.PointerEvent) => {
     dragRef.current = null;
-    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+    const target = e.currentTarget;
+    if (target.hasPointerCapture(e.pointerId)) target.releasePointerCapture(e.pointerId);
   };
 
   const handleAdd = async () => {
@@ -138,7 +140,7 @@ export function ChecklistFloatingBox({ projectId, products, currentProductName, 
                 <button
                   key={r.k}
                   onClick={() => {
-                    const idx = products.findIndex((p: any) => (p?.nome || p?.name || "").trim().toLowerCase() === r.k);
+                    const idx = products.findIndex((p) => (p?.nome || p?.name || "").trim().toLowerCase() === r.k);
                     if (idx >= 0) onSwitchProduct?.(idx);
                   }}
                   className={cn(

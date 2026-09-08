@@ -1,6 +1,8 @@
+import { errorMessage } from "@/lib/error-message";
+declare global { interface Window { __APP_BUILD__?: string } }
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
+import App from "@/App";
+import "@/index.css";
 
 // PWA guard: prevent service worker / cache issues in iframe / Lovable preview contexts.
 // The Lovable editor renders the app inside an iframe; if a previously-registered SW
@@ -26,7 +28,7 @@ const isPreviewHost =
 
 // Build stamp — read it in the console (`__APP_BUILD__`) to know which build is live.
 try {
-  (window as any).__APP_BUILD__ = __APP_BUILD__;
+  window.__APP_BUILD__ = __APP_BUILD__;
   console.info(`[build] ${__APP_BUILD__} @ ${host}`);
 } catch {
   /* noop */
@@ -85,6 +87,6 @@ window.addEventListener(
   },
   true, // capture: resource errors don't bubble
 );
-window.addEventListener("unhandledrejection", (e) => tryRecover(String((e as any)?.reason?.message || (e as any)?.reason || "")));
+window.addEventListener("unhandledrejection", (e) => tryRecover(errorMessage(e.reason)));
 
 createRoot(document.getElementById("root")!).render(<App />);

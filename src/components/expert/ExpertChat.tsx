@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,8 @@ export function ExpertChat({ messages, onSend, contextLabel, contentId, compact 
     try {
       await onSend(text, contentId);
       setDraft("");
-    } catch (e: any) {
-      toast.error("Erro ao enviar: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro ao enviar: " + (errorMessage(e) || ""));
     } finally {
       setSending(false);
     }

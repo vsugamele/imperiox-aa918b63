@@ -30,7 +30,10 @@ async function embed(text: string): Promise<number[] | null> {
   } catch { return null; }
 }
 
-async function processarVenda(supabase: any, venda: any) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface LearningSale { id: string; lead_id: string | null; project_id: string | null; data_venda: string | null; created_at: string; produto_nome?: string | null; valor?: number | null }
+interface KnowledgeInsert { project_id: string; pergunta: string; resposta: string; source: string; aprovada: boolean; score_uso: number; conversation_id: string; lead_id: string; answered: boolean; embedding?: number[] }
+async function processarVenda(supabase: ReturnType<typeof makeClient>, venda: LearningSale) {
   const leadId = venda.lead_id;
   const projectId = venda.project_id;
   if (!leadId || !projectId) {
@@ -82,7 +85,7 @@ async function processarVenda(supabase: any, venda: any) {
     .order("created_at", { ascending: false })
     .limit(40);
 
-  const msgsOrdered = (msgs || []).reverse().filter((m: any) => m.content && m.content.trim());
+  const msgsOrdered = (msgs || []).reverse().filter((m) => m.content && m.content.trim());
   if (msgsOrdered.length < 4) {
     await supabase.from("imphq_vendas").update({ learned_at: new Date().toISOString() }).eq("id", venda.id);
     return { ok: false, venda_id: venda.id, reason: "conversa muito curta" };
@@ -90,13 +93,13 @@ async function processarVenda(supabase: any, venda: any) {
 
   // Constrói pares pergunta(lead) -> resposta(IA/atendente) de alto valor
   // Estratégia: pega a primeira mensagem do lead e a última resposta da casa antes da venda
-  const inbound = msgsOrdered.filter((m: any) => m.direction === "inbound" || m.role === "user");
-  const outbound = msgsOrdered.filter((m: any) => m.direction === "outbound" || m.role === "assistant");
+  const inbound = msgsOrdered.filter((m) => m.direction === "inbound" || m.role === "user");
+  const outbound = msgsOrdered.filter((m) => m.direction === "outbound" || m.role === "assistant");
 
   const pergunta = inbound[0]?.content?.slice(0, 1500) || msgsOrdered[0]?.content?.slice(0, 1500);
-  const resposta_seq = outbound.slice(-3).map((m: any) => m.content).join("\n---\n").slice(0, 3000);
+  const resposta_seq = outbound.slice(-3).map((m) => m.content).join("\n---\n").slice(0, 3000);
   const conversa_full = msgsOrdered
-    .map((m: any) => `${m.direction === "inbound" || m.role === "user" ? "LEAD" : "CASA"}: ${m.content}`)
+    .map((m) => `${m.direction === "inbound" || m.role === "user" ? "LEAD" : "CASA"}: ${m.content}`)
     .join("\n")
     .slice(0, 5500);
 
@@ -108,7 +111,7 @@ async function processarVenda(supabase: any, venda: any) {
   const embedTxt = `${pergunta}\n\n${resposta_seq}`;
   const vec = await embed(embedTxt);
 
-  const insertRow: any = {
+  const insertRow: KnowledgeInsert = {
     project_id: projectId,
     pergunta,
     resposta: resposta_seq,
@@ -157,7 +160,7 @@ serve(async (req) => {
       const body = await req.json();
       venda_id = body?.venda_id || null;
       limit = Math.min(body?.limit || 20, 50);
-    } catch {}
+    } catch { /* Optional body: cron calls may omit JSON. */ }
 
     let vendasQuery = supabase
       .from("imphq_vendas")
@@ -181,18 +184,20 @@ serve(async (req) => {
     for (const v of vendas || []) {
       try {
         results.push(await processarVenda(supabase, v));
-      } catch (e: any) {
-        console.error("[wa-learn-from-sale] erro venda", v.id, e?.message);
-        results.push({ ok: false, venda_id: v.id, reason: e?.message });
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        console.error("[wa-learn-from-sale] erro venda", v.id, eMessage);
+        results.push({ ok: false, venda_id: v.id, reason: eMessage });
       }
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-learn-from-sale] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+    return new Response(JSON.stringify({ ok: false, error: eMessage || String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

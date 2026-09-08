@@ -1,3 +1,6 @@
+import { errorMessage } from "@/lib/error-message";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import type { Json } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +18,7 @@ interface ZernioProjectRow {
   zernio_health_ok: boolean | null;
   zernio_ads_last_sync: string | null;
   zernio_ads_last_sync_status: string | null;
-  zernio_ads_last_sync_stats: any;
+  zernio_ads_last_sync_stats: Json;
   api_key_masked: string;
 }
 
@@ -35,25 +38,25 @@ export function ZernioTab() {
       if (error) throw error;
 
       const mapped: ZernioProjectRow[] = (data || [])
-        .filter((r: any) => r.credentials?.zernio_api_key || r.credentials?.zernio_ad_account_id)
-        .map((r: any) => {
-          const c = r.credentials || {};
-          const key: string = c.zernio_api_key || "";
+        .filter((r) => { const c = jsonFields(r.credentials); return jsonText(c.zernio_api_key) || jsonText(c.zernio_ad_account_id); })
+        .map((r) => {
+          const c = jsonFields(r.credentials);
+          const key = jsonText(c.zernio_api_key) || "";
           return {
             project_id: r.project_id,
-            has_token: !!c.zernio_api_key,
-            zernio_account_id: c.zernio_account_id || null,
-            zernio_ad_account_id: c.zernio_ad_account_id || null,
-            zernio_health_ok: c.zernio_health_ok ?? null,
-            zernio_ads_last_sync: c.zernio_ads_last_sync || null,
-            zernio_ads_last_sync_status: c.zernio_ads_last_sync_status || null,
+            has_token: !!key,
+            zernio_account_id: jsonText(c.zernio_account_id) || null,
+            zernio_ad_account_id: jsonText(c.zernio_ad_account_id) || null,
+            zernio_health_ok: typeof c.zernio_health_ok === "boolean" ? c.zernio_health_ok : null,
+            zernio_ads_last_sync: jsonText(c.zernio_ads_last_sync) || null,
+            zernio_ads_last_sync_status: jsonText(c.zernio_ads_last_sync_status) || null,
             zernio_ads_last_sync_stats: c.zernio_ads_last_sync_stats || null,
             api_key_masked: key ? `${key.slice(0, 4)}••••${key.slice(-4)}` : "—",
           };
         });
       setRows(mapped);
-    } catch (err: any) {
-      toast.error("Erro ao carregar Zernio: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao carregar Zernio: " + errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -103,7 +106,8 @@ export function ZernioTab() {
             </TableHeader>
             <TableBody>
               {rows.map((r) => {
-                const stats = r.zernio_ads_last_sync_stats;
+                const rawStats = jsonFields(r.zernio_ads_last_sync_stats);
+                const stats = r.zernio_ads_last_sync_stats ? { imported: jsonNumber(rawStats.imported) ?? 0, ads: jsonNumber(rawStats.ads) ?? 0, campaigns: jsonNumber(rawStats.campaigns) ?? 0 } : null;
                 const importing = stats && (stats.imported > 0 || stats.ads > 0);
                 return (
                   <TableRow key={r.project_id}>

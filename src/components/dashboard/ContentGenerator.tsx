@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import { Sparkles, Loader2, Zap, Filter, Library, Compass } from "lucide-react";
 import { CONTENT_TYPES, TRIGGERS, FUNNEL_STAGES, type GeneratedItem, type StatusKey } from "./contentGenerator/constants";
 import { ResultCard } from "./contentGenerator/ResultCard";
 import { CreativeMatrix } from "../studio/CreativeMatrix";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+import { jsonFields, objectFields, jsonText } from "@/lib/json-fields";
 
 // Ângulos psicológicos para variações em lote — cada variação ataca por um ângulo distinto.
 const ANGLES = [
@@ -25,7 +28,7 @@ const ANGLES = [
 ];
 
 export function ContentGenerator() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">, "id" | "name" | "icon">[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [contentType, setContentType] = useState("recovery_email");
   const [trigger, setTrigger] = useState("carrinho_abandonado");
@@ -34,7 +37,7 @@ export function ContentGenerator() {
   const [showMatrix, setShowMatrix] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [batchCount, setBatchCount] = useState(3);
-  const [swipes, setSwipes] = useState<any[]>([]);
+  const [swipes, setSwipes] = useState<Pick<Tables<"imphq_swipes">, "id" | "title" | "criador" | "mecanismo" | "nicho" | "blocks" | "reverse_engineering">[]>([]);
   const [inspirationSwipeId, setInspirationSwipeId] = useState<string>("none");
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState<GeneratedItem[]>([]);
@@ -45,7 +48,7 @@ export function ContentGenerator() {
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name, icon").then(({ data }) => {
       if (data) setProjects(data);
-      if (data?.length && !selectedProject) setSelectedProject(data[0].id);
+      if (data?.length) setSelectedProject(current => current || data[0].id);
     });
     loadHistory();
     loadSwipes();
@@ -73,7 +76,7 @@ export function ContentGenerator() {
       .order("created_at", { ascending: false })
       .limit(80);
     if (data) {
-      setResults(data.map((d: any) => ({
+      setResults(data.map((d) => ({
         id: d.id,
         type: d.content_type,
         content: d.content,
@@ -92,8 +95,8 @@ export function ContentGenerator() {
     if (inspirationSwipeId === "none") return "";
     const s = swipes.find(x => x.id === inspirationSwipeId);
     if (!s) return "";
-    const blocks = s.blocks || {};
-    const re = s.reverse_engineering || {};
+    const blocks = jsonFields(s.blocks);
+    const re = jsonFields(s.reverse_engineering);
     return `\n\n=== INSPIRAÇÃO (Swipe File) ===
 Use a ESTRUTURA e o RITMO da copy abaixo como modelo, mas REESCREVA 100% adaptado ao projeto/avatar — não copie texto literal.
 Título de referência: ${s.title}${s.criador ? ` (${s.criador})` : ""}
@@ -179,10 +182,10 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
         }, ...prev]);
         toast.success("Conteúdo gerado!");
       }
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar conteúdo");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar conteúdo");
     } finally {
       setGenerating(false);
     }
@@ -211,12 +214,12 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
   const saveToCopyArsenal = async (content: string) => {
     if (!selectedProject) return;
     const { data: project } = await supabase.from("imphq_projects").select("data").eq("id", selectedProject).single();
-    const data = (project?.data as any) || {};
-    const produtos = data.produtos || [];
+    const data = jsonFields(project?.data);
+    const produtos = Array.isArray(data.produtos) ? [...data.produtos] : [];
     if (produtos.length === 0) { toast.error("Crie um produto no projeto antes."); return; }
-    const prod = produtos[0];
-    const ca = prod.copy_arsenal || {};
-    ca.headlines = [...(ca.headlines || []), { texto: content.slice(0, 500), origem: "ia-gerado", data: new Date().toISOString() }];
+    const prod = jsonFields(produtos[0]);
+    const ca = jsonFields(prod.copy_arsenal);
+    ca.headlines = [...(Array.isArray(ca.headlines) ? ca.headlines : []), { texto: content.slice(0, 500), origem: "ia-gerado", data: new Date().toISOString() }];
     produtos[0] = { ...prod, copy_arsenal: ca };
     const { error } = await supabase.from("imphq_projects").update({ data: { ...data, produtos } }).eq("id", selectedProject);
     if (error) toast.error("Erro: " + error.message);
@@ -224,7 +227,7 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
   };
 
   const changeStatus = async (id: string, status: StatusKey) => {
-    const update: any = { status };
+    const update: TablesUpdate<"imphq_generated_contents"> = { status };
     if (status === "aprovado") {
       const { data: u } = await supabase.auth.getUser();
       update.approved_at = new Date().toISOString();
@@ -250,28 +253,29 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
         },
       });
       if (error) throw error;
-      const newItems: GeneratedItem[] = (data?.items || []).map((it: any) => ({
-        id: it.id,
-        type: it.content_type,
-        content: it.content,
+      const response = objectFields(data);
+      const newItems: GeneratedItem[] = (Array.isArray(response.items) ? response.items : []).map(objectFields).map((it) => ({
+        id: jsonText(it.id),
+        type: jsonText(it.content_type),
+        content: jsonText(it.content),
         timestamp: Date.now(),
         status: (it.status || "rascunho") as StatusKey,
-        cluster_id: it.cluster_id,
-        cluster_role: it.cluster_role,
+        cluster_id: jsonText(it.cluster_id),
+        cluster_role: jsonText(it.cluster_role),
         funnel_stage: item.funnel_stage,
         source_idea: item.content.slice(0, 2000),
       }));
       setResults(prev => [...newItems, ...prev]);
-      const failed = data?.failed_formats || [];
+      const failed = (Array.isArray(response.failed_formats) ? response.failed_formats : []).map(objectFields);
       if (failed.length) {
         toast.warning(
-          `Cluster gerado com ${failed.length} formato(s) com erro: ${failed.map((f: any) => f.label).join(", ")}. Use "Tentar novamente" no card.`
+          `Cluster gerado com ${failed.length} formato(s) com erro: ${failed.map((f) => jsonText(f.label)).join(", ")}. Use "Tentar novamente" no card.`
         );
       } else {
         toast.success(`Cluster gerado: ${newItems.length} formatos derivados!`);
       }
-    } catch (err: any) {
-      toast.error("Erro ao expandir cluster: " + (err.message || "desconhecido"));
+    } catch (err: unknown) {
+      toast.error("Erro ao expandir cluster: " + (errorMessage(err) || "desconhecido"));
     } finally {
       setExpandingClusterId(null);
     }
@@ -314,8 +318,8 @@ Esqueleto: ${JSON.stringify(re.skeleton || re.formula || blocks).slice(0, 1200)}
           toast.success(`${item.cluster_role.replace(/_/g, " ")} regenerado!`);
         }
       }
-    } catch (err: any) {
-      toast.error("Erro: " + (err.message || "desconhecido"));
+    } catch (err: unknown) {
+      toast.error("Erro: " + (errorMessage(err) || "desconhecido"));
     } finally {
       setExpandingClusterId(null);
     }

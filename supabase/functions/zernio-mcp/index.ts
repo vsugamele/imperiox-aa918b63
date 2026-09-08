@@ -13,14 +13,14 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ZERNIO_MCP_URL = "https://mcp.zernio.com/mcp";
 
-function json(d: any, s = 200) {
+function json(d: unknown, s = 200) {
   return new Response(JSON.stringify(d), {
     status: s,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
-async function rpc(apiKey: string, method: string, params: any = {}) {
+async function rpc(apiKey: string, method: string, params: Record<string, unknown> = {}) {
   const res = await fetch(ZERNIO_MCP_URL, {
     method: "POST",
     headers: {
@@ -47,12 +47,12 @@ async function rpc(apiKey: string, method: string, params: any = {}) {
   // SSE: parsear o último frame "data: {...}"
   if (ctype.includes("text/event-stream")) {
     const frames = text.split("\n\n").map((b) => b.trim()).filter(Boolean);
-    let last: any = null;
+    let last: { error?: unknown; result?: unknown } | null = null;
     for (const f of frames) {
       const lines = f.split("\n").filter((l) => l.startsWith("data: "));
       if (!lines.length) continue;
       const payload = lines.map((l) => l.slice(6)).join("\n");
-      try { last = JSON.parse(payload); } catch { /* ignore */ }
+      try { const parsed: unknown = JSON.parse(payload); if (parsed && typeof parsed === "object") last = parsed; } catch { /* ignore */ }
     }
     if (!last) return { ok: false, status: 502, error: "SSE vazio" };
     if (last.error) return { ok: false, status: 400, error: last.error };
@@ -143,8 +143,9 @@ Deno.serve(async (req) => {
     } catch { /* tabela pode não existir ou ter outro schema; ignora */ }
 
     return json(r, r.ok ? 200 : r.status);
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[zernio-mcp]", e);
-    return json({ error: e?.message || "erro interno" }, 500);
+    return json({ error: eMessage || "erro interno" }, 500);
   }
 });

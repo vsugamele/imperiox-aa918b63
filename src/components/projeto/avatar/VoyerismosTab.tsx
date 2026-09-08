@@ -1,26 +1,29 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
-import { AIGenerateButton } from "../AIGenerateButton";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 interface Props {
-  avatar: any;
-  onUpdate: (avatar: any) => void;
+  avatar: Json;
+  onUpdate: (avatar: Json) => void;
   projectId?: string;
 }
 
-export function VoyerismosTab({ avatar, onUpdate, projectId }: Props) {
-  const voyerismos = avatar.voyerismos || [];
+export function VoyerismosTab({ avatar: rawAvatar, onUpdate, projectId }: Props) {
+  const avatar = jsonFields(rawAvatar);
+  const voyerismos = Array.isArray(avatar.voyerismos) ? avatar.voyerismos.map(jsonFields) : [];
 
   const add = () => onUpdate({
     ...avatar,
     voyerismos: [...voyerismos, { nome: "", intensidade: "", situacao: "", sintoma_fisico: "", pensamento: "", comportamento: "", uso_copy: "" }],
   });
 
-  const remove = (i: number) => onUpdate({ ...avatar, voyerismos: voyerismos.filter((_: any, j: number) => j !== i) });
+  const remove = (i: number) => onUpdate({ ...avatar, voyerismos: voyerismos.filter((_, j: number) => j !== i) });
 
   const edit = (i: number, field: string, val: string) => {
     const updated = [...voyerismos];
@@ -50,7 +53,7 @@ export function VoyerismosTab({ avatar, onUpdate, projectId }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">Cenas reais do dia-a-dia do avatar que revelam dor profunda. Usadas em hooks, aberturas de VSL e copy de alto impacto.</p>
-          {voyerismos.map((v: any, i: number) => (
+          {voyerismos.map((v, i: number) => (
             <div key={i} className="p-4 rounded-md bg-secondary/50 border border-border space-y-3 relative">
               <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-6 w-6 text-destructive" onClick={() => remove(i)}>
                 <Trash2 className="h-3 w-3" />
@@ -58,34 +61,34 @@ export function VoyerismosTab({ avatar, onUpdate, projectId }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Nome da Cena</Label>
-                  <Input value={v.nome || ""} onChange={e => edit(i, "nome", e.target.value)} className="bg-secondary" placeholder="Ex: A tesoura recusada" />
+                  <Input value={jsonText(v.nome) ?? jsonNumber(v.nome) ?? ""} onChange={e => edit(i, "nome", e.target.value)} className="bg-secondary" placeholder="Ex: A tesoura recusada" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Intensidade</Label>
-                  <Input value={v.intensidade || ""} onChange={e => edit(i, "intensidade", e.target.value)} className="bg-secondary" placeholder="Ex: 9.2/10" />
+                  <Input value={jsonText(v.intensidade) ?? jsonNumber(v.intensidade) ?? ""} onChange={e => edit(i, "intensidade", e.target.value)} className="bg-secondary" placeholder="Ex: 9.2/10" />
                 </div>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Situação</Label>
-                <Textarea value={v.situacao || ""} onChange={e => edit(i, "situacao", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Descreva a cena exata..." />
+                <Textarea value={jsonText(v.situacao) ?? jsonNumber(v.situacao) ?? ""} onChange={e => edit(i, "situacao", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Descreva a cena exata..." />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Sintoma Físico</Label>
-                  <Input value={v.sintoma_fisico || ""} onChange={e => edit(i, "sintoma_fisico", e.target.value)} className="bg-secondary" placeholder="Ex: mãos tremem, estômago contrai" />
+                  <Input value={jsonText(v.sintoma_fisico) ?? jsonNumber(v.sintoma_fisico) ?? ""} onChange={e => edit(i, "sintoma_fisico", e.target.value)} className="bg-secondary" placeholder="Ex: mãos tremem, estômago contrai" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Pensamento</Label>
-                  <Input value={v.pensamento || ""} onChange={e => edit(i, "pensamento", e.target.value)} className="bg-secondary" placeholder="Ex: 'E se eu estragar?'" />
+                  <Input value={jsonText(v.pensamento) ?? jsonNumber(v.pensamento) ?? ""} onChange={e => edit(i, "pensamento", e.target.value)} className="bg-secondary" placeholder="Ex: 'E se eu estragar?'" />
                 </div>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Comportamento Resultante</Label>
-                <Input value={v.comportamento || ""} onChange={e => edit(i, "comportamento", e.target.value)} className="bg-secondary" placeholder="Ex: Indica outra profissional" />
+                <Input value={jsonText(v.comportamento) ?? jsonNumber(v.comportamento) ?? ""} onChange={e => edit(i, "comportamento", e.target.value)} className="bg-secondary" placeholder="Ex: Indica outra profissional" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Uso na Copy</Label>
-                <Textarea value={v.uso_copy || ""} onChange={e => edit(i, "uso_copy", e.target.value)} className="bg-secondary text-sm min-h-[40px]" placeholder="Como usar essa cena em hook/VSL/anúncio..." />
+                <Textarea value={jsonText(v.uso_copy) ?? jsonNumber(v.uso_copy) ?? ""} onChange={e => edit(i, "uso_copy", e.target.value)} className="bg-secondary text-sm min-h-[40px]" placeholder="Como usar essa cena em hook/VSL/anúncio..." />
               </div>
             </div>
           ))}

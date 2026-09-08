@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -5,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalLink, FolderKanban, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brPhoneVariants } from "@/lib/phoneVariants";
-import { LeadMemoryEditor } from "./LeadMemoryEditor";
+import { LeadMemoryEditor } from "@/components/whatsapp/LeadMemoryEditor";
 
+
+type Intel = Pick<Tables<"imphq_leads">, "id" | "score" | "awareness_level" | "tags" | "lead_memory" | "nome" | "project_id"> & { lastIntent?: string | null };
+type Sale = Pick<Tables<"imphq_vendas">, "id" | "produto_nome" | "valor" | "status" | "data_venda" | "tipo_venda" | "project_id" | "lead_id">;
+type ActiveFlow = Pick<Tables<"imphq_flow_executions">, "id" | "automacao_id" | "current_step" | "status" | "updated_at"> & { nome?: string; totalSteps: number };
 
 interface LeadIntelPanelProps {
   leadId?: string | null;
@@ -24,9 +29,9 @@ interface ProjectPresence {
 }
 
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
-  const [intel, setIntel] = useState<any>(null);
-  const [activeFlow, setActiveFlow] = useState<any>(null);
-  const [sales, setSales] = useState<any[]>([]);
+  const [intel, setIntel] = useState<Intel | null>(null);
+  const [activeFlow, setActiveFlow] = useState<ActiveFlow | null>(null);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [presence, setPresence] = useState<ProjectPresence[]>([]);
   const [resolvedLeadIdState, setResolvedLeadIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,21 +44,21 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
       setLoading(true);
       try {
         // 1) Resolve TODOS os leads desse contato (cross-projeto) por variantes de telefone
-        let allLeads: any[] = [];
+        let allLeads: Intel[] = [];
         if (phone) {
           const { variants } = brPhoneVariants(phone);
           if (variants.length) {
             const { data } = await supabase
               .from("imphq_leads")
-              .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+              .select("id, score, awareness_level, tags, lead_memory, nome, project_id")
               .in("phone", variants);
-            allLeads = (data as any[]) || [];
+            allLeads = data || [];
           }
         }
         if (leadId && !allLeads.some((l) => l.id === leadId)) {
           const { data } = await supabase
             .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, name, project_id")
+            .select("id, score, awareness_level, tags, lead_memory, nome, project_id")
             .eq("id", leadId)
             .maybeSingle();
           if (data) allLeads.push(data);
@@ -69,11 +74,11 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             .from("imphq_projects")
             .select("id, name")
             .in("id", projectIds);
-          projectMap = Object.fromEntries(((projs as any[]) || []).map((p) => [p.id, p.name]));
+          projectMap = Object.fromEntries((projs || []).map((p) => [p.id, p.name]));
         }
 
         // 3) Vendas agregadas (todos os lead_ids)
-        let allSales: any[] = [];
+        let allSales: Sale[] = [];
         if (leadIds.length) {
           const { data: vendas } = await supabase
             .from("imphq_vendas")
@@ -81,7 +86,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             .in("lead_id", leadIds)
             .order("data_venda", { ascending: false })
             .limit(20);
-          allSales = (vendas as any[]) || [];
+          allSales = vendas || [];
         }
         setSales(allSales);
 
@@ -127,8 +132,8 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               .maybeSingle();
             setActiveFlow({
               ...exec,
-              nome: (auto as any)?.nome,
-              totalSteps: (auto as any)?.acoes?.length || 0,
+              nome: auto?.nome,
+              totalSteps: Array.isArray(auto?.acoes) ? auto.acoes.length : 0,
             });
           } else {
             setActiveFlow(null);
@@ -143,8 +148,8 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
             .maybeSingle();
 
           if (triage) {
-            setIntel((prev: any) =>
-              prev ? { ...prev, lastIntent: (triage as any).intent } : prev
+            setIntel((prev) =>
+              prev ? { ...prev, lastIntent: triage.intent } : prev
             );
           }
         }
@@ -181,7 +186,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
 
   const score = intel.score || 0;
   const awarenessLevel = intel.awareness_level || 0;
-  const tags: string[] = intel.tags || [];
+  const tags = Array.isArray(intel.tags) ? intel.tags.filter((tag): tag is string => typeof tag === "string") : [];
   const lastIntent = intel.lastIntent;
 
   const scoreColor = score >= 70 ? "text-emerald-400" : score >= 40 ? "text-amber-400" : "text-red-400";
@@ -365,7 +370,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
           {intel.lead_memory ? (
             <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-2.5 max-h-36 overflow-y-auto">
               <p className="text-muted-foreground text-[10px] leading-relaxed whitespace-pre-wrap">
-                {intel.lead_memory}
+                {typeof intel.lead_memory === "string" ? intel.lead_memory : JSON.stringify(intel.lead_memory, null, 2)}
               </p>
             </div>
           ) : (
@@ -426,10 +431,10 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
                 if (!resolvedLeadIdState) return;
                 const { error } = await supabase
                   .from("imphq_leads")
-                  .update({ score: 95 } as any)
+                  .update({ score: 95 })
                   .eq("id", resolvedLeadIdState);
                 if (error) toast.error("Erro: " + error.message);
-                else { toast.success("🔥 Marcado como hot lead"); setIntel((p: any) => ({ ...p, score: 95 })); }
+                else { toast.success("🔥 Marcado como hot lead"); setIntel((p) => ({ ...p, score: 95 })); }
               }}
             >
               <Flame className="h-3 w-3" /> Marcar como hot lead
@@ -441,15 +446,15 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
               disabled={!resolvedLeadIdState}
               onClick={async () => {
                 if (!resolvedLeadIdState) return;
-                const titulo = window.prompt("Título da tarefa:", `Follow-up: ${intel?.name || "lead"}`);
+                const titulo = window.prompt("Título da tarefa:", `Follow-up: ${intel?.nome || "lead"}`);
                 if (!titulo) return;
                 const { error } = await supabase.from("imphq_tasks").insert({
                   title: titulo,
                   project_id: projectId,
                   priority: "alta",
                   status: "pendente",
-                  description: `Lead: ${intel?.name || ""} · score ${intel?.score || 0} · origem: inbox`,
-                } as any);
+                  description: `Lead: ${intel?.nome || ""} · score ${intel?.score || 0} · origem: inbox`,
+                });
                 if (error) toast.error("Erro: " + error.message);
                 else toast.success("📋 Tarefa criada");
               }}

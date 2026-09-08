@@ -5,7 +5,7 @@ import { Package } from "lucide-react";
 interface Props {
   open: boolean;
   onClose: () => void;
-  products: any[];
+  products: Array<{ nome?: string; name?: string; preco_por?: string | number; preco?: string | number; price?: string | number; descricao?: string }>;
   currentProductNome?: string;
   assetLabel: string;
   roleHint?: string; // e.g. "order bump", "upsell"

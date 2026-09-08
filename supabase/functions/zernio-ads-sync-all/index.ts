@@ -18,18 +18,18 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await supabase
       .from("imphq_integration_credentials")
       .select("project_id, credentials")
-      .eq("provider", "instagram");
+      .eq("provider", "instagram").returns<{project_id:string;credentials:{zernio_api_key?:string;zernio_account_id?:string;zernio_ad_account_id?:string}|null}[]>();
 
     if (error) throw error;
 
-    const eligible = (rows || []).filter((r: any) => {
+    const eligible = (rows || []).filter((r) => {
       const c = r?.credentials || {};
       return c.zernio_api_key && c.zernio_account_id && c.zernio_ad_account_id;
     });
 
     console.log(`[zernio-ads-sync-all] ${eligible.length} projetos elegíveis`);
 
-    const results: any[] = [];
+    const results: Array<{project_id:string;ok:boolean;[key:string]:unknown}> = [];
     for (const r of eligible) {
       try {
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/zernio-ads-sync`, {

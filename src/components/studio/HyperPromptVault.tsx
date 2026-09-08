@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { emptyHyperFields } from "@/lib/hyperPromptBuilder";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +16,7 @@ export interface SavedPrompt {
   id: string;
   nome: string;
   prompt_text: string;
-  campos: HyperFields;
+  campos: Json;
   tags: string[] | null;
   favorito: boolean | null;
   plataforma: string | null;
@@ -43,7 +46,7 @@ export function HyperPromptVault({
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) toast.error("Erro ao carregar cofre");
-    else setItems((data as any) || []);
+    else setItems(data || []);
     setLoading(false);
   };
 
@@ -75,7 +78,7 @@ export function HyperPromptVault({
       user_id: user.id,
       nome: `${p.nome} (cópia)`,
       prompt_text: p.prompt_text,
-      campos: p.campos as any,
+      campos: p.campos,
       tags: p.tags,
       plataforma: p.plataforma,
     });
@@ -176,7 +179,7 @@ export function HyperPromptVault({
                   <Button size="icon" variant="ghost" onClick={() => toggleFav(p)} title="Favorito">
                     <Star className={`h-4 w-4 ${p.favorito ? "fill-primary text-primary" : ""}`} />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => onLoad(p.campos)} title="Carregar">
+                  <Button size="icon" variant="ghost" onClick={() => onLoad(parseFields(p.campos))} title="Carregar">
                     <FolderOpen className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => duplicar(p)} title="Duplicar">
@@ -207,4 +210,16 @@ export function HyperPromptVault({
       )}
     </div>
   );
+}
+
+function parseFields(value: unknown): HyperFields {
+ const row = record(value);
+ const fields = {...emptyHyperFields};
+ for (const key of Object.keys(fields) as Array<keyof HyperFields>) {
+  if (key === "plataforma") {
+   const p = row[key];
+   if (p === "midjourney" || p === "dalle" || p === "firefly" || p === "sora" || p === "flux" || p === "generic") fields.plataforma = p;
+  } else if (typeof row[key] === "string") fields[key] = row[key];
+ }
+ return fields;
 }

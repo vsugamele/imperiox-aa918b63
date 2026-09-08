@@ -1,0 +1,8 @@
+import { z } from "zod";
+import type { FlowBlueprint } from "@/lib/typebot-parser";
+const block = z.object({id:z.string(),type:z.enum(["text","image","video","input_text","input_email","input_phone","input_number","input_choice","condition","set_variable","wait","redirect","webhook","code","ai_prompt","unknown"]),text:z.string().optional(),image_url:z.string().optional(),image_prompt:z.string().optional(),video_url:z.string().optional(),variable:z.string().optional(),expression:z.string().optional(),options:z.array(z.string()).optional(),condition:z.object({variable:z.string().optional(),operator:z.string().optional(),value:z.string().optional()}).passthrough().optional(),url:z.string().optional(),seconds:z.number().optional(),code:z.string().optional(),folder_id:z.string().optional(),folder_title:z.string().optional(),raw:z.unknown().optional()}).passthrough();
+const blueprint = z.object({title:z.string(),nodes:z.array(z.object({id:z.string(),title:z.string(),x:z.number(),y:z.number(),blocks:z.array(block)}).passthrough()),edges:z.array(z.object({id:z.string(),from:z.string(),to:z.string(),from_block:z.string().optional(),label:z.string().optional()}).passthrough()),variables:z.array(z.object({id:z.string(),name:z.string(),default:z.string().optional()}).passthrough()),start_node_id:z.string().optional()}).passthrough();
+export function parseFlowBlueprint(value:unknown):FlowBlueprint {
+ const b=blueprint.parse(value);
+ return {...b,title:b.title,nodes:b.nodes.map(n=>({...n,id:n.id,title:n.title,x:n.x,y:n.y,blocks:n.blocks.map(k=>({...k,id:k.id,type:k.type}))})),edges:b.edges.map(e=>({...e,id:e.id,from:e.from,to:e.to})),variables:b.variables.map(v=>({...v,id:v.id,name:v.name}))};
+}

@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,16 +39,16 @@ interface ConversationLite {
   lead_id?: string | null;
 }
 
-interface Props {
-  conversation: ConversationLite;
+interface Props<T extends ConversationLite> {
+  conversation: T;
   onClose: () => void;
-  onTogglePause: (c: any) => void;
-  onToggleCloser: (c: any) => void;
+  onTogglePause: (c: T) => void;
+  onToggleCloser: (c: T) => void;
 }
 
 const PAGE = 40;
 
-export function MobileChat({ conversation, onClose, onTogglePause, onToggleCloser }: Props) {
+export function MobileChat<T extends ConversationLite>({ conversation, onClose, onTogglePause, onToggleCloser }: Props<T>) {
   const navigate = useNavigate();
   const [conv, setConv] = useState(conversation);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -65,7 +68,7 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
       .eq("conversation_id", conv.id)
       .order("created_at", { ascending: false })
       .limit(PAGE);
-    const sorted = ((data as any[]) || []).reverse();
+    const sorted = (data || []).reverse();
     setMessages(sorted);
     if (sorted.length) newestRef.current = sorted[sorted.length - 1].created_at;
     setHasMore((data?.length || 0) >= PAGE);
@@ -85,7 +88,7 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
       .lt("created_at", oldest)
       .order("created_at", { ascending: false })
       .limit(PAGE);
-    const older = ((data as any[]) || []).reverse();
+    const older = (data || []).reverse();
     setMessages(prev => [...older, ...prev]);
     setHasMore((data?.length || 0) >= PAGE);
     setLoadingMore(false);
@@ -100,10 +103,10 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
   useEffect(() => {
     const ch = supabase
       .channel(`mc-${conv.id}`)
-      .on("postgres_changes",
+      .on<Tables<"imphq_wa_messages">>("postgres_changes",
         { event: "INSERT", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conv.id}` },
         (payload) => {
-          const m = payload.new as any;
+          const m = payload.new;
           setMessages(prev => {
             if (prev.some(x => x.id === m.id)) return prev;
             const cleaned = prev.filter(x => !x._optimistic);
@@ -112,10 +115,10 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
           });
           setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 80);
         })
-      .on("postgres_changes",
+      .on<Tables<"imphq_wa_messages">>("postgres_changes",
         { event: "UPDATE", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conv.id}` },
         (payload) => {
-          const m = payload.new as any;
+          const m = payload.new;
           setMessages(prev => prev.map(x => x.id === m.id ? { ...x, ...m } : x));
         })
       .subscribe();
@@ -157,9 +160,11 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
       });
       if (error) throw error;
       if (data?.success === false) throw new Error(data.error || "Falha ao enviar");
-      try { (navigator as any).vibrate?.(15); } catch {}
-    } catch (err: any) {
-      toast.error("Erro: " + err.message);
+      try { navigator.vibrate?.(15); } catch {
+        // Haptics are optional; their failure must not undo a successfully sent message.
+      }
+    } catch (err: unknown) {
+      toast.error("Erro: " + errorMessage(err));
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
       setText(body);
     } finally {
@@ -295,7 +300,7 @@ export function MobileChat({ conversation, onClose, onTogglePause, onToggleClose
   );
 }
 
-function QuickAction({ icon: Icon, label, onClick, active }: any) {
+function QuickAction({ icon: Icon, label, onClick, active }: { icon: LucideIcon; label: string; onClick: () => void; active?: boolean }) {
   return (
     <button
       onClick={onClick}

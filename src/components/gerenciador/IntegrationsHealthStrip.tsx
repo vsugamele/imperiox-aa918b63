@@ -28,15 +28,15 @@ export function IntegrationsHealthStrip() {
         supabase.from("imphq_wa_providers").select("id, is_active, last_seen_at"),
         supabase.from("imphq_webhook_errors").select("id", { count: "exact", head: true }).eq("reprocessado", false).gte("created_at", since),
         supabase.from("imphq_integration_credentials").select("project_id, credentials").eq("provider", "instagram"),
-      ] as PromiseLike<any>[]);
+      ]);
 
-      const adRows = (ad.data || []) as any[];
-      const waRows = (wa.data || []) as any[];
-      const zernioRows = (zernioRes.data || []) as any[];
-      const withToken = zernioRows.filter((r: any) => r.credentials?.zernio_api_key);
-      const syncing = withToken.filter((r: any) => {
-        const stats = r.credentials?.zernio_ads_last_sync_stats;
-        return stats && (stats.imported > 0 || stats.ads > 0);
+      const adRows = ad.data || [];
+      const waRows = wa.data || [];
+      const zernioRows = zernioRes.data || [];
+      const withToken = zernioRows.filter((r) => jsonText(jsonFields(r.credentials).zernio_api_key));
+      const syncing = withToken.filter((r) => {
+        const stats = jsonFields(jsonFields(r.credentials).zernio_ads_last_sync_stats);
+        return (jsonNumber(stats.imported) ?? 0) > 0 || (jsonNumber(stats.ads) ?? 0) > 0;
       });
 
       setH({
@@ -151,3 +151,4 @@ function HealthCell({
     </Link>
   );
 }
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";

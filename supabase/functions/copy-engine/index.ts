@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
 
     const ctx = body.context
       ? await loadCopyContext(body.context, SERVICE_ROLE, SUPABASE_URL)
-      : { project: null, product: null, branding: null, avatar: null, expert: null, lead: null };
+      : { project: null, product: null, branding: null, avatar: null, expert: null, lead: null, ofertas_block: "" };
 
     // Carrega bloco de estilo AUST quando o intent estiver marcado com apply_style
     let styleAddendum = "";
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
 
     // Guardrails de público (auto a partir do projeto) — evita alucinação de estereótipo.
     const guardrails = ctx.project
-      ? deriveAudienceGuardrails((ctx.project as any).data, body.context?.product_slug)
+      ? deriveAudienceGuardrails(ctx.project.data, body.context?.product_slug)
       : { publico: "", naoPublico: "", palavrasProibidas: [] as string[] };
     const guardBlock = buildGuardBlock(guardrails);
 
@@ -191,9 +191,10 @@ Deno.serve(async (req) => {
       raw: data,
       guardrail_violations: guardrailViolations,
     });
-  } catch (err: any) {
-    log.error("erro interno", { message: err?.message });
-    return json({ error: err?.message || "erro interno" }, 500);
+  } catch (err) {
+      const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "erro interno";
+    log.error("erro interno", { message: message });
+    return json({ error: message || "erro interno" }, 500);
   }
 });
 

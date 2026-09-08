@@ -1,3 +1,7 @@
+import type { Json, TablesUpdate } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { openFlowActionsSchema } from "@/lib/openflow-action-schema";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -6,12 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { History, RotateCcw, Loader2, FileClock, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FlowLivePreview } from "@/components/openflow/FlowLivePreview";
 
 interface VersionRow {
   id: string;
   automacao_id: string;
   versao_num: number;
-  snapshot: any;
+  snapshot: Json;
   criado_em: string;
   criado_por: string | null;
 }
@@ -21,26 +26,28 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   automacaoId: string | null;
   automacaoNome?: string;
-  onRestore?: (snapshot: any) => void;
+  onRestore?: (snapshot: Json) => void;
 }
 
 export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automacaoNome, onRestore }: Props) {
   const [rows, setRows] = useState<VersionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [preview, setPreview] = useState<VersionRow | null>(null);
 
   useEffect(() => {
     if (!open || !automacaoId) return;
+    setPreview(null);
     (async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("imphq_automacao_versions" as any)
+        .from("imphq_automacao_versions")
         .select("*")
         .eq("automacao_id", automacaoId)
         .order("versao_num", { ascending: false })
         .limit(50);
       if (error) toast.error("Erro ao carregar histórico: " + error.message);
-      setRows(((data as any) || []) as VersionRow[]);
+      setRows(data || []);
       setLoading(false);
     })();
   }, [open, automacaoId]);
@@ -49,9 +56,9 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
     day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit"
   });
 
-  const countSteps = (snap: any): number => {
+  const countSteps = (snap: Json): number => {
     if (!snap) return 0;
-    if (Array.isArray(snap?.acoes)) return snap.acoes.length;
+    if (Array.isArray(jsonFields(snap).acoes)) return (jsonFields(snap).acoes as Json[]).length;
     if (Array.isArray(snap)) return snap.length;
     return 0;
   };
@@ -61,14 +68,14 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
     if (!confirm(`Restaurar versão ${v.versao_num}? A versão atual será arquivada automaticamente.`)) return;
     setRestoring(v.id);
     try {
-      const snap = v.snapshot || {};
+      const snap = jsonFields(v.snapshot);
       // Atualiza a automação com o snapshot; o trigger arquiva a versão atual
-      const patch: any = {};
-      if (snap.nome) patch.nome = snap.nome;
-      if (snap.trigger_tipo) patch.trigger_tipo = snap.trigger_tipo;
-      if (Array.isArray(snap.acoes)) patch.acoes = snap.acoes;
-      if (snap.produto !== undefined) patch.produto = snap.produto;
-      if (snap.flow_objective !== undefined) patch.flow_objective = snap.flow_objective;
+      const patch: TablesUpdate<"imphq_automacoes"> = {};
+      if (typeof snap.nome === "string") patch.nome = snap.nome;
+      if (typeof snap.trigger_tipo === "string") patch.trigger_tipo = snap.trigger_tipo;
+      if (snap.acoes !== undefined) { openFlowActionsSchema.parse(snap.acoes); patch.acoes = snap.acoes; }
+      if (snap.produto === null || typeof snap.produto === "string") patch.produto = typeof snap.produto === "string" ? snap.produto : null;
+      if (snap.flow_objective === null || typeof snap.flow_objective === "string") patch.flow_objective = typeof snap.flow_objective === "string" ? snap.flow_objective : null;
 
       const { error } = await supabase
         .from("imphq_automacoes")
@@ -78,8 +85,8 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
       toast.success(`Versão ${v.versao_num} restaurada`);
       onRestore?.(snap);
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error("Falha ao restaurar: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Falha ao restaurar: " + (errorMessage(e) || ""));
     } finally {
       setRestoring(null);
     }
@@ -97,6 +104,16 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
             <strong className="text-foreground/90"> {automacaoNome || "este fluxo"}</strong>.
           </SheetDescription>
         </SheetHeader>
+
+        {preview && (
+          <div className="mt-4" aria-label={`Prévia da versão ${preview.versao_num}`}>
+            <FlowLivePreview
+              acoes={Array.isArray(jsonFields(preview.snapshot).acoes) ? jsonFields(preview.snapshot).acoes as Json[] : []}
+              triggerTipo={jsonText(jsonFields(preview.snapshot).trigger_tipo)}
+              onClose={() => setPreview(null)}
+            />
+          </div>
+        )}
 
         <div className="mt-6 space-y-2">
           {loading && (
@@ -130,8 +147,8 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground leading-6">
                   <span>{countSteps(v.snapshot)} etapas</span>
-                  {v.snapshot?.nome && (
-                    <span className="truncate opacity-70">"{v.snapshot.nome}"</span>
+                  {jsonText(jsonFields(v.snapshot).nome) && (
+                    <span className="truncate opacity-70">"{jsonText(jsonFields(v.snapshot).nome)}"</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 pt-1">
@@ -140,10 +157,7 @@ export function VersionHistoryDrawer({ open, onOpenChange, automacaoId, automaca
                     variant="outline"
                     className="h-7 text-[10px] border-border/60"
                     onClick={() => {
-                      // Preview = aplica em memória sem salvar
-                      onRestore?.(v.snapshot);
-                      onOpenChange(false);
-                      toast.info("Visualizando versão " + v.versao_num + " (não salvo)");
+                      setPreview(v);
                     }}
                   >
                     <Eye className="h-3 w-3 mr-1" /> Visualizar

@@ -85,16 +85,16 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
         const [refs, lib, sitesRes] = await Promise.all([
           supabase
             .from("imphq_referencias")
-            .select("id, titulo, url, thumbnail_url, created_at, tipo")
+            .select("id, titulo, url, created_at, tipo")
             .order("created_at", { ascending: false })
             .limit(300),
           supabase
-            .from("imphq_content_library" as any)
+            .from("imphq_content_library")
             .select("id, title, file_url, file_type, thumbnail_url, created_at")
             .order("created_at", { ascending: false })
             .limit(300),
           supabase
-            .from("imphq_sites" as any)
+            .from("imphq_sites")
             .select("id, titulo, url, tipo, thumbnail_url, status, created_at")
             .neq("status", "arquivado")
             .order("created_at", { ascending: false })
@@ -102,7 +102,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
         ]);
 
         const merged: RefItem[] = [];
-        for (const r of (refs.data as any[]) || []) {
+        for (const r of refs.data || []) {
           const u = r.url as string | null;
           if (!u) continue;
           if (r.tipo && r.tipo !== "imagem" && !isImageUrl(u)) continue;
@@ -111,11 +111,11 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
             id: `ref-${r.id}`,
             url: u,
             title: r.titulo || u.split("/").pop() || "Referência",
-            thumb: r.thumbnail_url || u,
+            thumb: u,
             created_at: r.created_at,
           });
         }
-        for (const m of (lib.data as any[]) || []) {
+        for (const m of lib.data || []) {
           const u = m.file_url as string | null;
           if (!u) continue;
           const t = (m.file_type as string) || "";
@@ -131,7 +131,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
         merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
         setItems(merged);
 
-        const s: SiteItem[] = ((sitesRes.data as any[]) || []).map(x => ({
+        const s: SiteItem[] = (sitesRes.data || []).map(x => ({
           id: x.id,
           url: x.url,
           title: x.titulo || x.url,
@@ -143,14 +143,14 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
 
         // Carrega pastas
         const { data: fData } = await supabase
-          .from("imphq_ref_folders" as any)
+          .from("imphq_ref_folders")
           .select("id, nome, cor, cover_url")
           .order("created_at", { ascending: false });
-        const foldersList = ((fData as any[]) || []) as FolderItem[];
+        const foldersList = (fData || []) as FolderItem[];
         // Conta itens em paralelo
         if (foldersList.length) {
           const counts = await Promise.all(foldersList.map(f =>
-            supabase.from("imphq_ref_folder_items" as any).select("id", { count: "exact", head: true }).eq("folder_id", f.id)
+            supabase.from("imphq_ref_folder_items").select("id", { count: "exact", head: true }).eq("folder_id", f.id)
           ));
           foldersList.forEach((f, i) => { f.count = counts[i].count || 0; });
         }
@@ -168,11 +168,11 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
     if (!openFolderId) { setFolderItems([]); return; }
     (async () => {
       const { data } = await supabase
-        .from("imphq_ref_folder_items" as any)
+        .from("imphq_ref_folder_items")
         .select("id, url, thumb_url, titulo")
         .eq("folder_id", openFolderId)
         .order("ordem", { ascending: true });
-      setFolderItems(((data as any[]) || []) as any);
+      setFolderItems(data || []);
     })();
   }, [openFolderId]);
 
@@ -182,19 +182,19 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { toast.error("Faça login"); return; }
     const { data, error } = await supabase
-      .from("imphq_ref_folders" as any)
+      .from("imphq_ref_folders")
       .insert({ nome, user_id: auth.user.id })
       .select("id, nome, cor, cover_url")
       .single();
     if (error) { toast.error(error.message); return; }
-    setFolders(f => [{ ...(data as any), count: 0 }, ...f]);
+    setFolders(f => [{ ...data, count: 0 }, ...f]);
     setNewFolderName("");
     toast.success("Pasta criada");
   };
 
   const deleteFolder = async (id: string) => {
     if (!confirm("Excluir esta pasta e todos os itens dela?")) return;
-    const { error } = await supabase.from("imphq_ref_folders" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_ref_folders").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     setFolders(f => f.filter(x => x.id !== id));
   };
@@ -213,15 +213,15 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
         titulo: s.title,
         ordem: folderItems.length + i,
       }));
-    const { error } = await supabase.from("imphq_ref_folder_items" as any).insert(rows);
+    const { error } = await supabase.from("imphq_ref_folder_items").insert(rows);
     if (error) { toast.error(error.message); return; }
     // reload
     const { data } = await supabase
-      .from("imphq_ref_folder_items" as any)
+      .from("imphq_ref_folder_items")
       .select("id, url, thumb_url, titulo")
       .eq("folder_id", openFolderId)
       .order("ordem", { ascending: true });
-    setFolderItems(((data as any[]) || []) as any);
+    setFolderItems(data || []);
     setFolders(fs => fs.map(f => f.id === openFolderId ? { ...f, count: (f.count || 0) + rows.length } : f));
     setAddingToFolder(false);
     setPicked(new Map());
@@ -229,7 +229,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
   };
 
   const removeFolderItem = async (id: string) => {
-    const { error } = await supabase.from("imphq_ref_folder_items" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_ref_folder_items").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     setFolderItems(fi => fi.filter(x => x.id !== id));
     setFolders(fs => fs.map(f => f.id === openFolderId ? { ...f, count: Math.max(0, (f.count || 0) - 1) } : f));
@@ -255,7 +255,7 @@ export function ReferenciasPicker({ open, onClose, onSelect, initialTab = "image
   const togglePick = (key: string, sel: PickerSelection) => {
     setPicked(prev => {
       const n = new Map(prev);
-      n.has(key) ? n.delete(key) : n.set(key, sel);
+      if (n.has(key)) { n.delete(key); } else { n.set(key, sel); }
       return n;
     });
   };

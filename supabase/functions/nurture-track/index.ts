@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       // only update if not already set (first hit wins)
       await admin
         .from("imphq_nurture_emails")
-        .update({ [field]: new Date().toISOString() } as any)
+        .update({ [field]: new Date().toISOString() })
         .eq("id", eid)
         .is(field, null);
     }
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
         ...corsHeaders,
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("nurture-track error:", err);
     return new Response(PIXEL, {
       headers: { "Content-Type": "image/gif", "Cache-Control": "no-store", ...corsHeaders },

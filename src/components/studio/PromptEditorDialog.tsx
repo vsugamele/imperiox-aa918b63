@@ -32,7 +32,7 @@ const empty = {
 };
 
 export function PromptEditorDialog({ open, prompt, onClose, onSaved, nichosExistentes }: Props) {
-  const [form, setForm] = useState<any>(empty);
+  const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

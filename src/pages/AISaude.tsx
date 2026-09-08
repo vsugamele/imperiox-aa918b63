@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +18,7 @@ import { toast } from "sonner";
 
 type AutonomyStatus = {
   system: string;
-  icon: any;
+  icon: LucideIcon;
   enabled: boolean;
   lastRun?: string | null;
   detail?: string;
@@ -38,7 +42,7 @@ type LearnedEntry = {
   title: string;
   reason?: string;
   status: string;
-  payload?: any;
+  payload?: Json;
 };
 
 export default function AISaude() {
@@ -46,7 +50,7 @@ export default function AISaude() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
   const [worstConvs, setWorstConvs] = useState<ConvScoreRow[]>([]);
   const [bestConvs, setBestConvs] = useState<ConvScoreRow[]>([]);
   const [learnedTimeline, setLearnedTimeline] = useState<LearnedEntry[]>([]);
@@ -56,13 +60,13 @@ export default function AISaude() {
   // Carrega lista de projetos
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      const list = (data || []) as any[];
+      const list = (data || []);
       setProjects(list);
       if (list.length > 0) setProjectId(list[0].id);
     });
   }, []);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
@@ -112,21 +116,21 @@ export default function AISaude() {
         .from("imphq_embedding_cache")
         .select("hits", { count: "exact" });
       const totalEntries = cacheData?.length || 0;
-      const totalHits = (cacheData || []).reduce((acc: number, e: any) => acc + (e.hits || 0), 0);
+      const totalHits = (cacheData || []).reduce((acc: number, e) => acc + (e.hits || 0), 0);
       // Estimativa: cada hit economiza ~R$0.0008 (chamada de embedding 768d evitada)
       const savings = Number((totalHits * 0.0008).toFixed(2));
       setCacheStats({ entries: totalEntries, hits: totalHits, savings_estimate_brl: savings });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[ai-saude] erro:", e);
-      toast.error("Erro ao carregar dados: " + e.message);
+      toast.error("Erro ao carregar dados: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (projectId) reload();
-  }, [projectId]);
+  }, [projectId, reload]);
 
   const autonomySystems: AutonomyStatus[] = [
     {
@@ -135,7 +139,7 @@ export default function AISaude() {
       enabled: config?.auto_audit_enabled === true,
       lastRun: config?.last_audit_at,
       detail: Array.isArray(config?.audit_findings) && config.audit_findings.length > 0
-        ? `${config.audit_findings[0]?.phrases_added?.length || 0} frases, ${config.audit_findings[0]?.rules_added?.length || 0} regras (última noite)`
+        ? `${(Array.isArray(jsonFields(config.audit_findings[0]).phrases_added) ? (jsonFields(config.audit_findings[0]).phrases_added as Json[]).length : 0) || 0} frases, ${(Array.isArray(jsonFields(config.audit_findings[0]).rules_added) ? (jsonFields(config.audit_findings[0]).rules_added as Json[]).length : 0) || 0} regras (última noite)`
         : undefined,
       toneColor: "indigo",
     },
@@ -153,7 +157,7 @@ export default function AISaude() {
       enabled: config?.auto_tune_enabled === true,
       lastRun: config?.last_tune_at,
       detail: Array.isArray(config?.tune_history) && config.tune_history.length > 0
-        ? `${config.tune_history[0]?.wins_analyzed || 0} vendas vs ${config.tune_history[0]?.losses_analyzed || 0} perdas analisadas`
+        ? `${jsonNumber(jsonFields(config.tune_history[0]).wins_analyzed) || 0} vendas vs ${jsonNumber(jsonFields(config.tune_history[0]).losses_analyzed) || 0} perdas analisadas`
         : undefined,
       toneColor: "purple",
     },
@@ -191,8 +195,8 @@ export default function AISaude() {
       toast.success(`${label} concluído`);
       console.log(`[${fnName}]`, data);
       reload();
-    } catch (e: any) {
-      toast.error(`Erro: ${e.message}`);
+    } catch (e: unknown) {
+      toast.error(`Erro: ${errorMessage(e)}`);
     }
   };
 

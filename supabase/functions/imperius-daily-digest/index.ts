@@ -32,10 +32,10 @@ Deno.serve(async (req) => {
         .limit(50),
     ]);
 
-    const totalImpact = (pending || []).reduce((s: number, a: any) => s + Number(a.impact_brl || 0), 0);
+    const totalImpact = (pending || []).reduce((s: number, a) => s + Number(a.impact_brl || 0), 0);
     const recoveredImpact = (executed || [])
-      .filter((a: any) => a.status === "executed")
-      .reduce((s: number, a: any) => s + Number(a.impact_brl || 0), 0);
+      .filter((a) => a.status === "executed")
+      .reduce((s: number, a) => s + Number(a.impact_brl || 0), 0);
 
     const fmt = (n: number) => `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
         ${(pending || []).length > 0 ? `
           <h3 style="color:#c9922a;font-family:Georgia,serif;border-bottom:1px solid #2a2625;padding-bottom:8px;">Top prioridade</h3>
-          ${(pending || []).slice(0, 5).map((a: any) => `
+          ${(pending || []).slice(0, 5).map((a) => `
             <div style="padding:12px 0;border-bottom:1px solid #1a1716;">
               <p style="margin:0 0 4px;font-weight:600;">${a.title}</p>
               <p style="margin:0;color:#a39c93;font-size:12px;">${fmt(Number(a.impact_brl || 0))} · risco ${a.risk_level}</p>
@@ -97,9 +97,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, sent, pending: pending?.length || 0, executed: executed?.length || 0, totalImpact, recoveredImpact }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("imperius-daily-digest:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

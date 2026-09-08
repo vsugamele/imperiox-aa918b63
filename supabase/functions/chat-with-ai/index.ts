@@ -74,9 +74,10 @@ serve(async (req) => {
     return new Response(JSON.stringify(responsePayload), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[chat-with-ai] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message || "Internal Server Error" }), {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "Internal Server Error";
+    console.error("[chat-with-ai] Error:", message);
+    return new Response(JSON.stringify({ error: message || "Internal Server Error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

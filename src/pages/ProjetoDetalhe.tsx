@@ -1,3 +1,9 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { Dispatch, SetStateAction } from "react";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+type Project = Tables<"imphq_projects">;
+type UpdateProject = <K extends keyof Project>(field: K, value: Project[K]) => void;
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,7 +98,7 @@ const findPillarOf = (tabValue: string) =>
 
 export default function ProjetoDetalhe() {
   const { id } = useParams();
-  const [project, setProject] = useState<any>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [editingIcon, setEditingIcon] = useState(false);
   const [editingCategory, setEditingCategory] = useState(false);
@@ -138,21 +144,21 @@ export default function ProjetoDetalhe() {
 
   useEffect(() => { refreshProject(); }, [refreshProject]);
 
-  const updateField = useCallback((field: string, value: any) => {
-    setProject((prev: any) => ({ ...prev, [field]: value }));
+  const updateField = useCallback(<K extends keyof Project,>(field: K, value: Project[K]) => {
+    setProject((prev) => ({ ...prev, [field]: value }));
     save(field, value);
   }, [save]);
 
-  const onUpdateData = useCallback((data: any) => updateField("data", data), [updateField]);
-  const onUpdatePipeline = useCallback((pipeline: any) => updateField("pipeline", pipeline), [updateField]);
-  const onUpdateAvatar = useCallback((avatar: any) => updateField("avatar", avatar), [updateField]);
-  const onUpdateBrandKit = useCallback((bk: any) => updateField("brand_kit", bk), [updateField]);
+  const onUpdateData = useCallback((data: Json) => updateField("data", data), [updateField]);
+  const onUpdatePipeline = useCallback((pipeline: Json) => updateField("pipeline", pipeline), [updateField]);
+  const onUpdateAvatar = useCallback((avatar: Json) => updateField("avatar", avatar), [updateField]);
+  const onUpdateBrandKit = useCallback((bk: Json) => updateField("brand_kit", bk), [updateField]);
 
   if (!project) return <div className="text-muted-foreground p-8">Carregando...</div>;
 
-  const pipeline = project.pipeline || {};
+  const pipeline = jsonFields(project.pipeline);
   const pipelineAvg = Math.round(
-    PIPELINE_KEYS.reduce((sum, k) => sum + (pipeline[k] ?? 0), 0) / PIPELINE_KEYS.length
+    PIPELINE_KEYS.reduce((sum, k) => sum + (jsonNumber(pipeline[k]) ?? 0), 0) / PIPELINE_KEYS.length
   );
 
   return (
@@ -164,7 +170,7 @@ export default function ProjetoDetalhe() {
             {editingIcon ? (
               <Input
                 value={project.icon || ""}
-                onChange={(e) => setProject((p: any) => ({ ...p, icon: e.target.value }))}
+                onChange={(e) => setProject((p) => ({ ...p, icon: e.target.value }))}
                 onBlur={() => { setEditingIcon(false); updateField("icon", project.icon); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { setEditingIcon(false); updateField("icon", project.icon); } }}
                 className="w-16 h-14 text-4xl text-center bg-secondary"
@@ -195,7 +201,7 @@ export default function ProjetoDetalhe() {
               {editingName ? (
                 <Input
                   value={project.name || ""}
-                  onChange={(e) => setProject((p: any) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) => setProject((p) => ({ ...p, name: e.target.value }))}
                   onBlur={() => { setEditingName(false); updateField("name", project.name); }}
                   onKeyDown={(e) => { if (e.key === "Enter") { setEditingName(false); updateField("name", project.name); } }}
                   className="text-3xl font-bold bg-secondary h-12 max-w-md"
@@ -219,7 +225,7 @@ export default function ProjetoDetalhe() {
                 {editingCategory ? (
                   <Input
                     value={project.category || ""}
-                    onChange={(e) => setProject((p: any) => ({ ...p, category: e.target.value }))}
+                    onChange={(e) => setProject((p) => ({ ...p, category: e.target.value }))}
                     onBlur={() => { setEditingCategory(false); updateField("category", project.category); }}
                     onKeyDown={(e) => { if (e.key === "Enter") { setEditingCategory(false); updateField("category", project.category); } }}
                     className="bg-secondary h-7 text-xs max-w-[160px]"
@@ -235,16 +241,16 @@ export default function ProjetoDetalhe() {
                     {project.category || "Sem categoria"}
                   </Badge>
                 )}
-                {project.data?.status && (
+                {jsonText(jsonFields(project.data).status) && (
                   <Badge
                     variant="outline"
                     className={`capitalize text-[10px] uppercase tracking-editorial ${
-                      String(project.data.status).toLowerCase() === "vendendo"
+                      String(jsonText(jsonFields(project.data).status)).toLowerCase() === "vendendo"
                         ? "border-gold/40 text-gold gold-glow bg-gold/5"
                         : "border-border/60 text-muted-foreground"
                     }`}
                   >
-                    {project.data.status}
+                    {jsonText(jsonFields(project.data).status)}
                   </Badge>
                 )}
               </div>
@@ -261,12 +267,12 @@ export default function ProjetoDetalhe() {
                 onClick={() => {
                   const ctx = {
                     projeto: { name: project.name, category: project.category, description: project.description },
-                    expert: project.data?.expert || {},
-                    briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                    expert: jsonFields(project.data).expert || {},
+                    briefing: { produtos: jsonFields(project.data).produtos, status: jsonText(jsonFields(project.data).status), links: jsonFields(project.data).links },
                     avatar: project.avatar || {},
                     brand_kit: project.brand_kit || {},
-                    kpis: project.data?.kpis || {},
-                    pipeline: project.pipeline || {},
+                    kpis: jsonFields(project.data).kpis || {},
+                    pipeline: jsonFields(project.pipeline),
                   };
                   navigator.clipboard.writeText(JSON.stringify(ctx, null, 2));
                   toast.success("Contexto copiado para a área de transferência!");
@@ -281,12 +287,12 @@ export default function ProjetoDetalhe() {
                 onClick={() => {
                   const ctx = {
                     projeto: { name: project.name, category: project.category, description: project.description },
-                    expert: project.data?.expert || {},
-                    briefing: { produtos: project.data?.produtos, status: project.data?.status, links: project.data?.links },
+                    expert: jsonFields(project.data).expert || {},
+                    briefing: { produtos: jsonFields(project.data).produtos, status: jsonText(jsonFields(project.data).status), links: jsonFields(project.data).links },
                     avatar: project.avatar || {},
                     brand_kit: project.brand_kit || {},
-                    kpis: project.data?.kpis || {},
-                    pipeline: project.pipeline || {},
+                    kpis: jsonFields(project.data).kpis || {},
+                    pipeline: jsonFields(project.pipeline),
                   };
                   const blob = new Blob([JSON.stringify(ctx, null, 2)], { type: "application/json" });
                   const url = URL.createObjectURL(blob);
@@ -449,7 +455,7 @@ export default function ProjetoDetalhe() {
                 <Label className="text-xs text-muted-foreground">Microsoft Clarity ID</Label>
                 <Input
                   value={project.clarity_id || ""}
-                  onChange={e => setProject((p: any) => ({ ...p, clarity_id: e.target.value }))}
+                  onChange={e => setProject((p) => ({ ...p, clarity_id: e.target.value }))}
                   onBlur={() => updateField("clarity_id", project.clarity_id)}
                   className="bg-secondary"
                   placeholder="Ex: abc123xyz"
@@ -463,7 +469,7 @@ export default function ProjetoDetalhe() {
                 <Label className="text-xs text-muted-foreground">Google Analytics ID</Label>
                 <Input
                   value={project.ga_id || ""}
-                  onChange={e => setProject((p: any) => ({ ...p, ga_id: e.target.value }))}
+                  onChange={e => setProject((p) => ({ ...p, ga_id: e.target.value }))}
                   onBlur={() => updateField("ga_id", project.ga_id)}
                   className="bg-secondary"
                   placeholder="Ex: G-XXXXXXXXXX"
@@ -485,14 +491,14 @@ export default function ProjetoDetalhe() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 {[
-                  { label: "Facebook CAPI", ok: !!project.data?.facebook_access_token, icon: "📘" },
-                  { label: "Marketing API", ok: !!project.data?.facebook_marketing_token, icon: "📊" },
-                  { label: "Pixel", ok: !!project.data?.facebook_pixel_id, icon: "🎯" },
+                  { label: "Facebook CAPI", ok: !!jsonText(jsonFields(project.data).facebook_access_token), icon: "📘" },
+                  { label: "Marketing API", ok: !!jsonText(jsonFields(project.data).facebook_marketing_token), icon: "📊" },
+                  { label: "Pixel", ok: !!jsonText(jsonFields(project.data).facebook_pixel_id), icon: "🎯" },
                   { label: "Clarity", ok: !!project.clarity_id, icon: "🔍" },
-                  { label: "Hotmart", ok: !!project.data?.hotmart_token, icon: "🟧" },
-                  { label: "Kiwify", ok: !!project.data?.kiwify_token, icon: "🟪" },
-                  { label: "Ticto", ok: !!project.data?.ticto_token, icon: "🟩" },
-                  { label: "Perfect Pay", ok: !!project.data?.perfectpay_token, icon: "🟨" },
+                  { label: "Hotmart", ok: !!jsonText(jsonFields(project.data).hotmart_token), icon: "🟧" },
+                  { label: "Kiwify", ok: !!jsonText(jsonFields(project.data).kiwify_token), icon: "🟪" },
+                  { label: "Ticto", ok: !!jsonText(jsonFields(project.data).ticto_token), icon: "🟩" },
+                  { label: "Perfect Pay", ok: !!jsonText(jsonFields(project.data).perfectpay_token), icon: "🟨" },
                 ].map(i => (
                   <div key={i.label} className="p-3 rounded bg-secondary/50 border border-border text-center">
                     <span className="text-lg">{i.icon}</span>
@@ -528,7 +534,7 @@ export default function ProjetoDetalhe() {
 }
 
 // ── Facebook CAPI Card ──────────────────────────────────────────
-function FacebookCAPICard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
+function FacebookCAPICard({ project, setProject, updateField }: { project: Project; setProject: Dispatch<SetStateAction<Project | null>>; updateField: UpdateProject }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
@@ -536,13 +542,13 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
 
   const updateDataField = (key: string, value: string) => {
-    const newData = { ...(project.data || {}), [key]: value };
-    setProject((p: any) => ({ ...p, data: newData }));
+    const newData = { ...jsonFields(project.data), [key]: value };
+    setProject((p) => ({ ...p, data: newData }));
     updateField("data", newData);
   };
 
   const testCAPI = async () => {
-    if (!project.data?.facebook_pixel_id || !project.data?.facebook_access_token) {
+    if (!jsonText(jsonFields(project.data).facebook_pixel_id) || !jsonText(jsonFields(project.data).facebook_access_token)) {
       toast.error("Preencha Pixel ID e Access Token antes de testar");
       return;
     }
@@ -586,12 +592,12 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           <div>
             <Label className="text-xs text-muted-foreground">Pixel ID</Label>
             <Input
-              value={project.data?.facebook_pixel_id || ""}
+              value={jsonText(jsonFields(project.data).facebook_pixel_id) || ""}
               onChange={e => {
-                const newData = { ...(project.data || {}), facebook_pixel_id: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
+                const newData = { ...jsonFields(project.data), facebook_pixel_id: e.target.value };
+                setProject((p) => ({ ...p, data: newData }));
               }}
-              onBlur={() => updateDataField("facebook_pixel_id", project.data?.facebook_pixel_id || "")}
+              onBlur={() => updateDataField("facebook_pixel_id", jsonText(jsonFields(project.data).facebook_pixel_id) || "")}
               className="bg-secondary"
               placeholder="Ex: 123456789012345"
             />
@@ -600,12 +606,12 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           <div>
             <Label className="text-xs text-muted-foreground">Ad Account ID</Label>
             <Input
-              value={project.data?.facebook_ad_account_id || ""}
+              value={jsonText(jsonFields(project.data).facebook_ad_account_id) || ""}
               onChange={e => {
-                const newData = { ...(project.data || {}), facebook_ad_account_id: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
+                const newData = { ...jsonFields(project.data), facebook_ad_account_id: e.target.value };
+                setProject((p) => ({ ...p, data: newData }));
               }}
-              onBlur={() => updateDataField("facebook_ad_account_id", project.data?.facebook_ad_account_id || "")}
+              onBlur={() => updateDataField("facebook_ad_account_id", jsonText(jsonFields(project.data).facebook_ad_account_id) || "")}
               className="bg-secondary"
               placeholder="act_123456789"
             />
@@ -616,12 +622,12 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
             <div className="relative">
               <Input
                 type={visibleSecrets["fb_token"] ? "text" : "password"}
-                value={project.data?.facebook_access_token || ""}
+                value={jsonText(jsonFields(project.data).facebook_access_token) || ""}
                 onChange={e => {
-                  const newData = { ...(project.data || {}), facebook_access_token: e.target.value };
-                  setProject((p: any) => ({ ...p, data: newData }));
+                  const newData = { ...jsonFields(project.data), facebook_access_token: e.target.value };
+                  setProject((p) => ({ ...p, data: newData }));
                 }}
-                onBlur={() => updateDataField("facebook_access_token", project.data?.facebook_access_token || "")}
+                onBlur={() => updateDataField("facebook_access_token", jsonText(jsonFields(project.data).facebook_access_token) || "")}
                 className="bg-secondary pr-10"
                 placeholder="EAAxxxxxxx..."
               />
@@ -634,12 +640,12 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           <div>
             <Label className="text-xs text-muted-foreground">Test Event Code</Label>
             <Input
-              value={project.data?.facebook_test_event_code || ""}
+              value={jsonText(jsonFields(project.data).facebook_test_event_code) || ""}
               onChange={e => {
-                const newData = { ...(project.data || {}), facebook_test_event_code: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
+                const newData = { ...jsonFields(project.data), facebook_test_event_code: e.target.value };
+                setProject((p) => ({ ...p, data: newData }));
               }}
-              onBlur={() => updateDataField("facebook_test_event_code", project.data?.facebook_test_event_code || "")}
+              onBlur={() => updateDataField("facebook_test_event_code", jsonText(jsonFields(project.data).facebook_test_event_code) || "")}
               className="bg-secondary"
               placeholder="TEST12345"
             />
@@ -654,12 +660,12 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           <div className="relative">
             <Input
               type={visibleSecrets["fb_marketing"] ? "text" : "password"}
-              value={project.data?.facebook_marketing_token || ""}
+              value={jsonText(jsonFields(project.data).facebook_marketing_token) || ""}
               onChange={e => {
-                const newData = { ...(project.data || {}), facebook_marketing_token: e.target.value };
-                setProject((p: any) => ({ ...p, data: newData }));
+                const newData = { ...jsonFields(project.data), facebook_marketing_token: e.target.value };
+                setProject((p) => ({ ...p, data: newData }));
               }}
-              onBlur={() => updateDataField("facebook_marketing_token", project.data?.facebook_marketing_token || "")}
+              onBlur={() => updateDataField("facebook_marketing_token", jsonText(jsonFields(project.data).facebook_marketing_token) || "")}
               className="bg-secondary pr-10"
               placeholder="EAAxxxxxxx... (Graph API Explorer)"
             />
@@ -680,7 +686,7 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
           </p>
           <Input
             value={project.meta_offline_event_set_id || ""}
-            onChange={e => setProject((p: any) => ({ ...p, meta_offline_event_set_id: e.target.value }))}
+            onChange={e => setProject((p) => ({ ...p, meta_offline_event_set_id: e.target.value }))}
             onBlur={() => updateField("meta_offline_event_set_id", project.meta_offline_event_set_id || "")}
             className="bg-secondary"
             placeholder="123456789012345 (ID do Offline Event Set)"
@@ -698,7 +704,7 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
                   if (r?.error) toast.error("Erro: " + r.error);
                   else if (r?.skipped) toast.warning("Configure Event Set ID e Access Token (Marketing API)");
                   else toast.success(`Enviado: ${r?.uploaded ?? 0} de ${r?.total_candidates ?? 0} vendas`);
-                } catch (e: any) { toast.error(e.message); }
+                } catch (e: unknown) { toast.error(errorMessage(e)); }
               }}
             >
               <TestTube2 className="h-3 w-3 mr-1" /> Enviar agora
@@ -744,7 +750,7 @@ function FacebookCAPICard({ project, setProject, updateField }: { project: any; 
 }
 
 // ── Webhooks de Pagamento Card ──────────────────────────────────
-function WebhooksPagamentoCard({ project, setProject, updateField }: { project: any; setProject: any; updateField: (f: string, v: any) => void }) {
+function WebhooksPagamentoCard({ project, setProject, updateField }: { project: Project; setProject: Dispatch<SetStateAction<Project | null>>; updateField: UpdateProject }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const toggleSecret = (key: string) => setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
@@ -758,8 +764,8 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
   };
 
   const updateDataField = (key: string, value: string) => {
-    const newData = { ...(project.data || {}), [key]: value };
-    setProject((p: any) => ({ ...p, data: newData }));
+    const newData = { ...jsonFields(project.data), [key]: value };
+    setProject((p) => ({ ...p, data: newData }));
     updateField("data", newData);
   };
 
@@ -815,12 +821,12 @@ function WebhooksPagamentoCard({ project, setProject, updateField }: { project: 
               <div className="relative">
                 <Input
                   type={visibleSecrets[p.key] ? "text" : "password"}
-                  value={project.data?.[p.key] || ""}
+                  value={jsonText(jsonFields(project.data)[p.key]) || ""}
                   onChange={e => {
-                    const newData = { ...(project.data || {}), [p.key]: e.target.value };
-                    setProject((prev: any) => ({ ...prev, data: newData }));
+                    const newData = { ...jsonFields(project.data), [p.key]: e.target.value };
+                    setProject((prev) => ({ ...prev, data: newData }));
                   }}
-                  onBlur={() => updateDataField(p.key, project.data?.[p.key] || "")}
+                  onBlur={() => updateDataField(p.key, jsonText(jsonFields(project.data)[p.key]) || "")}
                   className="bg-secondary pr-10"
                   placeholder={p.placeholder}
                 />

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       .limit(25);
     if (error) throw error;
 
-    const processed: any[] = [];
+    const processed: Array<{id:string;status:string;error?:string}> = [];
     for (const pub of (due || [])) {
       try {
         // 1. Salva na biblioteca de referências (sempre)
@@ -67,20 +67,22 @@ Deno.serve(async (req) => {
         }).eq("id", pub.id);
 
         processed.push({ id: pub.id, status: newStatus });
-      } catch (e: any) {
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
         await admin.from("imphq_studio_publications").update({
-          status: "erro", error: e?.message || String(e),
+          status: "erro", error: eMessage || String(e),
         }).eq("id", pub.id);
-        processed.push({ id: pub.id, status: "erro", error: e?.message });
+        processed.push({ id: pub.id, status: "erro", error: eMessage });
       }
     }
 
     return new Response(JSON.stringify({ ok: true, processed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-publish-worker:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

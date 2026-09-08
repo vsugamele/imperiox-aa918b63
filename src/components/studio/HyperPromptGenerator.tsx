@@ -1,3 +1,5 @@
+import { toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -123,7 +125,7 @@ export function HyperPromptGenerator({
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) return { ...emptyHyperFields, ...JSON.parse(raw) };
-    } catch {}
+    } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
     return emptyHyperFields;
   });
   const [tab, setTab] = useState("persona");
@@ -146,7 +148,7 @@ export function HyperPromptGenerator({
   }, [externalFields]);
 
   useEffect(() => {
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(fields)); } catch {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(fields)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [fields]);
 
   const prompt = useMemo(() => buildHyperPrompt(fields), [fields]);
@@ -225,7 +227,7 @@ export function HyperPromptGenerator({
       user_id: user.id,
       nome,
       prompt_text: prompt,
-      campos: fields as any,
+      campos: toJson(fields),
       tags: tags.length ? tags : null,
       plataforma: fields.plataforma,
       thumbnail_url: thumb,
@@ -247,8 +249,8 @@ export function HyperPromptGenerator({
       if (data?.error) throw new Error(data.error);
       setRefined(data?.refined || "");
       toast.success(`Refinado (${refineMode === "editorial" ? "editorial" : "compacto"})`);
-    } catch (e: any) {
-      toast.error("Falha ao refinar: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Falha ao refinar: " + (errorMessage(e) || ""));
     } finally { setRefining(false); }
   };
 
@@ -267,7 +269,7 @@ export function HyperPromptGenerator({
       const novas: Variation[] = results
         .map((r, i) => {
           if (r.status !== "fulfilled") return null;
-          const { data, error } = r.value as any;
+          const { data, error } = r.value;
           if (error || data?.error || !data?.image_url) return null;
           return { url: data.image_url, prompt: basePrompt, ts: Date.now() + i, locked: false };
         })
@@ -277,8 +279,8 @@ export function HyperPromptGenerator({
       setVariations(finalSet);
       setHistory((h) => [...novas, ...h].slice(0, 12));
       toast.success(`${novas.length} variação${novas.length > 1 ? "ões" : ""} gerada${novas.length > 1 ? "s" : ""}`);
-    } catch (e: any) {
-      toast.error("Falha no preview: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Falha no preview: " + (errorMessage(e) || ""));
     } finally { setPreviewing(false); }
   };
 
@@ -291,7 +293,10 @@ export function HyperPromptGenerator({
       sessionStorage.setItem("criativo:promptVisual", text);
       const thumb = variations.find((v) => v.locked)?.url || variations[0]?.url;
       if (thumb) sessionStorage.setItem("criativo:previewUrl", thumb);
-    } catch {}
+    } catch {
+      toast.error("Não foi possível transferir o prompt. Copie o texto antes de abrir Criativos.");
+      return;
+    }
     navigate("/criativos/novo?from=hyper");
     toast.success("Prompt enviado para Criativos");
   };
@@ -589,7 +594,7 @@ export function HyperPromptGenerator({
                 <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[hsl(var(--gold))]/70">· Refinador IA</span>
               </div>
               <div className="flex items-center gap-2">
-                <Select value={refineMode} onValueChange={(v) => setRefineMode(v as any)}>
+                <Select value={refineMode} onValueChange={(v) => { if (v === "compact" || v === "editorial") setRefineMode(v); }}>
                   <SelectTrigger className="h-8 text-[11px] bg-secondary/40 border-border/60 flex-1">
                     <SelectValue />
                   </SelectTrigger>

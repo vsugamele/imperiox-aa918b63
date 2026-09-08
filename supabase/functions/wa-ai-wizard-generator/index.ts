@@ -156,9 +156,10 @@ Gere a configuração da IA otimizada para conversão e atendimento humanizado.`
     return new Response(JSON.stringify({ success: true, config }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "Erro interno";
     console.error("[wa-ai-wizard-generator] error", err);
-    return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
+    return new Response(JSON.stringify({ error: message || "Erro interno" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

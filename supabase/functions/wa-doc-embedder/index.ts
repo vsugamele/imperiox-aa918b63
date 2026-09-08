@@ -7,7 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
+function embeddingFromResponse(value: unknown): number[] | undefined {
+  if (!value || typeof value !== "object" || !("data" in value) || !Array.isArray(value.data)) return undefined;
+  const first: unknown = value.data[0];
+  if (!first || typeof first !== "object" || !("embedding" in first) || !Array.isArray(first.embedding)) return undefined;
+  const vector: unknown[] = first.embedding;
+  if (vector.length !== 768 || !vector.every((item): item is number => typeof item === "number" && Number.isFinite(item))) return undefined;
+  return vector;
+}
 
 // Simple text splitter function
 function splitText(text: string, chunkSize = 500, chunkOverlap = 100): string[] {
@@ -50,12 +57,12 @@ async function getEmbedding(text: string): Promise<number[]> {
       });
       if (res.ok) {
         const data = await res.json();
-        const emb = data?.data?.[0]?.embedding;
+        const emb = embeddingFromResponse(data);
         if (emb) return emb;
       }
       console.warn(`[embeddings] Lovable AI Gateway call failed: ${res.status}`);
-    } catch (e: any) {
-      console.warn(`[embeddings] Lovable AI Gateway error: ${e.message}`);
+    } catch (e) {
+      console.warn(`[embeddings] Lovable AI Gateway error: ${e instanceof Error ? e.message : "Unknown error"}`);
     }
   }
 
@@ -77,7 +84,7 @@ async function getEmbedding(text: string): Promise<number[]> {
     });
     if (res.ok) {
       const data = await res.json();
-      const emb = data?.data?.[0]?.embedding;
+      const emb = embeddingFromResponse(data);
       if (emb) return emb;
     }
     const errText = await res.text();
@@ -89,11 +96,11 @@ async function getEmbedding(text: string): Promise<number[]> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders }
-
-  const _auth = await requireUser(req);
-  if (!_auth.ok) return _auth.response;);
+    return new Response(null, { headers: corsHeaders });
   }
+
+  const auth = await requireUser(req);
+  if (!auth.ok) return auth.response;
 
   try {
     const supabase = createClient(
@@ -101,11 +108,20 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const body = await req.json();
-    const { action, text, doc_id, project_id, active } = body;
+    const body: unknown = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return new Response(JSON.stringify({ error: "Request body must be an object" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const action = "action" in body ? body.action : undefined;
+    const text = "text" in body ? body.text : undefined;
+    const doc_id = "doc_id" in body ? body.doc_id : undefined;
+    const project_id = "project_id" in body ? body.project_id : undefined;
+    const active = "active" in body ? body.active : undefined;
 
     if (action === "get_embedding") {
-      if (!text) {
+      if (typeof text !== "string" || !text.trim()) {
         return new Response(JSON.stringify({ error: "text is required for get_embedding action" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -120,7 +136,7 @@ serve(async (req) => {
       });
     }
 
-    if (!doc_id || !project_id) {
+    if (typeof doc_id !== "string" || !doc_id || typeof project_id !== "string" || !project_id) {
       return new Response(JSON.stringify({ error: "doc_id and project_id required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -156,7 +172,7 @@ serve(async (req) => {
       throw new Error(`Doc not found: ${fetchErr?.message || ""}`);
     }
 
-    let rawText = doc.content || "";
+    let rawText = typeof doc.content === "string" ? doc.content : "";
     const parsedFile = rawText.trim().match(/^\[\[file:(.+?)\|(.+?)\]\]$/);
 
     if (parsedFile) {
@@ -249,9 +265,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
-    console.error("[wa-doc-embedder] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[wa-doc-embedder] Error:", message);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

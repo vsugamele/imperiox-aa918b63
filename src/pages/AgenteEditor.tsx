@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Sparkles, Loader2, User, ListChecks, BookOpen, MessagesSquare, FolderOpen, Trash2, Plus, Volume2 } from "lucide-react";
 import { toast } from "sonner";
-import ArquivosTab from "./agent-editor/ArquivosTab";
+import ArquivosTab from "@/pages/agent-editor/ArquivosTab";
 
 interface AgentRow {
   id: string;
@@ -26,7 +29,7 @@ interface AgentRow {
   base_conhecimento: string;
   voice_config: { voice: string; stability: number; similarity: number; style: number; speed: number };
   qa_pairs: { q: string; a: string }[];
-  files: any[];
+  files: Json;
 }
 
 const VOICES = ["Samuel", "Laila", "João", "Maria", "Carlos", "Ana"];
@@ -43,24 +46,28 @@ export default function AgenteEditor() {
     if (!id) return;
     (async () => {
       const [aRes, pRes] = await Promise.all([
-        supabase.from("imphq_ai_agents" as any).select("*").eq("id", id).maybeSingle(),
+        supabase.from("imphq_ai_agents").select("*").eq("id", id).maybeSingle(),
         supabase.from("imphq_projects").select("id, name").order("name"),
       ]);
-      if (aRes.data) setAgent(aRes.data as any);
-      setProjects((pRes.data as any[]) || []);
+      if (aRes.data) {
+        const row = aRes.data, voice = jsonFields(row.voice_config);
+        const qa = Array.isArray(row.qa_pairs) ? row.qa_pairs.flatMap(value => { const pair = jsonFields(value); const q = jsonText(pair.q), a = jsonText(pair.a); return q !== undefined && a !== undefined ? [{ ...pair, q, a }] : []; }) : [];
+        setAgent({ ...row, qa_pairs: qa, voice_config: { ...voice, voice: jsonText(voice.voice) || "Samuel", stability: jsonNumber(voice.stability) ?? 0.5, similarity: jsonNumber(voice.similarity) ?? 0.5, style: jsonNumber(voice.style) ?? 0.5, speed: jsonNumber(voice.speed) ?? 1 } });
+      }
+      setProjects(pRes.data || []);
     })();
   }, [id]);
 
   const save = async () => {
     if (!agent) return;
     setSaving(true);
-    const { error } = await supabase.from("imphq_ai_agents" as any).update({
+    const { error } = await supabase.from("imphq_ai_agents").update({
       nome: agent.nome, avatar_url: agent.avatar_url, project_id: agent.project_id, ativo: agent.ativo,
       identidade: agent.identidade, diretrizes: agent.diretrizes, objetivo: agent.objetivo,
       instrucoes_atendimento: agent.instrucoes_atendimento, restricoes: agent.restricoes,
       base_conhecimento: agent.base_conhecimento, voice_config: agent.voice_config,
       qa_pairs: agent.qa_pairs, files: agent.files,
-    } as any).eq("id", agent.id);
+    }).eq("id", agent.id);
     setSaving(false);
     if (error) toast.error(error.message);
     else toast.success("Agente salvo");
@@ -85,8 +92,8 @@ export default function AgenteEditor() {
         });
         toast.success("Preenchimento gerado — revise e salve");
       } else throw new Error(data?.error || "Falha");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro no autofill");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro no autofill");
     } finally {
       setAutofilling(false);
     }
@@ -95,7 +102,7 @@ export default function AgenteEditor() {
   if (!agent) return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
 
   const upd = <K extends keyof AgentRow>(k: K, v: AgentRow[K]) => setAgent({ ...agent, [k]: v });
-  const updVoice = (k: keyof AgentRow["voice_config"], v: any) => setAgent({ ...agent, voice_config: { ...agent.voice_config, [k]: v } });
+  const updVoice = <K extends keyof AgentRow["voice_config"]>(k: K, v: AgentRow["voice_config"][K]) => setAgent({ ...agent, voice_config: { ...agent.voice_config, [k]: v } });
 
   return (
     <div className="min-h-screen bg-background">
@@ -188,13 +195,13 @@ export default function AgenteEditor() {
                   { k: "similarity", label: "Similaridade", range: "0.0 - 1.0", help: "Fidelidade à voz original", min: 0, max: 1, step: 0.05 },
                   { k: "style", label: "Sotaque", range: "0.0 - 1.0", help: "Estilo e expressividade", min: 0, max: 1, step: 0.05 },
                   { k: "speed", label: "Velocidade", range: "0.7 - 1.2", help: "Velocidade de fala", min: 0.7, max: 1.2, step: 0.05 },
-                ] as Array<{ k: keyof AgentRow["voice_config"]; label: string; range: string; help: string; min: number; max: number; step: number }>).map(({ k, label, range, help, min, max, step }) => (
+                ] as Array<{ k: "stability" | "similarity" | "style" | "speed"; label: string; range: string; help: string; min: number; max: number; step: number }>).map(({ k, label, range, help, min, max, step }) => (
                   <div key={k} className="space-y-2">
                     <div>
                       <Label className="text-sm font-semibold">{label} <span className="text-[10px] text-muted-foreground font-normal">({range})</span></Label>
                     </div>
                     <Slider
-                      value={[(agent.voice_config as any)[k]]}
+                      value={[agent.voice_config[k]]}
                       min={min} max={max} step={step}
                       onValueChange={v => updVoice(k, v[0])}
                     />
@@ -294,7 +301,7 @@ export default function AgenteEditor() {
 
           {/* ARQUIVOS */}
           <TabsContent value="arquivos" className="space-y-4 pt-8">
-            <ArquivosTab agentId={agent.id} files={agent.files || []} onChange={(f) => upd("files", f)} />
+            <ArquivosTab agentId={agent.id} files={agent.files || []} onChange={(f) => upd("files", f.map(file => ({ ...file })))} />
           </TabsContent>
         </Tabs>
       </div>

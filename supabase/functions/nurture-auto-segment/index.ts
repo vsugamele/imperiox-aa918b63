@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       .select("id, project_id", { count: "exact" })
       .lt("updated_at", cut14d)
       .neq("status", "cliente")
-      .limit(100);
+      .limit(100).returns<{id:string;project_id:string|null}[]>();
 
     if ((dormCount || 0) >= 10) {
       const seq = await genSequence("Leads dormentes 14d+", dormCount || 0, "Reativação última chance");
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
           impact_brl: (dormCount || 0) * 50,
           title: `Sequência reativação · ${dormCount} dormentes`,
           reason: `${dormCount} leads sem atividade 14+ dias. Sequência pronta.`,
-          payload: { segment: "dormente_14d", lead_count: dormCount, sequence: seq, lead_ids: (dormant || []).map((l: any) => l.id) },
+          payload: { segment: "dormente_14d", lead_count: dormCount, sequence: seq, lead_ids: (dormant || []).map((l) => l.id) },
           source: "nurture-auto-segment",
           status: "proposed",
         });
@@ -97,9 +97,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, hot_actions: hotActions, dormant_count: dormCount || 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("nurture-auto-segment:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

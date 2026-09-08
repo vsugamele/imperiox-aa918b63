@@ -8,7 +8,7 @@ const RELOAD_KEY = "__chunk_retry_at";
  * 2nd failure: the hashed file really is gone -> clear caches and hard-reload
  * index.html once (guarded against reload loops).
  */
-export function lazyWithRetry<T extends ComponentType<any>>(
+export function lazyWithRetry<T extends ComponentType>(
   factory: () => Promise<{ default: T }>,
 ) {
   return lazy(async () => {

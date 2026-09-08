@@ -26,12 +26,12 @@ export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenCha
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const { data } = await (supabase.from("imphq_company_maps" as any) as any)
+      const { data } = await supabase.from("imphq_company_maps")
         .select("id, name")
         .order("updated_at", { ascending: false });
       const list = (data || []) as { id: string; name: string }[];
       setMaps(list);
-      if (list.length && !mapId) setMapId(list[0].id);
+      if (list.length) setMapId(current => current || list[0].id);
     })();
   }, [open]);
 
@@ -39,14 +39,14 @@ export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenCha
     if (!mapId || !accountId) { toast.error("Selecione um mapa"); return; }
     setSaving(true);
     // Insere centralizado (0,0) — usuário pode arrastar depois
-    const payload: any = {
+    const payload = {
       map_id: mapId, kind: "account",
       x: -120, y: -60, width: 260, height: 130,
       text: accountLabel || "",
       style: { accountId, viewMode },
       z_index: 5,
     };
-    const { error } = await (supabase.from("imphq_company_map_annotations" as any) as any).insert(payload);
+    const { error } = await supabase.from("imphq_company_map_annotations").insert(payload);
     setSaving(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Adicionado ao mapa");
@@ -71,7 +71,7 @@ export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenCha
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Modo inicial</Label>
-            <Select value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+            <Select value={viewMode} onValueChange={(v) => (v === "compact" || v === "expanded") && setViewMode(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="compact">Compacto (avatar + status)</SelectItem>

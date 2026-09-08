@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { requireUser } from "../_shared/require-auth.ts";
 
@@ -42,9 +43,9 @@ Deno.serve(async (req) => {
   "modelagem_resumo": "1 parágrafo de como replicar a estética"
 }`;
 
-    const content: any[] = [
+    const content: Array<{type:"text";text:string}|{type:"image_url";image_url:{url:string}}> = [
       { type: "text", text: `Contexto do projeto: ${contexto ?? "-"}\nAnalise ${imgs.length} referências.` },
-      ...imgs.map((a) => ({ type: "image_url", image_url: { url: a.url } })),
+      ...imgs.map((a) => ({ type: "image_url" as const, image_url: { url: a.url } })),
     ];
 
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -62,8 +63,8 @@ Deno.serve(async (req) => {
     }
     const j = await r.json();
     const raw = j.choices?.[0]?.message?.content ?? "{}";
-    let ficha: any = {};
-    try { ficha = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { ficha = { modelagem_resumo: raw }; }
+    let ficha: Record<string,unknown> = {};
+    try { ficha = z.record(z.unknown()).parse(typeof raw === "string" ? JSON.parse(raw) : raw); } catch { ficha = { modelagem_resumo: raw }; }
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -89,7 +90,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ id, ficha }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), { status: 500, headers: corsHeaders });
   }
 });

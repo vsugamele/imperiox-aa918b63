@@ -1,10 +1,115 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 
+import { z } from "https://esm.sh/zod@3.25.76";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void };
+const numericValue = z.union([z.number(), z.string()]);
+const paymentPayloadSchema = z.object({
+    version: z.string().nullish(), token: z.string().nullish(), status: z.string().nullish(), tipo_evento: z.string().nullish(), event: z.string().nullish(), webhook_event_type: z.string().nullish(), order_status: z.string().nullish(), customer_email: z.string().nullish(), product_name: z.string().nullish(), sale_date: z.string().nullish(), approved_date: z.string().nullish(), created_at: z.string().nullish(), email_customer: z.string().nullish(), name_customer: z.string().nullish(), phone_number_customer: z.string().nullish(), name_prod: z.string().nullish(), name_offer: z.string().nullish(), code: z.string().nullish(), sale_status_detail: z.string().nullish(), date_approved: z.string().nullish(), date_created: z.string().nullish(), plataforma: z.string().nullish(), evento: z.string().nullish(), event_type: z.string().nullish(), email: z.string().nullish(), nome: z.string().nullish(), phone: z.string().nullish(), produto: z.string().nullish(), data_compra: z.string().nullish(), payment_method: z.string().nullish(), order_id: z.string().nullish(), order_ref: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish(), sale_amount: numericValue.nullish(), order_value: numericValue.nullish(), producer_value: numericValue.nullish(), platform_fee: numericValue.nullish(), affiliate_value: numericValue.nullish(), platform_tax_value: numericValue.nullish(), payment_method_enum: numericValue.nullish(), quantity: numericValue.nullish(), installments: numericValue.nullish(), sale_id: numericValue.nullish(), sale_status_enum: numericValue.nullish(), original_price: numericValue.nullish(), valor: numericValue.nullish(), amount: numericValue.nullish(), customer: z.object({
+        email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
+            country_iso: z.string().nullish(), country: z.string().nullish()
+        }).passthrough().nullish(), phone: z.union([
+            z.string(), z.object({
+                ddd: numericValue.nullish(), number: numericValue.nullish()
+            }).passthrough()
+        ]).nullish()
+    }).passthrough().nullish(), Customer: z.object({
+        email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
+            country_iso: z.string().nullish(), country: z.string().nullish()
+        }).passthrough().nullish(), phone: z.union([
+            z.string(), z.object({
+                ddd: numericValue.nullish(), number: numericValue.nullish()
+            }).passthrough()
+        ]).nullish()
+    }).passthrough().nullish(), product: z.union([
+        z.string(), z.object({
+            name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+        }).passthrough()
+    ]).nullish(), Product: z.object({
+        name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+    }).passthrough().nullish(), plan: z.object({
+        name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+    }).passthrough().nullish(), item: z.object({
+        product_name: z.string().nullish(), name: z.string().nullish(), hash: z.string().nullish(), id: z.string().nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: z.boolean().nullish(), is_upsell: z.boolean().nullish()
+    }).passthrough().nullish(), order: z.object({
+        payment_method: z.string().nullish(), code: z.string().nullish(), id: z.string().nullish(), approved_at: z.string().nullish(), created_at: z.string().nullish(), paid_amount: numericValue.nullish(), net_amount: numericValue.nullish(), platform_fee: numericValue.nullish(), transaction_fee: numericValue.nullish(), installments: numericValue.nullish(), bumps: z.array(z.object({
+            product_name: z.string().nullish(), name: z.string().nullish(), hash: z.string().nullish(), id: z.string().nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: z.boolean().nullish(), is_upsell: z.boolean().nullish()
+        }).passthrough()).nullish()
+    }).passthrough().nullish(), payment: z.object({
+        method: z.string().nullish(), card_brand: z.string().nullish(), installments: numericValue.nullish()
+    }).passthrough().nullish(), commissions: z.union([
+        z.array(z.object({
+            role: z.string().nullish(), source: z.string().nullish(), value: numericValue.nullish(), currency_conversion: z.object({
+                converted_to_currency: z.string().nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
+            }).passthrough().nullish()
+        }).passthrough()), z.object({
+            charge_amount: numericValue.nullish(), kiwify_fee: numericValue.nullish(), producer_amount: numericValue.nullish(), my_commission: numericValue.nullish(), affiliate_amount: numericValue.nullish(), receive_amount: numericValue.nullish(), net_amount: numericValue.nullish()
+        }).passthrough()
+    ]).nullish(), Commissions: z.object({
+        charge_amount: numericValue.nullish(), kiwify_fee: numericValue.nullish(), producer_amount: numericValue.nullish(), my_commission: numericValue.nullish(), affiliate_amount: numericValue.nullish(), receive_amount: numericValue.nullish(), net_amount: numericValue.nullish()
+    }).passthrough().nullish(), commission: z.object({
+        producer_value: numericValue.nullish(), platform_fee: numericValue.nullish(), affiliate_value: numericValue.nullish()
+    }).passthrough().nullish(), data: z.object({
+        buyer: z.object({
+            email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
+                country_iso: z.string().nullish(), country: z.string().nullish()
+            }).passthrough().nullish(), phone: z.union([
+                z.string(), z.object({
+                    ddd: numericValue.nullish(), number: numericValue.nullish()
+                }).passthrough()
+            ]).nullish()
+        }).passthrough().nullish(), product: z.object({
+            name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+        }).passthrough().nullish(), purchase: z.object({
+            payment_method: z.string().nullish(), transaction: z.string().nullish(), business_model_country: z.string().nullish(), hotmart_fee: numericValue.nullish(), price: z.object({
+                currency_value: z.string().nullish(), value: numericValue.nullish()
+            }).passthrough().nullish(), full_price: z.object({
+                currency_value: z.string().nullish(), value: numericValue.nullish()
+            }).passthrough().nullish(), original_offer_price: z.object({
+                currency_value: z.string().nullish(), value: numericValue.nullish()
+            }).passthrough().nullish(), commission_as: z.union([
+                z.number(), z.object({
+                    currency_value: z.string().nullish(), value: numericValue.nullish()
+                }).passthrough()
+            ]).nullish(), commission: z.union([
+                z.number(), z.object({
+                    currency_value: z.string().nullish(), value: numericValue.nullish()
+                }).passthrough()
+            ]).nullish(), affiliate_commission: z.object({
+                currency_value: z.string().nullish(), value: numericValue.nullish()
+            }).passthrough().nullish(), payment: z.object({
+                type: z.string().nullish(), installments_number: numericValue.nullish()
+            }).passthrough().nullish(), order_bump: z.object({
+                id: z.string().nullish()
+            }).passthrough().nullish(), offer: z.object({
+                code: z.string().nullish()
+            }).passthrough().nullish(), tracking: z.object({
+                source: z.string().nullish(), medium: z.string().nullish(), campaign: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), source_sck: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish()
+            }).passthrough().nullish(), checkout_country: z.union([
+                z.string(), z.object({
+                    iso: z.string().nullish()
+                }).passthrough()
+            ]).nullish(), approved_date: numericValue.nullish(), order_date: numericValue.nullish(), date: numericValue.nullish(), is_order_bump: z.boolean().nullish()
+        }).passthrough().nullish(), commissions: z.array(z.object({
+            role: z.string().nullish(), source: z.string().nullish(), value: numericValue.nullish(), currency_conversion: z.object({
+                converted_to_currency: z.string().nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
+            }).passthrough().nullish()
+        }).passthrough()).nullish()
+    }).passthrough().nullish(), dados: z.object({
+        email_comprador: z.string().nullish(), nome_comprador: z.string().nullish(), telefone_comprador: z.string().nullish(), nome_produto: z.string().nullish(), data_compra: z.string().nullish(), criado_em: z.string().nullish(), valor: numericValue.nullish()
+    }).passthrough().nullish(), tracking: z.object({
+        source: z.string().nullish(), medium: z.string().nullish(), campaign: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), source_sck: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish()
+    }).passthrough().nullish(), is_bump: z.boolean().nullish(), bump_id: numericValue.nullish()
+}).passthrough();
+const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
 async function hashSHA256(value: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -46,8 +151,8 @@ function recoverMalformedQueryParams(url: URL): URLSearchParams {
   return recovered;
 }
 
-function buildQueryPayload(params: URLSearchParams): Record<string, any> {
-  const body: Record<string, any> = {};
+function buildQueryPayload(params: URLSearchParams): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
   params.forEach((value, key) => {
     if (key === "project") return;
     body[key] = value;
@@ -78,7 +183,8 @@ async function sendCAPIEvent(
   produto: string,
   eventId?: string,
 ) {
-  const eventData: any = {
+  const eventData = {
+    test_event_code: undefined as string | undefined,
     data: [{
       event_name: eventName,
       event_time: Math.floor(Date.now() / 1000),
@@ -116,24 +222,25 @@ export async function buildCapiEventId(externalTxId: string | null | undefined, 
 }
 
 
-export function extractFinanceiro(body: any, plataforma: string): Record<string, any> | null {
+export function extractFinanceiro(input: unknown, plataforma: string) {
+  const body = paymentPayloadSchema.parse(input);
   try {
     if (plataforma === "Ticto") {
       const order = body?.order || {};
-      const comms = body?.commissions || [];
-      const paidAmount = (order.paid_amount || 0) / 100;
-      const netAmount = (order.net_amount || 0) / 100;
-      const platformFee = (order.platform_fee || 0) / 100;
-      const txFee = (order.transaction_fee || 0) / 100;
-      const prodComm = comms.find((c: any) => c.role === "producer" || c.role === "PRODUCER");
-      const affComm = comms.find((c: any) => c.role === "affiliate" || c.role === "AFFILIATE");
+      const comms = Array.isArray(body.commissions) ? body.commissions : [];
+      const paidAmount = Number(order.paid_amount || 0) / 100;
+      const netAmount = Number(order.net_amount || 0) / 100;
+      const platformFee = Number(order.platform_fee || 0) / 100;
+      const txFee = Number(order.transaction_fee || 0) / 100;
+      const prodComm = comms.find((c) => c.role === "producer" || c.role === "PRODUCER");
+      const affComm = comms.find((c) => c.role === "affiliate" || c.role === "AFFILIATE");
       if (paidAmount > 0 || netAmount > 0) {
         return {
           valor_bruto: paidAmount || undefined,
           comissao_plataforma: platformFee || undefined,
           taxa_transacao: txFee || undefined,
-          comissao_produtor: prodComm ? (prodComm.value || 0) / 100 : undefined,
-          comissao_afiliado: affComm ? (affComm.value || 0) / 100 : undefined,
+          comissao_produtor: prodComm ? Number(prodComm.value || 0) / 100 : undefined,
+          comissao_afiliado: affComm ? Number(affComm.value || 0) / 100 : undefined,
           valor_liquido: netAmount || undefined,
           metodo_pagamento: order.payment_method || body?.payment?.method || undefined,
           parcelas: order.installments || body?.payment?.installments || undefined,
@@ -146,7 +253,7 @@ export function extractFinanceiro(body: any, plataforma: string): Record<string,
       const purchase = body?.data?.purchase || {};
       const price = purchase.price || {};
       const comm = purchase.commission_as || purchase.commission;
-      const hotValue = price.value || 0;
+      const hotValue = Number(price.value) || 0;
       if (hotValue > 0) {
         return {
           valor_bruto: hotValue,
@@ -163,16 +270,16 @@ export function extractFinanceiro(body: any, plataforma: string): Record<string,
       }
     }
     if (plataforma === "Kiwify") {
-      const saleAmount = parseFloat(body?.sale_amount || body?.order_value || "0");
-      const comms = body?.commissions || body?.Commissions || {};
+      const saleAmount = parseFloat(String(body?.sale_amount || body?.order_value || "0"));
+      const comms = (!Array.isArray(body.commissions) ? body.commissions : null) || body.Commissions || {};
       if (saleAmount > 0) {
         return {
           valor_bruto: saleAmount,
-          comissao_plataforma: parseFloat(comms.charge_amount || comms.kiwify_fee || "0") || undefined,
+          comissao_plataforma: parseFloat(String(comms.charge_amount || comms.kiwify_fee || "0")) || undefined,
           taxa_transacao: undefined,
-          comissao_produtor: parseFloat(comms.producer_amount || comms.my_commission || "0") || undefined,
-          comissao_afiliado: parseFloat(comms.affiliate_amount || "0") || undefined,
-          valor_liquido: parseFloat(comms.receive_amount || comms.net_amount || "0") || undefined,
+          comissao_produtor: parseFloat(String(comms.producer_amount || comms.my_commission || "0")) || undefined,
+          comissao_afiliado: parseFloat(String(comms.affiliate_amount || "0")) || undefined,
+          valor_liquido: parseFloat(String(comms.receive_amount || comms.net_amount || "0")) || undefined,
           metodo_pagamento: body?.payment_method || undefined,
           parcelas: body?.installments || undefined,
           codigo_pedido: body?.order_id || body?.order_ref || undefined,
@@ -230,7 +337,8 @@ export function decodeXcod(raw: string): Record<string, string> {
   return out;
 }
 
-export function extractUtms(body: any): Record<string, string> | null {
+export function extractUtms(input: unknown): Record<string, string> | null {
+  const body = paymentPayloadSchema.parse(input);
   // 1) Direct UTMs from common locations
   let src = body?.utm_source || body?.data?.purchase?.tracking?.source || body?.tracking?.utm_source || body?.tracking?.source;
   let med = body?.utm_medium || body?.data?.purchase?.tracking?.medium || body?.tracking?.utm_medium;
@@ -276,7 +384,7 @@ export function extractUtms(body: any): Record<string, string> | null {
 }
 
 // Reverse-match utm_campaign to imphq_ads_spend.campanha to recover campaign_id
-async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmCampaign: string): Promise<string | null> {
+async function findCampaignIdByUtm(supabase: ReturnType<typeof makeClient>, projectId: string | null, utmCampaign: string): Promise<string | null> {
   if (!utmCampaign || !projectId) return null;
   try {
     // Try exact match first
@@ -309,15 +417,26 @@ async function findCampaignIdByUtm(supabase: any, projectId: string | null, utmC
 /**
  * Ticto envia created_at em formato BR (DD/MM/YYYY HH:mm:ss) que o Postgres interpreta como MM/DD,
  * gerando datas no futuro (ex: 13/06 vira 06/13 e dia>12 quebra; 06/12 vira Dec/06).
- * Estratégia: tenta ISO → tenta DD/MM/YYYY → se inválido ou > now+1d, usa hora do webhook.
+ * Estratégia: tenta DD/MM/YYYY → tenta ISO → se inválido ou > now+1d, usa hora do webhook.
  */
-export function parseTictoDate(raw: any): string {
+export function parseTictoDate(raw: unknown): string {
   const now = new Date();
   const fallback = now.toISOString();
   if (!raw || typeof raw !== "string") return fallback;
   const trimmed = raw.trim();
 
-  // 1) Tenta ISO direto
+  // 1) Tenta DD/MM/YYYY [HH:mm[:ss]]
+  const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m) {
+    const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = m;
+    const d = new Date(Date.UTC(+yyyy, +mm - 1, +dd, +hh + 3, +mi, +ss)); // BRT (-03) → UTC
+    if (!isNaN(d.getTime()) && d.getTime() <= now.getTime() + 86400000) {
+      return d.toISOString();
+    }
+    return fallback;
+  }
+
+  // 2) Tenta ISO direto
   const isoTry = new Date(trimmed);
   if (!isNaN(isoTry.getTime())) {
     // Se for futuro além de 1 dia, descarta (provavelmente foi parseado errado)
@@ -326,21 +445,12 @@ export function parseTictoDate(raw: any): string {
     }
   }
 
-  // 2) Tenta DD/MM/YYYY [HH:mm[:ss]]
-  const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
-  if (m) {
-    const [, dd, mm, yyyy, hh = "0", mi = "0", ss = "0"] = m;
-    const d = new Date(Date.UTC(+yyyy, +mm - 1, +dd, +hh + 3, +mi, +ss)); // BRT (-03) → UTC
-    if (!isNaN(d.getTime()) && d.getTime() <= now.getTime() + 86400000) {
-      return d.toISOString();
-    }
-  }
-
   // 3) Fallback: hora do webhook
   return fallback;
 }
 
-export function parseWebhookBody(body: any, hotmartToken: string | null) {
+export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
+  const body = paymentPayloadSchema.parse(input);
   let plataforma = "desconhecido";
   let evento = "desconhecido";
   let email = "";
@@ -380,13 +490,13 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     const customer = body.customer || {};
     email = customer.email || "";
     nome = customer.name || "";
-    const ph = customer.phone || {};
+    const ph = typeof customer.phone === "object" ? customer.phone || {} : {};
     phone = ph.ddd && ph.number ? `${ph.ddd}${ph.number}` : "";
 
     const order = body.order || {};
     const item = body.item || {};
     // Use item-level price (individual product) instead of order.paid_amount (total incl. bumps)
-    valor = ((item.price || item.amount || order.paid_amount || 0)) / 100;
+    valor = Number(item.price || item.amount || order.paid_amount || 0) / 100;
 
     produto = item.product_name || "";
     data_compra = order.approved_at || order.created_at || body.created_at || null;
@@ -403,7 +513,7 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     email = dados.email_comprador || "";
     nome = dados.nome_comprador || "";
     phone = dados.telefone_comprador || "";
-    valor = parseFloat(dados.valor || "0");
+    valor = parseFloat(String(dados.valor || "0"));
     produto = dados.nome_produto || "";
     data_compra = dados.data_compra || dados.criado_em || null;
   }
@@ -442,9 +552,9 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     const _origPrice = purchase.original_offer_price || {};
     const _commissions = Array.isArray(body.data?.commissions) ? body.data.commissions : [];
     const _brlConv = _commissions
-      .map((c: any) => c?.currency_conversion)
-      .find((cc: any) => cc?.converted_to_currency === "BRL" && cc?.conversion_rate);
-    const _isBRL = (cv?: string) => !cv || cv === "BRL";
+      .map((c) => c?.currency_conversion)
+      .find((cc) => cc?.converted_to_currency === "BRL" && cc?.conversion_rate);
+    const _isBRL = (cv?: string | null) => !cv || cv === "BRL";
     if (_isBRL(_priceObj.currency_value)) {
       valor = Number(_priceObj.value) || 0;
     } else if (_isBRL(_fullPrice.currency_value) && _fullPrice.value) {
@@ -454,7 +564,7 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
       valor = +(Number(_origPrice.value) * Number(_brlConv.conversion_rate)).toFixed(2);
     } else if (_brlConv) {
       // Último recurso: usa converted_value da comissão do PRODUCER (= líquido em BRL)
-      const _producer = _commissions.find((c: any) => c?.source === "PRODUCER");
+      const _producer = _commissions.find((c) => c?.source === "PRODUCER");
       valor = Number(_producer?.currency_conversion?.converted_value) || 0;
     } else {
       valor = Number(_priceObj.value) || 0;
@@ -465,7 +575,7 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     const _paisHot = (
       _addr.country_iso || _addr.country ||
       buyer.country_iso || buyer.country ||
-      purchase.checkout_country?.iso || purchase.checkout_country ||
+      (typeof purchase.checkout_country === "object" ? purchase.checkout_country?.iso : null) || purchase.checkout_country ||
       purchase.business_model_country || ""
     ).toString().toUpperCase().slice(0, 2);
     const _moedaOrig = (_priceObj.currency_value || _fullPrice.currency_value || _origPrice.currency_value || "BRL").toUpperCase();
@@ -500,7 +610,7 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     email = customer.email || body.customer_email || "";
     nome = customer.full_name || customer.name || "";
     phone = customer.mobile || "";
-    valor = parseFloat(body.sale_amount || body.order_value || "0");
+    valor = parseFloat(String(body.sale_amount || body.order_value || "0"));
     produto = body.product_name || body.Product?.name || "";
     data_compra = body.sale_date || body.approved_date || body.created_at || null;
 
@@ -565,9 +675,9 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     const customer = body.customer || {};
     email = customer.email || "";
     nome = customer.full_name || customer.name || "";
-    phone = (customer.phone_formated || customer.phone || customer.cell_phone || "").replace(/\D/g, "");
+    phone = String(customer.phone_formated || customer.phone || customer.cell_phone || "").replace(/\D/g, "");
 
-    const product = body.product || {};
+    const product = typeof body.product === "object" ? body.product || {} : {};
     produto = product.name || body.plan?.name || "";
     valor = parseFloat(String(body.sale_amount ?? body.original_price ?? "0")) || 0;
     data_compra = body.date_approved || body.date_created || body.created_at || null;
@@ -582,9 +692,9 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
     evento = body.evento || body.event_type || "desconhecido";
     email = body.email || body.customer?.email || "";
     nome = body.nome || body.customer?.name || "";
-    phone = body.phone || body.customer?.phone || "";
-    valor = parseFloat(body.valor || body.amount || "0");
-    produto = body.produto || body.product || "";
+    phone = body.phone || (typeof body.customer?.phone === "string" ? body.customer.phone : "") || "";
+    valor = parseFloat(String(body.valor || body.amount || "0"));
+    produto = body.produto || (typeof body.product === "string" ? body.product : body.product?.name) || "";
     data_compra = body.data_compra || body.created_at || null;
   }
 
@@ -593,14 +703,16 @@ export function parseWebhookBody(body: any, hotmartToken: string | null) {
   const utms = extractUtms(body);
 
   // Extract external transaction id (codigo_pedido) for cross-platform deduplication
-  const externalTxId = financeiro?.codigo_pedido || null;
+  const externalTxId = financeiro?.codigo_pedido ? String(financeiro.codigo_pedido) : null;
 
   return { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms, externalTxId, pais, moedaOriginal, valorOriginal };
 }
 
-async function processWebhook(req: Request, body: any, projectIdInit: string | null) {
+async function processWebhook(req: Request, input: unknown, projectIdInit: string | null) {
+  const body = record(input);
   let projectId: string | null = projectIdInit;
   try {
+    const body = paymentPayloadSchema.parse(input);
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -615,7 +727,9 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     // body já recebido como parâmetro
     const hotmartToken = req.headers.get("x-hotmart-hottok");
 
-    let { plataforma, evento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId, pais, moedaOriginal, valorOriginal } = parseWebhookBody(body, hotmartToken);
+    const { plataforma, evento: parsedEvento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId, pais, moedaOriginal, valorOriginal } = parseWebhookBody(body, hotmartToken);
+
+    let evento = parsedEvento;
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
@@ -654,7 +768,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             .select("data")
             .eq("id", lead.id)
             .maybeSingle();
-          const prevData = (existing?.data || {}) as Record<string, any>;
+          const prevData = record(existing?.data);
           const eventTimestamp = data_compra || new Date().toISOString();
           const newData = {
             ...prevData,
@@ -673,7 +787,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       } else {
         const newId = crypto.randomUUID();
         const eventTimestamp = data_compra || new Date().toISOString();
-        const leadInsert: any = {
+        const leadInsert = {
+          ...(data_compra ? { criado_em: data_compra } : {}),
           id: newId,
           nome: nome || email,
           email: email.toLowerCase(),
@@ -684,7 +799,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           updated_at: eventTimestamp,
           data: { ultimo_evento: evento, ultimo_evento_em: eventTimestamp, ultimo_produto: produto || null, ultimo_valor: valor || null },
         };
-        if (data_compra) leadInsert.criado_em = data_compra;
+
         await supabase.from("imphq_leads").insert(leadInsert);
         leadId = newId;
       }
@@ -718,15 +833,18 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       fbTestCode = proj?.data?.facebook_test_event_code;
 
       // Multi-pixel support: data.facebook_pixels[] tem prioridade; fallback p/ legado (1 pixel)
-      const rawPixels = Array.isArray(proj?.data?.facebook_pixels) ? proj.data.facebook_pixels : [];
+      const rawPixels: unknown[] = Array.isArray(proj?.data?.facebook_pixels) ? proj.data.facebook_pixels : [];
       fbPixels = rawPixels
-        .map((p: any) => ({
-          pixel_id: String(p?.pixel_id || "").trim(),
-          access_token: String(p?.access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, ""),
-          test_event_code: p?.test_event_code ? String(p.test_event_code).trim() : undefined,
-          label: p?.label || undefined,
-        }))
-        .filter((p: any) => p.pixel_id && p.access_token);
+        .map((raw) => {
+          const p = record(raw);
+          return {
+            pixel_id: String(p.pixel_id || "").trim(),
+            access_token: String(p.access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, ""),
+            test_event_code: p.test_event_code ? String(p.test_event_code).trim() : undefined,
+            label: p.label ? String(p.label) : undefined,
+          };
+        })
+        .filter((p) => p.pixel_id && p.access_token);
 
       if (fbPixels.length === 0 && fbToken && fbPixelId) {
         fbPixels = [{ pixel_id: fbPixelId, access_token: fbToken, test_event_code: fbTestCode, label: "legacy" }];
@@ -798,7 +916,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       const vendaStatus = statusMap[evento] || evento;
 
       // Dedup: try by external_transaction_id first (strongest), fallback to lead+status window
-      let dupCheck: any[] | null = null;
+      let dupCheck: { id: string }[] | null = null;
       if (externalTxId && projectId) {
         const { data } = await supabase
           .from("imphq_vendas")
@@ -826,7 +944,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           ? await findCampaignIdByUtm(supabase, projectId, webhookUtms.utm_campaign)
           : null;
 
-        const vendaInsert: any = {
+        const vendaInsert = {
+          ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: projectId,
@@ -853,10 +972,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           },
         };
 
-        if (data_compra) {
-          vendaInsert.created_at = data_compra;
-          vendaInsert.data_venda = data_compra;
-        }
+
         const { error: ciErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
         if (ciErr) {
           console.error("[webhook-pagamento] Erro ao inserir checkout intent (code=", ciErr.code, "):", ciErr.message);
@@ -890,8 +1006,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             if (matchedAttr) {
               console.log("[webhook-pagamento] WA attribution matched:", matchedAttr, "→ venda:", vendaInsert.id);
             }
-          } catch (e: any) {
-            console.warn("[webhook-pagamento] WA attribution failed (non-blocking):", e?.message);
+          } catch (e) {
+            console.warn("[webhook-pagamento] WA attribution failed (non-blocking):", errorMessage(e));
           }
         }
       } else {
@@ -903,10 +1019,10 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           .select("data")
           .eq("id", existingId)
           .maybeSingle();
-        const prevData = (existVenda?.data || {}) as Record<string, any>;
+        const prevData = record(existVenda?.data);
         // Clear stale hot_lead_responder_sent if older than 24h, so re-disparo is possível
         const hlrSent = prevData.hot_lead_responder_sent;
-        const hlrOlderThan24h = !hlrSent || (Date.now() - new Date(hlrSent).getTime() > 24 * 3600 * 1000);
+        const hlrOlderThan24h = !hlrSent || (Date.now() - new Date(String(hlrSent)).getTime() > 24 * 3600 * 1000);
         const newData = {
           ...prevData,
           last_intent_at: new Date().toISOString(),
@@ -937,10 +1053,10 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           try {
             supabase.functions.invoke("hot-lead-responder", {
               body: { venda_id: touchedVendaId, source: "webhook_pix_inline" },
-            }).then((r: any) => {
+            }).then((r) => {
               console.log("[webhook-pagamento] hot-lead-responder inline:", r?.data?.ok ?? r?.error);
-            }).catch((e: any) => {
-              console.warn("[webhook-pagamento] hot-lead-responder inline error:", e?.message);
+            }).catch((e: unknown) => {
+              console.warn("[webhook-pagamento] hot-lead-responder inline error:", errorMessage(e));
             });
           } catch (e) {
             console.warn("[webhook-pagamento] failed to invoke hot-lead-responder:", e);
@@ -967,7 +1083,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       // for the same lead+product within the last 7 days. This avoids creating a duplicate row when Ticto/Hotmart
       // first sends pix_created and later sends authorized for the same transaction.
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      let pendingQ: any = supabase
+      let pendingQ = supabase
         .from("imphq_vendas")
         .select("id, status, valor, data_venda")
         .eq("lead_id", leadId)
@@ -977,10 +1093,10 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         .limit(5);
       if (produto) pendingQ = pendingQ.eq("produto_nome", produto);
       const { data: pendingRows } = await pendingQ;
-      const promotable = (pendingRows || []).find((r: any) => Math.abs((parseFloat(r.valor) || 0) - valor) < 0.01) || (pendingRows || [])[0];
+      const promotable = (pendingRows || []).find((r) => Math.abs((parseFloat(String(r.valor)) || 0) - valor) < 0.01) || (pendingRows || [])[0];
 
       if (promotable) {
-        const upd: any = { status: "aprovado" };
+        const upd: { status: string; data_venda?: string; external_transaction_id?: string; utm_source?: string | null; utm_medium?: string | null; utm_campaign?: string | null; utm_content?: string | null; utm_term?: string | null } = { status: "aprovado" };
         if (data_compra) upd.data_venda = data_compra;
         if (externalTxId) upd.external_transaction_id = externalTxId;
         if (webhookUtms?.utm_campaign) {
@@ -1026,8 +1142,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
               console.log('[webhook-pagamento] Flow attribution recorded (promote):', attributionData);
             }
           }
-        } catch (attrErr: any) {
-          console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', attrErr.message);
+        } catch (attrErr) {
+          console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', errorMessage(attrErr));
         }
 
         // Register A/B test conversion
@@ -1049,13 +1165,13 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             await supabase.rpc("increment_ab_variant_conversion", { p_variant_id: recentLog.variant_id });
             console.log(`[webhook-pagamento] Registered A/B test conversion for variant: ${recentLog.variant_id}`);
           }
-        } catch (abErr: any) {
-          console.error("[webhook-pagamento] Error updating A/B test conversion:", abErr.message);
+        } catch (abErr) {
+          console.error("[webhook-pagamento] Error updating A/B test conversion:", errorMessage(abErr));
         }
       } else {
 
       // Deduplication: try external_transaction_id first (strongest), fallback to 5-min window
-      let existingDup: any[] | null = null;
+      let existingDup: { id: string }[] | null = null;
       if (externalTxId && projectId) {
         const { data } = await supabase
           .from("imphq_vendas")
@@ -1082,7 +1198,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       if (existingDup && existingDup.length > 0) {
         console.log("[webhook-pagamento] Venda duplicada ignorada para lead", leadId);
       } else {
-        const vendaData: Record<string, any> = {};
+        const vendaData: Record<string, unknown> = {};
         if (financeiro) Object.assign(vendaData, financeiro);
         if (webhookUtms) vendaData.utms = webhookUtms;
         if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
@@ -1096,7 +1212,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           : null;
         if (matchedCampaignId) vendaData.matched_campaign_id = matchedCampaignId;
 
-        const vendaInsert: any = {
+        const vendaInsert = {
+          ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: projectId,
@@ -1114,10 +1231,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           utm_term: webhookUtms?.utm_term || null,
           data: Object.keys(vendaData).length > 0 ? vendaData : null,
         };
-        if (data_compra) {
-          vendaInsert.created_at = data_compra;
-          vendaInsert.data_venda = data_compra;
-        }
+
         const { error: vendaErr } = await supabase.from("imphq_vendas").insert(vendaInsert);
 
         if (vendaErr) {
@@ -1170,8 +1284,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
                 console.log('[webhook-pagamento] Flow attribution recorded (insert):', attributionData);
               }
             }
-          } catch (attrErr: any) {
-            console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', attrErr.message);
+          } catch (attrErr) {
+            console.warn('[webhook-pagamento] Flow attribution error (non-blocking):', errorMessage(attrErr));
           }
 
           // Register A/B test conversion
@@ -1193,8 +1307,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
               await supabase.rpc("increment_ab_variant_conversion", { p_variant_id: recentLog.variant_id });
               console.log(`[webhook-pagamento] Registered A/B test conversion for variant: ${recentLog.variant_id}`);
             }
-          } catch (abErr: any) {
-            console.error("[webhook-pagamento] Error updating A/B test conversion:", abErr.message);
+          } catch (abErr) {
+            console.error("[webhook-pagamento] Error updating A/B test conversion:", errorMessage(abErr));
           }
         }
       }
@@ -1203,7 +1317,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
       // Handle Ticto bumps as separate sales (with dedup by external_transaction_id+produto)
       if (plataforma === "Ticto" && body?.order?.bumps && Array.isArray(body.order.bumps)) {
         for (const bump of body.order.bumps) {
-          const bumpValor = ((bump.price || bump.amount || 0)) / 100;
+          const bumpValor = Number(bump.price || bump.amount || 0) / 100;
           const bumpProduto = bump.product_name || bump.name || "Order Bump";
           if (bumpValor > 0) {
             const bumpTxId = externalTxId ? `${externalTxId}:bump:${bump.hash || bump.id || bumpProduto}` : null;
@@ -1238,7 +1352,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         .select("valor")
         .eq("lead_id", leadId)
         .eq("status", "aprovado");
-      const newTotal = (salesSum || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+      const newTotal = (salesSum || []).reduce((s: number, v) => s + parseFloat(String(v.valor) || "0"), 0);
       await supabase
         .from("imphq_leads")
         .update({ status: "cliente", total_gasto: newTotal, updated_at: new Date().toISOString() })
@@ -1282,7 +1396,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
               .eq("project_id", projectId)
               .eq("status", "aprovado")
               .gte("created_at", startOfDay.toISOString());
-            const todayTotal = (todaySales || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+            const todayTotal = (todaySales || []).reduce((s: number, v) => s + parseFloat(String(v.valor) || "0"), 0);
             if (todayTotal >= goal) {
               await supabase
                 .from("imphq_projects")
@@ -1319,7 +1433,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         await supabase.from("imphq_vendas").update({ status: "reembolsado" }).eq("id", existingVenda.id);
       } else {
         // Create retroactive refunded sale for history
-        const vendaInsert: any = {
+        const vendaInsert = {
+          ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: projectId,
@@ -1328,10 +1443,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           plataforma,
           status: "reembolsado",
         };
-        if (data_compra) {
-          vendaInsert.created_at = data_compra;
-          vendaInsert.data_venda = data_compra;
-        }
+
         await supabase.from("imphq_vendas").insert(vendaInsert);
       }
 
@@ -1376,7 +1488,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         await supabase.from("imphq_vendas").update({ status: cancelStatus }).eq("id", existingVenda.id);
       } else {
         // Create retroactive cancelled sale for history
-        const vendaInsert: any = {
+        const vendaInsert = {
+          ...(data_compra ? { created_at: data_compra, data_venda: data_compra } : {}),
           id: crypto.randomUUID(),
           lead_id: leadId,
           project_id: projectId,
@@ -1385,10 +1498,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           plataforma,
           status: cancelStatus,
         };
-        if (data_compra) {
-          vendaInsert.created_at = data_compra;
-          vendaInsert.data_venda = data_compra;
-        }
+
         await supabase.from("imphq_vendas").insert(vendaInsert);
       }
 
@@ -1398,7 +1508,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         .select("valor")
         .eq("lead_id", leadId)
         .eq("status", "aprovado");
-      const newTotal = (salesSum || []).reduce((s: number, v: any) => s + parseFloat(String(v.valor) || "0"), 0);
+      const newTotal = (salesSum || []).reduce((s: number, v) => s + parseFloat(String(v.valor) || "0"), 0);
       const leadStatus = newTotal > 0 ? "cliente" : "cancelado";
 
       await supabase.from("imphq_leads").update({
@@ -1433,7 +1543,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
     const journeyEventName = JOURNEY_EVENT_MAP[evento];
     if (journeyEventName && leadId) {
       try {
-        const eventInsert: any = {
+        const eventInsert = {
           id: crypto.randomUUID(),
           event_name: journeyEventName,
           project_id: projectId,
@@ -1449,8 +1559,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
 
         // Accumulate interaction + update ultimo_evento
         const { data: leadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).single();
-        const currentData = (leadData?.data as Record<string, any>) || {};
-        const interacoes: any[] = currentData.interacoes || [];
+        const currentData = record(leadData?.data);
+        const interacoes: unknown[] = Array.isArray(currentData.interacoes) ? currentData.interacoes : [];
         const eventTimestamp = data_compra || new Date().toISOString();
         interacoes.push({
           evento,
@@ -1507,9 +1617,9 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           .eq("id", projectId)
           .single();
         if (projData?.data) {
-          const currentData = projData.data as Record<string, any>;
-          const produtos: any[] = currentData.produtos || [];
-          const exists = produtos.some((p: any) => p.nome?.toLowerCase() === produto.toLowerCase());
+          const currentData = record(projData.data);
+          const produtos: unknown[] = Array.isArray(currentData.produtos) ? currentData.produtos : [];
+          const exists = produtos.some((p) => String(record(p).nome || "").toLowerCase() === produto.toLowerCase());
           if (!exists) {
             produtos.push({ nome: produto, tipo: "Infoproduto", valor: valor || null, plataforma: plataforma || null });
             await supabase.from("imphq_projects").update({ data: { ...currentData, produtos } }).eq("id", projectId);
@@ -1592,7 +1702,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
         .eq("ativo", true);
 
       // Filter by project and product
-      const matched = (automacoes || []).filter((a: any) => {
+      const matched = (automacoes || []).filter((a) => {
         if (a.project_id && a.project_id !== projectId) return false;
         if (a.produto && produto && a.produto.toLowerCase() !== produto.toLowerCase()) return false;
         return true;
@@ -1623,8 +1733,8 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             console.log("[webhook-pagamento] Automação padrão criada:", newAuto.nome);
             matched.push(newAuto);
           }
-        } catch (err: any) {
-          console.error("[webhook-pagamento] Catch erro ao criar automação padrão:", err.message);
+        } catch (err) {
+          console.error("[webhook-pagamento] Catch erro ao criar automação padrão:", errorMessage(err));
         }
       }
 
@@ -1665,10 +1775,10 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
             executorSuccess = false;
             executorError = execData.error || execData.message || "Executor retornou sem ok=true";
           }
-        } catch (flowErr: any) {
+        } catch (flowErr) {
           console.error("[webhook-pagamento] Erro ao chamar openflow-executor:", flowErr);
           executorSuccess = false;
-          executorError = flowErr.message || String(flowErr);
+          executorError = errorMessage(flowErr) || String(flowErr);
         }
       }
 
@@ -1715,7 +1825,7 @@ async function processWebhook(req: Request, body: any, projectIdInit: string | n
           }),
         }).catch(() => {});
       }
-    } catch (_) {}
+    } catch (_) { /* Outbound integrations are best effort. */ }
 
     return new Response(
       JSON.stringify({ ok: true, plataforma, evento, lead_id: leadId, project_id: projectId }),
@@ -1754,14 +1864,13 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const queryParams = recoverMalformedQueryParams(url);
     const projectIdInit = normalizeProjectParam(queryParams.get("project"));
-    let body: any;
+    let body: unknown;
     if (req.method === "GET") {
       body = buildQueryPayload(queryParams);
     } else {
       body = await req.json();
     }
     // dispara em background (não bloqueia o response)
-    // @ts-ignore — EdgeRuntime existe no runtime do Supabase
     EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
     return new Response(
       JSON.stringify({ ok: true, queued: true }),

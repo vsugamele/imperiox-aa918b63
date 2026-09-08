@@ -28,8 +28,8 @@ Seja específico, factual, em pt-BR.`;
 interface Body {
   url: string;
   project_id?: string;
-  produto?: any;
-  avatar?: any;
+  produto?: unknown;
+  avatar?: unknown;
 }
 
 Deno.serve(async (req) => {
@@ -97,9 +97,10 @@ ${JSON.stringify(avatar || {}).slice(0, 1500)}`;
       return json({ success: false, error: `gemini ${aiRes.status}: ${t.slice(0, 300)}` }, 502);
     }
     const aiJson = await aiRes.json();
-    let audit: any = {};
+    let audit: Record<string, unknown> = {};
     try {
-      audit = JSON.parse(aiJson.choices?.[0]?.message?.content || "{}");
+      const candidate: unknown = JSON.parse(aiJson.choices?.[0]?.message?.content || "{}");
+      if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) audit = { ...candidate };
     } catch {
       audit = {};
     }

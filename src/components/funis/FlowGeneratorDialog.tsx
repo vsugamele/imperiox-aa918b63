@@ -1,3 +1,5 @@
+import { toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -50,8 +52,8 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
       } else {
         toast.error("Falha na geração");
       }
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setLoading(false);
     }
@@ -70,15 +72,15 @@ export function FlowGeneratorDialog({ open, onClose, projectId, produtoNome, onC
           produto_nome: produtoNome || null,
           title: blueprint.title,
           source: "typebot_import",
-          blueprint: blueprint as any,
+          blueprint: toJson(blueprint),
         })
         .select().single();
       if (error) throw error;
       toast.success(`Importado: ${blueprint.nodes.length} nodes`);
       onCreated(data.id);
       onClose();
-    } catch (e: any) {
-      toast.error(`Erro: ${e.message}`);
+    } catch (e: unknown) {
+      toast.error(`Erro: ${errorMessage(e)}`);
     } finally {
       setLoading(false);
     }

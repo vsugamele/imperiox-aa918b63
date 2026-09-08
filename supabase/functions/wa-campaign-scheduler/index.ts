@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+
+interface Provider { api_url: string | null; api_key: string | null; instance_name: string | null }
+interface Step { id: string; content: string | null; content_b?: string | null; media_type: string; media_url: string | null; is_active: boolean; send_date: string | null; days_offset: number; send_time: string | null; step_order: number }
+interface Campaign { id: string; name: string; produto: string | null; provider_id: string | null; mention_all?: boolean; groups: string[] | null; paused_groups?: string[] | null; send_window_start?: string | null; send_window_end?: string | null; start_date: string | null; created_at: string; fallback_provider_id?: string | null; auto_fallback?: boolean; pause_on_failure?: boolean; imphq_wa_campaign_steps: Step[] }
+interface SendPayload { number: string; text?: string; mediatype?: string; media?: string; caption?: string; audio?: string; fileName?: string; mentionsEveryOne?: boolean; options?: { mentionsEveryOne?: boolean } }
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+
 const TZ = "America/Sao_Paulo";
 
 function nowInBR(): { dateStr: string; timeStr: string; hour: number; minute: number } {
@@ -43,7 +51,7 @@ function renderVariables(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_m, key) => vars[key] ?? `{${key}}`);
 }
 
-function withMentions(payload: any, campaign: any, jid: string): any {
+function withMentions(payload: SendPayload, campaign: Campaign | null, jid: string): SendPayload {
   if (campaign?.mention_all && typeof jid === "string" && jid.endsWith("@g.us")) {
     payload.mentionsEveryOne = true;
     payload.options = { ...(payload.options || {}), mentionsEveryOne: true };
@@ -67,8 +75,8 @@ async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function sendWithRetry(endpoint: string, headers: any, body: any, maxRetries = 2): Promise<any> {
-  let lastErr: any;
+async function sendWithRetry(endpoint: string, headers: HeadersInit, body: SendPayload, maxRetries = 2): Promise<unknown> {
+  let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await fetch(endpoint, {
@@ -79,7 +87,7 @@ async function sendWithRetry(endpoint: string, headers: any, body: any, maxRetri
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(JSON.stringify(json).slice(0, 400));
       return json;
-    } catch (err: any) {
+    } catch (err) {
       lastErr = err;
       if (attempt < maxRetries) {
         // exponential backoff: 1s, 2s
@@ -102,10 +110,10 @@ serve(async (req) => {
   // 6B: Test send action — fires a single step to a single group on demand
   try {
     let action = new URL(req.url).searchParams.get("action");
-    let body: any = null;
+    let body: Record<string, unknown> = {};
     if (req.method === "POST") {
-      try { body = await req.clone().json(); } catch { /* ignore */ }
-      if (body?.action) action = body.action;
+      try { body = record(await req.clone().json()); } catch { /* ignore */ }
+      if (typeof body.action === "string") action = body.action;
     }
 
     if (action === "test_send") {
@@ -120,6 +128,7 @@ serve(async (req) => {
         .from("imphq_wa_campaign_steps")
         .select("*, imphq_wa_campaigns(*)")
         .eq("id", step_id)
+        .returns<(Step & { imphq_wa_campaigns: Campaign | null })[]>()
         .single();
 
       if (!step) {
@@ -128,13 +137,13 @@ serve(async (req) => {
         });
       }
 
-      const campaign: any = (step as any).imphq_wa_campaigns;
-      let provider: any = null;
+      const campaign = step.imphq_wa_campaigns;
+      let provider: Provider | null = null;
       if (campaign?.provider_id) {
         const { data } = await supabase.from("imphq_wa_providers").select("*").eq("id", campaign.provider_id).single();
         provider = data;
       }
-      if (!provider) {
+      if (!provider || !campaign) {
         return new Response(JSON.stringify({ error: "no provider configured" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -152,7 +161,7 @@ serve(async (req) => {
       // Resolve the groups to send
       let groupsToSend: string[] = [];
       if (Array.isArray(group_jid)) {
-        groupsToSend = group_jid;
+        groupsToSend = group_jid.filter((jid): jid is string => typeof jid === "string");
       } else if (typeof group_jid === "string") {
         groupsToSend = group_jid.split(",").map(g => g.trim()).filter(Boolean);
       }
@@ -174,11 +183,11 @@ serve(async (req) => {
           await sleep(2000);
         }
 
-        const rendered = renderVariables((step as any).content || "", vars);
-        const mt = (step as any).media_type;
-        const mediaUrl = (step as any).media_url;
+        const rendered = renderVariables(step.content || "", vars);
+        const mt = step.media_type;
+        const mediaUrl = step.media_url;
 
-        let endpoint: string; let payload: any;
+        let endpoint: string; let payload: SendPayload;
         if (mt === "text" || !mediaUrl) {
           endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
           payload = { number: currentGroupJid, text: rendered };
@@ -204,10 +213,10 @@ serve(async (req) => {
             step_id, campaign_id: campaign.id, group_jid: currentGroupJid, status: "sent", error: "MANUAL_SEND",
           });
           sentCount++;
-        } catch (err: any) {
-          lastError = err.message || "";
+        } catch (err) {
+          lastError = errorMessage(err) || "";
           await supabase.from("imphq_wa_campaign_logs").insert({
-            step_id, campaign_id: campaign.id, group_jid: currentGroupJid, status: "failed", error: "MANUAL_SEND: " + (err.message || "").slice(0, 400),
+            step_id, campaign_id: campaign.id, group_jid: currentGroupJid, status: "failed", error: "MANUAL_SEND: " + (errorMessage(err) || "").slice(0, 400),
           });
           failedCount++;
         }
@@ -232,7 +241,7 @@ serve(async (req) => {
     const { data: campaigns, error: campError } = await supabase
       .from("imphq_wa_campaigns")
       .select(`*, imphq_wa_campaign_steps(*)`)
-      .eq("status", "active");
+      .eq("status", "active").returns<Campaign[]>();
 
     if (campError) throw campError;
     if (!campaigns || campaigns.length === 0) {
@@ -248,13 +257,13 @@ serve(async (req) => {
     for (const campaign of campaigns) {
       const allGroups: string[] = Array.isArray(campaign.groups) ? campaign.groups : [];
       // 6C: Skip individually paused groups
-      const pausedSet = new Set<string>(Array.isArray((campaign as any).paused_groups) ? (campaign as any).paused_groups : []);
+      const pausedSet = new Set<string>(Array.isArray(campaign.paused_groups) ? campaign.paused_groups : []);
       const groups = allGroups.filter((g) => !pausedSet.has(g));
       if (groups.length === 0) continue;
 
       // 6A: Sending window — skip campaign if outside its window
-      const winStart = (campaign as any).send_window_start || "08:00";
-      const winEnd = (campaign as any).send_window_end || "22:00";
+      const winStart = campaign.send_window_start || "08:00";
+      const winEnd = campaign.send_window_end || "22:00";
       if (!timeInWindow(currentTotalMin, winStart, winEnd)) {
         console.log(`[Campaign ${campaign.name}] Outside send window ${winStart}-${winEnd}, skipping`);
         continue;
@@ -269,7 +278,7 @@ serve(async (req) => {
       const today = new Date(todayStr + "T00:00:00");
       const daysSinceStart = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-      const steps = (campaign.imphq_wa_campaign_steps || []).filter((step: any) => {
+      const steps = (campaign.imphq_wa_campaign_steps || []).filter((step) => {
         if (!step.is_active) return false;
         if (step.send_date) {
           if (step.send_date !== todayStr) return false;
@@ -283,8 +292,8 @@ serve(async (req) => {
 
       if (steps.length === 0) continue;
 
-      let provider = null;
-      let fallbackProvider: any = null;
+      let provider: Provider | null = null;
+      let fallbackProvider: Provider | null = null;
       if (campaign.provider_id) {
         const { data } = await supabase
           .from("imphq_wa_providers")
@@ -293,16 +302,16 @@ serve(async (req) => {
           .single();
         provider = data;
       }
-      if ((campaign as any).fallback_provider_id && (campaign as any).auto_fallback !== false) {
+      if (campaign.fallback_provider_id && campaign.auto_fallback !== false) {
         const { data: fb } = await supabase
           .from("imphq_wa_providers")
           .select("*")
-          .eq("id", (campaign as any).fallback_provider_id)
+          .eq("id", campaign.fallback_provider_id)
           .single();
         fallbackProvider = fb;
       }
 
-      if (!provider) {
+      if (!provider || !campaign) {
         console.log(`[Campaign ${campaign.name}] No provider, skipping`);
         continue;
       }
@@ -315,22 +324,21 @@ serve(async (req) => {
       let bothFailed = false;
 
       for (const step of steps) {
-        // Already sent today?
-        const { data: existingLogs } = await supabase
-          .from("imphq_wa_campaign_logs")
-          .select("id")
-          .eq("step_id", step.id)
-          .gte("executed_at", todayStr + "T00:00:00")
-          .lte("executed_at", todayStr + "T23:59:59")
-          .limit(1);
-
-        if (existingLogs && existingLogs.length > 0) {
-          console.log(`[Campaign ${campaign.name}] Step ${step.step_order} already sent today`);
-          continue;
-        }
-
         for (let i = 0; i < groups.length; i++) {
           const groupJid = groups[i];
+
+          // Failed groups remain eligible; a successful group is not resent.
+          const { data: existingLogs, error: logError } = await supabase
+            .from("imphq_wa_campaign_logs")
+            .select("id")
+            .eq("step_id", step.id)
+            .eq("group_jid", groupJid)
+            .eq("status", "sent")
+            .gte("executed_at", todayStr + "T00:00:00")
+            .lte("executed_at", todayStr + "T23:59:59")
+            .limit(1);
+          if (logError) throw logError;
+          if (existingLogs?.length) continue;
 
           try {
             // 6A: human jitter 3–8s + extra pause every 10 groups
@@ -351,13 +359,13 @@ serve(async (req) => {
               nome: "",
             };
             // 6C: A/B split — if content_b is set, 50/50 by deterministic group hash
-            const contentB = (step as any).content_b as string | null | undefined;
+            const contentB = step.content_b as string | null | undefined;
             const useVariantB = !!(contentB && contentB.trim()) && hashAB(`${step.id}:${groupJid}`) === 1;
             const baseContent = useVariantB ? (contentB as string) : (step.content || "");
             const renderedContent = renderVariables(baseContent, vars);
 
             let endpoint: string;
-            let body: any;
+            let body: SendPayload;
 
             if (step.media_type === "text" || !step.media_url) {
               endpoint = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
@@ -393,7 +401,7 @@ serve(async (req) => {
             totalSent++;
             consecutiveFailures = 0;
             console.log(`[Campaign ${campaign.name}] Sent step ${step.step_order} to ${groupJid}`);
-          } catch (err: any) {
+          } catch (err) {
             consecutiveFailures++;
             let fallbackOk = false;
 
@@ -421,9 +429,9 @@ serve(async (req) => {
                 totalSent++;
                 fallbackOk = true;
                 console.log(`[Campaign ${campaign.name}] FALLBACK sent to ${groupJid}`);
-              } catch (fbErr: any) {
+              } catch (fbErr) {
                 bothFailed = true;
-                console.error(`[Campaign ${campaign.name}] FALLBACK also failed: ${fbErr.message}`);
+                console.error(`[Campaign ${campaign.name}] FALLBACK also failed: ${errorMessage(fbErr)}`);
               }
             }
 
@@ -433,18 +441,18 @@ serve(async (req) => {
                 campaign_id: campaign.id,
                 group_jid: groupJid,
                 status: "failed",
-                error: ((bothFailed ? "BOTH_FAILED: " : "") + (err.message || "")).slice(0, 500),
+                error: ((bothFailed ? "BOTH_FAILED: " : "") + (errorMessage(err) || "")).slice(0, 500),
               });
               totalFailed++;
-              console.error(`[Campaign ${campaign.name}] Failed step ${step.step_order} to ${groupJid}: ${err.message}`);
+              console.error(`[Campaign ${campaign.name}] Failed step ${step.step_order} to ${groupJid}: ${errorMessage(err)}`);
             }
           }
         }
       }
 
       // Pause campaign if both providers failed and toggle is on
-      if (bothFailed && (campaign as any).pause_on_failure) {
-        await supabase.from("imphq_wa_campaigns").update({ status: "paused" } as any).eq("id", campaign.id);
+      if (bothFailed && campaign.pause_on_failure) {
+        await supabase.from("imphq_wa_campaigns").update({ status: "paused" }).eq("id", campaign.id);
         console.warn(`[Campaign ${campaign.name}] PAUSED (both providers failed)`);
       }
     }
@@ -455,10 +463,10 @@ serve(async (req) => {
       JSON.stringify({ ok: true, sent: totalSent, failed: totalFailed }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err: any) {
-    console.error("[Campaign Scheduler] Error:", err.message);
+  } catch (err) {
+    console.error("[Campaign Scheduler] Error:", errorMessage(err));
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: errorMessage(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -1,3 +1,9 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { readRecord, record } from "@/lib/funis-data";
+type MindProject = Pick<Tables<"imphq_projects">, "id" | "name" | "category" | "avatar" | "data"> & { produto: unknown; categoria: string; objetivo: unknown; contexto: unknown };
+type CustomSkill = Pick<Tables<"imphq_skills">, "id" | "nome" | "categoria" | "system_prompt" | "descricao">;
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useRef } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -6,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { MENTES_DATA, MenteDNA } from "@/data/mentesData";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import {
@@ -104,16 +110,16 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<MindProject[]>([]);
   const [selectedProject, setSelectedProject] = useState("none");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  const [competitors, setCompetitors] = useState<any[]>([]);
-  const [kbSections, setKbSections] = useState<any[]>([]);
+  const [competitors, setCompetitors] = useState<Pick<Tables<"imphq_competitors">, "name" | "ponto_forte" | "score_escala">[]>([]);
+  const [kbSections, setKbSections] = useState<Pick<Tables<"imphq_kb">, "title" | "content">[]>([]);
   const [contextChars, setContextChars] = useState(0);
   const [activeSkills, setActiveSkills] = useState<Set<string>>(new Set());
-  const [customSkills, setCustomSkills] = useState<any[]>([]);
+  const [customSkills, setCustomSkills] = useState<CustomSkill[]>([]);
 
   // Load custom skills from Supabase
   useEffect(() => {
@@ -124,8 +130,8 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   useEffect(() => {
     supabase.from("imphq_projects").select("id,name,category,avatar,data")
       .order("name").then(({ data }) => {
-        const rows = (data || []).map((p: any) => {
-          const d = typeof p.data === "string" ? (() => { try { return JSON.parse(p.data); } catch { return {}; } })() : (p.data || {});
+        const rows = (data || []).map((p) => {
+          const d = readRecord(p.data);
           return { ...p, produto: d.produto, categoria: p.category, objetivo: d.objetivo, contexto: d.contexto };
         });
         setProjects(rows);
@@ -136,7 +142,7 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
   useEffect(() => {
     if (selectedProject === "none") { setCompetitors([]); setKbSections([]); return; }
     Promise.all([
-      supabase.from("imphq_competitors").select("nome,ponto_forte,escala_score").eq("project_id", selectedProject).limit(5),
+      supabase.from("imphq_competitors").select("name,ponto_forte,score_escala").eq("project_id", selectedProject).limit(5),
       supabase.from("imphq_kb").select("title,content").or(`project_id.eq.${selectedProject},project_id.is.null`).limit(10),
     ]).then(([cRes, kRes]) => {
       setCompetitors(cRes.data || []);
@@ -158,35 +164,36 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
         sys += `Objetivo: ${proj.objetivo || "—"}\nContexto: ${proj.contexto || "—"}\n`;
 
         // Avatar completo
-        const av = proj.avatar as any;
+        const av = readRecord(proj.avatar);
         if (av) {
           sys += `\n── AVATAR ──\n`;
           if (av.desejo_externo) sys += `Desejo externo: ${av.desejo_externo}\n`;
           if (av.desejo_interno) sys += `Desejo interno: ${av.desejo_interno}\n`;
-          if (av.dores_superficiais?.length) sys += `Dores superficiais: ${av.dores_superficiais.join(", ")}\n`;
-          if (av.dores_profundas?.length) sys += `Dores profundas: ${av.dores_profundas.join(", ")}\n`;
-          if (av.problemas?.length) sys += `Problemas: ${av.problemas.join(", ")}\n`;
-          if (av.gatilhos?.length) sys += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
-          if (av.voyerismos?.length) sys += `Voyerismos: ${av.voyerismos.join(", ")}\n`;
+          if (Array.isArray(av.dores_superficiais) && av.dores_superficiais.length) sys += `Dores superficiais: ${av.dores_superficiais.join(", ")}\n`;
+          if (Array.isArray(av.dores_profundas) && av.dores_profundas.length) sys += `Dores profundas: ${av.dores_profundas.join(", ")}\n`;
+          if (Array.isArray(av.problemas) && av.problemas.length) sys += `Problemas: ${av.problemas.join(", ")}\n`;
+          if (Array.isArray(av.gatilhos) && av.gatilhos.length) sys += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
+          if (Array.isArray(av.voyerismos) && av.voyerismos.length) sys += `Voyerismos: ${av.voyerismos.join(", ")}\n`;
           if (av.perfil) sys += `Perfil: ${JSON.stringify(av.perfil)}\n`;
         }
 
         // Briefing / Branding / Copy Arsenal / KPIs from data JSONB
-        const d = proj.data as any;
+        const d = readRecord(proj.data);
         if (d) {
           if (d.branding) {
             sys += `\n── BRANDING ──\n`;
-            if (d.branding.tom_de_voz) sys += `Tom de voz: ${d.branding.tom_de_voz}\n`;
-            if (d.branding.arquetipo) sys += `Arquétipo: ${d.branding.arquetipo}\n`;
-            if (d.branding.paleta) sys += `Paleta: ${JSON.stringify(d.branding.paleta)}\n`;
-            if (d.branding.posicionamento) sys += `Posicionamento: ${d.branding.posicionamento}\n`;
-            if (d.branding.manifesto) sys += `Manifesto: ${d.branding.manifesto}\n`;
+            if (record(d.branding).tom_de_voz) sys += `Tom de voz: ${record(d.branding).tom_de_voz}\n`;
+            if (record(d.branding).arquetipo) sys += `Arquétipo: ${record(d.branding).arquetipo}\n`;
+            if (record(d.branding).paleta) sys += `Paleta: ${JSON.stringify(record(d.branding).paleta)}\n`;
+            if (record(d.branding).posicionamento) sys += `Posicionamento: ${record(d.branding).posicionamento}\n`;
+            if (record(d.branding).manifesto) sys += `Manifesto: ${record(d.branding).manifesto}\n`;
           }
           if (d.copy_arsenal) {
             sys += `\n── COPY ARSENAL ──\n`;
             const blocks = ["promessa", "inimigo_comum", "efeito_colateral", "oportunidade", "metodo", "hora_do_show"];
             for (const b of blocks) {
-              if (d.copy_arsenal[b]?.length) sys += `${b}: ${d.copy_arsenal[b].join(" | ")}\n`;
+              const block = record(d.copy_arsenal)[b];
+              if (Array.isArray(block) && block.length) sys += `${b}: ${block.join(" | ")}\n`;
             }
           }
           if (d.kpis) {
@@ -198,7 +205,7 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
         if (competitors.length > 0) {
           sys += `\n── CONCORRENTES ──\n`;
           for (const c of competitors) {
-            sys += `- ${c.nome} (escala: ${c.escala_score || "?"}) — ${c.ponto_forte || ""}\n`;
+            sys += `- ${c.name} (escala: ${c.score_escala || "?"}) — ${c.ponto_forte || ""}\n`;
           }
         }
 
@@ -277,8 +284,8 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
           messages: [...newMessages, { role: "assistant", content: reply }],
         });
       }
-    } catch (err: any) {
-      toast.error("Erro ao chamar a IA: " + (err.message || "verifique a edge function."));
+    } catch (err: unknown) {
+      toast.error("Erro ao chamar a IA: " + (errorMessage(err) || "verifique a edge function."));
       setMessages(prev => [...prev, {
         role: "assistant",
         content: "⚠️ Não foi possível conectar à IA. Verifique se a edge function `chat-with-ai` está ativa."
@@ -322,7 +329,7 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
             { id: "perfil", icon: BarChart3, label: "Raio-X Cognitivo" },
             { id: "dna", icon: Dna, label: "DNA & Heurísticas" },
             { id: "chat", icon: MessageSquare, label: "Consultar" },
-          ] as { id: RayXTab; icon: any; label: string }[]).map(t => (
+          ] as { id: RayXTab; icon: LucideIcon; label: string }[]).map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -472,7 +479,7 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
                     <Wrench className="h-3 w-3" /> Skills ({SKILLS_DATA.length + customSkills.length} disponíveis · {activeSkills.size} ativas)
                   </summary>
                   <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-32 overflow-y-auto pr-1">
-                    {[...SKILLS_DATA, ...customSkills.filter(s => s.system_prompt)].map((skill: any) => (
+                    {[...SKILLS_DATA, ...customSkills.filter(s => s.system_prompt)].map((skill) => (
                       <label
                         key={skill.id}
                         className={`flex items-center gap-1.5 rounded-md border px-2 py-1 cursor-pointer text-[10px] transition-colors ${
@@ -493,7 +500,7 @@ function RayXModal({ mente, onClose }: { mente: MenteDNA; onClose: () => void })
                           }}
                           className="h-3 w-3"
                         />
-                        <span className="mr-0.5">{skill.icone || "⚙️"}</span>
+                        <span className="mr-0.5">{String(("icone" in skill ? skill.icone : "") || "⚙️")}</span>
                         <span className="truncate">{skill.nome}</span>
                       </label>
                     ))}
@@ -611,8 +618,8 @@ function BoardroomModal({ onClose }: { onClose: () => void }) {
   const [selectedMinds, setSelectedMinds] = useState<MenteDNA[]>([]);
   const [challenge, setChallenge] = useState("");
   const [selectedProject, setSelectedProject] = useState("none");
-  const [projects, setProjects] = useState<any[]>([]);
-  const [customSkills, setCustomSkills] = useState<any[]>([]);
+  const [projects, setProjects] = useState<MindProject[]>([]);
+  const [customSkills, setCustomSkills] = useState<CustomSkill[]>([]);
   const [activeSkills, setActiveSkills] = useState<Set<string>>(new Set());
   const [isSkillsExpanded, setIsSkillsExpanded] = useState(false);
 
@@ -637,8 +644,8 @@ function BoardroomModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     supabase.from("imphq_projects").select("id,name,category,avatar,data")
       .order("name").then(({ data }) => {
-        const rows = (data || []).map((p: any) => {
-          const d = typeof p.data === "string" ? (() => { try { return JSON.parse(p.data); } catch { return {}; } })() : (p.data || {});
+        const rows = (data || []).map((p) => {
+          const d = readRecord(p.data);
           return { ...p, produto: d.produto, categoria: p.category, objetivo: d.objetivo, contexto: d.contexto };
         });
         setProjects(rows);
@@ -681,20 +688,20 @@ function BoardroomModal({ onClose }: { onClose: () => void }) {
         sys += `Projeto: ${proj.name}\nProduto: ${proj.produto || "—"}\nCategoria: ${proj.categoria || "—"}\n`;
         sys += `Objetivo: ${proj.objetivo || "—"}\nContexto: ${proj.contexto || "—"}\n`;
 
-        const av = proj.avatar as any;
+        const av = readRecord(proj.avatar);
         if (av) {
           sys += `\n── AVATAR ──\n`;
           if (av.desejo_externo) sys += `Desejo externo: ${av.desejo_externo}\n`;
           if (av.desejo_interno) sys += `Desejo interno: ${av.desejo_interno}\n`;
-          if (av.dores_superficiais?.length) sys += `Dores superficiais: ${av.dores_superficiais.join(", ")}\n`;
-          if (av.dores_profundas?.length) sys += `Dores profundas: ${av.dores_profundas.join(", ")}\n`;
+          if (Array.isArray(av.dores_superficiais) && av.dores_superficiais.length) sys += `Dores superficiais: ${av.dores_superficiais.join(", ")}\n`;
+          if (Array.isArray(av.dores_profundas) && av.dores_profundas.length) sys += `Dores profundas: ${av.dores_profundas.join(", ")}\n`;
         }
 
-        const d = proj.data as any;
+        const d = readRecord(proj.data);
         if (d && d.branding) {
           sys += `\n── BRANDING ──\n`;
-          if (d.branding.tom_de_voz) sys += `Tom de voz: ${d.branding.tom_de_voz}\n`;
-          if (d.branding.posicionamento) sys += `Posicionamento: ${d.branding.posicionamento}\n`;
+          if (record(d.branding).tom_de_voz) sys += `Tom de voz: ${record(d.branding).tom_de_voz}\n`;
+          if (record(d.branding).posicionamento) sys += `Posicionamento: ${record(d.branding).posicionamento}\n`;
         }
       }
     }
@@ -780,7 +787,7 @@ function BoardroomModal({ onClose }: { onClose: () => void }) {
         
         tempMessages = [...tempMessages, newMsg];
         setDebateMessages(tempMessages);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Boardroom debate turn error", err);
         const errorMsg: DebateMessage = {
           id: `error-${mind.id}-${Date.now()}`,
@@ -855,7 +862,7 @@ Use emojis adequados, divisores de seção (---) e tabelas ou citações de dest
         });
       }
       
-    } catch (err: any) {
+    } catch (err) {
       console.error("Boardroom synthesis error", err);
       setSynthesisReport("⚠️ Não foi possível consolidar a ata automaticamente devido a um erro de conexão. No entanto, os discursos individuais dos diretores estão salvos acima.");
     } finally {
@@ -973,7 +980,7 @@ Use emojis adequados, divisores de seção (---) e tabelas ou citações de dest
                 <option value="none">Nenhum projeto (Debate Conceitual)</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    💼 {p.name} ({p.produto || "Sem produto"})
+                    💼 {p.name} ({String(p.produto || "Sem produto")})
                   </option>
                 ))}
               </select>

@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +25,7 @@ interface Hook {
   field_map: Record<string, string> | null;
   ativo: boolean;
   total_recebidos: number;
-  last_payload: any;
+  last_payload: Json;
   last_received_at: string | null;
 }
 
@@ -44,11 +47,11 @@ export function InboundWebhooks({ projects, automacoes }: Props) {
   const webhookFlows = automacoes.filter((a) => a.trigger_tipo === "webhook_externo");
 
   const load = async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("imphq_flow_webhooks")
       .select("*")
       .order("created_at", { ascending: false });
-    setHooks((data || []) as Hook[]);
+    setHooks((data || []).map(h => ({ ...h, field_map: Object.fromEntries(Object.entries(jsonFields(h.field_map)).filter((entry): entry is [string, string] => typeof entry[1] === "string")) })));
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -56,7 +59,7 @@ export function InboundWebhooks({ projects, automacoes }: Props) {
   const urlOf = (h: Hook) => `${SUPA_URL}/functions/v1/openflow-webhook/${h.token}`;
 
   const create = async () => {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("imphq_flow_webhooks")
       .insert({ nome: "Novo webhook", token: randomToken() });
     if (error) return toast.error(error.message);
@@ -65,23 +68,24 @@ export function InboundWebhooks({ projects, automacoes }: Props) {
   };
 
   const update = async (id: string, values: Partial<Hook>) => {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("imphq_flow_webhooks")
       .update({ ...values, updated_at: new Date().toISOString() })
       .eq("id", id);
-    if (error) return toast.error(error.message);
-    setHooks((prev) => prev.map((h) => (h.id === id ? { ...h, ...values } as Hook : h)));
+    if (error) { toast.error(error.message); return false; }
+    setHooks((prev) => prev.map((h) => (h.id === id ? { ...h, ...values } : h)));
+    return true;
   };
 
   const rotate = async (id: string) => {
     const token = randomToken();
-    await update(id, { token });
+    if (!await update(id, { token })) return;
     toast.success("Token rotacionado — atualize a URL no provedor");
   };
 
   const remove = async (id: string) => {
     if (!confirm("Apagar este webhook? A URL para de funcionar.")) return;
-    const { error } = await (supabase as any).from("imphq_flow_webhooks").delete().eq("id", id);
+    const { error } = await supabase.from("imphq_flow_webhooks").delete().eq("id", id);
     if (error) return toast.error(error.message);
     setHooks((prev) => prev.filter((h) => h.id !== id));
   };
@@ -110,8 +114,8 @@ export function InboundWebhooks({ projects, automacoes }: Props) {
       if (json?.ok) toast.success("Disparo enviado — confira em Logs & Monitoramento");
       else toast.error(json?.error || "Falha no disparo");
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Erro no disparo");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro no disparo");
     } finally {
       setTesting(null);
     }

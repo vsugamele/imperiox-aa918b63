@@ -1,6 +1,7 @@
+import { record } from "@/lib/funis-data";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -26,7 +27,7 @@ interface Props {
   onClose: () => void;
 }
 
-const table = "imphq_company_map_comments" as any;
+const table = "imphq_company_map_comments";
 
 export function MapCommentsPanel({ mapId, targetId, targetLabel, onClose }: Props) {
   const { user } = useAuth();
@@ -45,7 +46,7 @@ export function MapCommentsPanel({ mapId, targetId, targetLabel, onClose }: Prop
         .eq("map_id", mapId)
         .eq("target_id", targetId)
         .order("created_at", { ascending: true });
-      if (active) setComments((data as any) || []);
+      if (active) setComments(data || []);
     })();
 
     const ch = supabase
@@ -60,7 +61,7 @@ export function MapCommentsPanel({ mapId, targetId, targetLabel, onClose }: Prop
             .eq("map_id", mapId)
             .eq("target_id", targetId)
             .order("created_at", { ascending: true })
-            .then(({ data }) => setComments((data as any) || []));
+            .then(({ data }) => setComments(data || []));
         },
       )
       .subscribe();
@@ -75,8 +76,8 @@ export function MapCommentsPanel({ mapId, targetId, targetLabel, onClose }: Prop
     if (!body.trim() || !user || !targetId) return;
     setLoading(true);
     const name =
-      (user.user_metadata as any)?.full_name ||
-      (user.user_metadata as any)?.name ||
+      record(user.user_metadata).full_name ||
+      record(user.user_metadata).name ||
       user.email?.split("@")[0] ||
       "Você";
     const { error } = await supabase.from(table).insert({
@@ -84,16 +85,16 @@ export function MapCommentsPanel({ mapId, targetId, targetLabel, onClose }: Prop
       target_id: targetId,
       target_kind: "node",
       author_id: user.id,
-      author_name: name,
+      author_name: String(name),
       body: body.trim(),
-    } as any);
+    });
     setLoading(false);
     if (error) toast.error("Falha ao enviar");
     else setBody("");
   };
 
   const toggleResolved = async (c: Comment) => {
-    await supabase.from(table).update({ resolved: !c.resolved } as any).eq("id", c.id);
+    await supabase.from(table).update({ resolved: !c.resolved }).eq("id", c.id);
   };
   const del = async (c: Comment) => {
     await supabase.from(table).delete().eq("id", c.id);

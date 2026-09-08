@@ -1,18 +1,28 @@
+import { record } from "@/lib/funis-data";
+import type { Node } from "@xyflow/react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { CANVAS_BLOCKS } from "./blockTypes";
 import { KIND_COLORS } from "@/lib/studioAutoLayout";
 import { Loader2, CheckCircle2, AlertCircle, Sparkles, X, Film, Mic, Send, ImagePlus } from "lucide-react";
 
-export function CanvasBlockNode({ data, selected }: NodeProps) {
-  const d = data as any;
+type BlockData = Record<string,unknown> & {
+ id:string;tipo:string;titulo?:string;status?:string;config?:unknown;output?:unknown;
+ is_variant_winner?:boolean;variant_score?:number;variant_label?:string;
+ onDelete?:(id:string)=>void;onOpenDrawer?:(id:string)=>void;onGenerate?:(id:string)=>void;
+ onSpawnDownstream?:(id:string,target:"video"|"avatar"|"publish")=>void;
+};
+export function CanvasBlockNode({ data: d, selected }: NodeProps<Node<BlockData>>) {
+  const config = record(d.config);
   const meta = CANVAS_BLOCKS.find(b => b.id === d.tipo);
   const isProduct = d.tipo === "product";
   const isMedia = d.tipo === "media";
   const status = d.status || "pendente";
-  const output = d.output || {};
-  const preview = output.url || output.image_url || output.video_url || output.audio_url || (isMedia ? d.config?.url : undefined);
-  const previewKind = output.kind || (isMedia ? d.config?.kind : undefined);
+  const output = record(d.output);
+  const ficha = record(output.ficha || config.ficha_snapshot);
+  const storyboard = record(output.ficha).storyboard;
+  const preview = [output.url,output.image_url,output.video_url,output.audio_url,isMedia ? config.url : undefined].find((v):v is string=>typeof v === "string" && !!v);
+  const previewKind = output.kind || (isMedia ? config.kind : undefined);
 
   const kindColor = KIND_COLORS[d.tipo] || "#c9922a";
 
@@ -32,7 +42,7 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
 
   const hasMedia = !!preview && (previewKind === "image" || previewKind === "video" || isMedia);
 
-  const refCount = (d.config?.reference_urls || []).length;
+  const refCount = Array.isArray(config.reference_urls) ? config.reference_urls.length : 0;
 
   return (
     <div className={cn(
@@ -92,24 +102,24 @@ export function CanvasBlockNode({ data, selected }: NodeProps) {
         <div className="text-[10px] text-emerald-400 mb-1 truncate">🎵 áudio pronto</div>
       )}
 
-      {d.tipo === "modeling" && (d.config?.ficha_snapshot || output.ficha) && (
+      {d.tipo === "modeling" && Boolean(config.ficha_snapshot || output.ficha) && (
         <div className="text-[10px] text-fuchsia-300/90 mb-1 line-clamp-2 leading-tight">
-          {(output.ficha || d.config?.ficha_snapshot)?.estilo_visual || "ficha carregada"}
+          {typeof ficha.estilo_visual === "string" ? ficha.estilo_visual : "ficha carregada"}
         </div>
       )}
 
       {d.tipo === "storyboard" && (
         <div className="text-[10px] text-cyan-300/90 mb-1 line-clamp-2 leading-tight">
-          🎞️ {output.ficha?.storyboard?.length || 0} cenas · alvo: {d.config?.target_kind || "image"}
+          🎞️ {Array.isArray(storyboard) ? storyboard.length : 0} cenas · alvo: {typeof config.target_kind === "string" ? config.target_kind : "image"}
         </div>
       )}
 
       <div className="text-[10px] text-muted-foreground truncate">
         {d.tipo === "modeling"
-          ? (d.config?.model_id ? "modelagem vinculada" : "escolha uma modelagem")
+          ? (config.model_id ? "modelagem vinculada" : "escolha uma modelagem")
           : d.tipo === "storyboard"
-          ? (d.config?.model_id ? "abra p/ explodir cenas" : "escolha uma modelagem")
-          : (d.config?.model || d.config?.prompt?.slice(0, 40) || meta?.desc)}
+          ? (config.model_id ? "abra p/ explodir cenas" : "escolha uma modelagem")
+          : (typeof config.model === "string" ? config.model : typeof config.prompt === "string" ? config.prompt.slice(0,40) : meta?.desc)}
       </div>
       {refCount > 0 && (
         <div className="text-[9px] text-primary/80 mt-0.5">🖼 {refCount} ref{refCount > 1 ? "s" : ""}</div>

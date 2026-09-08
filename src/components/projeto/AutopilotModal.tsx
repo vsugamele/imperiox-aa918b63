@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Sparkles, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Props {
   open: boolean;
@@ -49,12 +52,12 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
         data: {
           briefing: { nicho: form.nicho, produto_principal: form.nome },
           autopilot: { pending: true },
-        } as any,
+        },
       });
       if (projErr) throw projErr;
 
       // 2. Dispara o autopilot
-      const { data, error } = await supabase.functions.invoke("project-autopilot", {
+      const { data, error } = await supabase.functions.invoke<Json>("project-autopilot", {
         body: {
           action: "start",
           project_id: projectId,
@@ -69,13 +72,14 @@ export function AutopilotModal({ open, onOpenChange, onCreated }: Props) {
       });
       if (error) throw error;
 
-      const runId = (data as any)?.run_id;
+      const runId = jsonText(jsonFields(data).run_id);
+      if (!runId) throw new Error("Autopilot não retornou o identificador da execução");
       toast({ title: "Autopilot iniciado", description: "Acompanhe o progresso ao vivo." });
       onOpenChange(false);
       onCreated?.();
       navigate(`/projetos/${projectId}/autopilot/${runId}`);
-    } catch (err: any) {
-      toast({ title: "Erro ao iniciar Autopilot", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro ao iniciar Autopilot", description: errorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }

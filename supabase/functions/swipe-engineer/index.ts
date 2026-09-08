@@ -109,8 +109,9 @@ ${blocksText}${rawSample}`;
     await supabase.from("imphq_swipes").update({ reverse_engineering: reverse }).eq("id", swipe_id);
 
     return new Response(JSON.stringify({ ok: true, reverse_engineering: reverse }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("[swipe-engineer]", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

@@ -1,8 +1,20 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Polling de comentários do Instagram via Meta Graph API.
 // Rede de segurança: garante recuperação de comentários que o webhook da Meta tenha perdido.
 // Varre os últimos N posts de cada conta IG conectada e faz upsert em imphq_ig_comments por comment_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { runCommentTrigger } from "../_shared/ig-trigger-match.ts";
+
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+interface IgAccount { id: string; project_id: string; ig_user_id: string | null }
+interface IgCredentials { page_access_token?: string; zernio_api_key?: string; zernio_account_id?: string }
+interface PollResult { account_id: string; project_id: string; posts_scanned: number; comments_upserted: number; errors: string[] }
+interface CommentRow { account_id: string; media_id?: string | null; comment_id?: string | null; parent_comment_id: string | null; from_user_id: string | null; from_username: string | null; text: string | null; created_at: string }
+const Text = z.string().nullish();
+const Author = z.object({ id: Text, username: Text }).passthrough();
+const Comment = z.object({ id: Text, commentId: Text, _id: Text, authorId: Text, from: Author.nullish(), user: Author.nullish(), author: Author.nullish(), userId: Text, authorUsername: Text, username: Text, parentId: Text, parent_id: Text, replyTo: Text, content: Text, text: Text, message: Text, body: Text, createdTime: Text, createdAt: Text, timestamp: Text, created_at: Text }).passthrough();
+const Posts = z.array(z.object({ id: Text }).passthrough());
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,16 +25,16 @@ const corsHeaders = {
 const GRAPH = "https://graph.facebook.com/v21.0";
 const ZERNIO = "https://zernio.com/api/v1";
 
-function json(d: any, s = 200) {
+function json(d: unknown, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function upsertComment(supa: any, result: any, row: any, ctx: { projectId: string; accountId: string }) {
+async function upsertComment(supa: ReturnType<typeof makeClient>, result: PollResult, row: CommentRow, ctx: { projectId: string; accountId: string }) {
   const { error } = await supa.from("imphq_ig_comments").upsert(row, { onConflict: "comment_id" });
   if (error) { result.errors.push(`upsert ${row.comment_id}: ${error.message}`); return; }
   result.comments_upserted++;
   // Dispara matcher (idempotente via imphq_ig_trigger_executions)
-  if (row.text && row.from_user_id) {
+  if (row.text && row.from_user_id && row.comment_id) {
     try {
       await runCommentTrigger({
         supa,
@@ -33,13 +45,13 @@ async function upsertComment(supa: any, result: any, row: any, ctx: { projectId:
         commentText: row.text,
         fromUsername: row.from_username || null,
       });
-    } catch (e: any) {
-      result.errors.push(`trigger ${row.comment_id}: ${e?.message || e}`);
+    } catch (e) {
+      result.errors.push(`trigger ${row.comment_id}: ${errorMessage(e) || e}`);
     }
   }
 }
 
-async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
+async function processViaMeta(supa: ReturnType<typeof makeClient>, account: IgAccount, creds: IgCredentials, opts: { maxPosts: number; maxComments: number }, result: PollResult) {
   const token = creds?.page_access_token;
   if (!token) { result.errors.push("missing page_access_token"); return; }
   const igUserId = account.ig_user_id;
@@ -48,13 +60,13 @@ async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPo
   const mediaUrl = `${GRAPH}/${igUserId}/media?fields=id,timestamp&limit=${opts.maxPosts}&access_token=${encodeURIComponent(token)}`;
   const mediaRes = await fetch(mediaUrl);
   if (!mediaRes.ok) { result.errors.push(`media fetch ${mediaRes.status}: ${(await mediaRes.text()).slice(0, 200)}`); return; }
-  const posts: any[] = (await mediaRes.json()).data || [];
+  const posts = Posts.parse((await mediaRes.json()).data || []);
 
   for (const post of posts) {
     result.posts_scanned++;
     const commRes = await fetch(`${GRAPH}/${post.id}/comments?fields=id,text,username,from,parent_id,timestamp&limit=${opts.maxComments}&access_token=${encodeURIComponent(token)}`);
     if (!commRes.ok) { result.errors.push(`comments ${post.id} ${commRes.status}`); continue; }
-    const comments: any[] = (await commRes.json()).data || [];
+    const comments = z.array(Comment).parse((await commRes.json()).data || []);
     for (const c of comments) {
       const fromUserId = c.from?.id || null;
       if (fromUserId && fromUserId === igUserId) continue;
@@ -72,7 +84,7 @@ async function processViaMeta(supa: any, account: any, creds: any, opts: { maxPo
   }
 }
 
-async function processViaZernio(supa: any, account: any, creds: any, opts: { maxPosts: number; maxComments: number }, result: any) {
+async function processViaZernio(supa: ReturnType<typeof makeClient>, account: IgAccount, creds: IgCredentials, opts: { maxPosts: number; maxComments: number }, result: PollResult) {
   const apiKey = creds?.zernio_api_key;
   const zernioAccountId = creds?.zernio_account_id;
   if (!apiKey || !zernioAccountId) { result.errors.push("missing zernio credentials"); return; }
@@ -87,7 +99,7 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
     return;
   }
   const listData = await listRes.json();
-  const posts: any[] = listData?.data || [];
+  const posts = Posts.parse(listData?.data || []);
   const failed = listData?.meta?.failedAccounts;
   if (Array.isArray(failed) && failed.length) {
     result.errors.push(`zernio failedAccounts: ${JSON.stringify(failed).slice(0, 300)}`);
@@ -119,7 +131,7 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
         break;
       }
       const cData = await cRes.json();
-      const comments: any[] = cData?.data || cData?.comments || [];
+      const comments = z.array(Comment).parse(cData?.data || cData?.comments || []);
 
       for (const c of comments) {
         const rawId = c.id || c.commentId || c._id;
@@ -146,7 +158,7 @@ async function processViaZernio(supa: any, account: any, creds: any, opts: { max
   }
 }
 
-async function processAccount(supa: any, account: any, opts: { maxPosts: number; maxComments: number }) {
+async function processAccount(supa: ReturnType<typeof makeClient>, account: IgAccount, opts: { maxPosts: number; maxComments: number }) {
   const result = { account_id: account.id, project_id: account.project_id, posts_scanned: 0, comments_upserted: 0, errors: [] as string[] };
 
   const { data: credRow } = await supa
@@ -171,7 +183,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  let body: any = {};
+  let body: { project_id?: string; max_posts?: unknown; max_comments?: unknown } = {};
   try { body = await req.json(); } catch { /* sem body = cron */ }
 
   const projectId: string | undefined = body?.project_id;
@@ -184,19 +196,19 @@ Deno.serve(async (req) => {
   const { data: accounts, error } = await q;
   if (error) return json({ error: error.message }, 500);
 
-  const results = [] as any[];
+  const results = [] as (PollResult | { account_id: string; project_id: string; error: string })[];
   for (const acc of accounts || []) {
     try {
       const r = await processAccount(supa, acc, { maxPosts, maxComments });
       results.push(r);
-    } catch (e: any) {
-      results.push({ account_id: acc.id, project_id: acc.project_id, error: e?.message || String(e) });
+    } catch (e) {
+      results.push({ account_id: acc.id, project_id: acc.project_id, error: errorMessage(e) || String(e) });
     }
   }
 
   const totals = results.reduce((acc, r) => ({
-    posts_scanned: acc.posts_scanned + (r.posts_scanned || 0),
-    comments_upserted: acc.comments_upserted + (r.comments_upserted || 0),
+    posts_scanned: acc.posts_scanned + ("posts_scanned" in r ? r.posts_scanned : 0),
+    comments_upserted: acc.comments_upserted + ("comments_upserted" in r ? r.comments_upserted : 0),
   }), { posts_scanned: 0, comments_upserted: 0 });
 
   console.log(`[ig-comments-poller] accounts=${accounts?.length ?? 0} posts=${totals.posts_scanned} comments=${totals.comments_upserted}`);

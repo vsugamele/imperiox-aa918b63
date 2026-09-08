@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export function LaunchTimelineDialog({ open, onClose, projectId, funilId }: Prop
       .select("*")
       .eq("projeto_id", projectId)
       .order("scheduled_at", { ascending: true });
-    setItems((data as any) || []);
+    setItems(data || []);
     setLoading(false);
   };
 
@@ -84,8 +85,8 @@ export function LaunchTimelineDialog({ open, onClose, projectId, funilId }: Prop
       if (error) throw error;
       toast.success("Cronograma gerado!");
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar");
     } finally {
       setGenerating(false);
     }

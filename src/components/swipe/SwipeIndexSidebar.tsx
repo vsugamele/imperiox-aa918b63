@@ -4,12 +4,12 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  items: any[];
+  items: Array<{ id: string; title?: string | null }>;
   activeId: string | null;
   onSelect: (id: string) => void;
 }
 
-function getLabel(s: any, idx: number): string {
+function getLabel(s: { title?: string | null }, idx: number): string {
   const m = String(s.title || "").match(/ROTEIRO\s+([A-Z0-9]+)/i);
   if (m) return m[1].toUpperCase();
   if (idx < 26) return String.fromCharCode(65 + idx);

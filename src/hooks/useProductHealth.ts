@@ -71,7 +71,7 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
       if (cancel) return;
 
       const byProd: Record<string, ProductHealth> = {};
-      for (const v of (vendasRes.data || []) as any[]) {
+      for (const v of (vendasRes.data || [])) {
         const st = (v.status || "").toLowerCase();
         if (!st.includes("aprov") && !st.includes("paid")) continue;
         const key = norm(v.produto_nome);
@@ -90,7 +90,7 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
       // Ads: tentamos casar pelo nome da campanha (contém produto)
       const ctrSamples: Record<string, number[]> = {};
       let spendTotal = 0;
-      for (const a of (adsRes.data || []) as any[]) {
+      for (const a of (adsRes.data || [])) {
         const spend = Number(a.spend ?? a.valor) || 0;
         spendTotal += spend;
         const camp = norm(a.campanha);

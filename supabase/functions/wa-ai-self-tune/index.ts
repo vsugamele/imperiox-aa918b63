@@ -91,16 +91,17 @@ Retorne EXATAMENTE este JSON:
     if (!res.ok) return null;
     const json = await res.json();
     return JSON.parse(json?.choices?.[0]?.message?.content || "{}");
-  } catch (e: any) {
-    console.warn(`[self-tune] LLM error: ${e?.message}`);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.warn(`[self-tune] LLM error: ${eMessage}`);
     return null;
   }
 }
 
-function buildConvDigest(messages: any[]): string {
+function buildConvDigest(messages: { direction: string; sent_by: string | null; content: string | null }[]): string {
   return messages
     .slice(-15)
-    .map((m: any) => {
+    .map((m) => {
       const speaker = m.direction === "incoming" ? "LEAD" : (m.sent_by === "ai" ? "IA" : "HUM");
       return `[${speaker}]: ${String(m.content || "").slice(0, 200)}`;
     })
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const report: any[] = [];
+    const report: { project_id: string; wins?: number; losses?: number; rules_proposed?: number; persona_refined?: boolean; applied?: boolean; confidence?: number; skipped?: string }[] = [];
     const since = new Date(Date.now() - WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
 
     for (const cfg of configs) {
@@ -147,7 +148,7 @@ Deno.serve(async (req) => {
         .order("data_venda", { ascending: false })
         .limit(MAX_PER_BUCKET * 2);
 
-      const winLeadIds = (wins || []).map((w: any) => w.lead_id).filter(Boolean);
+      const winLeadIds = (wins || []).map((w) => w.lead_id).filter(Boolean);
       if (winLeadIds.length === 0) {
         console.log(`[self-tune] sem vendas em ${WINDOW_DAYS}d para ${cfg.project_id}`);
         report.push({ project_id: cfg.project_id, skipped: "no_wins" });
@@ -158,7 +159,7 @@ Deno.serve(async (req) => {
         .from("imphq_leads")
         .select("id, phone")
         .in("id", winLeadIds);
-      const winPhones = new Set((winLeads || []).map((l: any) => l.phone).filter(Boolean));
+      const winPhones = new Set((winLeads || []).map((l) => l.phone).filter(Boolean));
 
       const { data: winConvs } = await supa
         .from("imphq_wa_conversations")
@@ -204,7 +205,7 @@ Deno.serve(async (req) => {
           .limit(25);
         if (!msgs || msgs.length < MIN_MSGS_PER_CONV) continue;
         // Filtro: pelo menos 1 msg de IA (sent_by=ai)
-        if (!msgs.some((m: any) => m.sent_by === "ai")) continue;
+        if (!msgs.some((m) => m.sent_by === "ai")) continue;
         lossSummaries.push({ id: conv.id, outcome: "loss", digest: buildConvDigest(msgs) });
       }
 
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
       }
 
       const proposedRules: string[] = Array.isArray(proposal.proposed_new_rules)
-        ? proposal.proposed_new_rules.filter((s: any) => typeof s === "string" && s.length > 5 && s.length < 200)
+        ? proposal.proposed_new_rules.filter((s: unknown) => typeof s === "string" && s.length > 5 && s.length < 200)
         : [];
       const proposedRefine: string | null = typeof proposal.proposed_persona_refine === "string" && proposal.proposed_persona_refine.length > 5
         ? proposal.proposed_persona_refine.slice(0, 300)
@@ -306,9 +307,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, configs_processed: configs.length, report }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-ai-self-tune] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

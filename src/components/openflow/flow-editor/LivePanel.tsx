@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ interface Props {
   onFocusStep?: (idx: number) => void;
 }
 
-const statusMeta: Record<string, { label: string; className: string; icon: any }> = {
+const statusMeta: Record<string, { label: string; className: string; icon: LucideIcon }> = {
   running: { label: "Rodando", className: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40", icon: Loader2 },
   waiting: { label: "Aguardando", className: "bg-amber-500/15 text-amber-300 border-amber-500/40", icon: Clock },
   failed: { label: "Falha", className: "bg-rose-500/15 text-rose-300 border-rose-500/40", icon: XCircle },

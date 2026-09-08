@@ -1,3 +1,6 @@
+import { record, type Product } from "@/lib/funis-data";
+import { z } from "zod";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,12 @@ interface Variation {
   cta: string;
 }
 
+const variationSchema = z.object({ angulo: z.string(), headline: z.string(), lead: z.string(), cta: z.string() }).passthrough();
+function parseVariations(value: unknown): Variation[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(item => { const parsed = variationSchema.parse(item); return { ...parsed, angulo: parsed.angulo, headline: parsed.headline, lead: parsed.lead, cta: parsed.cta }; });
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -20,7 +29,7 @@ interface Props {
   nodeId: string;
   assetKind?: string;
   assetLabel?: string;
-  product?: any;
+  product?: Product;
   onApply?: (variation: Variation) => void;
 }
 
@@ -39,7 +48,7 @@ export function NodeCopyDialog({ open, onClose, projectId, nodeId, assetKind, as
         .eq("node_id", nodeId)
         .maybeSingle();
       if (data?.copies) {
-        setVariations(data.copies as any);
+        setVariations(parseVariations(data.copies));
         setSelectedIdx(data.selected_idx ?? 0);
       } else {
         setVariations([]);
@@ -55,12 +64,12 @@ export function NodeCopyDialog({ open, onClose, projectId, nodeId, assetKind, as
         body: { projeto_id: projectId, node_id: nodeId, asset_kind: assetKind, asset_label: assetLabel, produto: product },
       });
       if (error) throw error;
-      const arr = ((data as any)?.copies || []) as Variation[];
+      const arr = parseVariations(record(data).copies);
       setVariations(arr);
       setSelectedIdx(0);
       toast.success("3 variações geradas");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar");
     } finally {
       setLoading(false);
     }

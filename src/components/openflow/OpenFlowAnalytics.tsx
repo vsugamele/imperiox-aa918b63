@@ -1,3 +1,7 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { Acao } from "@/components/openflow/FlowEditor";
+import { readExecutionSteps } from "@/lib/flow-execution-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 interface OpenFlowAnalyticsProps {
-  automacoes: any[];
+  automacoes: { id: string; nome: string; acoes: Acao[]; project_id?: string }[];
 }
 
 interface StepStat {
@@ -39,12 +43,12 @@ interface StepStat {
 
 export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
   const [selectedAutoId, setSelectedAutoId] = useState<string>("");
-  const [executions, setExecutions] = useState<any[]>([]);
+  const [executions, setExecutions] = useState<Pick<Tables<"imphq_flow_executions">, "id" | "status" | "step_results" | "created_at" | "lead_id">[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Recovery dialog states
   const [recoveringStepIdx, setRecoveringStepIdx] = useState<number | null>(null);
-  const [recoveringLeads, setRecoveringLeads] = useState<any[]>([]);
+  const [recoveringLeads, setRecoveringLeads] = useState<Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "email" | "tags">[]>([]);
   const [fetchingLeads, setFetchingLeads] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [processingAction, setProcessingAction] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
     if (automacoes.length > 0 && !selectedAutoId) {
       setSelectedAutoId(automacoes[0].id);
     }
-  }, [automacoes]);
+  }, [automacoes, selectedAutoId]);
 
   // Load revenue attribution by flow (last 30 days)
   useEffect(() => {
@@ -69,9 +73,9 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
         .gte('created_at', thirtyDaysAgo);
 
       const byFlow = new Map<string, {nome: string; receita: number; count: number; automacao_id: string}>();
-      (vendas || []).forEach((v: any) => {
-        const attrId = v.data?.flow_attribution_id;
-        const attrNome = v.data?.flow_attribution_nome || 'Direto (sem fluxo)';
+      (vendas || []).forEach((v) => {
+        const attrId = jsonText(jsonFields(v.data).flow_attribution_id);
+        const attrNome = jsonText(jsonFields(v.data).flow_attribution_nome) || 'Direto (sem fluxo)';
         if (attrId) {
           const current = byFlow.get(attrId) || { nome: attrNome, receita: 0, count: 0, automacao_id: attrId };
           byFlow.set(attrId, { ...current, receita: current.receita + (v.valor || 0), count: current.count + 1 });
@@ -112,7 +116,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
   const acoesCount = acoes.length;
 
   // Process statistics
-  const stats: StepStat[] = acoes.map((acao: any, idx: number) => {
+  const stats: StepStat[] = acoes.map((acao, idx: number) => {
     let label = acao.tipo;
     if (acao.tipo === "ia_message") label = "IA Conversacional (Mente)";
     else if (acao.tipo === "whatsapp") label = "WhatsApp";
@@ -153,7 +157,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
   const TWO_HOURS_MS = 2 * 3600 * 1000;
 
   executions.forEach((exec) => {
-    const stepResults = exec.step_results || [];
+    const stepResults = readExecutionSteps(exec.step_results);
     if (!Array.isArray(stepResults)) return;
 
     // Check for stalled leads (>2h at same step)
@@ -170,7 +174,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
       }
     }
 
-    stepResults.forEach((stepRes: any) => {
+    stepResults.forEach((stepRes) => {
       const stepIdx = typeof stepRes.step === "number" ? stepRes.step : parseInt(stepRes.step);
       if (isNaN(stepIdx) || stepIdx < 0 || stepIdx >= acoesCount) return;
 
@@ -204,7 +208,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
         stat.abStats[vKey].reached++;
         
         // Progression to next step
-        const reachedNext = stepResults.some((r: any) => r.step === stepIdx + 1);
+        const reachedNext = stepResults.some((r) => r.step === stepIdx + 1);
         if (stepIdx < acoesCount - 1) {
           if (reachedNext) {
             stat.abStats[vKey].completed++;
@@ -252,20 +256,20 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
     let count = 0;
 
     executions.forEach((exec) => {
-      const results = exec.step_results || [];
+      const results = readExecutionSteps(exec.step_results);
       if (!Array.isArray(results)) return;
 
-      const startObj = results.find((r: any) => r.step === idx && r.started_at);
+      const startObj = results.find((r) => r.step === idx && r.started_at);
       if (!startObj) return;
 
       const startTs = new Date(startObj.started_at).getTime();
       let finishTs = 0;
       
-      const finishObj = results.find((r: any) => r.step === idx && r.finished_at);
+      const finishObj = results.find((r) => r.step === idx && r.finished_at);
       if (finishObj) {
         finishTs = new Date(finishObj.finished_at).getTime();
       } else {
-        const nextStepObj = results.find((r: any) => r.step === idx + 1 && r.started_at);
+        const nextStepObj = results.find((r) => r.step === idx + 1 && r.started_at);
         if (nextStepObj) {
           finishTs = new Date(nextStepObj.started_at).getTime();
         }
@@ -319,17 +323,17 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
     setFetchingLeads(true);
     try {
       const droppedOffExecs = executions.filter((exec) => {
-        const results = exec.step_results || [];
+        const results = readExecutionSteps(exec.step_results);
         if (!Array.isArray(results)) return false;
         
         if (idx < acoesCount - 1) {
-          const completedThis = results.some((r: any) => r.step === idx && (r.status === "completed" || r.status === "sent" || r.status === "success" || r.status === "guided_ai_completed"));
-          const reachedNext = results.some((r: any) => r.step === idx + 1);
+          const completedThis = results.some((r) => r.step === idx && (r.status === "completed" || r.status === "sent" || r.status === "success" || r.status === "guided_ai_completed"));
+          const reachedNext = results.some((r) => r.step === idx + 1);
           return completedThis && !reachedNext;
         } else {
-          const reachedThis = results.some((r: any) => r.step === idx);
-          const completedThis = results.some((r: any) => r.step === idx && (r.status === "completed" || r.status === "sent" || r.status === "success" || r.status === "guided_ai_completed"));
-          const isWaiting = results.some((r: any) => r.step === idx && (r.status === "waiting" || r.status === "running" || r.status === "waiting_for_lead_response" || r.status === "delayed_for_condition"));
+          const reachedThis = results.some((r) => r.step === idx);
+          const completedThis = results.some((r) => r.step === idx && (r.status === "completed" || r.status === "sent" || r.status === "success" || r.status === "guided_ai_completed"));
+          const isWaiting = results.some((r) => r.step === idx && (r.status === "waiting" || r.status === "running" || r.status === "waiting_for_lead_response" || r.status === "delayed_for_condition"));
           return reachedThis && !completedThis && !isWaiting;
         }
       });
@@ -342,7 +346,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
 
       const { data, error } = await supabase
         .from("imphq_leads")
-        .select("id, name, phone, email, tags")
+        .select("id, nome, phone, email, tags")
         .in("id", leadIds);
 
       if (error) throw error;
@@ -358,7 +362,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
   const handleExportCSV = () => {
     if (recoveringLeads.length === 0) return;
     const headers = "Nome,Telefone,Email,Tags\n";
-    const rows = recoveringLeads.map(l => `"${l.name || ''}","${l.phone || ''}","${l.email || ''}","${(l.tags || []).join('; ')}"`).join("\n");
+    const rows = recoveringLeads.map(l => `"${l.nome || ''}","${l.phone || ''}","${l.email || ''}","${(l.tags || []).join('; ')}"`).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -402,9 +406,9 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
       });
 
       toast.success(`${recoveringLeads.length} leads transferidos para suporte humano!`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro na transição em massa:", err);
-      toast.error(`Erro ao transferir: ${err.message}`);
+      toast.error(`Erro ao transferir: ${errorMessage(err)}`);
     } finally {
       setProcessingAction(null);
     }
@@ -436,11 +440,11 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
 
       // Reload leads
       const leadIds = recoveringLeads.map(l => l.id);
-      const { data } = await supabase.from("imphq_leads").select("id, name, phone, email, tags").in("id", leadIds);
+      const { data } = await supabase.from("imphq_leads").select("id, nome, phone, email, tags").in("id", leadIds);
       setRecoveringLeads(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao adicionar tag em lote:", err);
-      toast.error(`Erro ao adicionar tag: ${err.message}`);
+      toast.error(`Erro ao adicionar tag: ${errorMessage(err)}`);
     } finally {
       setProcessingAction(null);
     }
@@ -755,7 +759,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
                         <div className="mt-2 p-2 rounded-lg bg-purple-950/20 border border-purple-500/10 space-y-1">
                           <span className="text-[8.5px] uppercase tracking-wider text-purple-300 font-bold block">Acionamento de Rotas IA:</span>
                           <div className="flex flex-wrap gap-1.5 text-[9px]">
-                            {Object.entries(stat.routeTriggers).map(([routeName, count]: any) => (
+                            {Object.entries(stat.routeTriggers).map(([routeName, count]) => (
                               <span key={routeName} className="bg-purple-900/40 text-purple-200 px-1.5 py-0.5 rounded border border-purple-700/20">
                                 {routeName}: <strong>{count}</strong> acionamentos
                               </span>
@@ -926,7 +930,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
                   {recoveringLeads.map((l) => (
                     <div key={l.id} className="flex justify-between items-center p-2 rounded bg-secondary/15 border border-border/20 text-xs">
                       <div className="font-medium text-foreground">
-                        {l.name || "Sem Nome"} <span className="text-[10px] text-muted-foreground font-mono">({l.phone || ""})</span>
+                        {l.nome || "Sem Nome"} <span className="text-[10px] text-muted-foreground font-mono">({l.phone || ""})</span>
                       </div>
                       <div className="flex gap-1">
                         {(l.tags || []).slice(0, 3).map((t: string, ti: number) => (
@@ -946,3 +950,4 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
     </div>
   );
 }
+import { jsonFields, jsonText } from "@/lib/json-fields";

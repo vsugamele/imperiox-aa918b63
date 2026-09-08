@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+type AdSpend = Tables<"imphq_ads_spend">;
+type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign">;
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,10 +34,10 @@ export default function Gerenciador() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projectId, setProjectId] = useState<string>("__all__");
   const [days, setDays] = useState<number>(30);
-  const [ads, setAds] = useState<any[]>([]);
-  const [adsPrev, setAdsPrev] = useState<any[]>([]);
-  const [vendas, setVendas] = useState<any[]>([]);
-  const [vendasPrev, setVendasPrev] = useState<any[]>([]);
+  const [ads, setAds] = useState<AdSpend[]>([]);
+  const [adsPrev, setAdsPrev] = useState<AdSpend[]>([]);
+  const [vendas, setVendas] = useState<RevenueRow[]>([]);
+  const [vendasPrev, setVendasPrev] = useState<RevenueRow[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [forcedSearch, setForcedSearch] = useState<string | undefined>();
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,7 +76,7 @@ export default function Gerenciador() {
         baseAds(fromPrev, toPrev),
         baseVendas(from, to),
         baseVendas(fromPrev, toPrev),
-      ]) as any;
+      ]);
 
       setAds(a1.data || []);
       setAdsPrev(a2.data || []);
@@ -96,8 +99,8 @@ export default function Gerenciador() {
   const [revenueMode] = useRevenueMode();
 
   const totals = useMemo(() => {
-    const sum = (arr: any[], key: string) => arr.reduce((s, x) => s + Number(x[key] || 0), 0);
-    const sumVendas = (arr: any[]) => arr.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
+    const sum = (arr: AdSpend[], key: "valor" | "compras") => arr.reduce((s, x) => s + Number(x[key] || 0), 0);
+    const sumVendas = (arr: RevenueRow[]) => arr.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
     return {
       cur: { valor: sum(metaAds, "valor"), compras: sum(metaAds, "compras"), receita: sumVendas(vendas) },
       prev: { valor: sum(metaAdsPrev, "valor"), compras: sum(metaAdsPrev, "compras"), receita: sumVendas(vendasPrev) },

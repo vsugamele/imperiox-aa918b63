@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { openFlowActionSchema } from "@/lib/openflow-action-schema";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,7 +12,10 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sparkles, Loader2, Brain, FlaskConical, ArrowRight, Plus, Replace } from "lucide-react";
-import type { Acao } from "./FlowEditor";
+import type { Acao } from "@/components/openflow/FlowEditor";
+
+type GeneratedAction = Acao & { proposito?: string };
+const generationSchema = z.object({ acoes: z.array(openFlowActionSchema.extend({ delay_min: z.number().min(0).default(60), proposito: z.string().optional() })), diagnostico: z.string().default(""), ab_suggestions: z.array(z.object({ etapa_index: z.number(), hipotese: z.string(), variante: z.string().optional() })).default([]) });
 
 interface Props {
   open: boolean;
@@ -39,7 +45,7 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
   const [observacoes, setObservacoes] = useState("");
 
   const [diagnostico, setDiagnostico] = useState("");
-  const [acoesGeradas, setAcoesGeradas] = useState<Acao[]>([]);
+  const [acoesGeradas, setAcoesGeradas] = useState<GeneratedAction[]>([]);
   const [abSuggestions, setAbSuggestions] = useState<Array<{ etapa_index: number; hipotese: string; variante?: string }>>([]);
 
   const toggle = (arr: string[], set: (v: string[]) => void, val: string) => {
@@ -49,7 +55,7 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
   const gerar = async () => {
     setPhase("loading");
     try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+      const { data, error } = await supabase.functions.invoke<unknown>("openflow-ai", {
         body: {
           project_id: projectId,
           trigger_tipo: triggerTipo,
@@ -58,25 +64,15 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
         },
       });
       if (error) throw error;
-      const acoes: Acao[] = (data?.acoes || []).map((a: any) => ({
-        id: crypto.randomUUID(),
-        tipo: a.tipo || "whatsapp",
-        template: a.template || "",
-        delay_min: typeof a.delay_min === "number" ? a.delay_min : 60,
-        ...(a.ia_vision !== undefined ? { ia_vision: !!a.ia_vision } : {}),
-        ...(a.ia_voice_response !== undefined ? { ia_voice_response: !!a.ia_voice_response } : {}),
-        ...(a.questioning_strategy ? { questioning_strategy: a.questioning_strategy } : {}),
-        ...(a.timeout_min !== undefined ? { timeout_min: a.timeout_min } : {}),
-        ...(a.tag ? { tag: a.tag } : {}),
-        ...(a.stop_event_type ? { stop_event_type: a.stop_event_type } : {}),
-        ...(a.proposito ? { proposito: a.proposito } : {}),
-      }));
+      const generated = generationSchema.parse(data);
+      // Runtime schema validates mandatory fields; this project uses strictNullChecks=false.
+      const acoes = generated.acoes.map(a => ({ ...a, id: crypto.randomUUID() })) as GeneratedAction[];
       setAcoesGeradas(acoes);
-      setDiagnostico(data?.diagnostico || "");
-      setAbSuggestions(data?.ab_suggestions || []);
+      setDiagnostico(generated.diagnostico);
+      setAbSuggestions(generated.ab_suggestions.map(s => ({ etapa_index: s.etapa_index, hipotese: s.hipotese, variante: s.variante })));
       setPhase("result");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar");
       setPhase("briefing");
     }
   };
@@ -109,7 +105,7 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Objetivo</Label>
-                  <Select value={objetivo} onValueChange={(v: any) => setObjetivo(v)}>
+                  <Select value={objetivo} onValueChange={(v) => { if (v === "aquisicao" || v === "qualificacao" || v === "conversao" || v === "recuperacao" || v === "retencao" || v === "ltv") setObjetivo(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="aquisicao">🎯 Aquisição</SelectItem>
@@ -123,7 +119,7 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Temperatura do lead</Label>
-                  <Select value={temperatura} onValueChange={(v: any) => setTemperatura(v)}>
+                  <Select value={temperatura} onValueChange={(v) => { if (v === "frio" || v === "morno" || v === "quente") setTemperatura(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="frio">🧊 Frio</SelectItem>
@@ -134,7 +130,7 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Tamanho do funil</Label>
-                  <Select value={tamanho} onValueChange={(v: any) => setTamanho(v)}>
+                  <Select value={tamanho} onValueChange={(v) => { if (v === "enxuto" || v === "padrao" || v === "longo") setTamanho(v); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="enxuto">Enxuto (3-5)</SelectItem>
@@ -215,8 +211,8 @@ export function AIGenerateDialog({ open, onOpenChange, projectId, triggerTipo, p
                         <span className="font-bold uppercase">{a.tipo}</span>
                         {a.delay_min > 0 && <span className="text-muted-foreground">⏱ {a.delay_min}min</span>}
                       </div>
-                      {(a as any).proposito && (
-                        <p className="text-[10px] text-primary/80 italic mb-1">🎯 {(a as any).proposito}</p>
+                      {a.proposito && (
+                        <p className="text-[10px] text-primary/80 italic mb-1">🎯 {a.proposito}</p>
                       )}
                       <p className="text-muted-foreground line-clamp-2">{a.template || <em>(sem template)</em>}</p>
                     </div>

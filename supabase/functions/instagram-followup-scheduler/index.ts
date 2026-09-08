@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(value: unknown): string | undefined { const message = record(value).message; return typeof message === "string" ? message : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -50,7 +53,7 @@ Deno.serve(async (req) => {
 
     for (const conv of convs) {
       processedCount++;
-      const account = conv.imphq_ig_accounts as any;
+      const account = record(conv.imphq_ig_accounts);
       const projectId = account?.project_id;
       const igUserId = account?.ig_user_id;
 
@@ -72,7 +75,7 @@ Deno.serve(async (req) => {
         if (configErr) {
           console.error(`[ig-followup-scheduler] Config query error for ${projectId}:`, configErr.message);
         } else if (configs && configs.length > 0) {
-          aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+          aiConfig = configs.find((c) => !c.provider_id) || configs[0];
         }
 
         if (!aiConfig) {
@@ -99,7 +102,7 @@ Deno.serve(async (req) => {
           console.log(`[ig-followup-scheduler] Última mensagem é recebida, pulando follow-up.`);
           await supa
             .from("imphq_ig_conversations")
-            .update({ follow_up_status: "none" } as any)
+            .update({ follow_up_status: "none" })
             .eq("id", conv.id);
           continue;
         }
@@ -130,7 +133,7 @@ Deno.serve(async (req) => {
           if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
             const faqStr = aiConfig.faq
               .slice(0, 20)
-              .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+              .map((f: unknown) => `Q: ${record(f).pergunta}\nA: ${record(f).resposta}`)
               .join("\n");
             projectContext += `FAQ OFICIAL:\n${faqStr.slice(0, 1200)}\n`;
           }
@@ -173,8 +176,8 @@ REGRAS DO FOLLOW-UP:
         // Ordenar histórico cronologicamente (do mais antigo para o mais recente)
         const historyMsgs = [...dbHistory].reverse();
 
-        const messages: any[] = [{ role: "system", content: systemPrompt }];
-        historyMsgs.forEach((m: any) => {
+        const messages: { role: string; content: string }[] = [{ role: "system", content: systemPrompt }];
+        historyMsgs.forEach((m) => {
           messages.push({
             role: m.direction === "in" || m.direction === "incoming" ? "user" : "assistant",
             content: m.content || "",
@@ -188,7 +191,7 @@ REGRAS DO FOLLOW-UP:
         });
 
         // Alternar mensagens estritamente para compatibilidade com APIs do OpenRouter
-        const formattedMessages: any[] = [];
+        const formattedMessages: { role: string; content: string }[] = [];
         let lastRole: string | null = null;
         messages.forEach((msg) => {
           if (msg.role === lastRole) {
@@ -259,7 +262,7 @@ REGRAS DO FOLLOW-UP:
           const errMsg = `failed: ${String(replyError.message || replyError).slice(0, 80)}`;
           await supa
             .from("imphq_ig_conversations")
-            .update({ follow_up_status: errMsg } as any)
+            .update({ follow_up_status: errMsg })
             .eq("id", conv.id);
           continue;
         }
@@ -273,7 +276,7 @@ REGRAS DO FOLLOW-UP:
             .update({
               follow_up_status: "sent",
               follow_up_sent_at: new Date().toISOString(),
-            } as any)
+            })
             .eq("id", conv.id);
 
           successCount++;
@@ -282,16 +285,16 @@ REGRAS DO FOLLOW-UP:
           const errMsg = `failed: ${String(replyData?.error || 'Erro no envio').slice(0, 80)}`;
           await supa
             .from("imphq_ig_conversations")
-            .update({ follow_up_status: errMsg } as any)
+            .update({ follow_up_status: errMsg })
             .eq("id", conv.id);
         }
 
-      } catch (innerErr: any) {
-        console.error(`[ig-followup-scheduler] Erro ao processar conversa ${conv.id}:`, innerErr.message);
-        const errMsg = `failed: ${(innerErr.message || String(innerErr)).slice(0, 80)}`;
+      } catch (innerErr) {
+        console.error(`[ig-followup-scheduler] Erro ao processar conversa ${conv.id}:`, errorMessage(innerErr));
+        const errMsg = `failed: ${(errorMessage(innerErr) || String(innerErr)).slice(0, 80)}`;
         await supa
           .from("imphq_ig_conversations")
-          .update({ follow_up_status: errMsg } as any)
+          .update({ follow_up_status: errMsg })
           .eq("id", conv.id);
       }
     }
@@ -302,9 +305,9 @@ REGRAS DO FOLLOW-UP:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
+  } catch (err) {
     console.error("[ig-followup-scheduler] Erro fatal:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: errorMessage(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

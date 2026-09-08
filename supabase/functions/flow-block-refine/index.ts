@@ -42,14 +42,16 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (error || !row) return json({ error: "blueprint_not_found" }, 404);
 
-    const bp: any = row.blueprint;
-    const node = bp?.nodes?.find((n: any) => n.id === node_id);
-    const block = node?.blocks?.find((b: any) => b.id === block_id);
+    const bp = z.object({ nodes: z.array(z.object({
+      id: z.string(), blocks: z.array(z.object({ id: z.string(), text: z.unknown().optional(), image_prompt: z.unknown().optional() }).passthrough()).optional().default([]),
+    }).passthrough()).optional().default([]) }).passthrough().parse(row.blueprint);
+    const node = bp?.nodes?.find((n) => n.id === node_id);
+    const block = node?.blocks?.find((b) => b.id === block_id);
     if (!block) return json({ error: "block_not_found" }, 404);
 
     const current = String(block.text || block.image_prompt || "").slice(0, 4000);
 
-    const userContent: any[] = [
+    const userContent = [
       {
         type: "text",
         text: `Você é um copywriter que reescreve um bloco de roteiro/script analisando as imagens conectadas.
@@ -86,17 +88,18 @@ ${instructions ? `INSTRUÇÕES EXTRAS DO USUÁRIO:\n${instructions}\n\n` : ""}TA
 
     const nextBp = {
       ...bp,
-      nodes: bp.nodes.map((n: any) =>
+      nodes: bp.nodes.map((n) =>
         n.id === node_id
-          ? { ...n, blocks: n.blocks.map((b: any) => (b.id === block_id ? { ...b, text: newText } : b)) }
+          ? { ...n, blocks: n.blocks.map((b) => (b.id === block_id ? { ...b, text: newText } : b)) }
           : n
       ),
     };
     await sb.from("imphq_flow_blueprints").update({ blueprint: nextBp }).eq("id", blueprint_id);
 
     return json({ text: newText });
-  } catch (e: any) {
-    return json({ error: e?.message || "erro" }, 500);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return json({ error: eMessage || "erro" }, 500);
   }
 });
 

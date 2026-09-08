@@ -1,3 +1,7 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const productSchema = z.object({ nome: z.string().nullish(), name: z.string().nullish(), preco_por: z.union([z.string(), z.number()]).nullish(), preco: z.union([z.string(), z.number()]).nullish(), descricao: z.string().nullish(), promessa: z.string().nullish(), links: z.array(z.object({ tipo: z.string().nullish(), url: z.string().nullish(), prioridade_ia: z.string().nullish() }).passthrough()).nullish() }).passthrough();
+const avatarSchema = z.union([z.string(), z.object({ descricao: z.string().nullish(), resumo: z.string().nullish(), dores: z.array(z.unknown()).nullish(), objecoes: z.array(z.unknown()).nullish() }).passthrough()]);
+const contextSchema = z.object({ produtos: z.array(productSchema).nullish(), avatar: avatarSchema.nullish(), briefing: z.object({ produtos: z.array(productSchema).nullish(), avatar: avatarSchema.nullish(), promessa: z.string().nullish(), dores: z.array(z.unknown()).nullish(), objecoes: z.array(z.unknown()).nullish() }).passthrough().nullish() }).passthrough();
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -38,14 +42,14 @@ async function callAI(system: string, user: string) {
   return j.choices?.[0]?.message?.content || "";
 }
 
-function buildProductContext(proj: any, produtoIdx: number) {
-  const data = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
+function buildProductContext(proj: { data?: unknown; name?: string | null; nome?: string | null }, produtoIdx: number) {
+  const data = contextSchema.parse(typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {}));
   const b = data.briefing || {};
   const produtos = b.produtos || data.produtos || [];
   const p = produtos[produtoIdx] || {};
   const avatar = data.avatar || b.avatar || {};
   const links = Array.isArray(p.links) ? p.links : [];
-  const preferido = links.find((l: any) => l?.prioridade_ia === "preferido" && l.tipo === "checkout")?.url || links.find((l: any) => l.tipo === "checkout")?.url || "";
+  const preferido = links.find((l) => l?.prioridade_ia === "preferido" && l.tipo === "checkout")?.url || links.find((l) => l.tipo === "checkout")?.url || "";
   return {
     nome_projeto: proj.name || proj.nome,
     produto: p.nome || p.name || "",
@@ -53,10 +57,10 @@ function buildProductContext(proj: any, produtoIdx: number) {
     descricao: p.descricao || "",
     promessa: p.promessa || b.promessa || "",
     avatar_resumo: typeof avatar === "string" ? avatar : (avatar?.descricao || avatar?.resumo || JSON.stringify(avatar).slice(0, 400)),
-    dores: (avatar?.dores || b?.dores || []).slice(0, 5),
-    objecoes: (avatar?.objecoes || b?.objecoes || []).slice(0, 5),
+    dores: ((typeof avatar === "object" ? avatar.dores : undefined) || b?.dores || []).slice(0, 5),
+    objecoes: ((typeof avatar === "object" ? avatar.objecoes : undefined) || b?.objecoes || []).slice(0, 5),
     link_checkout: preferido,
-    links_disponiveis: links.map((l: any) => ({ tipo: l.tipo, url: l.url, prio: l.prioridade_ia })),
+    links_disponiveis: links.map((l) => ({ tipo: l.tipo, url: l.url, prio: l.prioridade_ia })),
   };
 }
 
@@ -85,8 +89,8 @@ Deno.serve(async (req) => {
     if (action === "auto_plan") {
       const { journey_id } = body;
       const { data: existing } = await sb.from("imphq_journey_steps").select("etapa, bloco_tipo").eq("journey_id", journey_id);
-      const has = new Set((existing || []).map((s: any) => `${s.etapa}:${s.bloco_tipo}`));
-      const inserts: any[] = [];
+      const has = new Set((existing || []).map((s) => `${s.etapa}:${s.bloco_tipo}`));
+      const inserts: { journey_id: string; etapa: string; bloco_tipo: string; titulo: null; config: Record<string, never>; output: Record<string, never>; status: string; order_idx: number }[] = [];
       for (const [etapa, blocos] of Object.entries(ETAPA_MIX)) {
         blocos.forEach((bt, idx) => {
           if (!has.has(`${etapa}:${bt}`)) {
@@ -99,8 +103,9 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("journey-orchestrator error:", e);
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: eMessage || String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

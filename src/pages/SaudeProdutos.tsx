@@ -175,7 +175,7 @@ export default function SaudeProdutos() {
         .from("imphq_projects")
         .select("id, name")
         .order("name");
-      return ((data || []) as any[]).map(p => ({ id: p.id as string, nome: p.name as string }));
+      return (data || []).map(p => ({ id: p.id, nome: p.name }));
     },
   });
 

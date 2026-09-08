@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { ComponentProps } from "react";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -12,31 +15,31 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
-import AudiencePreviewPanel, { type AudienceFilters } from "./AudiencePreviewPanel";
+import AudiencePreviewPanel, { type AudienceFilters } from "@/components/whatsapp/AudiencePreviewPanel";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  providers: any[];
-  templates?: any[];
+  providers: Pick<Tables<"imphq_wa_providers">, "id" | "project_id" | "provider" | "instance_name" | "twilio_from">[];
+  templates?: Pick<Tables<"imphq_wa_templates">, "id" | "name" | "content">[];
 }
 
 export default function BulkSendDialog({ open, onOpenChange, providers, templates = [] }: Props) {
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "project_id">[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [providerId, setProviderId] = useState("");
   const [template, setTemplate] = useState("Olá {{nome}}, tudo bem?");
   const [delayMs, setDelayMs] = useState(3000);
   const [sending, setSending] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<{ phone: string; status: string; error?: string }[]>([]);
   const [manualNumbers, setManualNumbers] = useState("");
   const [contactMode, setContactMode] = useState<"leads" | "manual" | "audience">("leads");
   const [audienceFilters, setAudienceFilters] = useState<AudienceFilters>({});
-  const [audienceSample, setAudienceSample] = useState<any[]>([]);
+  const [audienceSample, setAudienceSample] = useState<Parameters<NonNullable<ComponentProps<typeof AudiencePreviewPanel>["onChange"]>>[1]>([]);
 
   useEffect(() => {
     if (open) {
-      supabase.from("imphq_leads").select("id, nome, telefone, projeto_id").not("telefone", "is", null).order("nome").then(({ data }) => {
+      supabase.from("imphq_leads").select("id, nome, phone, project_id").not("phone", "is", null).order("nome").then(({ data }) => {
         setLeads(data || []);
       });
     }
@@ -54,13 +57,13 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
   const getContacts = () => {
     if (contactMode === "leads") {
       return leads.filter(l => selected.includes(l.id)).map(l => ({
-        phone: l.telefone.replace(/\D/g, ""),
+        phone: l.phone.replace(/\D/g, ""),
         name: l.nome || "",
       }));
     }
     if (contactMode === "audience") {
       return audienceSample
-        .map((r: any) => ({ phone: (r.phone || "").replace(/\D/g, ""), name: r.contact_name || r.nome || "" }))
+        .map((r) => ({ phone: (r.phone || "").replace(/\D/g, ""), name: r.contact_name || r.nome || "" }))
         .filter((c) => c.phone.length >= 8);
     }
     // Parse manual numbers: one per line, format "number" or "number - name"
@@ -102,8 +105,8 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
       if (error) throw error;
       setResults(data?.results || []);
       toast.success(`Disparo concluído: ${data?.results?.length || 0} mensagens`);
-    } catch (err: any) {
-      toast.error("Erro: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro: " + errorMessage(err));
     } finally {
       setSending(false);
     }
@@ -133,10 +136,10 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
           <div>
             <Label>Template de mensagem</Label>
             {templates.length > 0 && (
-              <Select onValueChange={v => { const t = templates.find((x: any) => x.id === v); if (t) setTemplate(t.content); }}>
+              <Select onValueChange={v => { const t = templates.find((x) => x.id === v); if (t) setTemplate(t.content); }}>
                 <SelectTrigger className="mb-2"><SelectValue placeholder="Usar template salvo..." /></SelectTrigger>
                 <SelectContent>
-                  {templates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
@@ -149,7 +152,7 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
             <Input type="number" value={delayMs} onChange={e => setDelayMs(Number(e.target.value))} min={1000} step={500} />
           </div>
 
-          <Tabs value={contactMode} onValueChange={v => setContactMode(v as any)}>
+          <Tabs value={contactMode} onValueChange={v => { if (v === "leads" || v === "manual" || v === "audience") setContactMode(v); }}>
             <TabsList className="w-full">
               <TabsTrigger value="leads" className="flex-1">Leads</TabsTrigger>
               <TabsTrigger value="audience" className="flex-1">🎯 Segmento</TabsTrigger>
@@ -168,7 +171,7 @@ export default function BulkSendDialog({ open, onOpenChange, providers, template
                   <label key={l.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded cursor-pointer text-sm">
                     <Checkbox checked={selected.includes(l.id)} onCheckedChange={() => toggleLead(l.id)} />
                     <span className="flex-1 truncate">{l.nome || "Sem nome"}</span>
-                    <span className="text-xs text-muted-foreground font-mono">{l.telefone}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{l.phone}</span>
                   </label>
                 ))}
                 {leads.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead com telefone</p>}

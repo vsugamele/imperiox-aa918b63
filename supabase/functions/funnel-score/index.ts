@@ -42,10 +42,10 @@ Deno.serve(async (req) => {
       sb.from("imphq_ads_spend").select("spend, ctr, cpa, date").eq("project_id", project_id).order("date", { ascending: false }).limit(30),
     ]);
 
-    const existing = (existing_assets || []).map((a: any) => `${a.catId}:${a.itemId}=${a.status || "?"}`).join(", ");
-    const briefing = (project?.briefing as any) || {};
+    const existing = (existing_assets || []).map((a: { catId?: string; itemId?: string; status?: string }) => `${a.catId}:${a.itemId}=${a.status || "?"}`).join(", ");
+    const briefing = project?.briefing || {};
     const totalVendas = vendas?.length || 0;
-    const avgCtr = ads?.length ? (ads.reduce((s, a: any) => s + Number(a.ctr || 0), 0) / ads.length) : 0;
+    const avgCtr = ads?.length ? (ads.reduce((s, a) => s + Number(a.ctr || 0), 0) / ads.length) : 0;
 
     const sys = `Você é o Imperius Funnel Scorer. Avalie um funil em 10 dimensões e devolva JSON.
 Dimensões (todas com nota 0-10, justificativa de 1 frase, e 1 sugestão prática):
@@ -89,14 +89,15 @@ Retorne JSON:
     }
     const aiData = await aiRes.json();
     const content = aiData?.choices?.[0]?.message?.content || "{}";
-    let parsed: any = {};
+    let parsed: unknown = {};
     try { parsed = JSON.parse(content); } catch { parsed = { raw: content }; }
 
     return new Response(JSON.stringify({ score: parsed, kpis: { totalVendas, avgCtr } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

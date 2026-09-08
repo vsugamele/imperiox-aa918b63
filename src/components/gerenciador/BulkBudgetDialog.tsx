@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ export function BulkBudgetDialog({ open, onOpenChange, count, loading, onConfirm
     onConfirm(mode, n);
   };
 
-  const modes: { key: BulkBudgetMode; label: string; icon: any; suffix: string; tone: string }[] = [
+  const modes: { key: BulkBudgetMode; label: string; icon: LucideIcon; suffix: string; tone: string }[] = [
     { key: "increase_pct", label: "Aumentar", icon: TrendingUp, suffix: "%", tone: "text-emerald-300 border-emerald-400/40 bg-emerald-500/10" },
     { key: "decrease_pct", label: "Reduzir", icon: TrendingDown, suffix: "%", tone: "text-amber-300 border-amber-400/40 bg-amber-500/10" },
     { key: "set_fixed", label: "Definir", icon: DollarSign, suffix: "R$", tone: "text-primary border-primary/40 bg-primary/10" },

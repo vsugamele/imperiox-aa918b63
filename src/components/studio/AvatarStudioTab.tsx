@@ -1,3 +1,5 @@
+import { record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
@@ -100,10 +102,10 @@ export function AvatarStudioTab() {
         .limit(40),
     ]);
     if (aRes.data) {
-      setAvatars(aRes.data as any);
-      if (!selectedAvatarId && aRes.data[0]) setSelectedAvatarId((aRes.data[0] as any).id);
+      setAvatars(aRes.data.map(a=>({...a,avatar_photos:Array.isArray(a.avatar_photos) ? a.avatar_photos.map(record).flatMap(p=>typeof p.path === "string" && typeof p.url === "string" ? [{...p,path:p.path,url:p.url}] : []) : []})));
+      if (!selectedAvatarId && aRes.data[0]) setSelectedAvatarId(aRes.data[0].id);
     }
-    if (gRes.data) setGens(gRes.data as any);
+    if (gRes.data) setGens(gRes.data);
   };
 
   useEffect(() => {
@@ -169,17 +171,17 @@ export function AvatarStudioTab() {
 
       const parser = createParser({
         onEvent(ev) {
-          let payload: any;
-          try { payload = JSON.parse(ev.data); } catch { return; }
+          let payload: Record<string,unknown>;
+          try { payload = record(JSON.parse(ev.data)); } catch { return; }
           if (ev.event === "error" || payload?.type === "error") {
-            streamError = payload?.error?.message || "Erro na geração";
+            streamError = String(record(payload.error).message || "Erro na geração");
             return;
           }
           if (
             ev.event !== "image_generation.partial_image" &&
             ev.event !== "image_generation.completed"
           ) return;
-          if (!payload?.b64_json) return;
+          if (typeof payload.b64_json !== "string" || !payload.b64_json) return;
           const isFinal = ev.event === "image_generation.completed";
           flushSync(() => {
             setPreviewData(`data:image/png;base64,${payload.b64_json}`);
@@ -221,12 +223,12 @@ export function AvatarStudioTab() {
         media_type: "image",
         status: "ready",
         metadata: { storage_path: filePath },
-      } as any);
+      });
 
       toast.success("Imagem gerada!");
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao gerar");
     } finally {
       setBusy(false);
     }
@@ -448,12 +450,12 @@ function AvatarPhotosStrip({
       }
       await supabase
         .from("imphq_avatar_studio_projects")
-        .update({ avatar_photos: [...avatar.avatar_photos, ...newPhotos] as any })
+        .update({ avatar_photos: toJson([...avatar.avatar_photos, ...newPhotos]) })
         .eq("id", avatar.id);
       toast.success("Fotos adicionadas.");
       onChanged();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao enviar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao enviar");
     } finally {
       setUploading(false);
     }
@@ -466,7 +468,7 @@ function AvatarPhotosStrip({
     await supabase
       .from("imphq_avatar_studio_projects")
       .update({
-        avatar_photos: avatar.avatar_photos.filter((p) => p.path !== path) as any,
+        avatar_photos: toJson(avatar.avatar_photos.filter((p) => p.path !== path)),
       })
       .eq("id", avatar.id);
     onChanged();
@@ -480,7 +482,7 @@ function AvatarPhotosStrip({
     if (!additions.length) return;
     await supabase
       .from("imphq_avatar_studio_projects")
-      .update({ avatar_photos: [...avatar.avatar_photos, ...additions] as any })
+      .update({ avatar_photos: toJson([...avatar.avatar_photos, ...additions]) })
       .eq("id", avatar.id);
     toast.success(`${additions.length} referência(s) importada(s).`);
     onChanged();
@@ -563,13 +565,13 @@ function ImportReferenciasDialog({
     setLoading(true);
     supabase
       .from("imphq_referencias")
-      .select("id, image_url, titulo, pasta")
-      .not("image_url", "is", null)
+      .select("id, image_url:url, titulo, pasta:tipo")
+      .not("url", "is", null)
       .order("created_at", { ascending: false })
       .limit(200)
       .then(({ data }) => {
-        const rows = (data || []).filter((r: any) => r.image_url && !isVideoUrl(r.image_url));
-        setItems(rows as any);
+        const rows = (data || []).filter((r) => r.image_url && !isVideoUrl(r.image_url));
+        setItems(rows);
         setLoading(false);
       });
   }, [open]);
@@ -695,7 +697,7 @@ function CreateAvatarDialog({
           nome: nome.trim(),
           descricao: descricao.trim() || null,
           estilo_base: estilo.trim() || null,
-          avatar_photos: [] as any,
+          avatar_photos: [],
         })
         .select("id")
         .single();
@@ -704,8 +706,8 @@ function CreateAvatarDialog({
       onOpenChange(false);
       setNome(""); setDescricao(""); setEstilo("");
       if (data?.id) onCreated(data.id);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }

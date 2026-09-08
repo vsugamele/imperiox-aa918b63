@@ -111,7 +111,7 @@ export function formatMetric(value: number | string | undefined | null, format: 
 }
 
 // Semáforo automático baseado em ROI (se existir).
-export function autoStatusColor(metrics: Record<string, any> | undefined): "green" | "yellow" | "red" | null {
+export function autoStatusColor(metrics: Record<string, unknown> | undefined): "green" | "yellow" | "red" | null {
   if (!metrics) return null;
   const roi = Number(metrics.roi);
   if (!Number.isFinite(roi)) return null;

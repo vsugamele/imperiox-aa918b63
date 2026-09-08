@@ -69,9 +69,9 @@ export default function AIWizardDialog({ projectId, open, onOpenChange, onApplie
       reset();
       onOpenChange(false);
       onApplied?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[AIWizard] erro:", err);
-      toast.error("Erro ao gerar configuração", { description: err.message });
+      toast.error("Erro ao gerar configuração", { description: err instanceof Error ? err.message : "Falha inesperada ao gerar configuração" });
     } finally {
       setLoading(false);
     }

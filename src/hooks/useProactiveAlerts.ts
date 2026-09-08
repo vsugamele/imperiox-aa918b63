@@ -29,7 +29,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
       .gte("created_at", since)
       .lte("created_at", cutoff)
       .limit(5);
-    (pix || []).forEach((v: any) => {
+    (pix || []).forEach((v) => {
       out.push({
         key: `pix:${v.id}`,
         kind: "pix_pending",
@@ -41,12 +41,12 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
         created_at: v.created_at,
       });
     });
-  } catch {}
+  } catch { console.warn("Não foi possível consultar uma fonte de alertas proativos"); }
 
   // 2) Conversas paradas > 2h aguardando resposta nossa
   try {
     const cutoff = new Date(now - 2 * 3600_000).toISOString();
-    const { data: convs } = await (supabase as any)
+    const { data: convs } = await (supabase)
       .from("imphq_wa_conversations")
       .select("id, phone, contact_name, last_message_at, last_message_direction")
       .eq("last_message_direction", "in")
@@ -54,7 +54,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
       .order("last_message_at", { ascending: false })
       .limit(5);
 
-    (convs || []).forEach((c: any) => {
+    (convs || []).forEach((c) => {
       out.push({
         key: `stale:${c.id}`,
         kind: "stale_conv",
@@ -66,7 +66,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
         created_at: c.last_message_at,
       });
     });
-  } catch {}
+  } catch { console.warn("Não foi possível consultar uma fonte de alertas proativos"); }
 
   // 3) Pico de vendas última 1h (>= 3 vendas)
   try {
@@ -88,7 +88,7 @@ async function detectAlerts(): Promise<ProactiveAlert[]> {
         created_at: new Date().toISOString(),
       });
     }
-  } catch {}
+  } catch { console.warn("Não foi possível consultar uma fonte de alertas proativos"); }
 
   return out;
 }
@@ -112,8 +112,8 @@ export function useProactiveAlerts() {
         const now = Date.now();
         const set = new Set<string>(
           (data || [])
-            .filter((d: any) => !d.expires_at || new Date(d.expires_at).getTime() > now)
-            .map((d: any) => d.alert_key as string)
+            .filter((d) => !d.expires_at || new Date(d.expires_at).getTime() > now)
+            .map((d) => d.alert_key as string)
         );
         if (mounted) setDismissed(set);
       }

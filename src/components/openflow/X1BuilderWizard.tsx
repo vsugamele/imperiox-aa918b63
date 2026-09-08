@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -108,20 +109,20 @@ export function X1BuilderWizard({ open, onOpenChange, projects, onCreated }: Pro
         nome,
         trigger_tipo,
         project_id: projectId || null,
-        acoes: buildAcoes() as any,
+        acoes: JSON.parse(JSON.stringify(buildAcoes())),
         ativo: true,
         prioridade: 8,
         link_checkout: linkCheckout || null,
         trigger_config: keywords.length > 0 ? { keywords, match_mode: matchMode } : null,
         flow_objective: "Aquisição X1 híbrida: qualificar, apresentar e converter via WhatsApp.",
-      } as any).select("id").single();
+      }).select("id").single();
       if (error) throw error;
       toast.success("Fluxo X1 criado! Abrindo editor…");
       onOpenChange(false);
       setStep(0);
-      onCreated((data as any).id);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao criar fluxo");
+      onCreated(data.id);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao criar fluxo");
     } finally {
       setSaving(false);
     }
@@ -164,7 +165,7 @@ export function X1BuilderWizard({ open, onOpenChange, projects, onCreated }: Pro
               </div>
               <div className="space-y-2">
                 <Label>Como o fluxo começa?</Label>
-                <Select value={triggerMode} onValueChange={(v: any) => setTriggerMode(v)}>
+                <Select value={triggerMode} onValueChange={(v) => { if (v === "whatsapp_mensagem_recebida" || v === "whatsapp_palavra_chave") setTriggerMode(v); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="whatsapp_palavra_chave">🔑 Palavra-chave no WhatsApp</SelectItem>
@@ -176,7 +177,7 @@ export function X1BuilderWizard({ open, onOpenChange, projects, onCreated }: Pro
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Palavras-chave</Label>
-                    <Select value={matchMode} onValueChange={(v: any) => setMatchMode(v)}>
+                    <Select value={matchMode} onValueChange={(v) => { if (v === "any" || v === "all" || v === "exact" || v === "regex") setMatchMode(v); }}>
                       <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="any">Contém qualquer uma</SelectItem>

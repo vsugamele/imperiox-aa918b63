@@ -7,6 +7,10 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { z } from "zod";
+import { zernioStatsSchema, zernioDebugSchema } from "@/lib/zernio-sync-data";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 
 interface ZernioAccount {
   id: string;
@@ -33,8 +37,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [lastStats, setLastStats] = useState<any>(null);
-  const [lastDebug, setLastDebug] = useState<any>(null);
+  const [lastStats, setLastStats] = useState<z.infer<typeof zernioStatsSchema> | null>(null);
+  const [lastDebug, setLastDebug] = useState<z.infer<typeof zernioDebugSchema> | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
   // Load saved Zernio config
@@ -46,15 +50,17 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
         .eq("project_id", projectId)
         .eq("provider", "instagram")
         .maybeSingle();
-      const c: any = data?.credentials || {};
+      const c = jsonFields(data?.credentials);
       const ok = !!(c.zernio_api_key && c.zernio_account_id);
       setHasZernio(ok);
-      setSavedAcc(c.zernio_ad_account_id);
-      setLastSync(c.zernio_ads_last_sync || null);
-      setLastStatus(c.zernio_ads_last_sync_status || null);
-      setLastError(c.zernio_ads_last_sync_error || null);
-      setLastStats(c.zernio_ads_last_sync_stats || null);
-      setLastDebug(c.zernio_ads_last_sync_debug || null);
+      setSavedAcc(jsonText(c.zernio_ad_account_id) || undefined);
+      setLastSync(jsonText(c.zernio_ads_last_sync) || null);
+      setLastStatus(jsonText(c.zernio_ads_last_sync_status) || null);
+      setLastError(jsonText(c.zernio_ads_last_sync_error) || null);
+      const stats = zernioStatsSchema.safeParse(c.zernio_ads_last_sync_stats);
+      const debug = zernioDebugSchema.safeParse(c.zernio_ads_last_sync_debug);
+      setLastStats(stats.success ? stats.data : null);
+      setLastDebug(debug.success ? debug.data : null);
     })();
   }, [projectId]);
 
@@ -68,8 +74,8 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setAccounts(list);
       if (!selected && savedAcc) setSelected(savedAcc);
       return list;
-    } catch (e: any) {
-      toast.error(`Falha ao listar contas Zernio: ${e?.message || e}`);
+    } catch (e: unknown) {
+      toast.error(`Falha ao listar contas Zernio: ${errorMessage(e)}`);
       return [];
     } finally {
       setLoading(false);
@@ -96,7 +102,7 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
   const runSync = async (adAccountId: string) => {
     setSyncing(true);
     try {
-      const body: any = { project_id: projectId, ad_account_id: adAccountId };
+      const body: Record<string, string> = { project_id: projectId, ad_account_id: adAccountId };
       if (dateRange) {
         body.date_from = format(dateRange.start, "yyyy-MM-dd");
         body.date_to = format(dateRange.end, "yyyy-MM-dd");
@@ -115,11 +121,11 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
       setLastStatus("success");
       setLastError(null);
       setLastStats({ imported: importedN, ads: adsN, campaigns: campN });
-      setLastDebug(data.debug || null);
+      setLastDebug(data.debug ? zernioDebugSchema.parse(data.debug) : null);
       setOpen(false);
       onAfterSync?.();
-    } catch (e: any) {
-      const msg = e?.message || String(e);
+    } catch (e: unknown) {
+      const msg = errorMessage(e);
       setLastSync(new Date().toISOString());
       setLastStatus("error");
       setLastError(msg);
@@ -288,7 +294,7 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
               <div>
                 <p className="font-semibold mb-1 text-foreground">Campanhas detectadas ({lastDebug.campaigns_detected.length}):</p>
                 <div className="rounded border border-border/40 max-h-48 overflow-auto divide-y divide-border/40">
-                  {lastDebug.campaigns_detected.map((c: any, i: number) => (
+                  {lastDebug.campaigns_detected.map((c, i) => (
                     <div key={i} className="px-2 py-1.5 flex items-center justify-between text-[11px]">
                       <span className="truncate flex-1 mr-2">{c.name || "—"}</span>
                       <span className="text-muted-foreground">{c.ads_count} ads</span>
@@ -302,7 +308,7 @@ export default function ZernioAdsSync({ projectId, dateRange, onAfterSync }: Pro
               <div>
                 <p className="font-semibold mb-1 text-foreground">Variantes de parâmetro testadas:</p>
                 <div className="rounded border border-border/40 divide-y divide-border/40 overflow-hidden">
-                  {lastDebug.variants_tried.map((v: any, i: number) => (
+                  {lastDebug.variants_tried.map((v, i) => (
                     <div key={i} className={`px-2 py-1.5 ${v.name === lastDebug.chosen_variant ? "bg-emerald-500/10" : ""}`}>
                       <div className="flex items-center justify-between">
                         <code className="text-[11px]">{v.name}</code>

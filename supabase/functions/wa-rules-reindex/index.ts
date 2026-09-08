@@ -38,9 +38,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, indexed: ok, failed: fail, total: rows?.length || 0 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[wa-rules-reindex]", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+      const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "Unknown error";
+    console.error("[wa-rules-reindex]", message);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

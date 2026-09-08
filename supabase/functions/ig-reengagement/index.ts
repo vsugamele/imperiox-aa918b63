@@ -55,8 +55,9 @@ async function sendIgDM(
       console.error(`[ig-reengagement] Graph API error ${res.status}: ${err.slice(0, 150)}`);
     }
     return res.ok;
-  } catch (e: any) {
-    console.error("[ig-reengagement] sendIgDM error:", e.message);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[ig-reengagement] sendIgDM error:", eMessage);
     return false;
   }
 }
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
           .is("provider_id", null)
           .limit(1);
 
-        const cfg = aiConfigs?.[0] || {};
+        const cfg: {expert_persona?:string|null;product_focus?:string|null;tone?:string|null;personality?:string|null} = aiConfigs?.[0] || {};
 
         // ── 3. Buscar conversas IG silenciosas ────────────────────────────
         const { data: conversations } = await supabase
@@ -235,14 +236,16 @@ REGRAS:
 
             await new Promise((r) => setTimeout(r, 1200)); // respeita rate limit IG
 
-          } catch (convErr: any) {
-            console.error(`[ig-reengagement] Erro ${conv.participant_id}:`, convErr.message);
-            results.errors.push(`${conv.participant_id}: ${convErr.message}`);
+          } catch (convErr) {
+    const convErrMessage = convErr instanceof Error ? convErr.message : convErr && typeof convErr === "object" && "message" in convErr && typeof convErr.message === "string" ? convErr.message : undefined;
+            console.error(`[ig-reengagement] Erro ${conv.participant_id}:`, convErrMessage);
+            results.errors.push(`${conv.participant_id}: ${convErrMessage}`);
           }
         }
-      } catch (accErrInner: any) {
-        console.error(`[ig-reengagement] Conta ${account.id}:`, accErrInner.message);
-        results.errors.push(`account ${account.id}: ${accErrInner.message}`);
+      } catch (accErrInner) {
+    const accErrInnerMessage = accErrInner instanceof Error ? accErrInner.message : accErrInner && typeof accErrInner === "object" && "message" in accErrInner && typeof accErrInner.message === "string" ? accErrInner.message : undefined;
+        console.error(`[ig-reengagement] Conta ${account.id}:`, accErrInnerMessage);
+        results.errors.push(`account ${account.id}: ${accErrInnerMessage}`);
       }
     }
 
@@ -251,9 +254,10 @@ REGRAS:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (e: any) {
-    console.error("[ig-reengagement] Fatal:", e.message);
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[ig-reengagement] Fatal:", eMessage);
+    return new Response(JSON.stringify({ ok: false, error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -7,8 +7,8 @@
  *     supabase.from("imphq_vendas").select("*").eq("project_id", id).range(from, to)
  *   );
  */
-export async function fetchAll<T = any>(
-  buildQuery: (from: number, to: number) => any,
+export async function fetchAll<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
   pageSize = 1000,
   hardCap = 50000,
   onProgress?: (loaded: number) => void,
@@ -22,7 +22,7 @@ export async function fetchAll<T = any>(
       console.error("[fetchAll] error", error);
       break;
     }
-    const rows = (data ?? []) as T[];
+    const rows = data ?? [];
     out.push(...rows);
     onProgress?.(out.length);
     if (rows.length < pageSize) break;

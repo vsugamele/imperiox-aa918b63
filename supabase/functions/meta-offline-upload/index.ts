@@ -20,7 +20,12 @@ function onlyDigits(s: string | null | undefined): string {
   return (s || "").replace(/\D+/g, "");
 }
 
-async function processProject(supabase: any, project: any) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface OfflineProject { id: string; meta_offline_event_set_id: string | null; fb_access_token: string | null }
+interface OfflineLead { id?: string; email?: string | null; phone?: string | null; nome?: string | null }
+interface MatchKeys { em?: string[]; ph?: string[]; fn?: string[]; ln?: string[] }
+interface OfflineEvent { match_keys: MatchKeys; event_name: string; event_time: number; value: number; currency: string; order_id: string; custom_data: { content_name: string; utm_campaign: string; utm_source: string; utm_content: string; click_id: string } }
+async function processProject(supabase: ReturnType<typeof makeClient>, project: OfflineProject) {
   const eventSetId: string | null = project.meta_offline_event_set_id;
   const accessToken: string | null = project.fb_access_token;
   if (!eventSetId || !accessToken) {
@@ -42,8 +47,8 @@ async function processProject(supabase: any, project: any) {
   if (!vendas || vendas.length === 0) return { project_id: project.id, uploaded: 0 };
 
   // Busca leads em batch
-  const leadIds = [...new Set(vendas.map((v: any) => v.lead_id).filter(Boolean))];
-  const leadMap = new Map<string, any>();
+  const leadIds = [...new Set(vendas.map((v) => v.lead_id).filter(Boolean))];
+  const leadMap = new Map<string, OfflineLead>();
   if (leadIds.length > 0) {
     const { data: leads } = await supabase
       .from("imphq_leads")
@@ -53,10 +58,11 @@ async function processProject(supabase: any, project: any) {
   }
 
   // Constroi eventos
-  const events: any[] = [];
+  const events: OfflineEvent[] = [];
+  const eventSaleIds: string[] = [];
   for (const v of vendas) {
     const lead = leadMap.get(v.lead_id) || {};
-    const matchKeys: any = {};
+    const matchKeys: MatchKeys = {};
     if (lead.email) matchKeys.em = [await sha256(lead.email)];
     const phone = onlyDigits(lead.phone);
     if (phone) matchKeys.ph = [await sha256(phone)];
@@ -67,6 +73,7 @@ async function processProject(supabase: any, project: any) {
     }
     if (!matchKeys.em && !matchKeys.ph) continue; // sem match key, pula
 
+    eventSaleIds.push(v.id);
     events.push({
       match_keys: matchKeys,
       event_name: "Purchase",
@@ -85,9 +92,6 @@ async function processProject(supabase: any, project: any) {
   }
 
   if (events.length === 0) {
-    // Marca como sincronizadas pra nao tentar de novo (sem match key)
-    const ids = vendas.map((v: any) => v.id);
-    await supabase.from("imphq_vendas").update({ meta_offline_synced_at: new Date().toISOString() }).in("id", ids);
     return { project_id: project.id, uploaded: 0, skipped_no_match: vendas.length };
   }
 
@@ -107,12 +111,12 @@ async function processProject(supabase: any, project: any) {
       errors.push(JSON.stringify(json.error || json));
       continue;
     }
+    const ids = eventSaleIds.slice(i, i + 100);
+    const { error: syncError } = await supabase.from("imphq_vendas")
+      .update({ meta_offline_synced_at: new Date().toISOString() }).in("id", ids);
+    if (syncError) { errors.push(`sync marker: ${syncError.message}`); continue; }
     uploaded += batch.length;
   }
-
-  // Marca vendas como sincronizadas
-  const ids = vendas.map((v: any) => v.id);
-  await supabase.from("imphq_vendas").update({ meta_offline_synced_at: new Date().toISOString() }).in("id", ids);
 
   return { project_id: project.id, uploaded, total_candidates: vendas.length, errors: errors.length ? errors : undefined };
 }
@@ -124,10 +128,10 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    let body: any = {};
-    try { body = await req.json(); } catch (_) {}
+    let body: { project_id?: string } = {};
+    try { const input: unknown = await req.json(); if (input && typeof input === "object" && "project_id" in input && typeof input.project_id === "string") body = { project_id: input.project_id }; } catch { /* Empty bodies are allowed for cron. */ }
 
-    let projects: any[] = [];
+    let projects: OfflineProject[] = [];
     if (body.project_id) {
       const { data } = await supabase
         .from("imphq_projects")
@@ -153,8 +157,8 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ ok: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: e.message }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

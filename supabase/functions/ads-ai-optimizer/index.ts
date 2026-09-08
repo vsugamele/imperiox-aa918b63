@@ -9,7 +9,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function enqueue(supabase: any, action: any) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Proposal { kind: string; risk_level: string; confidence: number; impact_brl: number; title: string; reason: string; projeto_id: string | null; auto_executed: boolean; payload: { entity_id?: string; entity_type?: string; new_budget?: number; old_budget?: number; adset_id?: string; frequency?: number; suggestion?: string } }
+async function enqueue(supabase: ReturnType<typeof makeClient>, action: Proposal) {
   const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
   const { data: dup } = await supabase
     .from("imphq_ai_actions")
@@ -47,7 +49,7 @@ Deno.serve(async (req) => {
       .limit(3000);
 
     // Agrega por adset
-    const byAdset = new Map<string, any>();
+    const byAdset = new Map<string, { adset_id: string; name: string; project_id: string | null; spend: number; results: number; ctr: number; frequency: number; status: string; daily_budget: number }>();
     for (const r of spend || []) {
       if (!r.adset_id) continue;
       const ex = byAdset.get(r.adset_id) || {
@@ -76,12 +78,12 @@ Deno.serve(async (req) => {
       revByProj.set(v.project_id, (revByProj.get(v.project_id) || 0) + Number(v.valor || 0));
     }
 
-    const proposals: any[] = [];
+    const proposals: unknown[] = [];
 
     for (const s of byAdset.values()) {
       if (s.spend < 50) continue;
       const cpa = s.results > 0 ? s.spend / s.results : 9999;
-      const adsetsDoProj = Array.from(byAdset.values()).filter((x: any) => x.project_id === s.project_id);
+      const adsetsDoProj = Array.from(byAdset.values()).filter((x) => x.project_id === s.project_id);
       const estRev = (revByProj.get(s.project_id || "") || 0) / Math.max(adsetsDoProj.length, 1);
       const roas = s.spend > 0 ? estRev / s.spend : 0;
 
@@ -123,9 +125,10 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true, analyzed: byAdset.size, proposals: proposals.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("ads-ai-optimizer:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

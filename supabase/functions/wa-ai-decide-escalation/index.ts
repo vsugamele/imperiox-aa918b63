@@ -86,10 +86,10 @@ Retorne EXATAMENTE este JSON:
   } catch (_) { return null; }
 }
 
-function buildDigest(messages: any[]): string {
+function buildDigest(messages: { direction: string; sent_by: string | null; content: string | null }[]): string {
   return messages
     .slice(-12)
-    .map((m: any) => {
+    .map((m) => {
       const speaker = m.direction === "incoming" ? "LEAD" : (m.sent_by === "ai" ? "IA" : "HUM");
       return `[${speaker}]: ${String(m.content || "").slice(0, 250)}`;
     })
@@ -120,8 +120,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const enabledProjects = new Set(configs.map((c: any) => c.project_id));
-    const personaByProject = new Map(configs.map((c: any) => [c.project_id, String(c.expert_persona || "")]));
+    const enabledProjects = new Set(configs.map((c) => c.project_id));
+    const personaByProject = new Map(configs.map((c) => [c.project_id, String(c.expert_persona || "")]));
 
     // Conversas ativas com 4+ trocas recentes que ainda não foram escaladas
     const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     }
 
     let analyzed = 0;
-    const escalated: any[] = [];
+    const escalated: { conv_id: string; reason: string; confidence: number }[] = [];
 
     for (const conv of candConvs) {
       const { data: msgs } = await supa
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
         .limit(30);
 
       if (!msgs || msgs.length < MIN_MSGS_TO_ANALYZE) continue;
-      if (!msgs.some((m: any) => m.sent_by === "ai")) continue;
+      if (!msgs.some((m) => m.sent_by === "ai")) continue;
 
       const digest = buildDigest(msgs);
       const persona = personaByProject.get(conv.project_id) || "";
@@ -196,9 +196,10 @@ Deno.serve(async (req) => {
       sample: escalated.slice(0, 5),
       dry_run: dryRun,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-ai-decide-escalation] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

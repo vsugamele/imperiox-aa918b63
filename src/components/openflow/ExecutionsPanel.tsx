@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { flowReplayBody } from "@/lib/flow-replay";
+import { readExecutionSteps } from "@/lib/flow-execution-data";
+type Execution = Pick<Tables<"imphq_flow_executions">, "id" | "automacao_id" | "project_id" | "lead_id" | "trigger_tipo" | "current_step" | "status" | "step_results" | "next_run_at" | "error_message" | "created_at" | "updated_at" | "waiting_for">;
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { CheckCircle2, XCircle, Loader2, Clock, RotateCcw, User, Phone, Search, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { StepHeatmap } from "./StepHeatmap";
+import { StepHeatmap } from "@/components/openflow/StepHeatmap";
 
 interface ExecutionsPanelProps {
   automacoes: { id: string; nome: string }[];
   projects: { id: string; name: string }[];
 }
 
-const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
+const statusConfig: Record<string, { label: string; className: string; icon: LucideIcon }> = {
   running: { label: "Executando", className: "bg-blue-500/20 text-blue-400", icon: Loader2 },
   completed: { label: "Concluído", className: "bg-emerald-500/20 text-emerald-400", icon: CheckCircle2 },
   partial: { label: "Parcial", className: "bg-amber-500/20 text-amber-400", icon: CheckCircle2 },
@@ -26,7 +32,7 @@ const statusConfig: Record<string, { label: string; className: string; icon: any
 const PAGE_SIZE = 25;
 
 export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) {
-  const [executions, setExecutions] = useState<any[]>([]);
+  const [executions, setExecutions] = useState<Execution[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [leads, setLeads] = useState<Record<string, { nome: string; phone: string }>>({});
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -41,7 +47,7 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
   const [realtime, setRealtime] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [page, setPage] = useState(0);
-  const debounceRef = useRef<any>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const periodDate = useMemo(() => {
     const d = new Date();
@@ -52,7 +58,7 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
     return d.toISOString();
   }, [period]);
 
-  const loadExecs = async () => {
+  const loadExecs = useCallback(async () => {
     setLoading(true);
     let q = supabase
       .from("imphq_flow_executions")
@@ -69,17 +75,17 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
     const execs = data || [];
     setExecutions(execs);
 
-    const leadIds = [...new Set(execs.map((e: any) => e.lead_id).filter(Boolean))];
+    const leadIds = [...new Set(execs.map((e) => e.lead_id).filter(Boolean))];
     if (leadIds.length > 0) {
       const { data: leadRows } = await supabase.from("imphq_leads").select("id, nome, phone").in("id", leadIds);
       const map: Record<string, { nome: string; phone: string }> = {};
-      (leadRows || []).forEach((l: any) => { map[l.id] = { nome: l.nome || "", phone: l.phone || "" }; });
+      (leadRows || []).forEach((l) => { map[l.id] = { nome: l.nome || "", phone: l.phone || "" }; });
       setLeads((prev) => ({ ...prev, ...map }));
     }
     setLoading(false);
-  };
+  }, [statusFilter, automacaoFilter, projectFilter, periodDate, page]);
 
-  useEffect(() => { loadExecs(); /* eslint-disable-next-line */ }, [statusFilter, automacaoFilter, projectFilter, period, page]);
+  useEffect(() => { loadExecs(); }, [loadExecs]);
 
   // Realtime
   useEffect(() => {
@@ -92,8 +98,7 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line
-  }, [realtime, statusFilter, automacaoFilter, projectFilter, period, page]);
+  }, [realtime, loadExecs]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return executions;
@@ -114,37 +119,30 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
   const waitingCount = executions.filter(e => e.status === "waiting").length;
   const failedCount = executions.filter(e => e.status === "failed").length;
 
-  const retryExecution = async (exec: any, fromStep?: number) => {
+  const retryExecution = async (exec: Execution, fromStep?: number) => {
     setRetrying(exec.id);
     try {
-      const { data: logData } = await supabase.from("imphq_automacao_logs" as any)
-        .select("trigger_data")
-        .eq("automacao_id", exec.automacao_id)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      const triggerData = (logData?.[0] as any)?.trigger_data || {};
+      if (!exec.lead_id) throw new Error("Esta execução não tem lead identificado para reenvio.");
+      const { data: lead, error: leadError } = await supabase.from("imphq_leads")
+        .select("id, nome, phone, email, tags, project_id, data")
+        .eq("id", exec.lead_id).maybeSingle();
+      if (leadError) throw leadError;
       const { data, error } = await supabase.functions.invoke("openflow-executor", {
-        body: {
-          trigger_tipo: exec.trigger_tipo,
-          project_id: exec.project_id,
-          automacao_id: exec.automacao_id,
-          lead_data: triggerData,
-          start_from_step: fromStep,
-        },
+        body: flowReplayBody(exec, lead, fromStep),
       });
       if (error) throw error;
       toast[data?.ok ? "success" : "error"](
         data?.ok ? (fromStep != null ? `Reexecutado a partir do step #${fromStep}` : "Reenvio executado!") : (data?.error || "Erro")
       );
       loadExecs();
-    } catch (e: any) {
-      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
     } finally {
       setRetrying(null);
     }
   };
 
-  const copyPayload = (step: any) => {
+  const copyPayload = (step: unknown) => {
     navigator.clipboard.writeText(JSON.stringify(step, null, 2));
     toast.success("Payload copiado");
   };
@@ -279,7 +277,7 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
 
                   {isExpanded && exec.step_results && Array.isArray(exec.step_results) && (
                     <div className="border-t border-border/30 pt-2 space-y-1">
-                      {exec.step_results.map((step: any, i: number) => (
+                      {readExecutionSteps(exec.step_results).map((step, i) => (
                         <div key={i} className="p-2 rounded bg-secondary/50 text-[10px] space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[8px]">#{step.step ?? i}</Badge>
@@ -295,7 +293,7 @@ export function ExecutionsPanel({ automacoes, projects }: ExecutionsPanelProps) 
                               >Copiar</Button>
                               <Button
                                 variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] text-primary"
-                                onClick={(e) => { e.stopPropagation(); retryExecution(exec, step.step ?? i); }}
+                                onClick={(e) => { e.stopPropagation(); retryExecution(exec, typeof step.step === "number" ? step.step : i); }}
                                 disabled={retrying === exec.id}
                               >Reexecutar daqui</Button>
                             </div>

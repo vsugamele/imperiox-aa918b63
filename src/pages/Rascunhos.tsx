@@ -1,4 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,26 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
-interface AiDraft {
-  id: string;
-  conversation_id: string | null;
-  project_id: string;
-  incoming_message_id: string | null;
-  incoming_text: string | null;
-  suggested_text: string;
-  final_text: string | null;
-  diff_ratio: number | null;
-  model: string | null;
-  provider: "whatsapp" | "instagram" | "instagram_comment";
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-  resolved_at: string | null;
-  project_name: string | null;
-  contact_identifier: string | null;
-  contact_name: string | null;
-  contact_username: string | null;
-  metadata?: any;
-}
+type AiDraft = Tables<"imphq_v_ai_drafts">;
 
 // Levenshtein distance to measure human modifications
 function calculateSimilarity(s1: string, s2: string): number {
@@ -97,7 +81,7 @@ export default function Rascunhos() {
   }, []);
 
   // Fetch drafts
-  const fetchDrafts = async () => {
+  const fetchDrafts = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
@@ -117,24 +101,24 @@ export default function Rascunhos() {
       const { data, error } = await query;
       if (error) throw error;
 
-      setDrafts((data as any[]) || []);
+      setDrafts(data || []);
       
       // Initialize local inputs
       const initialTexts: Record<string, string> = {};
-      (data as any[] || []).forEach((d: AiDraft) => {
+      (data || []).forEach((d: AiDraft) => {
         initialTexts[d.id] = d.suggested_text;
       });
       setEditedTexts(initialTexts);
-    } catch (e: any) {
-      toast.error("Erro ao carregar rascunhos: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao carregar rascunhos: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedProjectId, statusFilter, platformFilter]);
 
   useEffect(() => {
     fetchDrafts();
-  }, [selectedProjectId, statusFilter, platformFilter]);
+  }, [fetchDrafts]);
 
   // Handle draft approval
   const handleApprove = async (draft: AiDraft) => {
@@ -149,7 +133,7 @@ export default function Rascunhos() {
       const similarity = calculateSimilarity(draft.suggested_text, finalContent);
       console.log(`[rascunhos] Similaridade calculada para rascunho ${draft.id}: ${similarity}`);
 
-      let sendResult: any = null;
+      let sendResult: { data: unknown; error: unknown } | null = null;
 
       // Call appropriate API based on provider
       if (draft.provider === "whatsapp") {
@@ -177,7 +161,7 @@ export default function Rascunhos() {
           }
         });
       } else if (draft.provider === "instagram_comment") {
-        const commentId = draft.metadata?.comment_id || draft.incoming_message_id;
+        const commentId = record(draft.metadata).comment_id || draft.incoming_message_id;
         if (!commentId) throw new Error("ID do comentário do Instagram ausente nos metadados.");
 
         sendResult = await supabase.functions.invoke("instagram-api", {
@@ -191,12 +175,13 @@ export default function Rascunhos() {
       }
 
       if (sendResult?.error) {
-        throw new Error(sendResult.error.message || JSON.stringify(sendResult.error));
+        throw new Error(errorMessage(sendResult.error));
       }
 
-      const resData = sendResult?.data;
+      if (!sendResult) throw new Error("Canal de envio não reconhecido.");
+      const resData = record(sendResult.data);
       if (resData && resData.success === false) {
-        throw new Error(resData.error || "Falha ao enviar mensagem");
+        throw new Error(typeof resData.error === "string" ? resData.error : "Falha ao enviar mensagem");
       }
 
       // Update draft status to approved in database
@@ -207,7 +192,7 @@ export default function Rascunhos() {
           final_text: finalContent,
           diff_ratio: similarity,
           resolved_at: new Date().toISOString()
-        } as any)
+        })
         .eq("id", draft.id);
 
       if (updateError) throw updateError;
@@ -216,9 +201,9 @@ export default function Rascunhos() {
       
       // Remove from list or refresh
       setDrafts(prev => prev.filter(d => d.id !== draft.id));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[approve draft] error:", err);
-      toast.error("Erro ao aprovar rascunho: " + err.message);
+      toast.error("Erro ao aprovar rascunho: " + errorMessage(err));
     } finally {
       setActioning(prev => ({ ...prev, [draft.id]: false }));
     }
@@ -233,15 +218,15 @@ export default function Rascunhos() {
         .update({
           status: "rejected",
           resolved_at: new Date().toISOString()
-        } as any)
+        })
         .eq("id", draft.id);
 
       if (error) throw error;
 
       toast.success("Rascunho rejeitado e descartado.");
       setDrafts(prev => prev.filter(d => d.id !== draft.id));
-    } catch (err: any) {
-      toast.error("Erro ao rejeitar rascunho: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao rejeitar rascunho: " + errorMessage(err));
     } finally {
       setActioning(prev => ({ ...prev, [draft.id]: false }));
     }

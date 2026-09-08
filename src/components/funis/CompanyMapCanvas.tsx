@@ -1,9 +1,14 @@
+import { parsePosition, parseChecklist, parseAnnotationKind, parseAnnotationStyle } from "@/components/funis/company-map-data";
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import type { NodeStats } from "@/hooks/useCompanyMapLiveStats";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
-  addEdge, applyEdgeChanges, applyNodeChanges, ConnectionMode,
-  type Node, type Edge, type Connection, type NodeChange, type EdgeChange,
+  addEdge, applyEdgeChanges, applyNodeChanges, ConnectionMode, SelectionMode,
+  type Node, type NodeProps, type NodePositionChange, type Edge, type Connection, type NodeChange, type EdgeChange,
   Handle, Position, useReactFlow, NodeResizer, ViewportPortal,
 } from "@xyflow/react";
 
@@ -20,21 +25,22 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2 } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MAP_TEMPLATES } from "./mapTemplates";
-import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "./companyMapHelpers";
+import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
+import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
-import { NodeCopyDialog } from "./NodeCopyDialog";
-import { annotationNodeTypes, ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "./MapAnnotationNodes";
-import { StrategicGapsPanel } from "./StrategicGapsPanel";
-import { ReferenciasPicker } from "./ReferenciasPicker";
+import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
+import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
+import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
+import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
+import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
-import { PresenceCursors } from "./PresenceCursors";
-import { MapCommentsPanel } from "./MapCommentsPanel";
+import { PresenceCursors } from "@/components/funis/PresenceCursors";
+import { MapCommentsPanel } from "@/components/funis/MapCommentsPanel";
 
 
-const KIND_PRESETS: Record<string, { label: string; color: string; icon: any }> = {
+const KIND_PRESETS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
   area:          { label: "Área / Time",         color: "#3b82f6", icon: Users },
   oferta:        { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
@@ -110,7 +116,7 @@ async function pickImageFile(): Promise<File | null> {
     const inp = document.createElement("input");
     inp.type = "file"; inp.accept = "image/*";
     inp.onchange = () => resolve(inp.files?.[0] || null);
-    (inp as any).oncancel = () => resolve(null);
+    inp.oncancel = () => resolve(null);
     inp.click();
   });
 }
@@ -130,7 +136,13 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
   return data.signedUrl;
 }
 
-function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
+interface MapNodeData extends MapNode {
+ onGenerateCopy?: (id: string) => void; onDuplicate?: (id: string) => void; onDelete?: (id: string) => void;
+ onToggleItem?: (id: string, itemId: string, done: boolean) => void;
+ waInfo?: { phone?: string; instance?: string; provider: string; conversations?: number } | null;
+ liveStats?: NodeStats | null;
+}
+function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
   const Icon = preset.icon;
   const checklist: ChecklistItem[] = data.checklist || [];
@@ -307,7 +319,7 @@ function MapNodeCard({ data, selected }: { data: any; selected?: boolean }) {
           </div>
         );
       })()}
-      
+
     </div>
   );
 }
@@ -325,11 +337,11 @@ const nodeTypes = Object.freeze({
   annotation_schedule: annotationNodeTypes.annotation_schedule,
   annotation_account: annotationNodeTypes.annotation_account,
 
-}) as any;
+});
 
 
 // MiniMap node color resolver - stable ref
-const miniMapNodeColor = (n: any) => n?.data?.color || "#c9922a";
+const miniMapNodeColor = (n: Node) => typeof n.data.color === "string" ? n.data.color : "#c9922a";
 
 interface MapAnnotation {
   id: string; map_id: string; kind: AnnotationKind;
@@ -337,7 +349,7 @@ interface MapAnnotation {
   text: string; style: AnnotationData["style"]; z_index: number;
 }
 const ANN_PREFIX = "ann-";
-const annTable = "imphq_company_map_annotations" as any;
+const annTable = "imphq_company_map_annotations";
 
 const ANNOTATION_MIN_SIZE: Record<AnnotationKind, { w: number; h: number }> = {
   frame: { w: 120, h: 80 },
@@ -375,7 +387,7 @@ interface WaProvider {
   is_active?: boolean | null;
 }
 
-function InnerMap({ projects }: { projects: any[] }) {
+function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[] }) {
   const annotationsRef = useRef<MapAnnotation[]>([]);
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
@@ -413,7 +425,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   const [imageSourceOpen, setImageSourceOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
   useEffect(() => {
-    const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
+    const h = (e: Event) => { if (!(e instanceof CustomEvent)) return; const detail = record(e.detail); if (typeof detail.url === "string") setLightbox({ url: detail.url, label: typeof detail.label === "string" ? detail.label : undefined }); };
     window.addEventListener("open-image-lightbox", h);
     return () => window.removeEventListener("open-image-lightbox", h);
   }, []);
@@ -438,7 +450,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       }
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
-    supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows(((data || []) as any[]).map(d => ({ id: d.id, name: d.nome }))));
+    supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows((data || []).map(d => ({ id: d.id, name: d.nome }))));
     supabase.from("imphq_wa_providers").select("id,project_id,provider,display_name,instance_name,phone_number_id,twilio_from,is_active")
       .then(({ data }) => setWaProviders((data || []) as WaProvider[]));
   }, []);
@@ -468,12 +480,12 @@ function InnerMap({ projects }: { projects: any[] }) {
       return { ...r, checklist: nextChecklist };
     }));
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, checklist: nextChecklist } } : n));
-    await supabase.from("imphq_company_map_nodes").update({ checklist: nextChecklist as any }).eq("id", nodeId);
+    await supabase.from("imphq_company_map_nodes").update({ checklist: toJson(nextChecklist) }).eq("id", nodeId);
   }, []);
 
   // Refs to break the loadMap → data → callback recreation loop
   const rawNodesRef = useRef<MapNode[]>([]);
-  const projectsRef = useRef<any[]>(projects);
+  const projectsRef = useRef(projects);
   const waProvidersRef = useRef<WaProvider[]>([]);
   const waConvCountsRef = useRef<Record<string, number>>({});
   useEffect(() => { rawNodesRef.current = rawNodes; }, [rawNodes]);
@@ -487,13 +499,13 @@ function InnerMap({ projects }: { projects: any[] }) {
   // single-node quick actions (stable — read from refs)
   const duplicateNode = useCallback(async (nodeId: string) => {
     const src = await supabase.from("imphq_company_map_nodes").select("*").eq("id", nodeId).maybeSingle();
-    const n: any = src.data;
+    const n = src.data;
     if (!n) { toast.error("Nó não encontrado"); return; }
     const { map_id, kind, color, label, description, notes, checklist, position, show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id } = n;
     const { error } = await supabase.from("imphq_company_map_nodes").insert({
       map_id, kind, color, label: `${label} (cópia)`, description, notes,
-      checklist: (checklist || []) as any,
-      position: { x: (position?.x || 0) + 40, y: (position?.y || 0) + 40 },
+      checklist: checklist || [],
+      position: { x: parsePosition(position).x + 40, y: parsePosition(position).y + 40 },
       show_live_kpis, linked_funnel_id, linked_project_id, linked_flow_id, linked_wa_provider_id,
     });
     if (error) { toast.error("Erro ao duplicar"); return; }
@@ -523,12 +535,12 @@ function InnerMap({ projects }: { projects: any[] }) {
     const [{ data: nds, error: nErr }, { data: eds, error: eErr }, { data: anns }] = await Promise.all([
       supabase.from("imphq_company_map_nodes").select("*").eq("map_id", id),
       supabase.from("imphq_company_map_edges").select("*").eq("map_id", id),
-      supabase.from(annTable).select("*").eq("map_id", id) as any,
+      supabase.from(annTable).select("*").eq("map_id", id),
     ]);
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
-    const list = (nds || []) as any as MapNode[];
+    const list: MapNode[] = (nds || []).map(n => ({ ...n, position: parsePosition(n.position), checklist: parseChecklist(n.checklist) }));
     setRawNodes(list);
-    setAnnotations((((anns || []) as any) as MapAnnotation[]).map(clampAnnotationLayout));
+    setAnnotations((anns || []).map(a => clampAnnotationLayout({ ...a, kind: parseAnnotationKind(a.kind), style: parseAnnotationStyle(a.style) })));
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
     setNodes(nds2 => {
@@ -551,7 +563,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       });
       return [...baseNodes, ...annNodes];
     });
-    setEdges((eds || []).map((e: any) => ({
+    setEdges((eds || []).map((e) => ({
       id: e.id,
       source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
       target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
@@ -562,14 +574,14 @@ function InnerMap({ projects }: { projects: any[] }) {
       interactionWidth: 24,
       style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined, cursor: "pointer" },
     })));
-  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, setAnnotations]);
 
   loadMapRef.current = loadMap;
 
   // Re-inject waInfo quando providers/contagens chegam depois do carregamento inicial
   useEffect(() => {
     setNodes(nds => nds.map(n => {
-      const pid = (n.data as any)?.linked_wa_provider_id;
+      const pid = n.data.linked_wa_provider_id;
       if (!pid) return n;
       const wa = waProviders.find(p => p.id === pid);
       if (!wa) return n;
@@ -594,14 +606,24 @@ function InnerMap({ projects }: { projects: any[] }) {
   useEffect(() => {
     if (!liveStats) return;
     setNodes(nds => nds.map(n => {
-      const pid = (n.data as any)?.linked_project_id;
-      const stats = pid ? liveStats[pid] : null;
-      if ((n.data as any)?.liveStats === stats) return n;
+      const pid = n.data.linked_project_id;
+      const stats = typeof pid === "string" ? liveStats[pid] : null;
+      if (n.data.liveStats === stats) return n;
       return { ...n, data: { ...n.data, liveStats: stats } };
     }));
   }, [liveStats]);
 
   useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
+
+  // Posição no centro da viewport atual (com jitter pra não empilhar)
+  const nextDropPosition = useCallback(() => {
+    try {
+      const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      return { x: c.x - 110 + (Math.random() * 80 - 40), y: c.y - 60 + (Math.random() * 80 - 40) };
+    } catch {
+      return { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 };
+    }
+  }, [screenToFlowPosition]);
 
   // Colar imagem (Ctrl+V) — cria nó novo ou atualiza o nó selecionado
   useEffect(() => {
@@ -629,7 +651,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       }
       if (selected) {
         setSelected({ ...selected, image_url: url });
-        await supabase.from("imphq_company_map_nodes").update({ image_url: url } as any).eq("id", selected.id);
+        await supabase.from("imphq_company_map_nodes").update({ image_url: url }).eq("id", selected.id);
         await loadMap(mapId);
         toast.success("Imagem atualizada");
         return;
@@ -639,12 +661,12 @@ function InnerMap({ projects }: { projects: any[] }) {
         map_id: mapId, kind: "imagem", color: preset.color,
         label: "Imagem colada", image_url: url,
         position: nextDropPosition(),
-      } as any).select().single();
+      }).select().single();
       if (data) { await loadMap(mapId); toast.success("Imagem colada"); }
     };
     window.addEventListener("paste", handler);
     return () => window.removeEventListener("paste", handler);
-  }, [mapId, selected, loadMap]);
+  }, [mapId, selected, loadMap, nextDropPosition]);
 
   // ---------- Annotations helpers ----------
   const updateAnnotationText = useCallback(async (id: string, text: string) => {
@@ -652,7 +674,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     setAnnotations(list => list.map(a => a.id === annId ? { ...a, text } : a));
     setEditingAnnotationId(null);
     await supabase.from(annTable).update({ text }).eq("id", annId);
-  }, []);
+  }, [setAnnotations]);
 
   const updateAnnotationStyle = useCallback(async (id: string, patch: Partial<NonNullable<AnnotationData["style"]>>) => {
     const annId = id.startsWith(ANN_PREFIX) ? id.slice(ANN_PREFIX.length) : id;
@@ -662,8 +684,8 @@ function InnerMap({ projects }: { projects: any[] }) {
       next = { ...(a.style || {}), ...patch };
       return { ...a, style: next };
     }));
-    if (next) await supabase.from(annTable).update({ style: next }).eq("id", annId);
-  }, []);
+    if (next) await supabase.from(annTable).update({ style: toJson(next) }).eq("id", annId);
+  }, [setAnnotations]);
 
   const uploadReelImage = useCallback(async (id: string) => {
     if (!mapId) return;
@@ -695,17 +717,20 @@ function InnerMap({ projects }: { projects: any[] }) {
         body: { messages: [{ role: "user", content: prompt }] },
       });
       if (error) throw error;
-      const content = (data as any)?.choices?.[0]?.message?.content || (data as any)?.content || "";
+      const response = record(data);
+      const choices = Array.isArray(response.choices) ? response.choices : [];
+      const message = record(record(choices[0]).message);
+      const content = typeof message.content === "string" ? message.content : typeof response.content === "string" ? response.content : "";
       if (!content) throw new Error("Sem resposta");
       const nextText = String(content).trim();
       setAnnotations(list => list.map(a => a.id === rawId ? { ...a, text: nextText, style: { ...(a.style || {}), generating: false } } : a));
-      await supabase.from(annTable).update({ text: nextText, style: { ...(src.style || {}), generating: false } as any }).eq("id", rawId);
+      await supabase.from(annTable).update({ text: nextText, style: toJson({ ...(src.style || {}), generating: false }) }).eq("id", rawId);
       toast.success("Gerado");
-    } catch (e: any) {
+    } catch (e: unknown) {
       setAnnotations(list => list.map(a => a.id === rawId ? { ...a, style: { ...(a.style || {}), generating: false } } : a));
-      toast.error(e?.message || "Erro ao gerar");
+      toast.error(errorMessage(e) || "Erro ao gerar");
     }
-  }, []);
+  }, [setAnnotations]);
 
 
   // Merge annotations into React Flow nodes whenever they (or edit state) change.
@@ -739,7 +764,7 @@ function InnerMap({ projects }: { projects: any[] }) {
             onUploadImage: (a.kind === "reel" || a.kind === "ad_asset") ? uploadReelImage : undefined,
             onGenerate: isGenerator ? generateAnnotation : undefined,
             onStyleChange: updateAnnotationStyle,
-          } as unknown as Record<string, unknown>,
+          },
         } as Node;
       });
 
@@ -756,13 +781,13 @@ function InnerMap({ projects }: { projects: any[] }) {
       map_id: mapId, kind,
       x: x - def.w / 2, y: y - def.h / 2,
       width: def.w, height: def.h,
-      text: overrideText ?? def.text, style: style as any, z_index: 0,
+      text: overrideText ?? def.text, style: toJson(style), z_index: 0,
     };
-    const { data, error } = await (supabase.from(annTable) as any).insert(payload).select().single();
+    const { data, error } = await supabase.from(annTable).insert(payload).select().single();
     if (error) { toast.error("Erro ao adicionar anotação"); return; }
-    setAnnotations(list => [...list, data as MapAnnotation]);
+    setAnnotations(list => [...list, { ...data, kind: parseAnnotationKind(data.kind), style: parseAnnotationStyle(data.style) }]);
     if ((kind === "note" || kind === "label" || kind === "frame")) setEditingAnnotationId(`${ANN_PREFIX}${data.id}`);
-  }, [mapId]);
+  }, [mapId, setAnnotations]);
 
   const [reelDialog, setReelDialog] = useState<{ x: number; y: number } | null>(null);
   const [reelInput, setReelInput] = useState("");
@@ -801,40 +826,40 @@ function InnerMap({ projects }: { projects: any[] }) {
   const deleteAnnotation = useCallback(async (annId: string) => {
     setAnnotations(list => list.filter(a => a.id !== annId));
     await supabase.from(annTable).delete().eq("id", annId);
-  }, []);
+  }, [setAnnotations]);
 
   const duplicateAnnotation = useCallback(async (annId: string) => {
     const src = annotations.find(a => a.id === annId);
     if (!src || !mapId) return;
-    const { data, error } = await (supabase.from(annTable) as any).insert({
+    const { data, error } = await supabase.from(annTable).insert({
       map_id: mapId, kind: src.kind, x: src.x + 30, y: src.y + 30,
-      width: clampAnnotationLayout(src).width, height: clampAnnotationLayout(src).height, text: src.text, style: src.style as any, z_index: src.z_index,
+      width: clampAnnotationLayout(src).width, height: clampAnnotationLayout(src).height, text: src.text, style: toJson(src.style || {}), z_index: src.z_index,
     }).select().single();
     if (error) { toast.error("Erro"); return; }
-    setAnnotations(list => [...list, data as MapAnnotation]);
-  }, [annotations, mapId]);
+    setAnnotations(list => [...list, { ...data, kind: parseAnnotationKind(data.kind), style: parseAnnotationStyle(data.style) }]);
+  }, [annotations, mapId, setAnnotations]);
 
   const changeAnnotationZ = useCallback(async (annId: string, dir: "up" | "down") => {
     const src = annotations.find(a => a.id === annId); if (!src) return;
     const next = (src.z_index || 0) + (dir === "up" ? 1 : -1);
     setAnnotations(list => list.map(a => a.id === annId ? { ...a, z_index: next } : a));
     await supabase.from(annTable).update({ z_index: next }).eq("id", annId);
-  }, [annotations]);
+  }, [annotations, setAnnotations]);
 
   const changeArrowOrientation = useCallback(async (annId: string, orientation: "diag-down" | "diag-up" | "horizontal" | "vertical") => {
     const src = annotations.find(a => a.id === annId); if (!src) return;
     const nextStyle = { ...(src.style || {}), orientation };
     setAnnotations(list => list.map(a => a.id === annId ? { ...a, style: nextStyle } : a));
-    await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
-  }, [annotations]);
+    await supabase.from(annTable).update({ style: toJson(nextStyle) }).eq("id", annId);
+  }, [annotations, setAnnotations]);
 
   const changeAnnotationColor = useCallback(async (annId: string, color: string) => {
     const src = annotations.find(a => a.id === annId); if (!src) return;
     const field = src.kind === "note" ? "bgColor" : "borderColor";
     const nextStyle = { ...(src.style || {}), [field]: color };
     setAnnotations(list => list.map(a => a.id === annId ? { ...a, style: nextStyle } : a));
-    await supabase.from(annTable).update({ style: nextStyle as any }).eq("id", annId);
-  }, [annotations]);
+    await supabase.from(annTable).update({ style: toJson(nextStyle) }).eq("id", annId);
+  }, [annotations, setAnnotations]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const currAnns = annotationsRef.current;
@@ -843,10 +868,10 @@ function InnerMap({ projects }: { projects: any[] }) {
 
     // ---- Magnetic snap while dragging ----
     const SNAP_TOL = 6;
-    const draggingChanges = changes.filter((c: any) => c.type === "position" && c.dragging && c.position && typeof c.id === "string") as any[];
+    const draggingChanges = changes.filter((c): c is NodePositionChange & { position: { x: number; y: number } } => c.type === "position" && !!c.dragging && !!c.position);
     if (draggingChanges.length) {
       // Build bounds for other nodes (not currently dragging)
-      const draggingIds = new Set(draggingChanges.map((c: any) => c.id));
+      const draggingIds = new Set(draggingChanges.map((c) => c.id));
       const others: { id: string; x: number; y: number; w: number; h: number }[] = [];
       // annotations
       for (const a of currAnns) {
@@ -855,7 +880,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         others.push({ id: nid, x: a.x, y: a.y, w: a.width, h: a.height });
       }
       // raw map nodes (use width/height if set, otherwise default)
-      for (const r of currRaws as any[]) {
+      for (const r of currRaws) {
         if (draggingIds.has(r.id)) continue;
         const w = r.width || 220, h = r.height || 100;
         others.push({ id: r.id, x: r.position?.x || 0, y: r.position?.y || 0, w, h });
@@ -865,7 +890,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         // moving node size
         const isAnn = c.id.startsWith(ANN_PREFIX);
         const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
-        const src: any = isAnn
+        const src = isAnn
           ? currAnns.find(a => a.id === rawId)
           : currRaws.find(r => r.id === rawId);
         if (!src) continue;
@@ -916,13 +941,13 @@ function InnerMap({ projects }: { projects: any[] }) {
       setGuides(activeGuides);
     }
     // Clear guides on drop
-    if (changes.some((c: any) => c.type === "position" && c.dragging === false)) {
+    if (changes.some((c) => c.type === "position" && c.dragging === false)) {
       setGuides({ v: [], h: [] });
     }
 
 
 
-    const normalizedChanges = changes.map((c: any) => {
+    const normalizedChanges = changes.map((c) => {
       if (c.type !== "dimensions" || !c.dimensions) return c;
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
@@ -941,10 +966,11 @@ function InnerMap({ projects }: { projects: any[] }) {
     setNodes(nds => applyNodeChanges(normalizedChanges, nds));
     const resizingAnnotationIds = new Set(
       normalizedChanges
-        .filter((c: any) => c.type === "dimensions" && c.resizing === true && typeof c.id === "string" && c.id.startsWith(ANN_PREFIX))
-        .map((c: any) => c.id.slice(ANN_PREFIX.length))
+        .filter((c) => c.type === "dimensions" && c.resizing === true && typeof c.id === "string" && c.id.startsWith(ANN_PREFIX))
+        .flatMap((c) => "id" in c ? [c.id.slice(ANN_PREFIX.length)] : [])
     );
-    normalizedChanges.forEach(async (c: any) => {
+    normalizedChanges.forEach(async (c) => {
+      if (!("id" in c)) return;
       const isAnn = typeof c.id === "string" && c.id.startsWith(ANN_PREFIX);
       const rawId = isAnn ? c.id.slice(ANN_PREFIX.length) : c.id;
       if (c.type === "position" && c.dragging === false && c.position) {
@@ -955,7 +981,7 @@ function InnerMap({ projects }: { projects: any[] }) {
           await supabase.from(annTable).update({ x: c.position.x, y: c.position.y }).eq("id", rawId);
         } else {
           const cur = currRaws.find(r => r.id === c.id);
-          const pos = (cur as any)?.position;
+          const pos = cur?.position;
           if (pos && nearlyEq(pos.x, c.position.x) && nearlyEq(pos.y, c.position.y)) return;
           await supabase.from("imphq_company_map_nodes").update({ position: c.position }).eq("id", c.id);
         }
@@ -985,10 +1011,10 @@ function InnerMap({ projects }: { projects: any[] }) {
             setAnnotations(list => list.map(a => a.id === rawId ? { ...a, ...patch } : a));
             await supabase.from(annTable).update(patch).eq("id", rawId);
           } else {
-            const cur = currRaws.find(r => r.id === c.id) as any;
+            const cur = currRaws.find(r => r.id === c.id);
             if (nearlyEq(cur?.width, width) && nearlyEq(cur?.height, height)) return;
             setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
-            await (supabase.from("imphq_company_map_nodes") as any).update({ width, height }).eq("id", c.id);
+            await supabase.from("imphq_company_map_nodes").update({ width, height }).eq("id", c.id);
           }
         }
       } else if (c.type === "dimensions" && c.dimensions && c.resizing === true && isAnn) {
@@ -999,7 +1025,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         };
       }
     });
-  }, []);
+  }, [setAnnotations]);
 
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
     setSelectedIds(sel.map(n => n.id));
@@ -1007,7 +1033,7 @@ function InnerMap({ projects }: { projects: any[] }) {
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setEdges(eds => applyEdgeChanges(changes, eds));
-    changes.forEach(async (c: any) => {
+    changes.forEach(async (c) => {
       if (c.type === "remove") {
         await supabase.from("imphq_company_map_edges").delete().eq("id", c.id);
       }
@@ -1020,7 +1046,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     const tgtIsAnn = conn.target.startsWith(ANN_PREFIX);
     const source_id = srcIsAnn ? conn.source.slice(ANN_PREFIX.length) : conn.source;
     const target_id = tgtIsAnn ? conn.target.slice(ANN_PREFIX.length) : conn.target;
-    const { data, error } = await (supabase.from("imphq_company_map_edges") as any)
+    const { data, error } = await supabase.from("imphq_company_map_edges")
       .insert({ map_id: mapId, source_id, target_id, source_kind: srcIsAnn ? "annotation" : "node", target_kind: tgtIsAnn ? "annotation" : "node", source_handle: conn.sourceHandle || null, target_handle: conn.targetHandle || null })
       .select().single();
     if (error) { toast.error("Erro ao conectar"); return; }
@@ -1033,16 +1059,6 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Conexão removida");
   }, []);
 
-  // Posição no centro da viewport atual (com jitter pra não empilhar)
-  const nextDropPosition = () => {
-    try {
-      const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-      return { x: c.x - 110 + (Math.random() * 80 - 40), y: c.y - 60 + (Math.random() * 80 - 40) };
-    } catch {
-      return { x: 200 + Math.random() * 400, y: 150 + Math.random() * 300 };
-    }
-  };
-
   const createImageNode = async (image_url: string, label: string) => {
     if (!mapId) return;
     const preset = KIND_PRESETS.imagem || KIND_PRESETS.canal;
@@ -1051,7 +1067,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: label || `Novo ${preset.label}`,
       image_url,
       position: nextDropPosition(),
-    } as any).select().single();
+    }).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
@@ -1081,7 +1097,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       label: customLabel || `Novo ${preset.label}`,
       image_url: null,
       position: nextDropPosition(),
-    } as any).select().single();
+    }).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
 
@@ -1116,7 +1132,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     toast.success("Mapa excluído");
   };
 
-  const onNodeClick = (_: any, node: Node) => {
+  const onNodeClick = (_: React.MouseEvent, node: Node) => {
     // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
     if (selectedIds.length > 1 && selectedIds.includes(node.id)) return;
     const raw = rawNodes.find(r => r.id === node.id);
@@ -1127,7 +1143,7 @@ function InnerMap({ projects }: { projects: any[] }) {
   type GroupChild = { id: string; isAnn: boolean; startX: number; startY: number };
   const groupDragRef = useRef<{ frameId: string; frameStart: { x: number; y: number }; children: GroupChild[] } | null>(null);
 
-  const onNodeDragStart = useCallback((_: any, node: Node) => {
+  const onNodeDragStart = useCallback((_: MouseEvent | TouchEvent, node: Node) => {
     if (!node.id.startsWith(ANN_PREFIX)) return;
     const rawId = node.id.slice(ANN_PREFIX.length);
     const frame = annotationsRef.current.find(a => a.id === rawId && a.kind === "frame");
@@ -1140,7 +1156,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       const cx = a.x + a.width / 2, cy = a.y + a.height / 2;
       if (insideCenter(cx, cy)) children.push({ id: `${ANN_PREFIX}${a.id}`, isAnn: true, startX: a.x, startY: a.y });
     }
-    for (const r of rawNodesRef.current as any[]) {
+    for (const r of rawNodesRef.current) {
       const w = r.width || 220, h = r.height || 100;
       const px = r.position?.x || 0, py = r.position?.y || 0;
       const cx = px + w / 2, cy = py + h / 2;
@@ -1149,7 +1165,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     groupDragRef.current = { frameId: node.id, frameStart: { x: fx, y: fy }, children };
   }, []);
 
-  const onNodeDrag = useCallback((_: any, node: Node) => {
+  const onNodeDrag = useCallback((_: MouseEvent | TouchEvent, node: Node) => {
     const g = groupDragRef.current;
     if (!g || g.frameId !== node.id) return;
     const dx = node.position.x - g.frameStart.x;
@@ -1165,7 +1181,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     });
   }, []);
 
-  const onNodeDragStop = useCallback(async (_: any, node: Node) => {
+  const onNodeDragStop = useCallback(async (_: MouseEvent | TouchEvent, node: Node) => {
     const g = groupDragRef.current;
     if (!g || g.frameId !== node.id) { groupDragRef.current = null; return; }
     const dx = node.position.x - g.frameStart.x;
@@ -1190,19 +1206,19 @@ function InnerMap({ projects }: { projects: any[] }) {
       const rawMap = new Map(rawUpdates.map(u => [u.id, u]));
       setRawNodes(list => list.map(r => {
         const u = rawMap.get(r.id);
-        return u ? ({ ...r, position: { x: u.x, y: u.y } } as any) : r;
+        return u ? ({ ...r, position: { x: u.x, y: u.y } }) : r;
       }));
     }
-    await Promise.all<any>([
+    await Promise.all([
       ...annUpdates.map(u => supabase.from(annTable).update({ x: u.x, y: u.y }).eq("id", u.id)),
       ...rawUpdates.map(u => supabase.from("imphq_company_map_nodes").update({ position: { x: u.x, y: u.y } }).eq("id", u.id)),
     ]);
-  }, []);
+  }, [setAnnotations]);
 
   const persistSelected = async (node: MapNode, opts?: { silent?: boolean }) => {
     const { error } = await supabase.from("imphq_company_map_nodes").update({
       label: node.label, description: node.description, notes: node.notes,
-      color: node.color, kind: node.kind, checklist: node.checklist as any,
+      color: node.color, kind: node.kind, checklist: toJson(node.checklist),
       size: node.size || "M",
       url: node.url || null,
       image_url: node.image_url || null,
@@ -1211,7 +1227,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       linked_project_id: node.linked_project_id || null,
       linked_flow_id: node.linked_flow_id || null,
       linked_wa_provider_id: node.linked_wa_provider_id || null,
-    } as any).eq("id", node.id);
+    }).eq("id", node.id);
     if (error) {
       if (!opts?.silent) toast.error("Erro ao salvar");
       return false;
@@ -1246,14 +1262,14 @@ function InnerMap({ projects }: { projects: any[] }) {
       setAutoSaveStatus(ok ? "saved" : "error");
       // reflect on canvas
       if (ok) {
-        setNodes(nds => nds.map(n => n.id === snapshot.id ? { ...n, data: { ...(n.data as any), ...snapshot } } : n));
+        setNodes(nds => nds.map(n => n.id === snapshot.id ? { ...n, data: { ...n.data, ...snapshot } } : n));
         setRawNodes(prev => prev.map(n => n.id === snapshot.id ? { ...n, ...snapshot } : n));
       }
     }, 700);
     return () => {
       if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [selected]);
 
   const flushAndClose = async () => {
@@ -1293,7 +1309,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (!confirm("Gerar mapa a partir dos seus projetos, fluxos e canais? Os nós atuais serão substituídos.")) return;
     const t = toast.loading("Gerando mapa...");
     try { await autopopulateFromBusiness(mapId); await loadMap(mapId); toast.success("Mapa gerado", { id: t }); }
-    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+    catch (e: unknown) { toast.error(errorMessage(e) || "Erro", { id: t }); }
   };
 
   const handleAutopopulateProject = async (projectId: string) => {
@@ -1302,12 +1318,12 @@ function InnerMap({ projects }: { projects: any[] }) {
     if (!confirm(`Gerar mapa do projeto "${proj?.name || projectId}"? Os nós atuais serão substituídos.`)) return;
     const t = toast.loading("Gerando mapa do projeto...");
     try { await autopopulateFromProject(mapId, projectId); await loadMap(mapId); toast.success("Mapa do projeto gerado", { id: t }); }
-    catch (e: any) { toast.error(e.message || "Erro", { id: t }); }
+    catch (e: unknown) { toast.error(errorMessage(e) || "Erro", { id: t }); }
   };
 
   const handleExport = async () => {
     try { await exportMapPng(); toast.success("PNG baixado"); }
-    catch (e: any) { toast.error(e.message || "Erro ao exportar"); }
+    catch (e: unknown) { toast.error(errorMessage(e) || "Erro ao exportar"); }
   };
 
   const handleExportJson = () => {
@@ -1327,7 +1343,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       toast.success("JSON baixado");
-    } catch (e: any) { toast.error(e.message || "Erro ao exportar JSON"); }
+    } catch (e: unknown) { toast.error(errorMessage(e) || "Erro ao exportar JSON"); }
   };
 
 
@@ -1355,7 +1371,7 @@ function InnerMap({ projects }: { projects: any[] }) {
     const payload = originals.map(n => ({
       map_id: mapId, kind: n.kind, color: n.color,
       label: `${n.label} (cópia)`, description: n.description, notes: n.notes,
-      checklist: (n.checklist || []) as any,
+      checklist: toJson(n.checklist || []),
       position: { x: (n.position?.x || 0) + 40, y: (n.position?.y || 0) + 40 },
     }));
     await supabase.from("imphq_company_map_nodes").insert(payload);
@@ -1384,7 +1400,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         const a = annotationsRef.current.find(x => x.id === rid);
         if (a) out.push({ id, isAnn: true, x: a.x, y: a.y, w: a.width, h: a.height });
       } else {
-        const r: any = rawNodesRef.current.find(x => x.id === id);
+        const r = rawNodesRef.current.find(x => x.id === id);
         if (r) out.push({ id, isAnn: false, x: r.position?.x || 0, y: r.position?.y || 0, w: r.width || 220, h: r.height || 100 });
       }
     }
@@ -1397,7 +1413,7 @@ function InnerMap({ projects }: { projects: any[] }) {
       const u = updates.find(u => u.isAnn && u.id === `${ANN_PREFIX}${a.id}`);
       return u ? { ...a, x: u.x, y: u.y } : a;
     }));
-    setRawNodes(list => list.map((r: any) => {
+    setRawNodes(list => list.map((r) => {
       const u = updates.find(u => !u.isAnn && u.id === r.id);
       return u ? { ...r, position: { x: u.x, y: u.y } } : r;
     }));
@@ -1543,10 +1559,10 @@ function InnerMap({ projects }: { projects: any[] }) {
             <DropdownMenuItem onClick={async () => {
               if (!mapId) return;
               const { data: cur } = await supabase.from("imphq_company_maps").select("share_token").eq("id", mapId).maybeSingle();
-              let tok = (cur as any)?.share_token as string | null;
+              let tok = cur?.share_token;
               if (!tok) {
                 tok = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-                const { error } = await supabase.from("imphq_company_maps").update({ share_token: tok } as any).eq("id", mapId);
+                const { error } = await supabase.from("imphq_company_maps").update({ share_token: tok }).eq("id", mapId);
                 if (error) { toast.error("Erro ao gerar link"); return; }
               }
               const url = `${window.location.origin}/mapa/${tok}`;
@@ -1558,7 +1574,7 @@ function InnerMap({ projects }: { projects: any[] }) {
             <DropdownMenuItem className="text-red-400" onClick={async () => {
               if (!mapId) return;
               if (!confirm("Revogar o link atual? Quem já tem não conseguirá mais abrir.")) return;
-              const { error } = await supabase.from("imphq_company_maps").update({ share_token: null } as any).eq("id", mapId);
+              const { error } = await supabase.from("imphq_company_maps").update({ share_token: null }).eq("id", mapId);
               if (error) { toast.error("Erro"); return; }
               toast.success("Link revogado");
             }}>
@@ -1707,8 +1723,9 @@ function InnerMap({ projects }: { projects: any[] }) {
         onConnect={onConnect} onNodeClick={onNodeClick}
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={(event) => {
-          const e = event as unknown as React.MouseEvent;
-          e.preventDefault();
+          const e = "touches" in event ? event.touches[0] : event;
+          if (!e) return;
+          event.preventDefault();
           const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
           setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y });
         }}
@@ -1720,8 +1737,8 @@ function InnerMap({ projects }: { projects: any[] }) {
         }}
         onEdgeContextMenu={(e, edge) => {
           e.preventDefault();
-          const flow = screenToFlowPosition({ x: (e as any).clientX, y: (e as any).clientY });
-          setCtxMenu({ screenX: (e as any).clientX, screenY: (e as any).clientY, flowX: flow.x, flowY: flow.y, edgeId: edge.id });
+          const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          setCtxMenu({ screenX: e.clientX, screenY: e.clientY, flowX: flow.x, flowY: flow.y, edgeId: edge.id });
         }}
         onEdgeDoubleClick={(_, edge) => {
           if (confirm("Excluir esta conexão?")) deleteEdgeById(edge.id);
@@ -1738,7 +1755,7 @@ function InnerMap({ projects }: { projects: any[] }) {
         }}
         onPaneClick={() => { setCtxMenu(null); setEditingAnnotationId(null); }}
         selectionOnDrag
-        selectionMode={"partial" as any}
+        selectionMode={SelectionMode.Partial}
         panOnDrag={[1, 2]}
         multiSelectionKeyCode={["Meta", "Control"]}
         nodesDraggable
@@ -2072,7 +2089,7 @@ function InnerMap({ projects }: { projects: any[] }) {
                       onClick={async () => {
                         if (!selected.image_url) return;
                         const t = toast.loading("Salvando na Biblioteca...");
-                        const { error } = await (supabase.from("imphq_referencias") as any).insert({
+                        const { error } = await supabase.from("imphq_referencias").insert({
                           id: crypto.randomUUID(),
                           tipo: "imagem",
                           titulo: selected.label || "Do Mapa da Empresa",
@@ -2318,6 +2335,6 @@ function InnerMap({ projects }: { projects: any[] }) {
 
 
 
-export function CompanyMapCanvas({ projects }: { projects: any[] }) {
+export function CompanyMapCanvas({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[] }) {
   return <ReactFlowProvider><InnerMap projects={projects} /></ReactFlowProvider>;
 }

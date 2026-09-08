@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { RotateCcw, ShieldAlert } from "lucide-react";
@@ -26,11 +29,11 @@ import {
 export default function Recuperacao() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [sales, setSales] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [storedTemplates, setStoredTemplates] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">,"id"|"name">[]>([]);
+  const [sales, setSales] = useState<Pick<Tables<"imphq_vendas">,"id"|"project_id"|"lead_id"|"produto_nome"|"status"|"valor"|"created_at"|"data_venda"|"data">[]>([]);
+  const [leads, setLeads] = useState<Pick<Tables<"imphq_leads">,"id"|"project_id"|"nome"|"email"|"phone"|"status"|"criado_em"|"updated_at"|"data">[]>([]);
+  const [logs, setLogs] = useState<Tables<"imphq_recovery_logs">[]>([]);
+  const [storedTemplates, setStoredTemplates] = useState<Tables<"imphq_recovery_templates">[]>([]);
   const [activeBucket, setActiveBucket] = useState<RecoveryBucketId>("pix_urgent");
   const [savingTemplateKey, setSavingTemplateKey] = useState<string | null>(null);
   const [templates, setTemplates] = useState<RecoveryTemplateDraft[]>([]);
@@ -42,12 +45,12 @@ export default function Recuperacao() {
     [projects, selectedProject],
   );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const salesFrom = new Date(Date.now() - 45 * 86400000).toISOString();
     const logsFrom = new Date(Date.now() - 90 * 86400000).toISOString();
 
-    let projectQuery = supabase.from("imphq_projects").select("id, name").order("name");
+    const projectQuery = supabase.from("imphq_projects").select("id, name").order("name");
     let salesQuery = supabase
       .from("imphq_vendas")
       .select("id, project_id, lead_id, produto_nome, status, valor, created_at, data_venda, data")
@@ -80,11 +83,11 @@ export default function Recuperacao() {
     setLogs(logsRes.data || []);
     setStoredTemplates(templatesRes.data || []);
     setLoading(false);
-  };
+  }, [selectedProject]);
 
   useEffect(() => {
     load();
-  }, [selectedProject]);
+  }, [load]);
 
   useEffect(() => {
     if (!selectedProject || selectedProject === "all") {
@@ -117,7 +120,7 @@ export default function Recuperacao() {
       valor: item.value || 0,
       observacao: observacao || null,
       created_by: auth.user?.id || null,
-    } as any);
+    });
 
     if (error) throw error;
   };
@@ -173,8 +176,8 @@ export default function Recuperacao() {
       await createLog(item, status === "recuperado" ? "marcado_recuperado" : "marcado_perdido", status);
       toast.success(status === "recuperado" ? "Item marcado como recuperado." : "Item marcado como perdido.");
       load();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao registrar ação.");
+    } catch (error: unknown) {
+      toast.error(errorMessage(error) || "Erro ao registrar ação.");
     }
   };
 
@@ -194,14 +197,14 @@ export default function Recuperacao() {
 
       const query = template.id
         ? supabase.from("imphq_recovery_templates").update(payload).eq("id", template.id)
-        : supabase.from("imphq_recovery_templates").insert(payload as any);
+        : supabase.from("imphq_recovery_templates").insert(payload);
 
       const { error } = await query;
       if (error) throw error;
       toast.success("Template salvo.");
       await load();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar template.");
+    } catch (error: unknown) {
+      toast.error(errorMessage(error) || "Erro ao salvar template.");
     } finally {
       setSavingTemplateKey(null);
     }
@@ -243,13 +246,13 @@ export default function Recuperacao() {
       nome: `Recuperação • ${bucket.shortTitle}`,
       trigger_tipo: triggerTipo,
       project_id: selectedProject,
-      acoes: acoes as any,
+      acoes: toJson(acoes),
       ativo: false,
       produto: null,
-    } as any);
+    });
 
     if (error) {
-      toast.error(error.message || "Erro ao criar automação.");
+      toast.error(errorMessage(error) || "Erro ao criar automação.");
       return;
     }
 
@@ -284,21 +287,21 @@ export default function Recuperacao() {
       };
       const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
       if (error) throw error;
-      const errMsg = (data as any)?.error as string | undefined;
+      const errMsg = typeof record(data).error === "string" ? String(record(data).error) : undefined;
       if (errMsg?.toLowerCase().includes("provider")) {
         toast.error("Nenhum WhatsApp ativo neste projeto.", {
           action: { label: "Configurar", onClick: () => window.location.assign("/whatsapp") },
         });
         return;
       }
-      const sent = (data as any)?.sent ?? 0;
-      const skipped = (data as any)?.skipped ?? 0;
+      const sent = record(data).sent ?? 0;
+      const skipped = record(data).skipped ?? 0;
       toast.success(`Disparo: ${sent} enviadas, ${skipped} ignoradas.`, {
         action: { label: "Ver logs", onClick: () => window.location.assign("/imperius") },
       });
       load();
-    } catch (err: any) {
-      toast.error(err?.message || "Erro ao disparar bucket.");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro ao disparar bucket.");
     } finally {
       setDispatchingBucket(null);
     }

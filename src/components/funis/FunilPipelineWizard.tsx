@@ -1,3 +1,4 @@
+import { record } from "@/lib/funis-data";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -68,14 +69,14 @@ export function FunilPipelineWizard({ open, onClose, onApply, projectId, product
     if (!open || !projectId) return;
     (async () => {
       try {
-        const { data: proj } = await (supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle() as any);
-        const d: any = (proj as any)?.data || {};
+        const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+        const d = record(proj?.data);
         setCtxLoaded({
           avatar: !!(d.avatar || d.avatars_por_produto),
           produto: Array.isArray(d.produtos) && d.produtos.length > 0,
           branding: !!(d.branding || d.brand),
         });
-        if (!briefing.nicho && d.nicho) setBriefing(b => ({ ...b, nicho: d.nicho }));
+        if (typeof d.nicho === "string") { const nicho = d.nicho; setBriefing(b => b.nicho ? b : { ...b, nicho }); }
       } catch (e) {
         console.warn("ctx probe failed", e);
       }

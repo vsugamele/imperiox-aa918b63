@@ -101,8 +101,9 @@ Deno.serve(async (req) => {
         safeExt = ["mp3", "mp4", "wav", "webm", "m4a", "mpga", "mpeg", "ogg", "flac", "mov"].includes(urlExt)
           ? (urlExt === "mov" ? "mp4" : urlExt)
           : "mp4";
-      } catch (e: any) {
-        const msg = e?.message || "download failed";
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        const msg = eMessage || "download failed";
         await supabase
           .from("imphq_swipes")
           .update({ transcribe_status: "error", transcribe_error: msg })
@@ -160,7 +161,8 @@ Deno.serve(async (req) => {
       .select("blocks, raw_text")
       .eq("id", swipeId)
       .single();
-    const blocks = (cur?.blocks as any) || {};
+    const rawBlocks: unknown = cur?.blocks;
+    const blocks: Record<string,unknown> = rawBlocks && typeof rawBlocks === "object" && !Array.isArray(rawBlocks) ? {...rawBlocks} : {};
     if (!blocks.narrativa) blocks.narrativa = transcript;
 
     await supabase
@@ -188,9 +190,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, transcript_length: transcript.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[swipe-video-transcribe] fatal", e);
-    return new Response(JSON.stringify({ error: e?.message || "internal error" }), {
+    return new Response(JSON.stringify({ error: eMessage || "internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

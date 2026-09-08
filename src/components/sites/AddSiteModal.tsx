@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -61,8 +62,8 @@ export function AddSiteModal({
       setUrl(""); setTipo("lp"); setGithubUrl("");
       onOpenChange(false);
       onCreated();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha");
     } finally {
       setLoading(false);
     }

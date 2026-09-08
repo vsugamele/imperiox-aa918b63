@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { parseProjectData, record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +15,7 @@ type NodeKind = string;
 interface EcoNode {
   id: string; kind: NodeKind; label: string;
   status: "ok" | "faltando" | "fraco";
-  count?: number; meta?: any; x: number; y: number;
+  count?: number; meta?: {url?:string}; x: number; y: number;
 }
 interface EcoEdge { from: string; to: string; label?: string }
 interface Gap { node_id: string; kind: string; label: string; action: string }
@@ -20,9 +23,14 @@ interface ScanResult {
   nodes: EcoNode[]; edges: EcoEdge[]; gaps: Gap[]; score: number;
   project_name?: string; briefing_produtos?: string[];
   counts: Record<string, number>;
-  current_blueprint?: any;
+  current_blueprint?: { approved_at?: string; versao?: string | number };
 }
 
+const scanSchema = z.object({
+ nodes:z.array(z.object({id:z.string(),kind:z.string(),label:z.string(),status:z.enum(["ok","faltando","fraco"]),count:z.number().optional(),meta:z.object({url:z.string().optional()}).passthrough().nullish(),x:z.number(),y:z.number()}).passthrough()),
+ edges:z.array(z.object({from:z.string(),to:z.string(),label:z.string().optional()}).passthrough()),
+ gaps:z.array(z.object({node_id:z.string(),kind:z.string(),label:z.string(),action:z.string()}).passthrough()),score:z.number(),counts:z.record(z.number()),project_name:z.string().optional(),briefing_produtos:z.array(z.string()).optional(),current_blueprint:z.object({approved_at:z.string().nullish(),versao:z.union([z.string(),z.number()]).optional()}).passthrough().nullish()
+}).passthrough();
 const KIND_COLOR: Record<string, string> = {
   avatar: "#c9922a", vsl: "#a855f7", lp: "#38bdf8", checkout: "#22c55e",
   orderbump: "#fbbf24", upsell: "#f97316", downsell: "#ef4444",
@@ -33,7 +41,7 @@ const KIND_COLOR: Record<string, string> = {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  projects: Array<{ id: string; name: string; data?: any }>;
+  projects: Array<{ id: string; name: string; data?: unknown }>;
   initialProjectId?: string;
   initialProduct?: string;
 }
@@ -47,14 +55,14 @@ export function ProductEcosystemDrawer({ open, onOpenChange, projects, initialPr
 
   const currentProject = projects.find((p) => p.id === projectId);
   const produtos: string[] = useMemo(() => {
-    const data = currentProject?.data as any;
-    const list = data?.briefing?.produtos || data?.produtos || [];
-    return list.map((p: any) => p.nome || p.name).filter(Boolean);
+    const raw = record(currentProject?.data);
+    const data = parseProjectData(raw.briefing || raw);
+    return (data.produtos || []).flatMap(p => p.nome || p.name ? [p.nome || p.name] : []);
   }, [currentProject]);
 
   useEffect(() => {
-    if (produtos.length && !produto) setProduto(produtos[0]);
-  }, [produtos.join("|")]);
+    if (produtos.length) setProduto(current => current || produtos[0]);
+  }, [produtos]);
 
   const runScan = async () => {
     if (!projectId) return toast.error("Escolha um projeto");
@@ -64,9 +72,13 @@ export function ProductEcosystemDrawer({ open, onOpenChange, projects, initialPr
         body: { action: "scan", project_id: projectId, produto_nome: produto || null },
       });
       if (error) throw error;
-      setScan(data as ScanResult);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao escanear");
+      const parsed = scanSchema.parse(data);
+      setScan({...parsed, score:parsed.score,counts:parsed.counts,
+       nodes:parsed.nodes.map(n=>({...n,id:n.id,kind:n.kind,label:n.label,status:n.status,x:n.x,y:n.y})),
+       edges:parsed.edges.map(e=>({...e,from:e.from,to:e.to})),
+       gaps:parsed.gaps.map(g=>({...g,node_id:g.node_id,kind:g.kind,label:g.label,action:g.action}))});
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao escanear");
     } finally {
       setLoading(false);
     }
@@ -87,8 +99,8 @@ export function ProductEcosystemDrawer({ open, onOpenChange, projects, initialPr
       if (error) throw error;
       toast.success(approve ? "Blueprint aprovado ✓" : "Snapshot salvo");
       runScan();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }

@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { record, type Product } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -5,17 +8,25 @@ import { Loader2, Zap, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const resultSchema = z.object({
+ nome_escolhido: z.object({ nome: z.string().optional(), justificativa: z.string().optional() }).optional(),
+ formato: z.string().optional(), quick_win: z.string().optional(), diagnostico_escada: z.string().optional(),
+ preco: z.object({ valor: z.union([z.string(),z.number()]).optional(), ancora:z.string().optional() }).optional(),
+ copy: z.object({ headline:z.string().optional(),subheadline:z.string().optional(),corpo:z.string().optional(),empilhamento:z.array(z.string()).optional(),garantia:z.string().optional(),cta:z.string().optional() }).passthrough().optional(),
+ pagina_obrigado:z.string().optional(), incompletude_estrategica:z.string().optional()
+}).passthrough();
+
 interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  product: any;
+  product: Product;
   coreOffer?: string;
 }
 
 export function TripwireEngineDialog({ open, onClose, projectId, product, coreOffer }: Props) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<z.infer<typeof resultSchema> | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const run = async () => {
@@ -26,10 +37,10 @@ export function TripwireEngineDialog({ open, onClose, projectId, product, coreOf
         body: { project_id: projectId, product, core_offer: coreOffer },
       });
       if (error) throw error;
-      setResult((data as any)?.result || {});
+      setResult(resultSchema.parse(record(data).result));
       toast.success("Tripwire gerado");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setLoading(false);
     }

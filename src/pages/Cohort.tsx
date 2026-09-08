@@ -54,7 +54,7 @@ export default function Cohort() {
         .select("id, name")
         .or("is_archived.eq.false,is_archived.is.null")
         .order("name");
-      setProjects((data || []) as any);
+      setProjects(data || []);
     })();
   }, []);
 
@@ -155,7 +155,7 @@ export default function Cohort() {
           <TabsContent value="matrix" className="space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Métrica:</span>
-              <Select value={metric} onValueChange={(v: any) => setMetric(v)}>
+              <Select value={metric} onValueChange={(v) => { if (v === "rate" || v === "buyers" || v === "revenue") setMetric(v); }}>
                 <SelectTrigger className="w-[180px] h-8">
                   <SelectValue />
                 </SelectTrigger>

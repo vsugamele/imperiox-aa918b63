@@ -1,0 +1,30 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
+import MarketIntel from "@/pages/MarketIntel";
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), error: vi.fn(), success: vi.fn() }));
+vi.mock("@/contexts/auth-context", () => ({ useAuth: () => ({ user: null }) }));
+vi.mock("sonner", () => ({ toast: { error: mocks.error, success: mocks.success } }));
+vi.mock("@/components/projeto/AIGenerateButton", () => ({ AIGenerateButton: () => null }));
+vi.mock("@/components/marketintel/SearchHistory", () => ({ SearchHistory: () => null }));
+vi.mock("@/components/marketintel/NicheComparator", () => ({ NicheComparator: () => null }));
+vi.mock("@/components/ui/tabs", () => { const Container=({children}:{children:ReactNode})=><div>{children}</div>;return {Tabs:Container,TabsList:Container,TabsTrigger:Container,TabsContent:Container}; });
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: mocks.invoke }, from: () => { const query = { select: () => query, order: () => query, gte: () => query, limit: () => query, then: (resolve: (value: { data: [] }) => unknown) => Promise.resolve({data:[]}).then(resolve) };return query;} } }));
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+describe("MarketIntel generation failure", () => {
+ it("retains the previous successful result and reports a subsequent failure", async () => {
+  vi.useFakeTimers(); vi.spyOn(console,"error").mockImplementation(()=>{});
+  mocks.invoke.mockResolvedValueOnce({data:{content:JSON.stringify({analyzedCopy:"Existing verified text",psychologicalTriggers:[],targetAvatar:"Audience",uniqueMechanism:"Mechanism",variations:[{title:"Existing variation",gancho:"Hook",narrativa:"Narrative",cta:"CTA"}]})},error:null}).mockResolvedValueOnce({data:null,error:new Error("service unavailable")});
+  render(<MemoryRouter><MarketIntel /></MemoryRouter>);
+  fireEvent.change(screen.getByPlaceholderText(/Cole o link do anúncio/), {target:{value:"https://www.facebook.com/ads/library/?id=1"}});
+  fireEvent.click(screen.getByText("Hack e Gerar Criativos"));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+  expect(screen.getByText("Existing verified text")).toBeTruthy();
+  fireEvent.click(screen.getByText("Hack e Gerar Criativos"));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+  expect(screen.getByText("Existing verified text")).toBeTruthy();
+  expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining("service unavailable"));
+  expect(mocks.success).toHaveBeenCalledTimes(1);
+ });
+});

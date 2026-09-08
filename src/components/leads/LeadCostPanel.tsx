@@ -6,10 +6,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format, parseISO, isValid, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
 import { TrendingUp, Users, DollarSign, Target } from "lucide-react";
 import type { Lead } from "@/components/leads/LeadsTable";
+import { objectFields } from "@/lib/json-fields";
 
 interface AdsRow {
   data_ref?: string | null;
-  valor?: any;
+  valor?: string | number | null;
   plataforma?: string | null;
   campanha?: string | null;
 }
@@ -23,8 +24,8 @@ interface Props {
 const ORGANIC_LABEL = "Orgânico/Direto";
 
 function extractUtmSource(lead: Lead): string {
-  const d: any = lead.data || {};
-  const cands = [d.utms, d.tracking, d.checkout, d.checkout?.utms, d.tracking?.utms, d].filter(Boolean);
+  const d = objectFields(lead.data);
+  const cands = [d.utms, d.tracking, d.checkout, objectFields(d.checkout).utms, objectFields(d.tracking).utms, d].map(objectFields);
   for (const c of cands) {
     if (c.utm_source) return String(c.utm_source);
   }
@@ -32,8 +33,8 @@ function extractUtmSource(lead: Lead): string {
 }
 
 function extractUtmCampaign(lead: Lead): string | null {
-  const d: any = lead.data || {};
-  const cands = [d.utms, d.tracking, d.checkout, d.checkout?.utms, d.tracking?.utms, d].filter(Boolean);
+  const d = objectFields(lead.data);
+  const cands = [d.utms, d.tracking, d.checkout, objectFields(d.checkout).utms, objectFields(d.tracking).utms, d].map(objectFields);
   for (const c of cands) {
     if (c.utm_campaign) return String(c.utm_campaign);
   }
@@ -58,7 +59,7 @@ function normalizePlatform(s: string): string {
 export default function LeadCostPanel({ periodLeads, periodAds, periodRange }: Props) {
   const totals = useMemo(() => {
     const leads = periodLeads.length;
-    const spend = periodAds.reduce((s, a) => s + (parseFloat(a.valor) || 0), 0);
+    const spend = periodAds.reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
     const cpl = leads > 0 && spend > 0 ? spend / leads : null;
     return { leads, spend, cpl };
   }, [periodLeads, periodAds]);
@@ -72,7 +73,7 @@ export default function LeadCostPanel({ periodLeads, periodAds, periodRange }: P
     const spendMap = new Map<string, number>();
     periodAds.forEach(a => {
       const key = normalizePlatform(a.plataforma || "");
-      spendMap.set(key, (spendMap.get(key) || 0) + (parseFloat(a.valor) || 0));
+      spendMap.set(key, (spendMap.get(key) || 0) + (parseFloat(String(a.valor)) || 0));
     });
     const keys = new Set<string>([...leadsMap.keys(), ...spendMap.keys()]);
     return Array.from(keys).map(k => {
@@ -90,7 +91,7 @@ export default function LeadCostPanel({ periodLeads, periodAds, periodRange }: P
       const name = (a.campanha || "").trim();
       if (!name) return;
       const cur = spendMap.get(name) || { spend: 0, platform: normalizePlatform(a.plataforma || "") };
-      cur.spend += parseFloat(a.valor) || 0;
+      cur.spend += parseFloat(String(a.valor)) || 0;
       spendMap.set(name, cur);
     });
     const leadsMap = new Map<string, number>();
@@ -117,7 +118,7 @@ export default function LeadCostPanel({ periodLeads, periodAds, periodRange }: P
         if (!isValid(d)) return;
         const k = format(d, "yyyy-MM-dd");
         const e = map.get(k); if (e) e.leads += 1;
-      } catch {}
+      } catch { /* Ignore malformed dates; keep this record out of the time-based calculation. */ }
     });
     periodAds.forEach(a => {
       if (!a.data_ref) return;
@@ -125,8 +126,8 @@ export default function LeadCostPanel({ periodLeads, periodAds, periodRange }: P
         const d = parseISO(a.data_ref);
         if (!isValid(d)) return;
         const k = format(d, "yyyy-MM-dd");
-        const e = map.get(k); if (e) e.spend += parseFloat(a.valor) || 0;
-      } catch {}
+        const e = map.get(k); if (e) e.spend += parseFloat(String(a.valor)) || 0;
+      } catch { /* Ignore malformed dates; keep this record out of the time-based calculation. */ }
     });
     return Array.from(map.entries()).map(([key, v]) => ({
       day: format(parseISO(key), "dd/MM"),

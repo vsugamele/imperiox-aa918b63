@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, Zap, MessageCircle, Crown, Lock } from "lucide-react";
@@ -21,7 +22,7 @@ export default function DashboardRevenue({ period, projectFilter, productFilter,
   const [receitaBreakdown, setReceitaBreakdown] = useState<{ vendas: number; manual: number }>({ vendas: 0, manual: 0 });
   const [autoExecCount, setAutoExecCount] = useState(0);
   const [waStats, setWaStats] = useState<{ sent: number; received: number; sessions: number }>({ sent: 0, received: 0, sessions: 0 });
-  const [hotLeads, setHotLeads] = useState<any[]>([]);
+  const [hotLeads, setHotLeads] = useState<Pick<Tables<"imphq_leads">, "id" | "nome" | "score" | "phone" | "email" | "project_id" | "criado_em">[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,9 +36,9 @@ export default function DashboardRevenue({ period, projectFilter, productFilter,
       ]);
 
       // Revenue
-      const totalRevFromView = (finResumo.data || []).reduce((s: number, f: any) => s + (Number(f.receita_total) || 0), 0);
-      const totalVendasFromView = (finResumo.data || []).reduce((s: number, f: any) => s + (Number(f.total_vendas) || 0), 0);
-      const totalManualFromView = (finResumo.data || []).reduce((s: number, f: any) => s + (Number(f.total_receita_manual) || 0), 0);
+      const totalRevFromView = (finResumo.data || []).reduce((s: number, f) => s + (Number(f.receita_total) || 0), 0);
+      const totalVendasFromView = (finResumo.data || []).reduce((s: number, f) => s + (Number(f.total_vendas) || 0), 0);
+      const totalManualFromView = (finResumo.data || []).reduce((s: number, f) => s + (Number(f.total_receita_manual) || 0), 0);
       setTotalReceita(totalRevFromView);
       setReceitaBreakdown({ vendas: totalVendasFromView, manual: totalManualFromView });
 
@@ -45,13 +46,13 @@ export default function DashboardRevenue({ period, projectFilter, productFilter,
 
       // WhatsApp stats
       const waMessages = waMsgRes.data || [];
-      const waSent = waMessages.filter((m: any) => m.direction === "outgoing").length;
-      const waReceived = waMessages.filter((m: any) => m.direction === "incoming").length;
-      const waConnected = (hubSessionsRes.data || []).filter((s: any) => s.status === "connected").length;
+      const waSent = waMessages.filter((m) => m.direction === "outgoing").length;
+      const waReceived = waMessages.filter((m) => m.direction === "incoming").length;
+      const waConnected = (hubSessionsRes.data || []).filter((s) => s.status === "connected").length;
       setWaStats({ sent: waSent, received: waReceived, sessions: waConnected });
 
       // Hot Leads
-      setHotLeads((hotLeadsRes.data || []).filter((l: any) => (l.score || 0) > 0));
+      setHotLeads((hotLeadsRes.data || []).filter((l) => (l.score || 0) > 0));
     }
     load();
   }, [period, projectFilter]);
@@ -107,7 +108,7 @@ export default function DashboardRevenue({ period, projectFilter, productFilter,
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {hotLeads.map((l: any) => (
+            {hotLeads.map((l) => (
               <div key={l.id} onClick={() => navigate("/leads")} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{(l.nome || "?")[0].toUpperCase()}</div>

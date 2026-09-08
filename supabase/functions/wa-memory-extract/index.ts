@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const memorySchema = z.object({ objecoes_recorrentes: z.array(z.unknown()).nullish(), gatilhos_positivos: z.array(z.unknown()).nullish(), produtos_mencionados: z.array(z.unknown()).nullish(), informacoes_pessoais: z.record(z.unknown()).nullish(), qualificacao: z.record(z.unknown()).nullish() }).passthrough();
 // wa-memory-extract — extrai memória estruturada de uma conversa e atualiza lead_memory + conversation_summary
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
@@ -51,11 +53,11 @@ Deno.serve(async (req) => {
       .eq("id", lead_id)
       .maybeSingle();
 
-    const existingMemory = (lead as any)?.lead_memory || {};
+    const existingMemory = memorySchema.parse(lead?.lead_memory || {});
 
     const transcript = msgs
       .reverse()
-      .map((m: any) => {
+      .map((m) => {
         const role = m.direction === "outgoing" ? "Assistente" : "Lead";
         return `${role}: ${m.content}`;
       })
@@ -113,7 +115,7 @@ REGRAS DE QUALIFICACAO:
     const extracted = JSON.parse(aiData?.choices?.[0]?.message?.content || "{}");
 
     // Merge inteligente com memória existente
-    const newMemory: Record<string, any> = { ...existingMemory };
+    const newMemory: z.infer<typeof memorySchema> = { ...existingMemory };
 
     if (extracted.nome_preferido) newMemory.nome_preferido = extracted.nome_preferido;
     if (extracted.interesse_principal) newMemory.interesse_principal = extracted.interesse_principal;
@@ -143,7 +145,7 @@ REGRAS DE QUALIFICACAO:
     // Qualificação consultiva — merge preservando dimensões já preenchidas
     if (extracted.qualificacao && typeof extracted.qualificacao === "object") {
       const prev = newMemory.qualificacao || {};
-      const next: Record<string, any> = { ...prev };
+      const next: Record<string, unknown> = { ...prev };
       const validEnums: Record<string, string[]> = {
         nivel: ["iniciante", "intermediario", "avancado"],
         objetivo: ["hobby", "renda_extra", "profissionalizar", "escalar"],
@@ -161,7 +163,7 @@ REGRAS DE QUALIFICACAO:
 
 
     // Atualiza tanto lead_memory (JSONB) quanto as colunas FLAT consumidas pelo CRM
-    const leadUpdate: Record<string, any> = {
+    const leadUpdate: Record<string, unknown> = {
       lead_memory: newMemory,
       updated_at: new Date().toISOString(),
     };
@@ -209,7 +211,7 @@ REGRAS DE QUALIFICACAO:
         .select("phone")
         .eq("id", conversation_id)
         .maybeSingle();
-      const phone = (conv as any)?.phone || "";
+      const phone = conv?.phone || "";
 
       for (const snippet of memorySnippets.slice(0, 5)) {
         try {
@@ -242,9 +244,10 @@ REGRAS DE QUALIFICACAO:
       JSON.stringify({ ok: true, extracted, lead_memory_keys: Object.keys(newMemory) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("wa-memory-extract:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

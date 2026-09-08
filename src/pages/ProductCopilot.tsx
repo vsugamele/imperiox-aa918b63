@@ -1,6 +1,9 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { readRecord, record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -65,7 +68,7 @@ const emptyDossier: ProductDossier = {
 
 export default function ProductCopilot() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">, "id" | "name" | "icon" | "data" | "avatar">[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("none");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -112,26 +115,26 @@ export default function ProductCopilot() {
 
     const proj = projects.find((p) => p.id === selectedProjectId);
     if (proj) {
-      const d = typeof proj.data === "string" ? (() => { try { return JSON.parse(proj.data); } catch { return {}; } })() : (proj.data || {});
-      const av = proj.avatar || {};
+      const d = readRecord(proj.data);
+      const av = readRecord(proj.avatar);
       
       const loadedDossier: ProductDossier = {
-        nome: d.produto || proj.name || "",
-        nicho: d.briefing?.nicho || d.category || "",
-        tom_voz: d.branding?.tom_de_voz || "",
-        arquetipo: d.branding?.arquetipo || "explorador",
-        manifesto: d.branding?.manifesto || "",
-        one_belief: d.copy_arsenal?.one_belief || av.crenca_necessaria || "",
-        mecanismo_nome: d.copy_arsenal?.metodo_simplificado?.[0] || d.mecanismo_unico || "",
-        mecanismo_claim: d.copy_arsenal?.oportunidade?.[0] || "",
-        logic_points: d.copy_arsenal?.logic_points || "",
-        preco: d.precos?.principal || "",
-        bonus: d.produtos_bonus || "",
-        ancoragem: d.copy_arsenal?.ancoragem || "",
-        garantia: d.precos?.garantia || "7 dias",
-        vsl_hook: d.copy_arsenal?.vsl_hook || "",
-        vsl_beats: d.copy_arsenal?.vsl_beats || "",
-        ad_angles: d.copy_arsenal?.ad_angles || "",
+        nome: String(d.produto || proj.name || ""),
+        nicho: String(record(d.briefing).nicho || d.category || ""),
+        tom_voz: String(record(d.branding).tom_de_voz || ""),
+        arquetipo: String(record(d.branding).arquetipo || "explorador"),
+        manifesto: String(record(d.branding).manifesto || ""),
+        one_belief: String(record(d.copy_arsenal).one_belief || av.crenca_necessaria || ""),
+        mecanismo_nome: String((Array.isArray(record(d.copy_arsenal).metodo_simplificado) ? record(d.copy_arsenal).metodo_simplificado[0] : "") || d.mecanismo_unico || ""),
+        mecanismo_claim: String((Array.isArray(record(d.copy_arsenal).oportunidade) ? record(d.copy_arsenal).oportunidade[0] : "") || ""),
+        logic_points: String(record(d.copy_arsenal).logic_points || ""),
+        preco: String(record(d.precos).principal || ""),
+        bonus: String(d.produtos_bonus || ""),
+        ancoragem: String(record(d.copy_arsenal).ancoragem || ""),
+        garantia: String(record(d.precos).garantia || "7 dias"),
+        vsl_hook: String(record(d.copy_arsenal).vsl_hook || ""),
+        vsl_beats: String(record(d.copy_arsenal).vsl_beats || ""),
+        ad_angles: String(record(d.copy_arsenal).ad_angles || ""),
       };
       
       setDossier(loadedDossier);
@@ -247,8 +250,8 @@ Seja magnético, contundente, pragmático e muito específico. Responda sempre e
       const cleanedReply = reply.replace(/```json-copilot[\s\S]*?```/g, "").trim();
 
       setMessages((prev) => [...prev, { role: "assistant", content: cleanedReply }]);
-    } catch (e: any) {
-      toast.error("Erro na comunicação com a IA: " + (e.message || "tente novamente"));
+    } catch (e: unknown) {
+      toast.error("Erro na comunicação com a IA: " + (errorMessage(e) || "tente novamente"));
       setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Erro ao obter resposta. Verifique a conexão com a Edge Function." }]);
     } finally {
       setSending(false);
@@ -351,8 +354,8 @@ ${dossier.ad_angles}
 
       if (error) throw error;
       toast.success("Dossiê exportado com sucesso para a aba Documentos do projeto!");
-    } catch (e: any) {
-      toast.error("Erro ao salvar documento: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao salvar documento: " + errorMessage(e));
     }
   };
 
@@ -366,27 +369,27 @@ ${dossier.ad_angles}
     setSavingProject(true);
     try {
       const proj = projects.find(p => p.id === selectedProjectId);
-      const currentData = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
-      const currentAvatar = proj.avatar || {};
+      const currentData = readRecord(proj.data);
+      const currentAvatar = readRecord(proj.avatar);
 
       // Merge copilot dossier values into the project schema
       const updatedData = {
         ...currentData,
         produto: dossier.nome,
         precos: {
-          ...currentData.precos,
+          ...record(currentData.precos),
           principal: dossier.preco,
           garantia: dossier.garantia
         },
         produtos_bonus: dossier.bonus,
         branding: {
-          ...currentData.branding,
+          ...record(currentData.branding),
           tom_de_voz: dossier.tom_voz,
           arquetipo: dossier.arquetipo,
           manifesto: dossier.manifesto
         },
         copy_arsenal: {
-          ...currentData.copy_arsenal,
+          ...record(currentData.copy_arsenal),
           one_belief: dossier.one_belief,
           metodo_simplificado: [dossier.mecanismo_nome],
           oportunidade: [dossier.mecanismo_claim],
@@ -397,7 +400,7 @@ ${dossier.ad_angles}
           ad_angles: dossier.ad_angles
         },
         briefing: {
-          ...currentData.briefing,
+          ...record(currentData.briefing),
           nicho: dossier.nicho
         }
       };
@@ -410,18 +413,18 @@ ${dossier.ad_angles}
       const { error } = await supabase
         .from("imphq_projects")
         .update({
-          data: updatedData,
-          avatar: updatedAvatar
+          data: toJson(updatedData),
+          avatar: toJson(updatedAvatar)
         })
         .eq("id", selectedProjectId);
 
       if (error) throw error;
       
       // Update local state
-      setProjects(prev => prev.map(p => p.id === selectedProjectId ? { ...p, data: updatedData, avatar: updatedAvatar } : p));
+      setProjects(prev => prev.map(p => p.id === selectedProjectId ? { ...p, data: toJson(updatedData), avatar: toJson(updatedAvatar) } : p));
       toast.success("Dados salvos e sincronizados com o projeto com sucesso!");
-    } catch (e: any) {
-      toast.error("Erro ao sincronizar com o projeto: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao sincronizar com o projeto: " + errorMessage(e));
     } finally {
       setSavingProject(false);
     }
@@ -477,8 +480,8 @@ ${dossier.ad_angles}
       setNewProjectName("");
       await loadProjects();
       setSelectedProjectId(newId);
-    } catch (e: any) {
-      toast.error("Erro ao criar projeto: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao criar projeto: " + errorMessage(e));
     } finally {
       setSavingProject(false);
     }

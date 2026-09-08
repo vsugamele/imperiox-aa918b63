@@ -10,7 +10,7 @@ export function X1Checklist({ acoes }: Props) {
     return [
       { label: "Gancho (msg inicial)", ok: acoes[0]?.tipo === "whatsapp" && (acoes[0]?.template || "").trim().length > 0 },
       { label: "Qualificação (IA ou pergunta)", ok: has(a => ["ia_message", "quick_reply", "input_capture", "ai_agent"].includes(a.tipo)) },
-      { label: "Áudio / Prova social", ok: has(a => a.tipo === "audio" || (a.tipo === "whatsapp" && !!(a as any).media)) },
+      { label: "Áudio / Prova social", ok: has(a => a.tipo === "audio" || (a.tipo === "whatsapp" && !!a.media)) },
       { label: "CTA com link", ok: has(a => a.tipo === "whatsapp" && /\{\{link\}\}|https?:\/\//.test(a.template || "")) },
       { label: "Follow-up", ok: acoes.filter(a => a.tipo === "whatsapp").length >= 2 },
       { label: "Parada por compra", ok: has(a => a.tipo === "stop_on_event") },

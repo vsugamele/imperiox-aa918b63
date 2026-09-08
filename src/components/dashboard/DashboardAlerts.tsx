@@ -45,10 +45,10 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         monthMap[key] = { receita: 0, custo: 0, ads: 0 };
       }
-      (revsRes.data || []).forEach((r: any) => { const m = r.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(r.valor) || 0; });
-      (vendasRes.data || []).forEach((v: any) => { const m = v.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(v.valor) || 0; });
-      (costsRes.data || []).forEach((c: any) => { const m = c.created_at?.slice(0, 7); const val = parseFloat(c.valor) || 0; if (m && monthMap[m]) monthMap[m].custo += c.moeda === "USD" ? val * 5.2 : val; });
-      (adsRes.data || []).forEach((a: any) => { const m = a.data_ref?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += parseFloat(a.valor) || 0; });
+      (revsRes.data || []).forEach((r) => { const m = r.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(String(r.valor)) || 0; });
+      (vendasRes.data || []).forEach((v) => { const m = v.created_at?.slice(0, 7); if (m && monthMap[m]) monthMap[m].receita += parseFloat(String(v.valor)) || 0; });
+      (costsRes.data || []).forEach((c) => { const m = c.created_at?.slice(0, 7); const val = parseFloat(String(c.valor)) || 0; if (m && monthMap[m]) monthMap[m].custo += c.moeda === "USD" ? val * 5.2 : val; });
+      (adsRes.data || []).forEach((a) => { const m = a.data_ref?.slice(0, 7); if (m && monthMap[m]) monthMap[m].ads += parseFloat(String(a.valor)) || 0; });
 
       const monthKeys = Object.keys(monthMap);
       if (monthKeys.length >= 2) {
@@ -65,8 +65,8 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
       }
 
       // CPL alert
-      const totalAdsSpend = (adsRes.data || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-      const totalAdsLeads = (adsRes.data || []).reduce((s: number, a: any) => s + (a.leads || 0), 0);
+      const totalAdsSpend = (adsRes.data || []).reduce((s: number, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+      const totalAdsLeads = (adsRes.data || []).reduce((s: number, a) => s + (a.leads || 0), 0);
       if (totalAdsLeads > 0 && totalAdsSpend / totalAdsLeads > 50) alertList.push(`💰 CPL médio alto: R$ ${(totalAdsSpend / totalAdsLeads).toFixed(2)} por lead`);
 
       setAlerts(alertList);

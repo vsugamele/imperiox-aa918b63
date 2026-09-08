@@ -1,8 +1,9 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,9 @@ const DEPARTMENTS = ["Dev", "Marketing", "Copy", "Tráfego", "Design", "Operaç�
 
 export default function Equipe() {
   const { user } = useAuth();
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<Tables<"imphq_team_members">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Tables<"imphq_team_members"> | null>(null);
   const [deptFilter, setDeptFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [form, setForm] = useState({ name: "", email: "", role: "Editor", department: "Marketing" });
@@ -58,15 +59,15 @@ export default function Equipe() {
 
     // Load counts in parallel
     if (memberList.length > 0) {
-      const ids = memberList.map((m: any) => m.id);
+      const ids = memberList.map((m) => m.id);
       const [cardsRes, docsRes] = await Promise.all([
         supabase.from("imphq_kanban_cards").select("id, member_id").in("member_id", ids),
         supabase.from("imphq_team_docs").select("id, member_id").in("member_id", ids),
       ]);
       const tc: Record<string, number> = {};
       const dc: Record<string, number> = {};
-      (cardsRes.data || []).forEach((c: any) => { tc[c.member_id] = (tc[c.member_id] || 0) + 1; });
-      (docsRes.data || []).forEach((d: any) => { dc[d.member_id] = (dc[d.member_id] || 0) + 1; });
+      (cardsRes.data || []).forEach((c) => { tc[c.member_id] = (tc[c.member_id] || 0) + 1; });
+      (docsRes.data || []).forEach((d) => { dc[d.member_id] = (dc[d.member_id] || 0) + 1; });
       setTaskCounts(tc);
       setDocCounts(dc);
     }
@@ -80,7 +81,7 @@ export default function Equipe() {
     const { error } = await supabase.from("imphq_team_members").insert({
       name: form.name, email: form.email, role: form.role,
       department: form.department, user_id: user?.id, is_active: true,
-    } as any);
+    });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Membro convidado!");
     setForm({ name: "", email: "", role: "Editor", department: "Marketing" });
@@ -88,7 +89,7 @@ export default function Equipe() {
     fetchMembers();
   };
 
-  const toggleActive = async (m: any) => {
+  const toggleActive = async (m: Tables<"imphq_team_members">) => {
     await supabase.from("imphq_team_members").update({ is_active: !m.is_active }).eq("id", m.id);
     fetchMembers();
   };

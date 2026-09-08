@@ -31,7 +31,9 @@ const NotFound = () => {
         const keys = await caches.keys();
         await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
       }
-    } catch (_) {}
+    } catch {
+      // Cache access is best effort; the cache-busted document reload below must still run.
+    }
     // Cache-bust the document.
     const url = new URL(window.location.href);
     url.searchParams.set("_v", String(Date.now()));

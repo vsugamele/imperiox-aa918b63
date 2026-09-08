@@ -17,20 +17,24 @@ export interface FlowStat {
 export function useFlowStats(flowIds: string[]) {
   const [stats, setStats] = useState<Map<string, FlowStat>>(new Map());
 
+  const serializedFlowIds = JSON.stringify(flowIds);
   useEffect(() => {
-    if (flowIds.length === 0) {
+    const parsed: unknown = JSON.parse(serializedFlowIds);
+    const ids = Array.from(new Set(Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : []));
+    if (ids.length === 0) {
       setStats(new Map());
       return;
     }
     let cancelled = false;
-    const ids = Array.from(new Set(flowIds.filter(Boolean)));
 
     const run = async () => {
       const since = new Date(Date.now() - 86400000).toISOString();
       const [autoRes, logRes] = await Promise.all([
         supabase.from("imphq_automacoes").select("id, nome, ativo").in("id", ids),
         supabase
-          .from("imphq_automacao_logs" as any)
+          .from("imphq_automacao_logs")
           .select("automacao_id, status")
           .in("automacao_id", ids)
           .gte("created_at", since)
@@ -38,10 +42,10 @@ export function useFlowStats(flowIds: string[]) {
       ]);
       if (cancelled) return;
       const map = new Map<string, FlowStat>();
-      (autoRes.data || []).forEach((a: any) => {
+      (autoRes.data || []).forEach((a) => {
         map.set(a.id, { id: a.id, nome: a.nome, ativo: !!a.ativo, execs24h: 0, success24h: 0, errors24h: 0 });
       });
-      (logRes.data || []).forEach((l: any) => {
+      (logRes.data || []).forEach((l) => {
         const s = map.get(l.automacao_id);
         if (!s) return;
         s.execs24h++;
@@ -58,7 +62,7 @@ export function useFlowStats(flowIds: string[]) {
       run();
     }, 180_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [flowIds.join(",")]);
+  }, [serializedFlowIds]);
 
   return stats;
 }

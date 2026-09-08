@@ -1,6 +1,6 @@
 import { memo, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MobileChat } from "./MobileChat";
+import { MobileChat } from "@/components/mobile/MobileChat";
 import { Loader2, Search, Flame, PauseCircle, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,7 @@ export function MobileInboxList() {
       .neq("status", "closed")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(200);
-    setConvs((data as any[]) || []);
+    setConvs(data || []);
     setLoading(false);
   };
 
@@ -60,7 +60,7 @@ export function MobileInboxList() {
   useEffect(() => {
     const ch = supabase
       .channel("mob-inbox")
-      .on("postgres_changes", { event: "*", schema: "public", table: "imphq_wa_conversations" }, (p: any) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "imphq_wa_conversations" }, (p) => {
         setConvs(prev => {
           const c = p.new as Conv;
           if (!c?.id) return prev;
@@ -92,14 +92,16 @@ export function MobileInboxList() {
   const togglePause = async (c: Conv) => {
     const isPaused = !!(c.ai_paused_until && new Date(c.ai_paused_until) > new Date());
     const next = isPaused ? null : new Date(Date.now() + 30 * 60_000).toISOString();
-    await supabase.from("imphq_wa_conversations").update({ ai_paused_until: next } as any).eq("id", c.id);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: next }).eq("id", c.id);
+    if (error) { toast.error(error.message); throw error; }
     toast.success(isPaused ? "IA retomada" : "IA pausada por 30min");
     setConvs(prev => prev.map(x => x.id === c.id ? { ...x, ai_paused_until: next } : x));
   };
 
   const toggleCloser = async (c: Conv) => {
     const next = !c.buy_intent_detected;
-    await supabase.from("imphq_wa_conversations").update({ buy_intent_detected: next } as any).eq("id", c.id);
+    const { error } = await supabase.from("imphq_wa_conversations").update({ buy_intent_detected: next }).eq("id", c.id);
+    if (error) { toast.error(error.message); throw error; }
     toast.success(next ? "Closer mode ON" : "Closer mode OFF");
     setConvs(prev => prev.map(x => x.id === c.id ? { ...x, buy_intent_detected: next } : x));
   };
@@ -107,7 +109,7 @@ export function MobileInboxList() {
   const markRead = async (id: string) => {
     setConvs(prev => prev.map(x => x.id === id ? { ...x, unread_count: 0 } : x));
     await supabase.from("imphq_wa_conversations")
-      .update({ unread_count: 0, last_read_at: new Date().toISOString() } as any)
+      .update({ unread_count: 0, last_read_at: new Date().toISOString() })
       .eq("id", id);
   };
 
@@ -172,17 +174,7 @@ export function MobileInboxList() {
 
       {selected && (
         <MobileChat
-          conversation={{
-            id: selected.id,
-            project_id: selected.project_id,
-            contact_name: selected.contact_name || "",
-            phone: selected.phone,
-            provider_id: selected.provider_id,
-            ai_paused_until: selected.ai_paused_until,
-            buy_intent_detected: selected.buy_intent_detected,
-            temperature: selected.temperature,
-            lead_id: selected.lead_id,
-          }}
+          conversation={selected}
           onClose={() => setSelected(null)}
           onTogglePause={togglePause}
           onToggleCloser={toggleCloser}

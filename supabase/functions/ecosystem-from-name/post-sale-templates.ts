@@ -9,7 +9,7 @@ export function buildPostSaleBlueprints(opts: {
   const { project_id, produto_nome, created_by } = opts;
   const now = Date.now();
 
-  const make = (titulo: string, objetivo: string, nodes: any[]) => ({
+  const make = (titulo: string, objetivo: string, nodes: { id: string; type: string; title: string; blocks: ({ id: string; type: "text"; content: string } | { id: string; type: "delay"; minutes: number })[] }[]) => ({
     project_id,
     created_by,
     title: titulo,

@@ -47,16 +47,16 @@ Deno.serve(async (req) => {
         .select('valor, created_at, produto, status')
         .eq('project_id', p.id)
         .gte('created_at', new Date(now - 14 * day).toISOString())
-        .limit(2000);
+        .limit(2000).returns<{ valor: number | string | null; created_at: string; produto: string | null; status: string | null }[]>();
 
       const v = vendas || [];
-      const cur = v.filter((x: any) => new Date(x.created_at).getTime() > now - 7 * day);
-      const prev = v.filter((x: any) => {
+      const cur = v.filter((x) => new Date(x.created_at).getTime() > now - 7 * day);
+      const prev = v.filter((x) => {
         const t = new Date(x.created_at).getTime();
         return t <= now - 7 * day && t > now - 14 * day;
       });
-      const curRev = cur.reduce((s: number, x: any) => s + Number(x.valor || 0), 0);
-      const prevRev = prev.reduce((s: number, x: any) => s + Number(x.valor || 0), 0);
+      const curRev = cur.reduce((s: number, x) => s + Number(x.valor || 0), 0);
+      const prevRev = prev.reduce((s: number, x) => s + Number(x.valor || 0), 0);
       if (prevRev > 0 && curRev < prevRev * 0.7) {
         signals.push({
           projeto_id: p.id,
@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
         .select('spend, date')
         .eq('project_id', p.id)
         .gte('date', new Date(now - 7 * day).toISOString().slice(0, 10))
-        .limit(500);
-      const spend7 = (ads || []).reduce((s: number, a: any) => s + Number(a.spend || 0), 0);
+        .limit(500).returns<{ spend: number | string | null; date: string }[]>();
+      const spend7 = (ads || []).reduce((s: number, a) => s + Number(a.spend || 0), 0);
       if (spend7 > 200 && cur.length === 0) {
         signals.push({
           projeto_id: p.id,

@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
             p_match_count: 1,
             p_threshold: 0.85,
           });
-          const conflict = (similar || []).find((s: any) => s.rule_type === "behavior");
+          const conflict = (similar || []).find((s: {rule_type:string}) => s.rule_type === "behavior");
           if (conflict) {
             ab_group_id = conflict.ab_group_id || crypto.randomUUID();
             ab_status = "variant";
@@ -300,9 +300,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, correction_type }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[wa-feedback-learn] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[wa-feedback-learn] Error:", errMessage);
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

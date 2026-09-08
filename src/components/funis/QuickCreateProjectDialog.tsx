@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,8 +39,8 @@ export function QuickCreateProjectDialog({ open, onOpenChange, onCreated }: Prop
       reset();
       onOpenChange(false);
       await onCreated?.(id);
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao criar projeto");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao criar projeto");
     } finally {
       setSaving(false);
     }

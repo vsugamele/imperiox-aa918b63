@@ -88,24 +88,25 @@ Seja conservador: só sugira banned_phrases se a frase aparece literalmente. Só
     return {
       failure_type: String(parsed.failure_type || "outro"),
       banned_phrases_suggestions: Array.isArray(parsed.banned_phrases_suggestions)
-        ? parsed.banned_phrases_suggestions.filter((s: any) => typeof s === "string" && s.trim().length > 3 && s.trim().length < 80)
+        ? parsed.banned_phrases_suggestions.filter((s: unknown) => typeof s === "string" && s.trim().length > 3 && s.trim().length < 80)
         : [],
       rule_suggestions: Array.isArray(parsed.rule_suggestions)
-        ? parsed.rule_suggestions.filter((s: any) => typeof s === "string" && s.trim().length > 5 && s.trim().length < 200)
+        ? parsed.rule_suggestions.filter((s: unknown) => typeof s === "string" && s.trim().length > 5 && s.trim().length < 200)
         : [],
       confidence: Number(parsed.confidence) || 0,
       summary: String(parsed.summary || "").slice(0, 200),
     };
-  } catch (e: any) {
-    console.warn(`[self-audit] parse error: ${e?.message}`);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.warn(`[self-audit] parse error: ${eMessage}`);
     return null;
   }
 }
 
-function buildConversationDigest(messages: any[]): string {
+function buildConversationDigest(messages: { direction: string; sent_by: string | null; content: string | null }[]): string {
   return messages
     .slice(-20)
-    .map((m: any) => {
+    .map((m) => {
       const speaker = m.direction === "incoming" ? "LEAD" : (m.sent_by === "ai" ? "IA" : "HUMANO");
       const content = String(m.content || "").slice(0, 300);
       return `[${speaker}]: ${content}`;
@@ -113,7 +114,7 @@ function buildConversationDigest(messages: any[]): string {
     .join("\n");
 }
 
-function buildSystemPromptSnapshot(config: any): string {
+function buildSystemPromptSnapshot(config: { expert_persona?: string | null; tone?: string | null; custom_instructions?: string | null; banned_phrases?: unknown }): string {
   const parts: string[] = [];
   if (config.expert_persona) parts.push(`PERSONA: ${String(config.expert_persona).slice(0, 400)}`);
   if (config.tone) parts.push(`TOM: ${config.tone}`);
@@ -149,7 +150,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const report: any[] = [];
+    const report: { project_id: string; audited?: number; applied?: boolean; candidates?: number; findings?: number; phrases_added?: number; rules_added?: number; dry_run?: boolean; skipped?: string }[] = [];
 
     for (const cfg of configs) {
       console.log(`[self-audit] iniciando audit para project=${cfg.project_id} provider=${cfg.provider_id || "geral"}`);
@@ -169,7 +170,7 @@ Deno.serve(async (req) => {
       // - status = needs_human
       // - transferred_to_human_at não-null
       // - ai_last_reply_at existe mas última msg é outgoing (IA falou e lead sumiu)
-      const candidates = (badConvs || []).filter((c: any) => {
+      const candidates = (badConvs || []).filter((c) => {
         if (c.status === "needs_human") return true;
         if (c.transferred_to_human_at) return true;
         if (c.ai_last_reply_at && c.last_message_direction === "outgoing") {
@@ -306,9 +307,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, configs_audited: configs.length, report }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-ai-self-audit] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

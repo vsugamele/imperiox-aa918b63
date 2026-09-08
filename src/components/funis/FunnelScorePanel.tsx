@@ -1,3 +1,6 @@
+import { record, type Product } from "@/lib/funis-data";
+import { z } from "zod";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, X, Loader2, Gauge } from "lucide-react";
@@ -19,11 +22,13 @@ interface ScoreResult {
   top_oportunidades?: string[];
 }
 
+const scoreResultSchema = z.object({ score_global: z.number().optional(), dimensoes: z.array(z.object({ id: z.string(), label: z.string(), nota: z.number(), diagnostico: z.string(), sugestao: z.string() }).passthrough()).optional(), top_oportunidades: z.array(z.string()).optional() }).passthrough();
+
 interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  product: any;
+  product: Product;
   existingAssets: Array<{ catId: string; itemId: string; status?: string }>;
 }
 
@@ -38,9 +43,10 @@ export function FunnelScorePanel({ open, onClose, projectId, product, existingAs
         body: { project_id: projectId, product, existing_assets: existingAssets },
       });
       if (error) throw error;
-      setResult((data as any)?.score || {});
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao calcular score");
+      const parsed = scoreResultSchema.parse(record(data).score || {});
+      setResult({ ...parsed, dimensoes: parsed.dimensoes?.map(d => ({ ...d, id: d.id, label: d.label, nota: d.nota, diagnostico: d.diagnostico, sugestao: d.sugestao })) });
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao calcular score");
     } finally {
       setLoading(false);
     }

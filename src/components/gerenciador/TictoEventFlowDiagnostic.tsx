@@ -35,7 +35,7 @@ export function TictoEventFlowDiagnostic({ projectId }: { projectId?: string | n
       const { data } = await q;
       if (cancelled) return;
       const map: Record<string, number> = {};
-      (data || []).forEach((r: any) => {
+      (data || []).forEach((r) => {
         map[r.evento] = (map[r.evento] || 0) + 1;
       });
       setCounts(map);

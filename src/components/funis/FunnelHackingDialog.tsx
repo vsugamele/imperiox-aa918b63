@@ -1,3 +1,6 @@
+import { record, type Product } from "@/lib/funis-data";
+import { z } from "zod";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,11 +33,17 @@ interface HackResult {
   ativos_espelho?: MirrorAsset[];
 }
 
+const hackResultSchema = z.object({
+  dossie: z.object({ promessa_central: z.string().optional(), mecanismo_unico: z.string().optional(), ofertas_detectadas: z.array(z.object({ tipo: z.string(), nome: z.string(), preco: z.string() })).optional(), garantia: z.string().optional(), provas_sociais: z.array(z.string()).optional(), urgencia: z.string().optional(), estrutura_pagina: z.string().optional() }).passthrough().optional(),
+  gaps_identificados: z.array(z.string()).optional(), angulo_contra_ataque: z.string().optional(),
+  ativos_espelho: z.array(z.object({ catId: z.string(), itemId: z.string(), motivo: z.string(), prioridade: z.enum(["alta", "media", "baixa"]).optional() }).passthrough()).optional()
+}).passthrough();
+
 interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  product: any;
+  product: Product;
   onAddAsset: (catId: string, itemId: string) => void;
 }
 
@@ -64,10 +73,14 @@ export function FunnelHackingDialog({ open, onClose, projectId, product, onAddAs
         body: { project_id: projectId, product, urls: cleaned },
       });
       if (error) throw error;
-      setResult((data as any)?.result || {});
+      const parsed = hackResultSchema.parse(record(data).result || {});
+      setResult({ ...parsed,
+        dossie: parsed.dossie ? { ...parsed.dossie, ofertas_detectadas: parsed.dossie.ofertas_detectadas?.map(o => ({ ...o, tipo: o.tipo, nome: o.nome, preco: o.preco })) } : undefined,
+        ativos_espelho: parsed.ativos_espelho?.map(a => ({ ...a, catId: a.catId, itemId: a.itemId, motivo: a.motivo })),
+      });
       toast.success("Análise concluída");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro no scraping/análise");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro no scraping/análise");
     } finally {
       setLoading(false);
     }

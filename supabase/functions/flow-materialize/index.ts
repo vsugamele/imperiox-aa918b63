@@ -1,7 +1,14 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Materialize a Funil FlowBlueprint into an OpenFlow imphq_automacoes row.
 // Converts text/image/wait blocks into acoes[] compatible with the executor.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+const blockSchema = z.object({
+  type:z.string(), content:z.string().nullish(),prompt:z.string().nullish(),image_url:z.string().nullish(),caption:z.string().nullish(),video_url:z.string().nullish(),
+  wait_minutes:z.number().nullish(),minutes:z.number().nullish(),field:z.string().nullish(),value:z.union([z.string(),z.number(),z.boolean()]).nullish(),
+}).passthrough();
+type MaterializedAction = {tipo:"enviar_mensagem";texto:string} | {tipo:"enviar_midia";tipo_midia:"image"|"video";url:string;legenda?:string} | {tipo:"aguardar";minutos:number} | {tipo:"condicao";campo:string;valor:string|number|boolean};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,8 +28,9 @@ Deno.serve(async (req) => {
     if (bpErr) throw bpErr;
     if (!bp) throw new Error("blueprint not found");
 
-    const nodes = (bp.blueprint as any)?.nodes || [];
-    const acoes: any[] = [];
+    const blueprint = z.object({nodes:z.array(z.object({blocks:z.array(blockSchema).nullish()}).passthrough()).nullish()}).passthrough().parse(bp.blueprint || {});
+    const nodes = blueprint.nodes || [];
+    const acoes: MaterializedAction[] = [];
     for (const node of nodes) {
       for (const block of (node.blocks || [])) {
         if (block.type === "text" || block.type === "ai_prompt") {

@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ const STATUS = ["ativo", "pausado", "banido"];
 
 export function DevicesTab() {
   const [devices, setDevices] = useState<Device[]>([]);
-  const [contas, setContas] = useState<any[]>([]);
+  const [contas, setContas] = useState<Array<Pick<Tables<"imphq_empresa">, "id" | "nome" | "tipo" | "cloud_phone_ref">>>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Device | null>(null);
@@ -30,11 +31,11 @@ export function DevicesTab() {
 
   const load = async () => {
     const [d, c, p] = await Promise.all([
-      supabase.from("imphq_cloud_phones" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_cloud_phones").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_empresa").select("id, nome, tipo, cloud_phone_ref"),
       supabase.from("imphq_projects").select("id, name").order("name"),
     ]);
-    setDevices((d.data as any) || []);
+    setDevices(d.data || []);
     setContas(c.data || []);
     setProjects(p.data || []);
   };
@@ -44,13 +45,13 @@ export function DevicesTab() {
   const openEdit = (d: Device) => { setEdit(d); setForm(d); setOpen(true); };
 
   const save = async () => {
-    const { id, ...payload } = form as any;
+    const { id, ...payload } = form;
     if (edit) {
-      const { error } = await (supabase.from("imphq_cloud_phones" as any) as any).update(payload).eq("id", edit.id);
+      const { error } = await supabase.from("imphq_cloud_phones").update(payload).eq("id", edit.id);
       if (error) return toast.error(error.message);
       toast.success("Device atualizado");
     } else {
-      const { error } = await (supabase.from("imphq_cloud_phones" as any) as any).insert(payload);
+      const { error } = await supabase.from("imphq_cloud_phones").insert(payload);
       if (error) return toast.error(error.message);
       toast.success("Device criado");
     }
@@ -59,7 +60,7 @@ export function DevicesTab() {
 
   const remove = async (id: string) => {
     if (!confirm("Remover este device? As contas vinculadas ficam sem device.")) return;
-    const { error } = await (supabase.from("imphq_cloud_phones" as any) as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_cloud_phones").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Removido"); load();
   };

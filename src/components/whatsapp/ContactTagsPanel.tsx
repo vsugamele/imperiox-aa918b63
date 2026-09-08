@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { X, Plus, Tag as TagIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -25,31 +25,31 @@ export default function ContactTagsPanel({ projectId, phone }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_contact_tags")
       .select("id, tag, color")
       .eq("project_id", projectId)
       .eq("phone", phone)
       .order("created_at");
-    setTags((data as any) || []);
-  };
+    setTags(data || []);
+  }, [projectId, phone]);
 
-  const loadSuggestions = async () => {
+  const loadSuggestions = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_wa_contact_tags")
       .select("tag")
       .eq("project_id", projectId)
       .limit(50);
-    const uniq = Array.from(new Set(((data as any) || []).map((d: any) => d.tag)));
-    setSuggestions(uniq as string[]);
-  };
+    const uniq = Array.from(new Set((data || []).map((d) => d.tag)));
+    setSuggestions(uniq);
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId || !phone) return;
     load();
     loadSuggestions();
-  }, [projectId, phone]);
+  }, [projectId, phone, load, loadSuggestions]);
 
   const addTag = async (tagText?: string) => {
     const t = (tagText ?? newTag).trim();

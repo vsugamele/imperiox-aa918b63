@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText, record } from "./value.ts";
 // Shared helper to fan out push notifications respecting user preferences.
 // Each preference key in `imphq_notification_preferences` controls one event type.
 
@@ -19,7 +21,7 @@ export type NotificationKey =
   | "expert_mensagem";
 
 interface NotifyOpts {
-  supabase: any;
+  supabase: SupabaseClient;
   prefKey: NotificationKey;
   title: string;
   message: string;
@@ -31,20 +33,20 @@ export async function pushNotifyByPref({ supabase, prefKey, title, message, user
   try {
     let q = supabase
       .from("imphq_notification_preferences")
-      .select("user_id")
-      .eq(prefKey, true);
+      .select(`user_id, ${prefKey}`);
     if (user_ids && user_ids.length > 0) q = q.in("user_id", user_ids);
     const { data: prefRows, error } = await q;
     if (error) {
       console.error(`[push-notify:${prefKey}] pref query error:`, error);
       return;
     }
-    let recipients = (prefRows || []).map((r: any) => r.user_id).filter(Boolean);
+    const rows = (prefRows || []).map(record);
+    let recipients = rows.filter(r => r[prefKey] === true).map(r => r.user_id).filter((id): id is string => typeof id === "string" && !!id);
 
     // If a user has no preference row yet AND user_ids was provided, also notify
     // them (defaults are mostly ON), so first-time users still receive alerts.
     if (user_ids && user_ids.length > 0) {
-      const present = new Set(recipients);
+      const present = new Set(rows.map(r => r.user_id));
       const missing = user_ids.filter((u) => !present.has(u));
       recipients = [...recipients, ...missing];
     }
@@ -73,30 +75,21 @@ export async function pushNotifyByPref({ supabase, prefKey, title, message, user
 
 // Resolve which user IDs should receive notifications for a given project.
 // Strategy: project owner + team members with role admin/manager.
-export async function resolveProjectRecipients(supabase: any, projectId: string | null | undefined): Promise<string[]> {
+export async function resolveProjectRecipients(supabase: SupabaseClient, projectId: string | null | undefined): Promise<string[]> {
   if (!projectId) return [];
   try {
     const ids = new Set<string>();
     const { data: project } = await supabase
       .from("imphq_projects")
-      .select("user_id, owner_id, created_by")
+      .select("user_id")
       .eq("id", projectId)
       .maybeSingle();
     if (project) {
-      for (const k of ["user_id", "owner_id", "created_by"] as const) {
+      for (const k of ["user_id"] as const) {
         if (project[k]) ids.add(project[k]);
       }
     }
-    // Team members linked to project (best-effort, table may or may not exist with these columns)
-    try {
-      const { data: members } = await supabase
-        .from("imphq_team_members")
-        .select("user_id, role")
-        .eq("project_id", projectId);
-      (members || []).forEach((m: any) => {
-        if (m.user_id) ids.add(m.user_id);
-      });
-    } catch {/* ignore */ }
+    // The current schema has no project link on team_members; notify the verified project owner.
     return Array.from(ids);
   } catch (e) {
     console.error("[resolveProjectRecipients] error:", e);

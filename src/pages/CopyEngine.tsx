@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,13 +34,13 @@ export default function CopyEngine() {
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
-        .from("imphq_copy_engine_prompts" as any)
+        .from("imphq_copy_engine_prompts")
         .select("*")
         .order("intent");
       if (error) toast.error(error.message);
       else {
-        setPrompts((data || []) as any);
-        if (data?.length) setSelectedId((data[0] as any).id);
+        setPrompts(data || []);
+        if (data?.length) setSelectedId(data[0].id);
       }
       setLoading(false);
     })();
@@ -47,7 +48,7 @@ export default function CopyEngine() {
 
   const current = prompts.find((p) => p.id === selectedId) || null;
 
-  const patch = (field: keyof Prompt, value: any) => {
+  const patch = <K extends keyof Prompt>(field: K, value: Prompt[K]) => {
     if (!current) return;
     setPrompts((arr) => arr.map((p) => (p.id === current.id ? { ...p, [field]: value } : p)));
   };
@@ -56,7 +57,7 @@ export default function CopyEngine() {
     if (!current) return;
     setSaving(true);
     const { error } = await supabase
-      .from("imphq_copy_engine_prompts" as any)
+      .from("imphq_copy_engine_prompts")
       .update({
         system_prompt: current.system_prompt,
         model: current.model,
@@ -81,8 +82,8 @@ export default function CopyEngine() {
       });
       if (error) throw error;
       setTestOutput(data?.content || JSON.stringify(data, null, 2));
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setTesting(false);
     }

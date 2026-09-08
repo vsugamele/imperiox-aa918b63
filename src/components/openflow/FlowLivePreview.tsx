@@ -1,29 +1,32 @@
+import type { LucideIcon } from "lucide-react";
+import { objectFields, jsonText } from "@/lib/json-fields";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Smartphone, X, Clock, GitFork, Bot, Tag, Zap, Image as ImageIcon, Mic, Mail } from "lucide-react";
 
 interface Props {
-  acoes: any[];
+  acoes: unknown[];
   triggerTipo: string;
   onClose: () => void;
 }
 
 // Extrai o texto/preview visível de cada tipo de ação (o que o lead "veria")
-function bubbleFromAcao(a: any): { role: "bot" | "system"; kind: string; text: string; icon?: any } | null {
-  const t = a?.tipo;
-  const cfg = a?.config || a || {};
+function bubbleFromAcao(value: unknown): { role: "bot" | "system"; kind: string; text: string; icon?: LucideIcon } | null {
+  const a = objectFields(value);
+  const t = a.tipo;
+  const cfg = a.config ? objectFields(a.config) : a;
   if (t === "whatsapp") {
-    const txt = cfg.mensagem || cfg.text || cfg.content || "";
+    const txt = jsonText(cfg.template) || jsonText(cfg.mensagem) || jsonText(cfg.text) || jsonText(cfg.content) || "";
     return { role: "bot", kind: "text", text: txt || "(mensagem vazia)" };
   }
-  if (t === "audio") return { role: "bot", kind: "audio", text: cfg.transcript || cfg.mensagem || "🎤 Áudio", icon: Mic };
-  if (t === "generate_image" || cfg.image_url) return { role: "bot", kind: "image", text: cfg.prompt || cfg.caption || "🖼️ Imagem gerada", icon: ImageIcon };
-  if (t === "email") return { role: "bot", kind: "email", text: `📧 ${cfg.assunto || cfg.subject || "E-mail"}`, icon: Mail };
+  if (t === "audio") return { role: "bot", kind: "audio", text: jsonText(cfg.template) || jsonText(cfg.transcript) || jsonText(cfg.mensagem) || "🎤 Áudio", icon: Mic };
+  if (t === "generate_image" || cfg.image_url) return { role: "bot", kind: "image", text: jsonText(cfg.prompt) || jsonText(cfg.caption) || "🖼️ Imagem gerada", icon: ImageIcon };
+  if (t === "email") return { role: "bot", kind: "email", text: `📧 ${jsonText(cfg.assunto) || jsonText(cfg.subject) || "E-mail"}`, icon: Mail };
   if (t === "ia_message" || t === "gpt_prompt" || t === "ai_agent") {
-    return { role: "bot", kind: "ai", text: cfg.prompt || cfg.mensagem || "🤖 Resposta gerada por IA", icon: Bot };
+    return { role: "bot", kind: "ai", text: jsonText(cfg.template) || jsonText(cfg.prompt) || jsonText(cfg.mensagem) || "🤖 Resposta gerada por IA", icon: Bot };
   }
   if (t === "aguardar" || t === "delay" || t === "espera") {
-    const min = cfg.minutos || cfg.minutes || cfg.delay_minutes || 0;
+    const min = cfg.delay_min || cfg.minutos || cfg.minutes || cfg.delay_minutes || 0;
     const hr = cfg.horas || cfg.hours || 0;
     const label = hr ? `${hr}h ${min ? min + "min" : ""}` : `${min || 0}min`;
     return { role: "system", kind: "delay", text: `⏱ aguardando ${label}`, icon: Clock };
@@ -37,9 +40,9 @@ function bubbleFromAcao(a: any): { role: "bot" | "system"; kind: string; text: s
   if (t === "webhook_call") return { role: "system", kind: "webhook", text: `🔗 webhook → ${cfg.url || "?"}`, icon: Zap };
   if (t === "wait_reply" || t === "input_capture") return { role: "system", kind: "wait", text: `👂 aguardando resposta${cfg.variable ? ` → {{${cfg.variable}}}` : cfg.capture_variable ? ` → {{${cfg.capture_variable}}}` : ""}` };
   if (t === "quick_reply") {
-    const opts: any[] = Array.isArray(cfg.options) ? cfg.options : [];
-    const list = opts.map((o, idx) => `${idx + 1}) ${typeof o === "string" ? o : (o?.label || "")}`).join("\n");
-    const q = cfg.question || cfg.mensagem || "Escolha uma opção:";
+    const opts = Array.isArray(cfg.options) ? cfg.options : [];
+    const list = opts.map((o, idx) => `${idx + 1}) ${typeof o === "string" ? o : (jsonText(objectFields(o).label) || "")}`).join("\n");
+    const q = cfg.question || jsonText(cfg.mensagem) || "Escolha uma opção:";
     return { role: "bot", kind: "quick", text: `${q}\n\n${list || "(sem opções)"}` };
   }
   return null;

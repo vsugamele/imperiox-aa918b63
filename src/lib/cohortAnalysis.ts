@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
 
 export interface LeadRow {
   id: string;
@@ -7,7 +9,7 @@ export interface LeadRow {
   email: string | null;
   phone: string | null;
   nome: string | null;
-  data: any;
+  data: Json;
 }
 
 export interface VendaRow {
@@ -71,13 +73,13 @@ const monthsBetween = (a: string, b: string): number => {
 };
 
 export const extractUtmSource = (lead: LeadRow): string => {
-  const d = lead.data || {};
+  const d = jsonFields(lead.data);
   const src =
     d.utm_source ||
     d.utmSource ||
     d.source ||
     d.origem ||
-    (d.utm && d.utm.source) ||
+    jsonFields(d.utm).source ||
     "direto";
   return String(src || "direto").toLowerCase().trim() || "direto";
 };
@@ -106,15 +108,15 @@ export async function fetchCohortDataset(projectId?: string) {
   const [leadsRes, vendasRes, adsRes] = await Promise.all([leadsQ, vendasQ, adsQ]);
 
   const leads = filterByProject((leadsRes.data || []) as LeadRow[]);
-  const vendas = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
+  const vendas: VendaRow[] = filterByProject(vendasRes.data || []).map((v) => ({
     ...v,
     valor: Number(v.valor || 0),
     valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null,
-  })) as VendaRow[];
-  const ads = filterByProject((adsRes.data || []) as any[]).map((a) => ({
+  }));
+  const ads: AdsSpendRow[] = filterByProject(adsRes.data || []).map((a) => ({
     ...a,
     valor: Number(a.valor || 0),
-  })) as AdsSpendRow[];
+  }));
 
   return { leads, vendas, ads };
 }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,39 @@ interface Automacao {
   id: string;
   nome: string;
   trigger_tipo: string;
-  acoes: any[];
+  acoes: unknown;
   ativo: boolean;
   project_id?: string;
+}
+
+type SearchLead = Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "email" | "status" | "score" | "tags" | "data">;
+type PreviewLead = Pick<SearchLead, "nome" | "phone" | "email"> & { produto?: string; valor?: string; link?: string };
+interface SimulationAction {
+  tipo: string; mensagem?: string; corpo?: string; assunto?: string; text?: string; content?: string;
+  tag?: string; valor?: string; condicao?: string; condicao_tipo?: string; event_name?: string;
+  operator_name?: string; template?: string; gpt_model?: string; gpt_save_variable?: string;
+  delay_min?: number; aguardar_min?: number; minutos?: number; timeout_min?: number; rota_a_porcentagem?: number; jump_steps?: number;
+}
+function parseActions(value: unknown): SimulationAction[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(item => {
+    const source: Record<string, unknown> = typeof item === "object" && item !== null ? item : {};
+    const action: SimulationAction = { tipo: typeof source.tipo === "string" ? source.tipo : "unknown" };
+    for (const key of ["mensagem", "corpo", "assunto", "text", "content", "tag", "valor", "condicao", "condicao_tipo", "event_name", "operator_name", "template", "gpt_model", "gpt_save_variable"] as const) {
+      if (typeof source[key] === "string") action[key] = source[key];
+    }
+    for (const key of ["delay_min", "aguardar_min", "minutos", "timeout_min", "rota_a_porcentagem", "jump_steps"] as const) {
+      const number = Number(source[key]);
+      if (Number.isFinite(number) && source[key] != null) action[key] = number;
+    }
+    return action;
+  });
+}
+interface SimulationResult {
+  auto: Automacao; trigger: string; lead: PreviewLead;
+  steps: Array<{ index: number; tipo: string; label: string; preview: string; raw: SimulationAction }>;
+  totalDelay: number; messageCount: number;
+  stats: { total: number; messages: number; delays: number; conditions: number; tags: number };
 }
 
 interface Props {
@@ -40,7 +71,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 };
 
 function stepIcon(tipo: string) {
-  const map: Record<string, any> = {
+  const map: Record<string, ReactNode> = {
     whatsapp: <MessageCircle className="h-3.5 w-3.5 text-emerald-400" />,
     email: <Mail className="h-3.5 w-3.5 text-blue-400" />,
     audio: <Mic className="h-3.5 w-3.5 text-rose-400" />,
@@ -60,7 +91,7 @@ function stepIcon(tipo: string) {
   return map[tipo] || <Zap className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
-function renderStepPreview(step: any, lead: any) {
+function renderStepPreview(step: SimulationAction, lead: PreviewLead) {
   const replacePlaceholders = (text: string) => {
     return (text || "")
       .replace(/\{\{nome\}\}/gi, lead.nome || "Lead")
@@ -119,11 +150,11 @@ export function FlowSimulator({ automacoes, projects }: Props) {
   const [selectedAutoId, setSelectedAutoId] = useState("");
   const [triggerEvento, setTriggerEvento] = useState("compra_aprovada");
   const [leadSearch, setLeadSearch] = useState("");
-  const [foundLeads, setFoundLeads] = useState<any[]>([]);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [foundLeads, setFoundLeads] = useState<SearchLead[]>([]);
+  const [selectedLead, setSelectedLead] = useState<SearchLead | null>(null);
   const [searching, setSearching] = useState(false);
   const [simulating, setSimulating] = useState(false);
-  const [simResult, setSimResult] = useState<any>(null);
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
 
   const selectedAuto = automacoes.find(a => a.id === selectedAutoId);
 
@@ -155,7 +186,7 @@ export function FlowSimulator({ automacoes, projects }: Props) {
         link: "https://checkout.exemplo.com/pay",
       };
 
-      const steps = (selectedAuto.acoes || []).map((step: any, idx: number) => ({
+      const steps = parseActions(selectedAuto.acoes).map((step, idx: number) => ({
         index: idx + 1,
         tipo: step.tipo,
         label: stepLabel(step.tipo),
@@ -164,10 +195,10 @@ export function FlowSimulator({ automacoes, projects }: Props) {
       }));
 
       const totalDelay = steps
-        .filter((s: any) => s.tipo === "aguardar" || s.tipo === "delay")
-        .reduce((acc: number, s: any) => acc + (s.raw.delay_min || s.raw.aguardar_min || s.raw.minutos || 0), 0);
+        .filter((s) => s.tipo === "aguardar" || s.tipo === "delay")
+        .reduce((acc: number, s) => acc + (s.raw.delay_min || s.raw.aguardar_min || s.raw.minutos || 0), 0);
 
-      const messageSteps = steps.filter((s: any) => ["whatsapp", "email", "audio", "ia_message", "telegram"].includes(s.tipo));
+      const messageSteps = steps.filter((s) => ["whatsapp", "email", "audio", "ia_message", "telegram"].includes(s.tipo));
 
       setSimResult({
         auto: selectedAuto,
@@ -179,9 +210,9 @@ export function FlowSimulator({ automacoes, projects }: Props) {
         stats: {
           total: steps.length,
           messages: messageSteps.length,
-          delays: steps.filter((s: any) => s.tipo === "aguardar" || s.tipo === "delay").length,
-          conditions: steps.filter((s: any) => s.tipo === "condicao").length,
-          tags: steps.filter((s: any) => s.tipo === "adicionar_tag" || s.tipo === "remover_tag").length,
+          delays: steps.filter((s) => s.tipo === "aguardar" || s.tipo === "delay").length,
+          conditions: steps.filter((s) => s.tipo === "condicao").length,
+          tags: steps.filter((s) => s.tipo === "adicionar_tag" || s.tipo === "remover_tag").length,
         }
       });
       setSimulating(false);
@@ -358,7 +389,7 @@ export function FlowSimulator({ automacoes, projects }: Props) {
             ) : (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-foreground mb-3">Jornada do lead:</p>
-                {simResult.steps.map((step: any, idx: number) => (
+                {simResult.steps.map((step, idx: number) => (
                   <div key={idx} className="flex gap-3">
                     {/* Timeline line */}
                     <div className="flex flex-col items-center">

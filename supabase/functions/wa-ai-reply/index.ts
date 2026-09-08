@@ -14,6 +14,17 @@ import {
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
 
+
+import { z } from "https://esm.sh/zod@3.25.76";
+function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function records(value: unknown): Record<string, unknown>[] { return Array.isArray(value) ? value.map(record) : []; }
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+interface LeadRow { id: string; email?: string | null; nome?: string | null; name?: string | null; phone?: string | null; campanha_id?: string | null; tags?: string[] | null; score?: number | null; dor_principal?: string | null; objecao_atual?: string | null; nivel_qualificacao?: string | null; lead_memory?: Record<string, unknown> | null; data?: Record<string, unknown> | null }
+interface ProjectRule { id: string; rule_text: string; rule_type: string; ab_group_id: string | null; ab_status: string | null }
+interface KnowledgeMatch { pergunta: string; resposta: string }
+interface ConversationUpdate { ai_last_reply_at: string; ai_lock_until: null; last_message: string; last_message_at: string; last_message_direction: string; message_count: number; last_pitch_at?: string; last_pitch_link?: string | null; pitch_followup_stage?: number; pitch_followup_last_at?: null; status?: string }
+const activeStepSchema = z.object({ tipo: z.string(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), template_b: z.string().nullish(), mensagem_b: z.string().nullish(), personality: z.string().nullish(), ia_model: z.string().nullish(), ia_routes: z.array(z.object({ name: z.string(), jump_steps: z.number().optional() }).passthrough()).nullish(), ia_search_web: z.boolean().nullish(), ia_search_files: z.boolean().nullish(), ia_vision: z.boolean().nullish(), ia_voice_response: z.boolean().nullish(), voice_provider: z.string().nullish(), voice_id: z.string().nullish(), voice_stability: z.number().nullish(), voice_clarity: z.number().nullish() }).passthrough();
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -42,8 +53,8 @@ Deno.serve(async (req) => {
           .eq("id", conversation_id)
           .maybeSingle();
         if (convRow?.provider_id) provider_id = convRow.provider_id;
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] provider_id fallback lookup error:", e?.message);
+      } catch (e) {
+        console.warn("[wa-ai-reply] provider_id fallback lookup error:", errorMessage(e));
       }
     }
     let message = body.message || "";
@@ -58,8 +69,8 @@ Deno.serve(async (req) => {
       }
       console.log(`[wa-ai-reply] TEST MODE ENABLED (#testeia keyword found). Cleaned message: "${message}"`);
     }
-    
-    let leadRow: any = null;
+
+    let leadRow: LeadRow | null = null;
     if (phone && project_id) {
       try {
         const { data: lead } = await supabase
@@ -69,8 +80,8 @@ Deno.serve(async (req) => {
           .eq("project_id", project_id)
           .maybeSingle();
         leadRow = lead;
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] Query leadRow error:", e.message);
+      } catch (e) {
+        console.warn("[wa-ai-reply] Query leadRow error:", errorMessage(e));
       }
     }
 
@@ -90,7 +101,7 @@ Deno.serve(async (req) => {
       /\bacabei\s+de\s+pagar\b/i,
     ];
     let isPaymentConfirmation = false;
-    let recentVendaContext: any = null;
+    let recentVendaContext: { id: string; status: string; produto_nome: string | null; valor: number; created_at: string } | null = null;
     if (leadRow?.id && message) {
       isPaymentConfirmation = PAYMENT_CONFIRM_PATTERNS.some((re) => re.test(message));
       if (isPaymentConfirmation) {
@@ -105,14 +116,14 @@ Deno.serve(async (req) => {
             .limit(3);
           recentVendaContext = vendas?.[0] || null;
           console.log(`[wa-ai-reply] 💸 Payment confirmation detected. Recent venda: ${recentVendaContext?.id || "none"} (${recentVendaContext?.status || "n/a"})`);
-        } catch (e: any) {
-          console.warn("[wa-ai-reply] Error loading recent venda:", e?.message);
+        } catch (e) {
+          console.warn("[wa-ai-reply] Error loading recent venda:", errorMessage(e));
         }
       }
     }
 
     let activeStepInstruction = "";
-    let activeStep: any = null;
+    let activeStep: z.infer<typeof activeStepSchema> | null = null;
     let activeExecutionId = null;
     let activeAutomacaoNome = "";
     let activeExecutionStep = 0;
@@ -126,25 +137,25 @@ Deno.serve(async (req) => {
       try {
         const { data: activeExec } = await supabase
           .from("imphq_flow_executions")
-          .select("id, automacao_id, current_step, trigger_tipo, step_results")
+          .select("id, automacao_id, current_step, trigger_tipo, step_results, status")
           .eq("lead_id", leadRow.id)
           .in("status", ["running", "waiting"])
-          .order("created_at", { descending: false })
+          .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
-          
+
         if (activeExec) {
           console.log(`[wa-ai-reply] Active flow execution found: ${activeExec.id}, step: ${activeExec.current_step}`);
           const { data: automacao } = await supabase
             .from("imphq_automacoes")
-            .select("id, nome, acoes")
+            .select("id, nome, acoes, etapas")
             .eq("id", activeExec.automacao_id)
             .single();
-            
+
           if (automacao) {
             activeAutomacaoNome = automacao.nome || "";
             const rawAcoes = automacao.acoes || automacao.etapas || [];
-            const step = rawAcoes[activeExec.current_step];
+            const step = rawAcoes[activeExec.current_step] ? activeStepSchema.parse(rawAcoes[activeExec.current_step]) : null;
             if (step) {
               activeStep = step;
               activeExecutionId = activeExec.id;
@@ -156,7 +167,7 @@ Deno.serve(async (req) => {
 
               // Incrementar reply_count para esta etapa ativa no step_results
               const stepResults = Array.isArray(activeExec.step_results) ? activeExec.step_results : [];
-              let currentStepResIdx = stepResults.findIndex((r: any) => r.step === activeExecutionStep);
+              let currentStepResIdx = stepResults.findIndex((r) => r.step === activeExecutionStep);
               if (currentStepResIdx === -1) {
                 stepResults.push({
                   step: activeExecutionStep,
@@ -214,19 +225,19 @@ Deno.serve(async (req) => {
                       conversation_id: body.conversation_id || "",
                     },
                   }),
-                }).catch((e: any) => console.error("[wa-ai-reply] resume error:", e.message));
+                }).catch((e: unknown) => console.error("[wa-ai-reply] resume error:", errorMessage(e)));
               }
             }
           }
         }
-      } catch (err: any) {
-        console.error("[wa-ai-reply] Error reading active flow:", err.message);
+      } catch (err) {
+        console.error("[wa-ai-reply] Error reading active flow:", errorMessage(err));
       }
     }
-    
+
     const isAudio = body.media_type === "audio" || (body.media_url && (body.media_url.endsWith(".ogg") || body.media_url.endsWith(".mp3") || body.media_url.endsWith(".m4a") || body.media_url.endsWith(".wav")));
     const isImage = (body.media_type === "image" || (body.media_url && (body.media_url.endsWith(".png") || body.media_url.endsWith(".jpg") || body.media_url.endsWith(".jpeg") || body.media_url.endsWith(".webp")))) && (!activeStep || activeStep.ia_vision !== false);
-    
+
     let audioTranscription: string | null = null; // Track transcription for metadata
 
     if (isAudio && body.media_url) {
@@ -246,8 +257,8 @@ Deno.serve(async (req) => {
           audioTranscription = existingMsg.transcript;
           console.log(`[wa-ai-reply] Transcript reutilizado do DB: "${message.slice(0, 80)}"`);
         }
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] transcript reuse skip:", e?.message);
+      } catch (e) {
+        console.warn("[wa-ai-reply] transcript reuse skip:", errorMessage(e));
       }
     }
 
@@ -298,8 +309,8 @@ Deno.serve(async (req) => {
                     .eq("id", latestMsg.id);
                   console.log(`[wa-ai-reply] Persisted transcript for message ${latestMsg.id}`);
                 }
-              } catch (dbErr: any) {
-                console.warn("[wa-ai-reply] Failed to save transcript in DB:", dbErr.message);
+              } catch (dbErr) {
+                console.warn("[wa-ai-reply] Failed to save transcript in DB:", errorMessage(dbErr));
               }
 
               if (project_id && message) {
@@ -315,8 +326,8 @@ Deno.serve(async (req) => {
                     });
                     console.log(`[wa-ai-reply] Audio indexado na memoria do lead: phone=${phone}`);
                   }
-                } catch (embErr: any) {
-                  console.error("[wa-ai-reply] embedding error for audio:", embErr.message);
+                } catch (embErr) {
+                  console.error("[wa-ai-reply] embedding error for audio:", errorMessage(embErr));
                 }
               }
             } else {
@@ -325,8 +336,8 @@ Deno.serve(async (req) => {
           } else {
             console.error("[wa-ai-reply] Failed to fetch audio file:", audioFetch.status);
           }
-        } catch (err: any) {
-          console.error("[wa-ai-reply] ElevenLabs STT error:", err.message);
+        } catch (err) {
+          console.error("[wa-ai-reply] ElevenLabs STT error:", errorMessage(err));
         }
       } else {
         console.warn("[wa-ai-reply] ELEVENLABS_API_KEY not configured, cannot transcribe voice message.");
@@ -395,7 +406,7 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true });
 
       if (batch && batch.length > 1) {
-        const joined = batch.map((m: any) => String(m.content || "").trim()).filter(Boolean).join("\n");
+        const joined = batch.map((m) => String(m.content || "").trim()).filter(Boolean).join("\n");
         if (joined && joined.length > 0) {
           message = joined;
           console.log(`[wa-ai-reply] DEBOUNCE: agregadas ${batch.length} msgs em uma única consulta para o LLM`);
@@ -456,7 +467,7 @@ Deno.serve(async (req) => {
       const { data, error } = await query;
       configErr = error;
       if (data && data.length > 0) {
-        aiConfig = data.find((c: any) => !c.provider_id) || data[0];
+        aiConfig = data.find((c) => !c.provider_id) || data[0];
         console.log(`[wa-ai-reply] AI Config found for project_id=${project_id} (fallback) (TestMode=${isTestMode})`);
       }
     }
@@ -488,7 +499,7 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection, handoff_at, ai_pending_since, buy_intent_detected")
       .eq("id", conversation_id)
       .maybeSingle();
 
@@ -502,7 +513,7 @@ Deno.serve(async (req) => {
 
     if (conv?.status === "needs_human" && !isTestMode) {
       // Auto-resume: se nenhum humano respondeu após o handoff dentro do timeout configurado, IA reassume
-      const autoResumeMinutes = Number((aiConfig as any)?.handoff_auto_resume_minutes ?? 30);
+      const autoResumeMinutes = Number(aiConfig?.handoff_auto_resume_minutes ?? 30);
       let autoResumeHandoff = false;
       if (autoResumeMinutes > 0) {
         try {
@@ -515,7 +526,7 @@ Deno.serve(async (req) => {
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
-          const handoffAt = (conv as any)?.handoff_at ? new Date((conv as any).handoff_at).getTime() : 0;
+          const handoffAt = conv?.handoff_at ? new Date(conv.handoff_at).getTime() : 0;
           const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
           const refAt = Math.max(handoffAt, lastOutAt);
           const minutesSince = refAt ? (Date.now() - refAt) / 60_000 : Infinity;
@@ -564,8 +575,8 @@ Deno.serve(async (req) => {
             payload: { conversation_id, reason: hit.reason, snippet: String(message).slice(0, 300) },
             lida: false,
           });
-        } catch (e: any) {
-          console.warn(`[wa-ai-reply] handoff persist error: ${e?.message}`);
+        } catch (e) {
+          console.warn(`[wa-ai-reply] handoff persist error: ${errorMessage(e)}`);
         }
         return new Response(JSON.stringify({ skipped: "handoff_humano", reason: hit.reason }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -605,8 +616,8 @@ Deno.serve(async (req) => {
               console.log(`[wa-ai-reply] resume_reason=human_followup elapsed=${elapsedMin.toFixed(1)}min new_incoming=${newIncoming}`);
             }
           }
-        } catch (e: any) {
-          console.warn(`[wa-ai-reply] auto-resume check error: ${e?.message}`);
+        } catch (e) {
+          console.warn(`[wa-ai-reply] auto-resume check error: ${errorMessage(e)}`);
         }
         if (!autoResume) {
           const remainMin = Math.ceil((pausedUntil.getTime() - Date.now()) / 60000);
@@ -681,7 +692,7 @@ Deno.serve(async (req) => {
           });
         }
         // Dentro do horário: limpa pending se houver
-        if (conv.ai_pending_since) {
+        if (conv?.ai_pending_since) {
           await supabase
             .from("imphq_wa_conversations")
             .update({ ai_pending_since: null })
@@ -713,8 +724,7 @@ Deno.serve(async (req) => {
         supabase.from("imphq_wa_conversations")
           .update({ buy_intent_detected: true, temperature: "hot" })
           .eq("id", conversation_id)
-          .then(() => {})
-          .catch(() => {});
+          .then(() => {}, () => {});
       }
 
       // CONSULTIVE INTENT — lead pediu ajuda pra ESCOLHER entre produtos/cursos.
@@ -745,13 +755,13 @@ Deno.serve(async (req) => {
       // 🔎 Recheck: se o lead enviou algo NOVO depois desta invocação (durante debounce/latência),
       // usa a última mensagem incoming como `message` para não responder com contexto obsoleto.
       try {
-        const incomings = (history || []).filter((h: any) => h.direction === "incoming");
+        const incomings = (history || []).filter((h) => h.direction === "incoming");
         const latest = incomings[0];
         if (latest?.content && String(latest.content).trim() !== String(message || "").trim()) {
           console.log(`[wa-ai-reply] 🔄 recheck: msg mais recente difere do payload — usando "${String(latest.content).slice(0,60)}"`);
           message = String(latest.content);
         }
-      } catch {}
+      } catch { /* Optional enrichment must not block the reply. */ }
 
 
 
@@ -765,7 +775,7 @@ Deno.serve(async (req) => {
 
       // 7.0. Busca informações do lead para injetar inteligência comportamental
       let leadContextBlock = "";
-      let lead: any = null; // declarado aqui para ficar acessível no closerBlock (linha ~743)
+      let lead: LeadRow | null = null; // declarado aqui para ficar acessível no closerBlock (linha ~743)
       try {
         const cleanPhone = phone.replace(/\D/g, "");
         const searchPhones = [cleanPhone];
@@ -790,7 +800,7 @@ Deno.serve(async (req) => {
         }
 
         if (lead) {
-          const aiProfile = lead.data?.ai_profile || {};
+          const aiProfile = record(lead.data?.ai_profile);
           const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
           const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
           const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
@@ -813,7 +823,7 @@ Deno.serve(async (req) => {
       // ====== MEMÓRIA DE LONGO PRAZO DO LEAD (lead_memory + histórico de compras) ======
       let leadLongMemoryBlock = "";
       try {
-        const mem: any = lead?.lead_memory || {};
+        const mem = record(lead?.lead_memory);
         const lines: string[] = [];
 
         // ✅ DADOS JÁ CAPTURADOS — nunca pedir de novo
@@ -828,7 +838,7 @@ Deno.serve(async (req) => {
               if (lead?.id) {
                 try {
                   await supabase.from("imphq_leads").update({ email: effectiveEmail }).eq("id", lead.id).is("email", null);
-                  (lead as any).email = effectiveEmail;
+                  lead.email = effectiveEmail;
                   console.log(`[wa-ai-reply] 🔁 email retroativo capturado do histórico lead=${lead.id} email=${effectiveEmail}`);
                 } catch (_) { /* ignora */ }
               }
@@ -849,11 +859,11 @@ Deno.serve(async (req) => {
 
         if (mem.nome_preferido) lines.push(`- Prefere ser chamado(a) de: ${String(mem.nome_preferido).slice(0, 80)}`);
         if (mem.interesse_principal) lines.push(`- Interesse principal: ${String(mem.interesse_principal).slice(0, 150)}`);
-        if (mem.informacoes_pessoais?.profissao) lines.push(`- Profissão: ${String(mem.informacoes_pessoais.profissao).slice(0, 100)}`);
-        if (mem.informacoes_pessoais?.objetivo) lines.push(`- Objetivo declarado: ${String(mem.informacoes_pessoais.objetivo).slice(0, 200)}`);
-        const dorMem = mem.informacoes_pessoais?.dor_principal || lead?.dor_principal;
+        if (record(mem.informacoes_pessoais).profissao) lines.push(`- Profissão: ${String(record(mem.informacoes_pessoais).profissao).slice(0, 100)}`);
+        if (record(mem.informacoes_pessoais).objetivo) lines.push(`- Objetivo declarado: ${String(record(mem.informacoes_pessoais).objetivo).slice(0, 200)}`);
+        const dorMem = record(mem.informacoes_pessoais).dor_principal || lead?.dor_principal;
         if (dorMem) lines.push(`- Dor principal: ${String(dorMem).slice(0, 200)}`);
-        if (mem.objecao_atual || lead?.objecao_atual) lines.push(`- ⚠️ Objeção ATUAL travando a venda: "${String(mem.objecao_atual || lead.objecao_atual).slice(0, 200)}" — sua resposta DEVE endereçá-la.`);
+        if (mem.objecao_atual || lead?.objecao_atual) lines.push(`- ⚠️ Objeção ATUAL travando a venda: "${String(mem.objecao_atual || lead?.objecao_atual).slice(0, 200)}" — sua resposta DEVE endereçá-la.`);
         if (Array.isArray(mem.objecoes_recorrentes) && mem.objecoes_recorrentes.length) {
           lines.push(`- Objeções recorrentes: ${mem.objecoes_recorrentes.slice(-5).join(" | ")}`);
         }
@@ -868,7 +878,7 @@ Deno.serve(async (req) => {
         if (lead?.nivel_qualificacao) lines.push(`- Nível de qualificação: ${lead.nivel_qualificacao.toUpperCase()}`);
 
         // 🧭 QUALIFICAÇÃO CONSULTIVA (dimensões preenchidas → não repetir pergunta)
-        const q = mem.qualificacao || {};
+        const q = record(mem.qualificacao);
         const qFilled: string[] = [];
         const qMissing: string[] = [];
         const qLabels: Record<string, string> = {
@@ -905,8 +915,8 @@ Deno.serve(async (req) => {
               .order("created_at", { ascending: false })
               .limit(3);
             if (pastVendas && pastVendas.length) {
-              const compras = pastVendas.map((v: any) => {
-                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+              const compras = pastVendas.map((v) => {
+                const dt = v.created_at ? new Date(String(v.created_at)).toLocaleDateString("pt-BR") : "";
                 return `${v.produto_nome || "produto"}${dt ? ` em ${dt}` : ""}`;
               }).join(" | ");
               lines.push(`- 💰 Já comprou: ${compras} — NUNCA reofereça esses produtos; foque em upsell/cross.`);
@@ -917,8 +927,8 @@ Deno.serve(async (req) => {
         if (lines.length > 0) {
           leadLongMemoryBlock = `\n📌 MEMÓRIA DE LONGO PRAZO DO LEAD (use SEM perguntar de novo o que já está aqui):\n${lines.join("\n")}\n`;
         }
-      } catch (memErr: any) {
-        console.warn("[wa-ai-reply] long memory block error:", memErr?.message);
+      } catch (memErr) {
+        console.warn("[wa-ai-reply] long memory block error:", errorMessage(memErr));
       }
 
       // ====== MEMÓRIA CROSS-PROJETO (mesmo telefone em outros projetos) ======
@@ -932,16 +942,16 @@ Deno.serve(async (req) => {
           if (crossErr) {
             console.warn("[wa-ai-reply] get_lead_cross_memory error:", crossErr.message);
           } else if (cross && typeof cross === "object") {
-            const otherLeads = Array.isArray((cross as any).leads) ? (cross as any).leads : [];
-            const otherVendas = Array.isArray((cross as any).vendas) ? (cross as any).vendas : [];
-            const otherMems = Array.isArray((cross as any).memories) ? (cross as any).memories : [];
+            const otherLeads = records(record(cross).leads);
+            const otherVendas = records(record(cross).vendas);
+            const otherMems = records(record(cross).memories);
             const xLines: string[] = [];
 
             // Map project_id -> nome (best-effort, leve)
             const projIds = Array.from(new Set([
-              ...otherLeads.map((l: any) => l.project_id),
-              ...otherVendas.map((v: any) => v.project_id),
-              ...otherMems.map((m: any) => m.project_id),
+              ...otherLeads.map((l) => l.project_id),
+              ...otherVendas.map((v) => v.project_id),
+              ...otherMems.map((m) => m.project_id),
             ].filter(Boolean).map(String)));
             const projMap: Record<string, string> = {};
             if (projIds.length) {
@@ -950,36 +960,36 @@ Deno.serve(async (req) => {
                   .from("imphq_projects")
                   .select("id,name")
                   .in("id", projIds);
-                (projs || []).forEach((p: any) => { projMap[String(p.id)] = p.name; });
+                (projs || []).forEach((p) => { projMap[String(p.id)] = p.name; });
               } catch (_) { /* non-critical */ }
             }
-            const projName = (id: any) => projMap[String(id)] || `projeto ${String(id).slice(0,6)}`;
+            const projName = (id: unknown) => projMap[String(id)] || `projeto ${String(id).slice(0,6)}`;
 
             if (otherVendas.length) {
-              const compras = otherVendas.slice(0, 5).map((v: any) => {
-                const dt = v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "";
+              const compras = otherVendas.slice(0, 5).map((v) => {
+                const dt = v.created_at ? new Date(String(v.created_at)).toLocaleDateString("pt-BR") : "";
                 return `${v.produto_nome || "produto"} (${projName(v.project_id)}${dt ? `, ${dt}` : ""})`;
               }).join(" | ");
               xLines.push(`- 🌐 Já comprou em OUTROS projetos: ${compras} — esse lead já confia em nós; trate com proximidade e ofereça upgrade alinhado ao histórico.`);
             }
             if (otherLeads.length) {
               const dores = otherLeads
-                .map((l: any) => l.dor_principal)
+                .map((l) => l.dor_principal)
                 .filter(Boolean)
                 .slice(0, 3);
               if (dores.length) xLines.push(`- 🌐 Dores conhecidas em outros projetos: ${dores.join(" | ")}`);
               const objs = otherLeads
-                .map((l: any) => l.objecao_atual)
+                .map((l) => l.objecao_atual)
                 .filter(Boolean)
                 .slice(0, 3);
               if (objs.length) xLines.push(`- 🌐 Objeções já registradas em outros projetos: ${objs.join(" | ")}`);
               const niveis = otherLeads
-                .map((l: any) => l.nivel_qualificacao)
+                .map((l) => l.nivel_qualificacao)
                 .filter(Boolean);
               if (niveis.length) xLines.push(`- 🌐 Já foi classificado como: ${Array.from(new Set(niveis)).join(", ").toUpperCase()}`);
             }
             if (otherMems.length) {
-              const insights = otherMems.slice(0, 4).map((m: any) => {
+              const insights = otherMems.slice(0, 4).map((m) => {
                 const c = String(m.content || "").slice(0, 140);
                 return `[${m.memory_type || "obs"} · ${projName(m.project_id)}] ${c}`;
               });
@@ -991,8 +1001,8 @@ Deno.serve(async (req) => {
             }
           }
         }
-      } catch (xErr: any) {
-        console.warn("[wa-ai-reply] cross-project memory error:", xErr?.message);
+      } catch (xErr) {
+        console.warn("[wa-ai-reply] cross-project memory error:", errorMessage(xErr));
       }
 
 
@@ -1006,10 +1016,10 @@ Deno.serve(async (req) => {
           // Reflete mudanças no objeto em memória para o resto do fluxo enxergar
           if (extractionResult.detectedEmail && !leadForExtraction.email) {
             if (leadRow) leadRow.email = extractionResult.detectedEmail;
-            if (lead) (lead as any).email = extractionResult.detectedEmail;
+            if (lead) lead.email = extractionResult.detectedEmail;
           }
-        } catch (e: any) {
-          console.warn(`[wa-ai-reply] lead data extraction error: ${e?.message}`);
+        } catch (e) {
+          console.warn(`[wa-ai-reply] lead data extraction error: ${errorMessage(e)}`);
         }
       }
 
@@ -1032,18 +1042,18 @@ Deno.serve(async (req) => {
               jpEffectiveEmail = resolved.emailFound;
               try {
                 await supabase.from("imphq_leads").update({ email: resolved.emailFound }).eq("id", lead.id).is("email", null);
-              } catch {}
+              } catch { /* Optional enrichment must not block the reply. */ }
             }
             if (resolved.emailFound) jpEffectiveEmail = resolved.emailFound;
             jpCrmContextBlock = jpBuildContextBlock(resolved.lookup, jpEffectiveEmail);
-            const data = resolved.lookup?.data || resolved.lookup;
+            const data = record(resolved.lookup?.data || resolved.lookup);
             jpHasAccount = !!(data?.has_account ?? data?.user_exists);
             console.log(`[wa-ai-reply] JP_FREITAS lookup ok via=${resolved.source} email=${jpEffectiveEmail}`);
           } else {
             console.log(`[wa-ai-reply] JP_FREITAS lookup vazio (email=${jpEffectiveEmail || "—"} phone=${phoneForLookup || "—"})`);
           }
-        } catch (e: any) {
-          console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${e?.message}`);
+        } catch (e) {
+          console.warn(`[wa-ai-reply] JP_FREITAS lookup error: ${errorMessage(e)}`);
         }
 
         jpEmailKnown = !!jpEffectiveEmail;
@@ -1055,9 +1065,9 @@ Deno.serve(async (req) => {
       // 7.2.1. Momento atual (lead OU aluna) — injeta o estado salvo da última conversa
       let momentoBlock = "";
       try {
-        const intent = (conv as any)?.current_intent || "";
-        const emotion = (conv as any)?.emotional_state || "";
-        const objection = (conv as any)?.last_objection || "";
+        const intent = conv?.current_intent || "";
+        const emotion = conv?.emotional_state || "";
+        const objection = conv?.last_objection || "";
         if (intent || emotion || objection) {
           const tipo = jpHasAccount ? "ALUNA" : "LEAD";
           momentoBlock = `\n🧭 MOMENTO ATUAL DA ${tipo} (último estado lido):\n`;
@@ -1066,7 +1076,7 @@ Deno.serve(async (req) => {
           if (objection) momentoBlock += `- Última objeção: ${objection}\n`;
           momentoBlock += `Adapte tom e CTA: descoberta=educar curto; consideracao=mostrar prova; decisao=fechar; objecao=quebrar a barreira específica acima; pronto_para_comprar=enviar checkout direto; suporte=resolver problema sem vender.\n`;
         }
-      } catch {}
+      } catch { /* Optional enrichment must not block the reply. */ }
 
 
       // 7.2. Busca contexto de campanha ativa
@@ -1087,8 +1097,8 @@ Deno.serve(async (req) => {
             campaignContextBlock += `Você DEVE alinhar a abordagem e as respostas de acordo com o contexto desta campanha ativa.\n`;
             console.log(`[wa-ai-reply] Loaded campaign context: ${campaign.name}`);
           }
-        } catch (err: any) {
-          console.warn("[wa-ai-reply] Error loading campaign context:", err.message);
+        } catch (err) {
+          console.warn("[wa-ai-reply] Error loading campaign context:", errorMessage(err));
         }
       }
 
@@ -1113,7 +1123,7 @@ Deno.serve(async (req) => {
       // + sticky A/B: cada conversa sempre vê a mesma variante de um ab_group
       try {
         const ruleEmb = await getCachedEmbedding(supabase, message);
-        let rules: any[] = [];
+        let rules: ProjectRule[] = [];
         if (ruleEmb) {
           const { data: matched, error: matchErr } = await supabase.rpc("match_wa_rules", {
             p_project_id: project_id,
@@ -1142,8 +1152,8 @@ Deno.serve(async (req) => {
           for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
           return Math.abs(h);
         };
-        const byGroup = new Map<string, any[]>();
-        const noGroup: any[] = [];
+        const byGroup = new Map<string, ProjectRule[]>();
+        const noGroup: ProjectRule[] = [];
         for (const r of rules) {
           if (r.ab_group_id && (r.ab_status === "control" || r.ab_status === "variant")) {
             const arr = byGroup.get(r.ab_group_id) || [];
@@ -1153,7 +1163,7 @@ Deno.serve(async (req) => {
             noGroup.push(r);
           }
         }
-        const chosen: any[] = [...noGroup];
+        const chosen: ProjectRule[] = [...noGroup];
         for (const [gid, variants] of byGroup) {
           variants.sort((a, b) => String(a.id).localeCompare(String(b.id)));
           const pick = stickyHash(`${conversation_id}|${gid}`) % variants.length;
@@ -1161,23 +1171,23 @@ Deno.serve(async (req) => {
         }
 
         if (chosen.length > 0) {
-          const behaviorRules = chosen.filter((r: any) => r.rule_type !== "unavailable_product");
-          const unavailableRules = chosen.filter((r: any) => r.rule_type === "unavailable_product");
+          const behaviorRules = chosen.filter((r) => r.rule_type !== "unavailable_product");
+          const unavailableRules = chosen.filter((r) => r.rule_type === "unavailable_product");
           projectRulesBlock = "\n📜 REGRAS RELEVANTES DO PROJETO (NUNCA VIOLAR):\n" +
-            behaviorRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+            behaviorRules.map((r) => `- ${r.rule_text}`).join("\n");
           if (unavailableRules.length > 0) {
             projectRulesBlock += "\n\n🚫 PRODUTOS/EVENTOS INDISPONÍVEIS (NÃO OFERECER):\n" +
-              unavailableRules.map((r: any) => `- ${r.rule_text}`).join("\n");
+              unavailableRules.map((r) => `- ${r.rule_text}`).join("\n");
           }
           projectRulesBlock += "\n";
 
           // increment + log de aplicações (best-effort)
-          const ids = chosen.map((r: any) => r.id);
+          const ids = chosen.map((r) => r.id);
           supabase.rpc("increment_wa_rules_applied", { p_ids: ids }).then(() => null, () => null);
 
           const leadKey = leadRow?.id || phone || null;
           if (leadKey) {
-            const rows = chosen.map((r: any) => ({
+            const rows = chosen.map((r) => ({
               rule_id: r.id,
               ab_group_id: r.ab_group_id || null,
               project_id,
@@ -1187,8 +1197,8 @@ Deno.serve(async (req) => {
             supabase.from("imphq_wa_rule_applications").insert(rows).then(() => null, () => null);
           }
         }
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] project_rules RAG error:", e.message);
+      } catch (e) {
+        console.warn("[wa-ai-reply] project_rules RAG error:", errorMessage(e));
       }
 
 
@@ -1204,8 +1214,8 @@ Deno.serve(async (req) => {
         if (lastTriage) {
           triageIntent = lastTriage.intent || "";
         }
-      } catch (e: any) {
-        console.warn("[wa-ai-reply] Error loading triage intent:", e.message);
+      } catch (e) {
+        console.warn("[wa-ai-reply] Error loading triage intent:", errorMessage(e));
       }
 
       if (!activeStep || activeStep.ia_search_files !== false) {
@@ -1223,7 +1233,7 @@ Deno.serve(async (req) => {
               if (rpcErr) console.error("[wa-ai-reply] match_wa_knowledge_hybrid RPC error:", rpcErr.message);
               if (matches && matches.length > 0) {
                 lessonsBlock = `\nREGRAS E CONHECIMENTOS ADICIONAIS APRENDIDOS:\n` +
-                  matches.map((m: any) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
+                  matches.map((m: KnowledgeMatch) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
                 console.log(`[wa-ai-reply] ${matches.length} lessons matched semantically`);
               } else {
                 const cleanMsg = message.trim();
@@ -1276,7 +1286,7 @@ Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA 
                     source: "wa-ai-reply",
                   },
                 });
-              } catch (_) {}
+              } catch (_) { /* Optional RAG audit. */ }
 
               // 7.1.2. Match lead memory
               const { data: memories, error: memErr } = await supabase.rpc("match_wa_lead_memory", {
@@ -1286,10 +1296,10 @@ Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA 
                 match_count: 3,
                 min_similarity: 0.7,
               });
-              if (memErr) console.error("[wa-ai-reply] match_wa_lead_memory RPC error:", memErr.message);
+              if (memErr) console.error("[wa-ai-reply] match_wa_lead_memory RPC error:", errorMessage(memErr));
               if (memories && memories.length > 0) {
                 memoryBlock = `\nRELEMBRE O QUE O LEAD JÁ DISSE ANTERIORMENTE (MEMÓRIA VETORIAL):\n` +
-                  memories.map((m: any) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
+                  memories.map((m: { content: string }) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
                 console.log(`[wa-ai-reply] ${memories.length} lead memories matched semantically`);
               }
 
@@ -1308,14 +1318,14 @@ Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA 
                   console.log(`[wa-ai-reply] Semantic objection match: "${match.objecao}" (similarity: ${match.similarity})`);
 
                   // Increment objection usage
-                  supabase.rpc("increment_objection_score", { obj_id: match.id }).catch(() => {
+                  Promise.resolve(supabase.rpc("increment_objection_score", { obj_id: match.id })).catch(() => {
                     supabase.from("imphq_wa_objections").update({ score_uso: (match.score_uso || 0) + 1 }).eq("id", match.id);
                   });
                 }
               }
             }
-        } catch (e: any) {
-          console.warn("[wa-ai-reply] Error fetching semantic context:", e.message);
+        } catch (e) {
+          console.warn("[wa-ai-reply] Error fetching semantic context:", errorMessage(e));
         }
       }
       // Off-topic guard: if last triage classified as off_topic, inject redirect instruction
@@ -1327,12 +1337,12 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
       const productFocus = aiConfig.product_focus ? `\nOFERTA ATIVA: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
       const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions).slice(0, 600)}` : "";
-      const bannedPhrases = Array.isArray((aiConfig as any).banned_phrases) ? (aiConfig as any).banned_phrases.filter((p: any) => typeof p === "string" && p.trim()) : [];
+      const bannedPhrases = Array.isArray(aiConfig.banned_phrases) ? aiConfig.banned_phrases.filter((p: unknown) => typeof p === "string" && p.trim()) : [];
       const bannedBlock = bannedPhrases.length
         ? `\n⛔ FRASES PROIBIDAS (NUNCA use estas frases exatas ou variações próximas — vícios da IA bloqueados pelo operador):\n${bannedPhrases.map((p: string) => `- "${p.trim()}"`).join("\n")}`
         : "";
       const faqBlock = Array.isArray(aiConfig.faq) && aiConfig.faq.length
-        ? `\nFAQ OFICIAL:\n${aiConfig.faq.slice(0, 10).map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`).join("\n").slice(0, 800)}`
+        ? `\nFAQ OFICIAL:\n${aiConfig.faq.slice(0, 10).map((f: KnowledgeMatch) => `Q: ${f.pergunta}\nA: ${f.resposta}`).join("\n").slice(0, 800)}`
         : "";
 
       const PREDEFINED_MINDS: Record<string, string> = {
@@ -1365,8 +1375,8 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
               skillPrompt = skill.system_prompt;
               console.log(`[wa-ai-reply] Custom skill loaded from DB (from ${activeStep?.personality ? 'step' : 'global'}): ${skillId}`);
             }
-          } catch (err: any) {
-            console.error(`[wa-ai-reply] Error loading custom skill (from ${activeStep?.personality ? 'step' : 'global'}):`, err.message);
+          } catch (err) {
+            console.error(`[wa-ai-reply] Error loading custom skill (from ${activeStep?.personality ? 'step' : 'global'}):`, errorMessage(err));
           }
         }
       }
@@ -1392,7 +1402,8 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       let productLinkMapBlock = "";
       if (d && Array.isArray(d.produtos) && d.produtos.length > 0) {
         const entries = d.produtos
-          .map((p: any) => {
+          .map((raw: unknown) => {
+            const p = record(raw);
             const link = p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === 'string' ? p.links : null);
             if (!link || !p.nome) return null;
             const price = p.preco ? ` · R$ ${p.preco}` : "";
@@ -1413,7 +1424,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       // Fallback checkout link from project data
       let fallbackLink = null;
       if (d) {
-        const getProdLink = (p: any) => p?.link_checkout || p?.link || (Array.isArray(p?.links) && p?.links[0]) || (typeof p?.links === 'string' ? p?.links : null);
+        const getProdLink = (raw: unknown) => { const p = record(raw); return p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === "string" ? p.links : null); };
         fallbackLink = getProdLink(d.produto_principal) ||
                        (Array.isArray(d.produtos) && d.produtos.map(getProdLink).find(Boolean)) ||
                        d.link_checkout ||
@@ -1425,7 +1436,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       // Ativa se: (1) lead enviou mensagem com intenção clara de compra, OU
       //           (2) lead tem score >= 70 (hot lead detectado pelo lead-score-updater)
       const closerEnabled = aiConfig.closer_mode_enabled !== false; // default true
-      const leadScore = (lead as any)?.score || 0;
+      const leadScore = lead?.score || 0;
       const HOT_SCORE_THRESHOLD = 70;
       const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
       const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled && !isConsultiveProductQuery;
@@ -1435,7 +1446,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       }
 
       const paymentLink = aiConfig.payment_link || fallbackLink || null;
-      const pixKey = (aiConfig as any).pix_key || null;
+      const pixKey = aiConfig.pix_key || null;
       const pixBlock = pixKey
         ? `\nCHAVE PIX OFICIAL (única chave válida — use EXATAMENTE esta se o lead pedir Pix): ${pixKey}`
         : `\nPIX: Se o lead mencionar Pix ou forma de pagamento, NUNCA invente chave, CNPJ ou dados bancários. Oriente-o a acessar a página de vendas/checkout${paymentLink ? ` (${paymentLink})` : ""} e refazer a compra por lá — o checkout aceita todas as formas de pagamento, incluindo Pix. Seja natural e positivo, ex: "O pagamento é feito direto pelo nosso checkout, que já aceita Pix! Acessa aqui: [link]". Se não houver link disponível, adicione [TRANSICAO_HUMANA] no final.`;
@@ -1484,14 +1495,14 @@ Regras:
       if (activeStep?.ia_routes && activeStep.ia_routes.length > 0) {
         routingInstructions = `\n\nROTAS DE SAÍDA CONFIGURADAS:
 Se o lead corresponder ao critério ou intenção de uma das rotas abaixo, você deve finalizar sua mensagem adicionando exatamente a respectiva tag de rota no final da sua resposta:
-` + activeStep.ia_routes.map((r: any) => {
-          const cleanName = (r.name || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+` + activeStep.ia_routes.map((r) => {
+          const cleanName = (r.name || "").replace(/[[\]]/g, "").trim().toUpperCase();
           if (!cleanName) return "";
           return `- Rota para "${cleanName}": adicione a tag [${cleanName}] no final da resposta.`;
         }).filter(Boolean).join("\n") + `\n\nATENÇÃO: Adicione apenas a tag correspondente da rota se o critério for plenamente atendido. Caso nenhuma das rotas específicas seja acionada, mas o objetivo geral for cumprido, use a tag [PROXIMA_ETAPA].`;
       }
 
-      const openFlowBlock = activeStepInstruction 
+      const openFlowBlock = activeStepInstruction
         ? `\n\nOBJETIVO CRÍTICO ATUAL (FUNIL/AUTOMAÇÃO ATIVA: "${activeAutomacaoNome || 'Ativa'}"):
 Você deve orientar a conversa para cumprir este objetivo específico da etapa atual do funil:
 "${activeStepInstruction}"
@@ -1681,7 +1692,7 @@ ${offTopicBlock}
 ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? jpBuildInstructionsBlock(jpEmailKnown) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
-      const msgs: { role: string; content: string | any[] }[] = [{ role: "system", content: systemPrompt }];
+      const msgs: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [{ role: "system", content: systemPrompt }];
       const ordered = [...(history || [])].reverse();
       let lastRole: string | null = null;
 
@@ -1761,23 +1772,23 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             temperature: Number(aiConfig.ai_temperature ?? 0.7),
           }),
         });
-      } catch (fetchErr: any) {
-        console.error(`[wa-ai-reply] OpenRouter fetch error: ${fetchErr.message}`);
-        
+      } catch (fetchErr) {
+        console.error(`[wa-ai-reply] OpenRouter fetch error: ${errorMessage(fetchErr)}`);
+
         // Log failure to database
         const latencySeconds = (Date.now() - startTime) / 1000;
-        await supabase.from("imphq_wa_ai_logs").insert({
+        await Promise.resolve(supabase.from("imphq_wa_ai_logs").insert({
           project_id,
           conversation_id,
           lead_id: leadRow?.id || null,
           model,
           latency_seconds: latencySeconds,
           success: false,
-          error_message: `Fetch error: ${fetchErr.message}`
-        }).catch((err) => console.error("[wa-ai-reply] DB log error:", err.message));
+          error_message: `Fetch error: ${errorMessage(fetchErr)}`
+        })).catch((err) => console.error("[wa-ai-reply] DB log error:", errorMessage(err)));
 
         await clearLock();
-        return new Response(JSON.stringify({ error: `OpenRouter unreachable: ${fetchErr.message}` }), {
+        return new Response(JSON.stringify({ error: `OpenRouter unreachable: ${errorMessage(fetchErr)}` }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1785,10 +1796,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       if (!orRes.ok) {
         const errText = await orRes.text();
         console.error(`[wa-ai-reply] OpenRouter error ${orRes.status}: ${errText.slice(0, 400)}`);
-        
+
         // Log failure to database
         const latencySeconds = (Date.now() - startTime) / 1000;
-        await supabase.from("imphq_wa_ai_logs").insert({
+        await Promise.resolve(supabase.from("imphq_wa_ai_logs").insert({
           project_id,
           conversation_id,
           lead_id: leadRow?.id || null,
@@ -1796,7 +1807,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           latency_seconds: latencySeconds,
           success: false,
           error_message: `HTTP ${orRes.status}: ${errText.slice(0, 200)}`
-        }).catch((err) => console.error("[wa-ai-reply] DB log error:", err.message));
+        })).catch((err) => console.error("[wa-ai-reply] DB log error:", errorMessage(err)));
 
         await clearLock();
         return new Response(JSON.stringify({ error: `OpenRouter ${orRes.status}`, detail: errText.slice(0, 200) }), {
@@ -1805,7 +1816,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       }
 
       const orData = await orRes.json();
-      
+
       // Log success to database
       try {
         const latencySeconds = (Date.now() - startTime) / 1000;
@@ -1813,12 +1824,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         const prompt_tokens = usage.prompt_tokens || 0;
         const completion_tokens = usage.completion_tokens || 0;
         const total_tokens = usage.total_tokens || 0;
-        
+
         // Calculate cost based on model
         let inputRate = 0.5; // default fallback / M tokens
         let outputRate = 1.5; // default fallback / M tokens
         const modelLower = String(model).toLowerCase();
-        
+
         if (modelLower.includes("gpt-4o-mini")) {
           inputRate = 0.15;
           outputRate = 0.60;
@@ -1844,10 +1855,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           inputRate = 0.20;
           outputRate = 0.20;
         }
-        
+
         const costUsd = ((prompt_tokens * inputRate) + (completion_tokens * outputRate)) / 1000000;
-        
-        await supabase.from("imphq_wa_ai_logs").insert({
+
+        await Promise.resolve(supabase.from("imphq_wa_ai_logs").insert({
           project_id,
           conversation_id,
           lead_id: leadRow?.id || null,
@@ -1858,11 +1869,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           latency_seconds: latencySeconds,
           cost_usd: costUsd,
           success: true
-        });
-      } catch (logErr: any) {
-        console.error("[wa-ai-reply] Failed to write DB log:", logErr.message);
+        }));
+      } catch (logErr) {
+        console.error("[wa-ai-reply] Failed to write DB log:", errorMessage(logErr));
       }
-      const aiReply = (orData?.choices?.[0]?.message?.content || "").trim();
+      const aiReply = String(orData?.choices?.[0]?.message?.content || "").trim();
       console.log(`[wa-ai-reply] Resposta recebida length=${aiReply.length}: ${aiReply.slice(0, 100)}`);
 
       if (!aiReply) {
@@ -1901,8 +1912,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
         try {
           finalAiReply = await jpProcessTags(finalAiReply, jpEffectiveEmail);
-        } catch (e: any) {
-          console.error(`[wa-ai-reply] jpProcessTags error: ${e?.message}`);
+        } catch (e) {
+          console.error(`[wa-ai-reply] jpProcessTags error: ${errorMessage(e)}`);
         }
       }
 
@@ -1912,21 +1923,21 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         try {
           const userMsg = String(message || "").toLowerCase();
           const accessIntent = /(acesso|acessar|entrar|logar|login|senha|plataforma|área de membros|area de membros|curso|aula|não consigo|nao consigo)/i.test(userMsg);
-          const hasRawDomain = /https?:\/\/(www\.)?jphaireducation\.com\.br\/?(\s|$|[^\/\w])/i.test(finalAiReply);
-          const hasMagicLink = /jphaireducation\.com\.br\/[^\s]+/i.test(finalAiReply) && !/jphaireducation\.com\.br\/?(\s|$)/i.test(finalAiReply.replace(/jphaireducation\.com\.br\/[a-z0-9\-_?=&%\.]+/gi, "MAGIC"));
+          const hasRawDomain = /https?:\/\/(www\.)?jphaireducation\.com\.br\/?(\s|$|[^/\w])/i.test(finalAiReply);
+          const hasMagicLink = /jphaireducation\.com\.br\/[^\s]+/i.test(finalAiReply) && !/jphaireducation\.com\.br\/?(\s|$)/i.test(finalAiReply.replace(/jphaireducation\.com\.br\/[a-z0-9\-_?=&%.]+/gi, "MAGIC"));
           if (accessIntent && hasRawDomain && !hasMagicLink) {
             const res = await jpIssueMagicLink(jpEffectiveEmail);
-            const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
+            const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
             if (link) {
-              finalAiReply = finalAiReply.replace(/https?:\/\/(www\.)?jphaireducation\.com\.br\/?/gi, link);
+              finalAiReply = finalAiReply.replace(/https?:\/\/(www\.)?jphaireducation\.com\.br\/?/gi, String(link));
               jpLogEvent(jpEffectiveEmail, "wpp_auto_magic_link_fallback", { source: "wa-ai-reply" }).catch(() => {});
               console.log(`[wa-ai-reply] JP_FREITAS fallback magic_link injetado para ${jpEffectiveEmail}`);
             } else {
               console.warn(`[wa-ai-reply] JP_FREITAS fallback magic_link falhou para ${jpEffectiveEmail}`);
             }
           }
-        } catch (e: any) {
-          console.error(`[wa-ai-reply] JP_FREITAS fallback error: ${e?.message}`);
+        } catch (e) {
+          console.error(`[wa-ai-reply] JP_FREITAS fallback error: ${errorMessage(e)}`);
         }
       }
 
@@ -1938,15 +1949,15 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           const badPatterns = /(comprovante|qual curso|qual dos dois|qual dos cursos|você comprou o|voce comprou o|me confirma.*compr|me passa.*email|qual email|passa.*e-?mail)/i;
           if (badPatterns.test(finalAiReply)) {
             const res = await jpIssueMagicLink(jpEffectiveEmail);
-            const link = res?.magic_link || res?.link || res?.url || res?.data?.magic_link || res?.data?.link;
+            const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
             if (link) {
               finalAiReply = `Vi seu cadastro aqui e você já tem acesso ativo. Segue o link direto pra entrar sem senha: ${link}`;
               jpLogEvent(jpEffectiveEmail, "wpp_override_pergunta_indevida", { source: "wa-ai-reply", original_snippet: finalAiReply.slice(0, 120) }).catch(() => {});
               console.log(`[wa-ai-reply] JP_FREITAS override pergunta indevida para ${jpEffectiveEmail}`);
             }
           }
-        } catch (e: any) {
-          console.error(`[wa-ai-reply] JP_FREITAS override error: ${e?.message}`);
+        } catch (e) {
+          console.error(`[wa-ai-reply] JP_FREITAS override error: ${errorMessage(e)}`);
         }
       }
 
@@ -1959,7 +1970,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         }
       }
       let shouldAdvanceFlow = false;
-      let matchedRoute: any = null;
+      let matchedRoute: { name: string; jump_steps?: number } | null = null;
       let jumpSteps = 0;
 
       if (activeExecutionId && aiReply.includes("[PROXIMA_ETAPA]")) {
@@ -1971,7 +1982,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       // Check for custom route tags if configured
       if (activeExecutionId && activeStep?.ia_routes && activeStep.ia_routes.length > 0) {
         for (const route of activeStep.ia_routes) {
-          const cleanName = (route.name || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+          const cleanName = (route.name || "").replace(/[[\]]/g, "").trim().toUpperCase();
           if (!cleanName) continue;
           const routeTagPattern = new RegExp(`\\[${cleanName}\\]`, "i");
           if (aiReply.includes(`[${cleanName}]`) || routeTagPattern.test(aiReply)) {
@@ -1999,75 +2010,6 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         handoffReason = `Conversa prolongada (${replyCount} mensagens) na etapa ativa do fluxo sem avanço`;
         finalAiReply = finalAiReply.replace(/\[CHAMAR_HUMANO\]/gi, "").trim();
         console.log(`[wa-ai-reply] [CHAMAR_HUMANO] detected! Preparing handoff to human support.`);
-      }
-
-      if (shouldAdvanceFlow && activeExecutionId) {
-        try {
-          const nextStep = activeExecutionStep + 1 + jumpSteps;
-          const { data: currentExec } = await supabase
-            .from("imphq_flow_executions")
-            .select("step_results")
-            .eq("id", activeExecutionId)
-            .single();
-            
-          const results = Array.isArray(currentExec?.step_results) ? currentExec.step_results : [];
-          results.push({
-            step: activeExecutionStep,
-            status: "guided_ai_completed",
-            finished_at: new Date().toISOString(),
-            notes: matchedRoute 
-              ? `Objetivo atingido - Rota acionada: ${matchedRoute.name} (pulo de ${jumpSteps} passos)`
-              : "Objetivo atingido e validado pela IA",
-          });
-          
-          await supabase
-            .from("imphq_flow_executions")
-            .update({
-              current_step: nextStep,
-              step_results: results,
-              status: "running",
-            })
-            .eq("id", activeExecutionId);
-            
-          console.log(`[wa-ai-reply] Flow advanced successfully to step ${nextStep}`);
-
-          // Chamada assíncrona para o openflow-executor retomar o fluxo na nova etapa no background
-          console.log(`[wa-ai-reply] Invoking openflow-executor for execution ${activeExecutionId} step ${nextStep}`);
-          
-          fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            },
-            body: JSON.stringify({
-              trigger_tipo: activeTriggerTipo || "whatsapp",
-              project_id,
-              automacao_id: activeAutomacaoId,
-              resume_from_step: nextStep,
-              lead_data: {
-                lead_id: leadRow.id,
-                nome: leadRow.name || "",
-                email: leadRow.email || "",
-                telefone: leadRow.phone || "",
-                phone: leadRow.phone || "",
-                tags: leadRow.tags || [],
-              },
-            }),
-          }).then(async (res) => {
-            if (res.ok) {
-              const resJson = await res.json();
-              console.log(`[wa-ai-reply] openflow-executor invocation succeeded:`, JSON.stringify(resJson));
-            } else {
-              console.error(`[wa-ai-reply] openflow-executor invocation failed: status=${res.status}`, await res.text());
-            }
-          }).catch((fetchErr) => {
-            console.error(`[wa-ai-reply] openflow-executor fetch error:`, fetchErr.message);
-          });
-
-        } catch (err: any) {
-          console.error("[wa-ai-reply] Error advancing flow execution:", err.message);
-        }
       }
 
       // ── Decisão estratégica de áudio ─────────────────────────────────────────
@@ -2109,9 +2051,9 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
           // Critério 1: Lead mandou áudio nas últimas 3 mensagens
           const leadSentAudioRecently = recentMsgs
-            .filter((m: any) => m.direction === "incoming")
+            .filter((m) => m.direction === "incoming")
             .slice(0, 3)
-            .some((m: any) =>
+            .some((m) =>
               m.message_type === "audio" ||
               (m.media_url && /\.(ogg|mp3|m4a|wav)$/i.test(m.media_url))
             );
@@ -2120,10 +2062,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           const isFirstContact = recentMsgs.length <= 2;
 
           // Critério 3: Retorno após silêncio >6h (lead estava inativo)
-          const incomingMsgs = recentMsgs.filter((m: any) => m.direction === "incoming");
+          const incomingMsgs = recentMsgs.filter((m) => m.direction === "incoming");
           const prevIncoming = incomingMsgs[1]; // segunda mais recente
           const hoursSilent = prevIncoming
-            ? (new Date(message_time || Date.now()).getTime() - new Date(prevIncoming.created_at).getTime()) / 3600000
+            ? (new Date(body.message_time || Date.now()).getTime() - new Date(prevIncoming.created_at).getTime()) / 3600000
             : 999;
           const isReturnAfterSilence = hoursSilent > 6;
 
@@ -2163,7 +2105,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
         const openaiKey = Deno.env.get("OPENAI_API_KEY");
         // Prefer key from saved AI config (set via UI), fallback to env var
-        const elevenKey = (aiConfig as any).elevenlabs_api_key || Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+        const elevenKey = aiConfig.elevenlabs_api_key || Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
 
         if (!responseAudioUrl && voiceProvider === "elevenlabs" && elevenKey) {
           console.log(`[wa-ai-reply] Generating voice response via ElevenLabs...`);
@@ -2212,8 +2154,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             } else {
               console.error("[wa-ai-reply] ElevenLabs TTS failed:", await ttsRes.text());
             }
-          } catch (ttsErr: any) {
-            console.error("[wa-ai-reply] ElevenLabs TTS error:", ttsErr.message);
+          } catch (ttsErr) {
+            console.error("[wa-ai-reply] ElevenLabs TTS error:", errorMessage(ttsErr));
           }
         }
 
@@ -2222,7 +2164,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         // voice_provider = "local_clone" → XTTS v2 (voz clonada, ex: JP)
         //                                  com fallback automático para ElevenLabs
         // Prefer URL from saved AI config (set via UI), fallback to env var
-        const localTtsUrl = (aiConfig as any).local_tts_url || Deno.env.get("LOCAL_TTS_URL");
+        const localTtsUrl = aiConfig.local_tts_url || Deno.env.get("LOCAL_TTS_URL");
 
         if (!responseAudioUrl && (voiceProvider === "local" || voiceProvider === "local_clone") && localTtsUrl) {
           const isClone = voiceProvider === "local_clone";
@@ -2260,8 +2202,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
               // Servidor retornou 503 = XTTS não carregado → não faz fallback automático para ElevenLabs
               // Qualquer outro erro → tenta ElevenLabs abaixo
             }
-          } catch (localErr: any) {
-            console.error("[wa-ai-reply] Local TTS timeout/connection error:", localErr.message);
+          } catch (localErr) {
+            console.error("[wa-ai-reply] Local TTS timeout/connection error:", errorMessage(localErr));
             // Timeout ou servidor offline → cai no ElevenLabs abaixo
           }
         }
@@ -2294,8 +2236,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             } else {
               console.error("[wa-ai-reply] ElevenLabs fallback failed:", await ttsRes.text());
             }
-          } catch (ttsErr: any) {
-            console.error("[wa-ai-reply] ElevenLabs fallback error:", ttsErr.message);
+          } catch (ttsErr) {
+            console.error("[wa-ai-reply] ElevenLabs fallback error:", errorMessage(ttsErr));
           }
         }
 
@@ -2322,8 +2264,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             } else {
               console.error("[wa-ai-reply] OpenAI TTS failed:", await ttsRes.text());
             }
-          } catch (ttsErr: any) {
-            console.error("[wa-ai-reply] OpenAI TTS error:", ttsErr.message);
+          } catch (ttsErr) {
+            console.error("[wa-ai-reply] OpenAI TTS error:", errorMessage(ttsErr));
           }
         }
       }
@@ -2385,6 +2327,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       console.log(`[wa-ai-reply] Sending ${messageParts.length} message part(s)`);
 
       let sendSuccess = false;
+      let partialSend = false;
+      const confirmedParts: string[] = [];
       let outMsgId: string | null = null;
 
       if (provider.provider === "evolution") {
@@ -2406,7 +2350,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           });
           const sendData = await sendRes.json().catch(() => ({}));
           console.log(`[wa-ai-reply] Evolution audio status=${sendRes.status}`);
-          if (sendRes.ok) { sendSuccess = true; outMsgId = sendData?.key?.id || null; }
+          if (sendRes.ok && !sendData?.error && sendData?.success !== false && sendData?.ok !== false) { sendSuccess = true; confirmedParts.push(finalAiReply); outMsgId = sendData?.key?.id || null; }
           else console.error(`[wa-ai-reply] Evolution API rejeitou áudio: ${sendRes.status}`);
         } else {
           // Send each part sequentially with a short typing delay between them
@@ -2418,12 +2362,13 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
               await new Promise((r) => setTimeout(r, typingMs));
             }
             const url = `${base}/message/sendText/${inst}`;
-            const bodyPayload: any = {
+            const bodyPayload = {
               number: phone + "@s.whatsapp.net",
               text: part,
               options: { delay: 1000, presence: "composing" }
             };
             console.log(`[wa-ai-reply] Enviando parte ${i + 1}/${messageParts.length} TEXTO via Evolution → ${phone}`);
+            try {
             const sendRes = await fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json", apikey: provider.api_key },
@@ -2431,11 +2376,18 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             });
             const sendData = await sendRes.json().catch(() => ({}));
             console.log(`[wa-ai-reply] Evolution status=${sendRes.status} part=${i + 1}`);
-            if (sendRes.ok) {
+            if (sendRes.ok && !sendData?.error && sendData?.success !== false && sendData?.ok !== false) {
+              confirmedParts.push(part);
               sendSuccess = true;
               if (i === 0) outMsgId = sendData?.key?.id || null;
             } else {
               console.error(`[wa-ai-reply] Evolution API rejeitou parte ${i + 1}: ${sendRes.status} ${JSON.stringify(sendData).slice(0, 200)}`);
+              partialSend = confirmedParts.length > 0;
+              break;
+            }
+            } catch (sendError) {
+              partialSend = confirmedParts.length > 0;
+              console.error("[wa-ai-reply] Part send failed:", errorMessage(sendError));
               break;
             }
           }
@@ -2444,6 +2396,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         console.warn(`[wa-ai-reply] Provider type '${provider.provider}' não suportado nesta função`);
       }
 
+      if (partialSend) finalAiReply = confirmedParts.join("\n\n");
       if (sendSuccess) {
         await supabase.from("imphq_wa_messages").insert({
           conversation_id, direction: "outgoing", phone,
@@ -2471,7 +2424,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           return /checkout|pay|hotmart|kiwify|monetizze|eduzz|braip|ticto|perfectpay|stripe|comprar|inscri/i.test(lu);
         });
 
-        const updatePayload: any = {
+        const updatePayload: ConversationUpdate = {
           ai_last_reply_at: new Date().toISOString(),
           ai_lock_until: null,
           last_message: finalAiReply.slice(0, 500),
@@ -2516,8 +2469,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
               executed_at: new Date().toISOString(),
             });
             console.log(`[wa-ai-reply] Handoff action logged in imphq_ai_actions`);
-          } catch (logErr: any) {
-            console.error(`[wa-ai-reply] Error logging handoff action:`, logErr.message);
+          } catch (logErr) {
+            console.error(`[wa-ai-reply] Error logging handoff action:`, errorMessage(logErr));
           }
         }
 
@@ -2549,10 +2502,10 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
           if (intelRes.ok) {
             const intelJson = await intelRes.json();
             const raw = intelJson?.choices?.[0]?.message?.content || "{}";
-            let parsed: any = {};
-            try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+            let parsed: Record<string, unknown> = {};
+            try { parsed = record(JSON.parse(raw)); } catch { parsed = {}; }
 
-            const convUpdate: any = {};
+            const convUpdate: { current_intent?: string; intent_updated_at?: string; handoff_summary?: object; handoff_at?: string } = {};
             if (parsed.current_intent && typeof parsed.current_intent === "string") {
               convUpdate.current_intent = parsed.current_intent.slice(0, 40);
               convUpdate.intent_updated_at = new Date().toISOString();
@@ -2582,8 +2535,8 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
           } else {
             console.warn(`[wa-ai-reply] Intel call failed: ${intelRes.status}`);
           }
-        } catch (intelErr: any) {
-          console.warn(`[wa-ai-reply] Intel update error:`, intelErr?.message);
+        } catch (intelErr) {
+          console.warn(`[wa-ai-reply] Intel update error:`, errorMessage(intelErr));
         }
 
 
@@ -2606,16 +2559,85 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
                 "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
               },
               body: JSON.stringify({ conversation_id, lead_id: leadRow.id, project_id }),
-            }).catch((e) => console.warn("[wa-ai-reply] memory-extract dispatch failed:", e?.message));
+            }).catch((e) => console.warn("[wa-ai-reply] memory-extract dispatch failed:", errorMessage(e)));
             console.log(`[wa-ai-reply] memory-extract dispatched (msgs=${msgCountNow}, since_last=${newMsgsSince})`);
           }
-        } catch (memErr: any) {
-          console.warn("[wa-ai-reply] memory-extract gating error:", memErr?.message);
+        } catch (memErr) {
+          console.warn("[wa-ai-reply] memory-extract gating error:", errorMessage(memErr));
         }
 
-        console.log(`[wa-ai-reply] SUCCESS: mensagem enviada para ${phone}`);
+      if (shouldAdvanceFlow && activeExecutionId && leadRow && !partialSend) {
+        try {
+          const nextStep = activeExecutionStep + 1 + jumpSteps;
+          const { data: currentExec } = await supabase
+            .from("imphq_flow_executions")
+            .select("step_results")
+            .eq("id", activeExecutionId)
+            .single();
 
-        return new Response(JSON.stringify({ ok: true, sent: true, model, preview: finalAiReply.slice(0, 100) }), {
+          const results = Array.isArray(currentExec?.step_results) ? currentExec.step_results : [];
+          results.push({
+            step: activeExecutionStep,
+            status: "guided_ai_completed",
+            finished_at: new Date().toISOString(),
+            notes: matchedRoute
+              ? `Objetivo atingido - Rota acionada: ${matchedRoute.name} (pulo de ${jumpSteps} passos)`
+              : "Objetivo atingido e validado pela IA",
+          });
+
+          await supabase
+            .from("imphq_flow_executions")
+            .update({
+              current_step: nextStep,
+              step_results: results,
+              status: "running",
+            })
+            .eq("id", activeExecutionId);
+
+          console.log(`[wa-ai-reply] Flow advanced successfully to step ${nextStep}`);
+
+          // Chamada assíncrona para o openflow-executor retomar o fluxo na nova etapa no background
+          console.log(`[wa-ai-reply] Invoking openflow-executor for execution ${activeExecutionId} step ${nextStep}`);
+
+          fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              trigger_tipo: activeTriggerTipo || "whatsapp",
+              project_id,
+              automacao_id: activeAutomacaoId,
+              resume_from_step: nextStep,
+              lead_data: {
+                lead_id: leadRow.id,
+                nome: leadRow.name || "",
+                email: leadRow.email || "",
+                telefone: leadRow.phone || "",
+                phone: leadRow.phone || "",
+                tags: leadRow.tags || [],
+              },
+            }),
+          }).then(async (res) => {
+            if (res.ok) {
+              const resJson = await res.json();
+              console.log(`[wa-ai-reply] openflow-executor invocation succeeded:`, JSON.stringify(resJson));
+            } else {
+              console.error(`[wa-ai-reply] openflow-executor invocation failed: status=${res.status}`, await res.text());
+            }
+          }).catch((fetchErr) => {
+            console.error(`[wa-ai-reply] openflow-executor fetch error:`, errorMessage(fetchErr));
+          });
+
+        } catch (err) {
+          console.error("[wa-ai-reply] Error advancing flow execution:", errorMessage(err));
+        }
+      }
+
+        console.log(`[wa-ai-reply] ${partialSend ? "PARTIAL" : "SUCCESS"}: ${confirmedParts.length} parte(s) enviada(s) para ${phone}`);
+
+        return new Response(JSON.stringify({ ok: !partialSend, sent: !partialSend, partial: partialSend, sent_parts: confirmedParts.length, ...(partialSend ? { error: "Some message parts failed to send" } : {}), model, preview: finalAiReply.slice(0, 100) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {
@@ -2625,14 +2647,14 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    } catch (innerErr: any) {
-      console.error(`[wa-ai-reply] Erro interno: ${innerErr.message}`);
+    } catch (innerErr) {
+      console.error(`[wa-ai-reply] Erro interno: ${errorMessage(innerErr)}`);
       await clearLock();
       throw innerErr;
     }
-  } catch (e: any) {
-    console.error(`[wa-ai-reply] Fatal: ${e.message}`);
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    console.error(`[wa-ai-reply] Fatal: ${errorMessage(e)}`);
+    return new Response(JSON.stringify({ error: errorMessage(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,9 +32,9 @@ export default function ZernioHealthCard({ projectId }: Props) {
       supabase.from("imphq_ig_webhook_logs").select("id", { count: "exact", head: true }).like("event_type", "zernio_%").gte("created_at", since),
       supabase.from("imphq_ig_webhook_logs").select("id", { count: "exact", head: true }).like("event_type", "zernio_%").not("error", "is", null).gte("created_at", since),
       supabase.from("imphq_ig_webhook_logs").select("id", { count: "exact", head: true }).like("event_type", "zernio_%").eq("processed", false).gte("created_at", since),
-    ] as PromiseLike<any>[]);
+    ]);
     setStats({
-      last: (last as any)?.created_at || null,
+      last: last?.created_at || null,
       total24h: total ?? 0,
       failed24h: failed ?? 0,
       pending: pending ?? 0,
@@ -55,8 +56,8 @@ export default function ZernioHealthCard({ projectId }: Props) {
         description: `${data?.reprocessed ?? 0} eventos reprocessados, ${data?.failed ?? 0} falharam.`,
       });
       await load();
-    } catch (e: any) {
-      toast({ title: "Erro ao reprocessar", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Erro ao reprocessar", description: errorMessage(e), variant: "destructive" });
     } finally {
       setReprocessing(false);
     }
@@ -130,8 +131,8 @@ export default function ZernioHealthCard({ projectId }: Props) {
                     title: "Comentários sincronizados",
                     description: `${data?.comments_upserted ?? 0} comentários em ${data?.posts_scanned ?? 0} posts.`,
                   });
-                } catch (e: any) {
-                  toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" });
+                } catch (e: unknown) {
+                  toast({ title: "Erro ao sincronizar", description: errorMessage(e), variant: "destructive" });
                 } finally {
                   setPollingComments(false);
                 }

@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 /**
  * wa-pitch-followup — Follow-up consultivo automático pós-envio do link de checkout
  *
@@ -15,6 +16,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isWithinSendWindow } from "../_shared/send-window.ts";
 
+const EntryProduct = z.object({ id: z.string().nullish(), nome: z.string().nullish(), name: z.string().nullish(), preco: z.union([z.string(), z.number()]).nullish(), price: z.union([z.string(), z.number()]).nullish() }).passthrough();
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -31,7 +35,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const results: Record<string, any> = { processed: 0, sent: 0, skipped: 0, finished: 0, errors: [] };
+  const results: { processed: number; sent: number; skipped: number; finished: number; errors: string[] } = { processed: 0, sent: 0, skipped: 0, finished: 0, errors: [] };
 
   try {
     const { data: configs } = await supabase
@@ -72,7 +76,7 @@ Deno.serve(async (req) => {
           .eq("id", project_id)
           .maybeSingle();
         const d = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
-        const produtos: any[] = Array.isArray(d?.produtos) ? d.produtos : [];
+        const produtos = z.array(EntryProduct).parse(Array.isArray(d?.produtos) ? d.produtos : []);
 
         // Conversas elegíveis: tem pitch, ainda no ciclo (>=0), não em fluxo, IA ativa
         const { data: conversations } = await supabase
@@ -92,11 +96,11 @@ Deno.serve(async (req) => {
         let inFlow = new Set<string>();
         try {
           const { data: activeFlows } = await supabase
-            .from("imphq_openflow_executions" as any)
+            .from("imphq_openflow_executions")
             .select("conversation_id")
             .in("conversation_id", convIds)
             .eq("status", "running");
-          inFlow = new Set((activeFlows || []).map((f: any) => f.conversation_id));
+          inFlow = new Set((activeFlows || []).map((f) => f.conversation_id));
         } catch (_) { /* tabela pode não existir nesse projeto */ }
 
         for (const conv of conversations) {
@@ -142,7 +146,7 @@ Deno.serve(async (req) => {
             .order("created_at", { ascending: false })
             .limit(8);
           const history = (recentMsgs || []).reverse()
-            .map((m: any) => `${m.direction === "outgoing" ? "IA" : "LEAD"}: ${(m.content || "").slice(0, 200)}`)
+            .map((m) => `${m.direction === "outgoing" ? "IA" : "LEAD"}: ${(m.content || "").slice(0, 200)}`)
             .join("\n");
 
           const leadName = conv.contact_name?.split(" ")[0] || "";
@@ -150,32 +154,32 @@ Deno.serve(async (req) => {
           const linkOfertado = conv.last_pitch_link || "";
 
           // Produto entrada (stage 3): config explícita ou produto mais barato com preço
-          let entryProduct: any = null;
+          let entryProduct: z.infer<typeof EntryProduct> | null = null;
           if (stageNext === 3) {
             if (cfg.pitch_followup_entry_product_id) {
-              entryProduct = produtos.find((p: any) => p.id === cfg.pitch_followup_entry_product_id) || null;
+              entryProduct = produtos.find((p) => p.id === cfg.pitch_followup_entry_product_id) || null;
             }
             if (!entryProduct) {
               const ofertado = produtoOfertado.toLowerCase();
               const others = produtos
-                .filter((p: any) => {
+                .filter((p) => {
                   const nome = (p.nome || p.name || "").toLowerCase();
-                  const preco = parseFloat(p.preco || p.price || 0);
+                  const preco = parseFloat(String(p.preco || p.price || 0));
                   return nome && preco > 0 && !nome.includes(ofertado) && !ofertado.includes(nome);
                 })
-                .sort((a: any, b: any) => parseFloat(a.preco || a.price || 0) - parseFloat(b.preco || b.price || 0));
+                .sort((a, b) => parseFloat(String(a.preco || a.price || 0)) - parseFloat(String(b.preco || b.price || 0)));
               entryProduct = others[0] || null;
             }
           }
 
           // Objeções calibradas do projeto (contexto extra)
           const { data: objs } = await supabase
-            .from("imphq_wa_objections" as any)
+            .from("imphq_wa_objections")
             .select("objecao, resposta_padrao")
             .eq("project_id", project_id)
             .limit(8);
           const objBlock = (objs?.length
-            ? `OBJEÇÕES CALIBRADAS DO PROJETO (use o teor como referência, não copie literal):\n${objs.map((o: any) => `- "${o.objecao}" → ${o.resposta_padrao}`).join("\n")}\n`
+            ? `OBJEÇÕES CALIBRADAS DO PROJETO (use o teor como referência, não copie literal):\n${objs.map((o) => `- "${o.objecao}" → ${o.resposta_padrao}`).join("\n")}\n`
             : "");
 
           const stageBriefing = stageNext === 1
@@ -241,8 +245,8 @@ REGRAS RÍGIDAS:
             }
             const aiJson = await aiRes.json();
             aiText = (aiJson?.choices?.[0]?.message?.content || "").trim();
-          } catch (e: any) {
-            results.errors.push(`ai exc conv=${conv.id}: ${e?.message}`);
+          } catch (e) {
+            results.errors.push(`ai exc conv=${conv.id}: ${errorMessage(e)}`);
             continue;
           }
           if (!aiText) { results.skipped++; continue; }
@@ -277,7 +281,7 @@ REGRAS RÍGIDAS:
               metadata: { source: "wa-pitch-followup", stage: stageNext },
             });
 
-            const updates: any = {
+            const updates = {
               pitch_followup_stage: stageNext,
               pitch_followup_last_at: new Date().toISOString(),
               ai_last_reply_at: new Date().toISOString(),
@@ -298,20 +302,20 @@ REGRAS RÍGIDAS:
 
             results.sent++;
             console.log(`[wa-pitch-followup] ✅ conv=${conv.id} stage=${stageNext}`);
-          } catch (e: any) {
-            results.errors.push(`send exc conv=${conv.id}: ${e?.message}`);
+          } catch (e) {
+            results.errors.push(`send exc conv=${conv.id}: ${errorMessage(e)}`);
           }
         }
-      } catch (e: any) {
-        results.errors.push(`project ${project_id}: ${e?.message}`);
+      } catch (e) {
+        results.errors.push(`project ${project_id}: ${errorMessage(e)}`);
       }
     }
 
     return new Response(JSON.stringify({ ok: true, ...results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: errorMessage(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

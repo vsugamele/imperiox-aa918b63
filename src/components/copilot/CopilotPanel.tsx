@@ -7,16 +7,11 @@ import { Crown, Send, Loader2, Sparkles, Trash2, Plus, Square } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CopilotMessage, type ToolActivity } from "./CopilotMessage";
-import { AudioRecorder } from "./AudioRecorder";
+import { CopilotMessage } from "@/components/copilot/CopilotMessage";
+import { decodeCopilotMessages, decodeCopilotStream, serializeCopilotMessages, type CopilotMsg as Msg } from "@/components/copilot/copilot-codec";
+import { errorMessage } from "@/lib/error-message";
+import { AudioRecorder } from "@/components/copilot/AudioRecorder";
 import { useParams } from "react-router-dom";
-
-interface Msg {
-  role: "user" | "assistant";
-  content: string;
-  ts?: string;
-  tools?: ToolActivity[];
-}
 
 interface ThreadRow {
   id: string;
@@ -75,7 +70,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
       .select("id, title, messages, updated_at, project_id")
       .order("updated_at", { ascending: false })
       .limit(20);
-    setHistory((data || []) as any);
+    setHistory((data || []).map(thread => ({ ...thread, messages: decodeCopilotMessages(thread.messages) })));
   };
 
   const newConversation = () => {
@@ -107,14 +102,14 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
       const title = allMessages[0]?.content?.slice(0, 60) || "Nova conversa";
       if (tId) {
         await supabase.from("imphq_copilot_threads")
-          .update({ messages: allMessages as any, updated_at: new Date().toISOString() })
+          .update({ messages: serializeCopilotMessages(allMessages), updated_at: new Date().toISOString() })
           .eq("id", tId).eq("user_id", user.id);
       } else {
         const { data: inserted } = await supabase.from("imphq_copilot_threads").insert({
           user_id: user.id,
           project_id: routeProjectId || null,
           title,
-          messages: allMessages as any,
+          messages: serializeCopilotMessages(allMessages),
         }).select("id").single();
         if (inserted?.id) setThreadId(inserted.id);
       }
@@ -163,7 +158,10 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
         let errMsg = "Falha ao consultar Imperius";
-        try { errMsg = JSON.parse(errText).error || errMsg; } catch {}
+        try {
+          const failure: unknown = JSON.parse(errText);
+          if (failure && typeof failure === "object" && "error" in failure && typeof failure.error === "string") errMsg = failure.error || errMsg;
+        } catch { errMsg = "Falha ao consultar Imperius"; }
         throw new Error(errMsg);
       }
 
@@ -182,7 +180,8 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
           const payload = line.slice(6).trim();
           if (!payload || payload === "[DONE]") continue;
           try {
-            const json = JSON.parse(payload);
+            const json = decodeCopilotStream(JSON.parse(payload));
+            if (!json) continue;
             if (json.type === "meta") {
               if (json.threadId) setThreadId(json.threadId);
               continue;
@@ -198,7 +197,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
               });
               continue;
             }
-            const delta = json.choices?.[0]?.delta?.content;
+            const delta = json.type === "delta" ? json.content : undefined;
             if (delta) {
               accText += delta;
               setMessages((prev) => {
@@ -219,8 +218,8 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
         toast.error("Imperius não respondeu — tenta de novo");
       }
       loadHistory();
-    } catch (err: any) {
-      const aborted = err?.name === "AbortError" || controller.signal.aborted;
+    } catch (err: unknown) {
+      const aborted = (err instanceof Error && err.name === "AbortError") || controller.signal.aborted;
       if (aborted) {
         // Marca como parado e persiste do lado do cliente
         const stoppedText = (accText || "") + (accText ? "\n\n" : "") + "_Parado._";
@@ -239,7 +238,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
         await persistCanceled(finalMsgs);
         loadHistory();
       } else {
-        toast.error(err.message || "Falha ao consultar Imperius");
+        toast.error(errorMessage(err) || "Falha ao consultar Imperius");
         setMessages(next);
       }
     } finally {
@@ -294,7 +293,7 @@ export function CopilotPanel({ open, onOpenChange }: Props) {
 
           {/* Chat */}
           <div className="flex-1 flex flex-col min-w-0">
-            <ScrollArea className="flex-1" ref={scrollRef as any}>
+            <ScrollArea className="flex-1" ref={scrollRef}>
               <div className="px-6 py-4 space-y-4">
                 {messages.length === 0 && (
                   <div className="space-y-3">

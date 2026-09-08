@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   const refs = (body.reference_urls || []).filter((u) => typeof u === "string" && u).slice(0, 6);
   const model = body.model || "google/gemini-3.1-flash-image";
 
-  const content: any[] = [{ type: "text", text: prompt }];
+  const content: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [{ type: "text", text: prompt }];
   for (const url of refs) {
     content.push({ type: "image_url", image_url: { url } });
   }

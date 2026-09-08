@@ -1,3 +1,4 @@
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 // Worker assíncrono: consome um job de imphq_ai_jobs, chama openflow-ai e grava o resultado.
 // Frontend faz fire-and-forget desta função e depois faz polling na tabela.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -32,13 +33,13 @@ async function processJob(jobId: string, callerAuth: string | null) {
       body: JSON.stringify(body),
     });
     const txt = await res.text();
-    let result: any;
+    let result: unknown;
     try { result = JSON.parse(txt); } catch { result = { raw: txt }; }
 
     if (!res.ok) {
       await sb.from("imphq_ai_jobs").update({
         status: "failed",
-        error: `HTTP ${res.status}: ${(result?.error || txt).toString().slice(0, 500)}`,
+        error: `HTTP ${res.status}: ${((result && typeof result === "object" && "error" in result ? result.error : undefined) || txt).toString().slice(0, 500)}`,
         completed_at: new Date().toISOString(),
       }).eq("id", jobId);
       return;
@@ -49,11 +50,12 @@ async function processJob(jobId: string, callerAuth: string | null) {
       result,
       completed_at: new Date().toISOString(),
     }).eq("id", jobId);
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[ai-job-runner] Failed", jobId, e);
     await sb.from("imphq_ai_jobs").update({
       status: "failed",
-      error: (e?.message || String(e)).slice(0, 500),
+      error: (eMessage || String(e)).slice(0, 500),
       completed_at: new Date().toISOString(),
     }).eq("id", jobId);
   }
@@ -70,13 +72,14 @@ serve(async (req) => {
       });
     }
     const auth = req.headers.get("Authorization");
-    // @ts-ignore EdgeRuntime is provided by Supabase
+    // EdgeRuntime is provided by Supabase.
     EdgeRuntime.waitUntil(processJob(job_id, auth));
     return new Response(JSON.stringify({ ok: true, job_id, status: "processing" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

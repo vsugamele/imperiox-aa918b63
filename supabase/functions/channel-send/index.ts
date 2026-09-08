@@ -1,7 +1,7 @@
 // Envia uma mensagem para uma sessão de canal (Messenger via Zernio ou Webchat do site).
 // Usado pelo openflow-executor e por ferramentas internas.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { sendToChannel } from "../_shared/channel-out.ts";
+import { sendToChannel, type ChannelSession } from "../_shared/channel-out.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,12 +22,12 @@ Deno.serve(async (req) => {
 
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: session } = await supa
-      .from("imphq_channel_sessions").select("*").eq("id", session_id).maybeSingle();
+      .from("imphq_channel_sessions").select("*").eq("id", session_id).returns<ChannelSession[]>().maybeSingle();
     if (!session) {
       return new Response(JSON.stringify({ error: "sessão não encontrada" }), { status: 404, headers: jsonHeaders });
     }
 
-    const r = await sendToChannel(supa, session as any, content, media_url || null);
+    const r = await sendToChannel(supa, session, content, media_url || null);
     return new Response(JSON.stringify(r), { status: r.success ? 200 : 502, headers: jsonHeaders });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), { status: 500, headers: jsonHeaders });

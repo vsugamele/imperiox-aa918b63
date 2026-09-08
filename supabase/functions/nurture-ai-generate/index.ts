@@ -1,6 +1,9 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Gera sequência de nutrição delegando a copy ao Motor de Copy unificado (intent: nurture_sequence).
 // Input: { project_id, sequence_id?, produto_nome, nome?, objetivo?, count?: number, briefing?: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+
+const nurtureEmailsSchema = z.object({emails:z.array(z.object({dia_numero:z.number().nullish(),estagio:z.string().nullish(),assunto:z.string().nullish(),corpo_texto:z.string().nullish(),corpo_html:z.string().nullish()}).passthrough()).nullish()}).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,11 +57,11 @@ Briefing: ${briefing || "(livre)"}`;
     }
 
     const ceData = await ceResp.json();
-    let parsed: any;
-    try { parsed = JSON.parse(ceData?.content || "{}"); } catch { parsed = { emails: [] }; }
+    let parsed: z.infer<typeof nurtureEmailsSchema>;
+    try { parsed = nurtureEmailsSchema.parse(JSON.parse(ceData?.content || "{}")); } catch { parsed = { emails: [] }; }
     const emails = (parsed.emails || []).slice(0, count);
 
-    const rows = emails.map((e: any) => ({
+    const rows = emails.map((e) => ({
       sequence_id: seqId,
       dia_numero: e.dia_numero || 0,
       estagio: e.estagio || "meio",
@@ -75,8 +78,9 @@ Briefing: ${briefing || "(livre)"}`;
     return new Response(JSON.stringify({ sequence_id: seqId, inserted: rows.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("nurture-ai-generate:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

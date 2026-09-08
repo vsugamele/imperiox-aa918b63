@@ -1,3 +1,5 @@
+import { record, parseProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, DragEvent } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -26,7 +28,8 @@ import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { createCalendarEventForCard } from "@/lib/calendarSync";
 import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
-import { ColumnColorMenu, hexToTint } from "@/components/kanban/ColumnColorMenu";
+import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
+import { hexToTint } from "@/components/kanban/column-color";
 import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
 import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
 import { BoardTabsBar, type KanbanBoard } from "@/components/kanban/BoardTabsBar";
@@ -79,7 +82,7 @@ interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
   member_id?: string; project_id?: string;
-  metrics?: Record<string, any> | null;
+  metrics?: Record<string, unknown> | null;
   status_color?: string | null;
 }
 
@@ -94,7 +97,7 @@ export default function KanbanPage() {
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string; data?: any }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data?: unknown }[]>([]);
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
@@ -147,10 +150,10 @@ export default function KanbanPage() {
       supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
-      supabase.from("imphq_kanban_boards" as any).select("*").order("position"),
+      supabase.from("imphq_kanban_boards").select("*").order("position"),
     ]);
 
-    const loadedBoards = ((boardRes as any)?.data || []) as KanbanBoard[];
+    const loadedBoards = boardRes.data || [];
     if (loadedBoards.length > 0) setBoards(loadedBoards);
 
     let cols = (colRes.data || []) as KanbanColumn[];
@@ -165,19 +168,19 @@ export default function KanbanPage() {
     }
 
     const attCounts: Record<string, number> = {};
-    ((attRes.data as any[]) || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
+    (attRes.data || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
 
     const checkCounts: Record<string, { done: number; total: number }> = {};
-    ((checkRes.data as any[]) || []).forEach(c => {
+    (checkRes.data || []).forEach(c => {
       if (!checkCounts[c.card_id]) checkCounts[c.card_id] = { done: 0, total: 0 };
       checkCounts[c.card_id].total++;
       if (c.is_done) checkCounts[c.card_id].done++;
     });
 
     setAllColumns(cols);
-    setAllCards((cardRes.data || []) as KanbanCard[]);
+    setAllCards((cardRes.data || []).map(c=>({...c,metrics:record(c.metrics)})));
     setMembers((memberRes.data || []) as TeamMember[]);
-    setProjects((projRes.data || []) as { id: string; name: string; data?: any }[]);
+    setProjects((projRes.data || []) as { id: string; name: string; data?: unknown }[]);
     setCardAttachmentCounts(attCounts);
     setCardChecklistCounts(checkCounts);
     setLoading(false);
@@ -188,21 +191,21 @@ export default function KanbanPage() {
   const getProjectExpert = (projectId?: string) => {
     if (!projectId) return undefined;
     const proj = projects.find(p => p.id === projectId);
-    return proj?.data?.expert?.nome || undefined;
+    return String(record(record(proj?.data).expert).nome || "") || undefined;
   };
   const getProjectProduct = (projectId?: string) => {
     if (!projectId) return undefined;
     const proj = projects.find(p => p.id === projectId);
-    return proj?.data?.briefing?.produto || undefined;
+    return String(record(record(proj?.data).briefing).produto || "") || undefined;
   };
 
   // All unique products from projects
   const allProducts = (() => {
     const prods = new Set<string>();
     projects.forEach(p => {
-      const d = p.data || {};
+      const d = parseProjectData(p.data);
       if (Array.isArray(d.produtos)) {
-        d.produtos.forEach((prod: any) => {
+        d.produtos.forEach((prod) => {
           const name = prod.nome || prod.name;
           if (name) prods.add(name);
         });
@@ -215,9 +218,9 @@ export default function KanbanPage() {
   const projectIdsWithProduct = (productName: string): Set<string> => {
     const ids = new Set<string>();
     projects.forEach(p => {
-      const d = p.data || {};
+      const d = parseProjectData(p.data);
       if (Array.isArray(d.produtos)) {
-        if (d.produtos.some((prod: any) => (prod.nome || prod.name) === productName)) {
+        if (d.produtos.some((prod) => (prod.nome || prod.name) === productName)) {
           ids.add(p.id);
         }
       }
@@ -355,8 +358,8 @@ export default function KanbanPage() {
       if (error) throw error;
       setAiDocResult(data?.result || data?.text || "Sem resultado");
       setShowAiDoc(true);
-    } catch (e: any) {
-      toast.error("Erro ao gerar doc: " + (e.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro ao gerar doc: " + (errorMessage(e) || ""));
     } finally {
       setAiDocLoading(false);
     }
@@ -400,7 +403,7 @@ export default function KanbanPage() {
               message: newDesc || null,
               type: "tarefa",
               entity_type: "card",
-              entity_id: (newCard as any).id,
+              entity_id: newCard.id,
             });
           }
         }
@@ -409,7 +412,7 @@ export default function KanbanPage() {
     // Sync with calendar if due_date exists
     if (newDueDate && newCard) {
       const { data: { user: calUser } } = await supabase.auth.getUser();
-      if (calUser) createCalendarEventForCard({ title: newTitle.trim(), due_date: newDueDate, project_id: (newCard as any).project_id, user_id: calUser.id, card_id: (newCard as any).id });
+      if (calUser) createCalendarEventForCard({ title: newTitle.trim(), due_date: newDueDate, project_id: newCard.project_id, user_id: calUser.id, card_id: newCard.id });
     }
     toast.success("Card criado!");
     setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); setNewProjectId("none");
@@ -505,7 +508,7 @@ export default function KanbanPage() {
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };
@@ -599,7 +602,7 @@ export default function KanbanPage() {
               )}
             </div>
           </div>
-          <CardMetricsChips metrics={card.metrics} statusColor={card.status_color} compact />
+          <CardMetricsChips metrics={Object.fromEntries(Object.entries(card.metrics || {}).filter((entry): entry is [string, string | number] => typeof entry[1] === "string" || typeof entry[1] === "number"))} statusColor={card.status_color} compact />
         </CardContent>
       </Card>
     );
@@ -939,14 +942,14 @@ export default function KanbanPage() {
           ) : viewMode === "sheet" ? (
             /* ====== SHEET (PLANILHA) VIEW ====== */
             <KanbanSheetView
-              cards={displayColumns.flatMap(col => cardsForCol(col)) as any}
-              columns={displayColumns as any}
+              cards={displayColumns.flatMap(col => cardsForCol(col))}
+              columns={displayColumns}
               members={members}
               projects={projects}
               boards={boards}
               activeBoard={activeBoard}
               onReload={loadAllData}
-              onOpenCard={(c) => setEditCard({ ...(c as any) })}
+              onOpenCard={(c) => { const fullCard = allCards.find(card => card.id === c.id); if (fullCard) setEditCard(fullCard); }}
             />
           ) : (
             /* ====== LIST VIEW ====== */

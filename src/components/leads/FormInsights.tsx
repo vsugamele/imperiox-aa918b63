@@ -10,6 +10,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { Brain, TrendingUp, ChevronDown, ExternalLink, Mail, Phone, MessageSquare, Search } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
+
+type FormResponse = Tables<"imphq_lead_responses">;
+type CaptureForm = Pick<Tables<"imphq_capture_forms">, "id" | "nome" | "project_id" | "fields">;
+type CaptureLead = Pick<Tables<"imphq_leads">, "id" | "nome" | "email" | "phone" | "status" | "project_id" | "total_gasto" | "criado_em">;
+function responseAnswers(response: FormResponse): Record<string, string> {
+  const key = response.field_key || response.question;
+  return key ? { [key]: response.answer } : {};
+}
 
 interface Props {
   projects: { id: string; name: string; icon?: string }[];
@@ -28,9 +37,9 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function FormInsights({ projects }: Props) {
   const navigate = useNavigate();
-  const [responses, setResponses] = useState<any[]>([]);
-  const [forms, setForms] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
+  const [responses, setResponses] = useState<FormResponse[]>([]);
+  const [forms, setForms] = useState<CaptureForm[]>([]);
+  const [leads, setLeads] = useState<CaptureLead[]>([]);
   const [filterProject, setFilterProject] = useState("all");
   const [filterForm, setFilterForm] = useState("all");
   const [search, setSearch] = useState("");
@@ -39,8 +48,8 @@ export function FormInsights({ projects }: Props) {
   useEffect(() => {
     const load = async () => {
       const [respRes, formsRes, leadsRes] = await Promise.all([
-        supabase.from("imphq_lead_responses").select("id, form_id, lead_id, project_id, answer, field_key, question, created_at").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("imphq_capture_forms").select("id, name, project_id, fields"),
+        supabase.from("imphq_lead_responses").select("id, form_id, lead_id, project_id, answer, field_key, question, created_at, step").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("imphq_capture_forms").select("id, nome, project_id, fields"),
         supabase.from("imphq_leads").select("id, nome, email, phone, status, project_id, total_gasto, criado_em"),
       ]);
       setResponses(respRes.data || []);
@@ -64,7 +73,7 @@ export function FormInsights({ projects }: Props) {
   const fieldStats = useMemo(() => {
     const stats = new Map<string, Map<string, number>>();
     filteredResponses.forEach(r => {
-      const answers = r.answers || {};
+      const answers = responseAnswers(r);
       Object.entries(answers).forEach(([key, value]) => {
         if (!value || key === "email" || key === "phone" || key === "nome") return;
         if (!stats.has(key)) stats.set(key, new Map());
@@ -84,7 +93,7 @@ export function FormInsights({ projects }: Props) {
     filteredResponses.forEach(r => {
       const lead = leadMap.get(r.lead_id);
       const isConverted = lead?.status === "cliente";
-      const answers = r.answers || {};
+      const answers = responseAnswers(r);
       Object.entries(answers).forEach(([key, value]) => {
         if (!value || key === "email" || key === "phone" || key === "nome") return;
         const valStr = String(value).substring(0, 50);
@@ -112,7 +121,7 @@ export function FormInsights({ projects }: Props) {
   const submissions = useMemo(() => {
     const leadMap = new Map(leads.map(l => [l.id, l]));
     const formMap = new Map(forms.map(f => [f.id, f]));
-    const grouped = new Map<string, { key: string; lead: any; form: any; responses: any[]; submittedAt: string; answersFromAggregate: Record<string, any> }>();
+    const grouped = new Map<string, { key: string; lead: CaptureLead | undefined; form: CaptureForm | undefined; responses: FormResponse[]; submittedAt: string; answersFromAggregate: Record<string, string> }>();
 
     filteredResponses.forEach(r => {
       if (!r.lead_id) return;
@@ -129,7 +138,7 @@ export function FormInsights({ projects }: Props) {
           form: formMap.get(r.form_id),
           responses: [r],
           submittedAt: r.created_at,
-          answersFromAggregate: r.answers || {},
+          answersFromAggregate: responseAnswers(r),
         });
       }
     });
@@ -172,7 +181,7 @@ export function FormInsights({ projects }: Props) {
             <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Formulário" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Forms</SelectItem>
-              {forms.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+              {forms.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -274,7 +283,7 @@ export function FormInsights({ projects }: Props) {
                     const qaPairs: { question: string; answer: string; step?: number }[] = [];
                     sub.responses.forEach(r => {
                       if (r.question && r.answer != null) {
-                        qaPairs.push({ question: r.question, answer: String(r.answer), step: r.step });
+                        qaPairs.push({ question: r.question, answer: String(r.answer), step: r.step ? Number(r.step) : undefined });
                       }
                     });
                     // Fallback: if no individual rows have question/answer, derive from aggregate answers
@@ -304,7 +313,7 @@ export function FormInsights({ projects }: Props) {
                                 </div>
                               </div>
                               <div className="text-right shrink-0 hidden sm:block">
-                                <div className="text-[10px] text-muted-foreground">{sub.form?.name || "Formulário"}</div>
+                                <div className="text-[10px] text-muted-foreground">{sub.form?.nome || "Formulário"}</div>
                                 <div className="text-[10px] text-muted-foreground">{date}</div>
                               </div>
                               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 shrink-0" />
@@ -314,7 +323,7 @@ export function FormInsights({ projects }: Props) {
                             <div className="px-3 pb-3 pt-1 border-t border-border/50">
                               <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                                 <div className="text-[10px] text-muted-foreground sm:hidden">
-                                  {sub.form?.name || "Formulário"} · {date}
+                                  {sub.form?.nome || "Formulário"} · {date}
                                 </div>
                                 <Button
                                   size="sm"

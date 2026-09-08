@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { record, parseProduct, type Product } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Link2, Search, Sparkles } from "lucide-react";
+
+const previewSchema = z.object({title:z.string().nullish(),screenshot:z.string().nullish(),summary:z.string().nullish(),branding:z.object({colors:z.record(z.string()).nullish()}).passthrough().nullish()}).passthrough();
 
 type Template = "novo_mecanismo" | "clonar" | "extrair";
 
@@ -20,14 +25,14 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   projectId: string;
-  onImported: (produto: any) => Promise<void> | void;
+  onImported: (produto: Product) => Promise<void> | void;
 }
 
 export function ImportProductDialog({ open, onOpenChange, projectId, onImported }: Props) {
   const [url, setUrl] = useState("");
   const [template, setTemplate] = useState<Template>("novo_mecanismo");
-  const [preview, setPreview] = useState<any>(null);
-  const [produto, setProduto] = useState<any>(null);
+  const [preview, setPreview] = useState<z.infer<typeof previewSchema> | null>(null);
+  const [produto, setProduto] = useState<Product | null>(null);
   const [loading, setLoading] = useState<"analyze" | "generate" | null>(null);
 
   function reset() {
@@ -40,10 +45,10 @@ export function ImportProductDialog({ open, onOpenChange, projectId, onImported 
     try {
       const { data, error } = await supabase.functions.invoke("site-scrape", { body: { url } });
       if (error || !data?.success) throw new Error(error?.message || data?.error || "Falha");
-      setPreview({ title: data.title, screenshot: data.screenshot, branding: data.branding, summary: data.summary });
+      setPreview(previewSchema.parse(data));
       toast.success("Página analisada");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao analisar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao analisar");
     } finally {
       setLoading(null);
     }
@@ -58,19 +63,21 @@ export function ImportProductDialog({ open, onOpenChange, projectId, onImported 
         body: { url, template, project_id: projectId },
       });
       if (error || !data?.success) throw new Error(error?.message || data?.error || "Falha");
-      setProduto(data.produto);
-      if (!preview && data.scrape) setPreview(data.scrape);
+      const imported = parseProduct(record(data).produto);
+      if (!imported.nome && !imported.name) throw new Error("Resposta sem produto válido");
+      setProduto(imported);
+      if (!preview && data.scrape) setPreview(previewSchema.parse(data.scrape));
 
       if (template !== "extrair") {
-        await onImported(data.produto);
+        await onImported(imported);
         toast.success(`Produto "${data.produto?.nome || "importado"}" criado`);
         reset();
         onOpenChange(false);
       } else {
         toast.success("Branding/copy extraídos.");
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar");
     } finally {
       setLoading(null);
     }
@@ -144,7 +151,7 @@ export function ImportProductDialog({ open, onOpenChange, projectId, onImported 
                   {preview.summary && <p className="text-xs text-muted-foreground line-clamp-3 leading-6">{preview.summary}</p>}
                   {preview.branding?.colors && (
                     <div className="flex gap-1 mt-2">
-                      {Object.values(preview.branding.colors).slice(0, 5).map((c: any, i) => (
+                      {Object.values(preview.branding.colors).slice(0, 5).map((c, i) => (
                         <span key={i} className="w-4 h-4 rounded-full border border-border/40" style={{ background: String(c) }} />
                       ))}
                     </div>
@@ -157,7 +164,7 @@ export function ImportProductDialog({ open, onOpenChange, projectId, onImported 
           {produto && template === "extrair" && (
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
               <p className="text-xs text-emerald-300 font-semibold mb-1">{produto.nome}</p>
-              <p className="text-xs text-muted-foreground line-clamp-2 leading-6">{produto.promessa}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2 leading-6">{typeof produto.promessa === "string" ? produto.promessa : ""}</p>
             </div>
           )}
         </div>

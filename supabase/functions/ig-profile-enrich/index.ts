@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       .limit(30);
 
     const historyText = (dbMessages || [])
-      .map((m: any) => `${m.direction === "in" ? "Lead" : "Assistente"}: ${m.content}`)
+      .map((m: {direction:string;content:string|null}) => `${m.direction === "in" ? "Lead" : "Assistente"}: ${m.content}`)
       .join("\n");
 
     // 3. Attempt Firecrawl Scrape
@@ -88,8 +88,9 @@ Deno.serve(async (req) => {
           // Extract bio paragraphs if possible
           scrapeBio = md.slice(0, 500);
         }
-      } catch (err: any) {
-        console.warn("[ig-profile-enrich] Firecrawl scrape failed:", err.message);
+      } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+        console.warn("[ig-profile-enrich] Firecrawl scrape failed:", errMessage);
       }
     }
 
@@ -155,8 +156,9 @@ Responda APENAS com o objeto JSON limpo, sem markdown, sem tags \`\`\`json.`;
             enrichedProfile = { ...enrichedProfile, ...parsed };
           }
         }
-      } catch (err: any) {
-        console.error("[ig-profile-enrich] LLM parsing error:", err.message);
+      } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+        console.error("[ig-profile-enrich] LLM parsing error:", errMessage);
       }
     }
 
@@ -210,9 +212,10 @@ Responda APENAS com o objeto JSON limpo, sem markdown, sem tags \`\`\`json.`;
       enriched_profile: enrichedProfile
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (e: any) {
-    console.error(`[ig-profile-enrich] Error: ${e.message}`);
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error(`[ig-profile-enrich] Error: ${eMessage}`);
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

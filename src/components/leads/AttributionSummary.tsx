@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonText } from "@/lib/json-fields";
 import { useMemo } from "react";
 import { Clock, MapPin, Compass } from "lucide-react";
 
@@ -7,7 +9,7 @@ interface TimelineEvent {
   timestamp: string;
   title: string;
   subtitle?: string;
-  details?: Record<string, any>;
+  details?: { [key: string]: Json | undefined };
 }
 
 interface Props {

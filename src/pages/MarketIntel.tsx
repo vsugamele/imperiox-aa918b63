@@ -1,4 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import type { NicheOffer } from "@/data/marketIntelData";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { parseIntel, parseHack, type Intel, type Hack, type Variation } from "@/pages/market-intel-schema";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +18,7 @@ import { NICHE_OFFERS, MARKETING_ANGLES, OFFER_FACTORY, UNIQUE_NICHOS } from "@/
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { SearchHistory } from "@/components/marketintel/SearchHistory";
 import { NicheComparator } from "@/components/marketintel/NicheComparator";
@@ -20,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { GitCompare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: any }> = {
+const NICHO_COLORS: Record<string, { bg: string; text: string; border: string; icon: LucideIcon }> = {
   "Saúde": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", icon: Heart },
   "Espiritualidade": { bg: "bg-violet-500/15", text: "text-violet-400", border: "border-violet-500/30", icon: Sparkles },
   "Relacionamento": { bg: "bg-pink-500/15", text: "text-pink-400", border: "border-pink-500/30", icon: Users },
@@ -47,7 +53,7 @@ const ANGLE_COLORS = [
 ];
 
 // CSV export helper
-function downloadCSV(data: Record<string, any>[], filename: string) {
+function downloadCSV(data: Record<string, unknown>[], filename: string) {
   if (!data.length) return;
   const headers = Object.keys(data[0]);
   const rows = data.map(r => headers.map(h => `"${String(r[h] ?? "").replace(/"/g, '""')}"`).join(","));
@@ -62,17 +68,17 @@ function downloadCSV(data: Record<string, any>[], filename: string) {
 export default function MarketIntel() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [opps, setOpps] = useState<any[]>([]);
+  const [opps, setOpps] = useState<Tables<"imphq_mi_opportunities">[]>([]);
   const [search, setSearch] = useState("");
   const [nichoFilter, setNichoFilter] = useState("all");
   const [angleSearch, setAngleSearch] = useState("");
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">,"id"|"name"|"data">>>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [aiResult, setAiResult] = useState<string>("");
-  const [aiIntelData, setAiIntelData] = useState<any>(null);
+  const [aiIntelData, setAiIntelData] = useState<Intel | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showFavsOnly, setShowFavsOnly] = useState(false);
-  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [competitors, setCompetitors] = useState<Tables<"imphq_competitors">[]>([]);
   const [activeTab, setActiveTab] = useState("nichos");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<"DISCOVERY" | "TREND_SCAN" | "DEEP_DIVE">("DISCOVERY");
@@ -86,7 +92,7 @@ export default function MarketIntel() {
   const [fbAdUrl, setFbAdUrl] = useState("");
   const [isHacking, setIsHacking] = useState(false);
   const [hackingStep, setHackingStep] = useState(0);
-  const [hackedResult, setHackedResult] = useState<any>(null);
+  const [hackedResult, setHackedResult] = useState<Hack | null>(null);
 
   // Load data
   useEffect(() => {
@@ -116,10 +122,9 @@ export default function MarketIntel() {
   useEffect(() => {
     if (!selectedProject) { setAiResult(""); setAiIntelData(null); setCompetitors([]); return; }
     const proj = projects.find(p => p.id === selectedProject);
-    if (proj?.data?.ai_market_intel) setAiResult(proj.data.ai_market_intel);
-    else setAiResult("");
-    if (proj?.data?.ai_market_intel_data) setAiIntelData(proj.data.ai_market_intel_data);
-    else setAiIntelData(null);
+    const projectData = jsonFields(proj?.data);
+    setAiResult(jsonText(projectData.ai_market_intel) || "");
+    setAiIntelData(parseIntel(projectData.ai_market_intel_data));
     supabase.from("imphq_competitors").select("*").eq("project_id", selectedProject).then(({ data }) => setCompetitors(data || []));
   }, [selectedProject, projects]);
 
@@ -136,15 +141,15 @@ export default function MarketIntel() {
     }
   };
 
-  const isFav = (tipo: string, key: string) => favorites.has(`${tipo}:${key}`);
+  const isFav = useCallback((tipo: string, key: string) => favorites.has(`${tipo}:${key}`), [favorites]);
 
   // Save AI result persistently
-  const handleAiResult = async (data: any) => {
+  const handleAiResult = async (data: Json) => {
     let resultMd = "";
-    let intelData: any = null;
-    if (data?.intel) {
-      const intel = data.intel;
-      resultMd = intel.analise_markdown || intel.resumo_executivo || "";
+    let intelData: Json = null;
+    if (jsonFields(data).intel) {
+      const intel = jsonFields(jsonFields(data).intel);
+      resultMd = jsonText(intel.analise_markdown) || jsonText(intel.resumo_executivo) || "";
       intelData = {
         produtos: intel.produtos_encontrados,
         oportunidades: intel.oportunidades,
@@ -155,15 +160,15 @@ export default function MarketIntel() {
         updated_at: new Date().toISOString(),
       };
       setAiResult(resultMd);
-      setAiIntelData(intelData);
+      setAiIntelData(parseIntel(intelData));
       supabase.from("imphq_mi_opportunities").select("*").order("score", { ascending: false }).then(({ data: d }) => setOpps(d || []));
       toast.success("Pesquisa de mercado completa! Dados salvos.");
     } else {
-      resultMd = data?.result || "";
+      resultMd = jsonText(jsonFields(data).result) || "";
       setAiResult(resultMd);
       if (selectedProject && resultMd) {
         const proj = projects.find(p => p.id === selectedProject);
-        const currentData = (proj?.data as Record<string, any>) || {};
+        const currentData = jsonFields(proj?.data);
         await supabase.from("imphq_projects").update({ data: { ...currentData, ai_market_intel: resultMd } }).eq("id", selectedProject);
         toast.success("Resultado da IA salvo no projeto!");
       }
@@ -183,28 +188,28 @@ export default function MarketIntel() {
   };
 
   // Recarrega pesquisa do histórico
-  const loadHistorical = (s: { mode: string; query: string | null; result_md: string | null; intel_data: any }) => {
-    setSearchMode(s.mode as any);
+  const loadHistorical = (s: { mode: string; query: string | null; result_md: string | null; intel_data: Json }) => {
+    if (s.mode === "DISCOVERY" || s.mode === "TREND_SCAN" || s.mode === "DEEP_DIVE") setSearchMode(s.mode);
     setSearchQuery(s.query || "");
     setAiResult(s.result_md || "");
-    setAiIntelData(s.intel_data || null);
+    setAiIntelData(parseIntel(s.intel_data));
     toast.success("Pesquisa recarregada do histórico.");
   };
 
   // Ponte com vendas: oferta já testada?
-  const jaTestou = (oferta: any): boolean => {
+  const jaTestou = (oferta: NicheOffer): boolean => {
     if (vendasNichos.size === 0) return false;
     const tokens = String(oferta.nomeOferta + " " + oferta.microNicho + " " + oferta.subNicho).toLowerCase().split(/[\s\-_/,.()]+/).filter(t => t.length > 3);
     return tokens.some(t => vendasNichos.has(t));
   };
 
   // Cria projeto a partir de uma oferta
-  const criarProjetoDaOferta = async (oferta: any) => {
+  const criarProjetoDaOferta = async (oferta: NicheOffer) => {
     const nome = window.prompt("Nome do novo projeto:", oferta.nomeOferta);
     if (!nome) return;
     const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const seedData = {
-      ai_market_intel_offer: oferta,
+      ai_market_intel_offer: { ...oferta },
       briefing_inicial: `Oferta: ${oferta.nomeOferta}\nNicho: ${oferta.nicho} > ${oferta.subNicho} > ${oferta.microNicho}\nDor central: ${oferta.dorCentral}\nTicket: ${oferta.ticket}\nBump: ${oferta.bump}\nUpsell: ${oferta.upsell}\nSem rosto: ${oferta.semAparecer}`,
     };
     const { error } = await supabase.from("imphq_projects").insert({
@@ -227,7 +232,7 @@ export default function MarketIntel() {
     });
     if (showFavsOnly) items = items.filter((_, i) => isFav("offer", String(i)));
     return items;
-  }, [search, nichoFilter, showFavsOnly, favorites]);
+  }, [search, nichoFilter, showFavsOnly, isFav]);
 
   const filteredOpps = opps.filter((o) =>
     o.nicho?.toLowerCase().includes(search.toLowerCase()) ||
@@ -242,7 +247,7 @@ export default function MarketIntel() {
     });
     if (showFavsOnly) items = items.filter((_, i) => isFav("angle", String(i)));
     return items;
-  }, [angleSearch, showFavsOnly, favorites]);
+  }, [angleSearch, showFavsOnly, isFav]);
 
   const avgScore = NICHE_OFFERS.length > 0 ? (NICHE_OFFERS.reduce((s, o) => s + o.score, 0) / NICHE_OFFERS.length).toFixed(1) : "0";
   const topNicho = UNIQUE_NICHOS[0] || "—";
@@ -265,7 +270,6 @@ export default function MarketIntel() {
   const handleExecuteFunnelHack = async () => {
     if (!fbAdUrl.trim()) return;
     setIsHacking(true);
-    setHackedResult(null);
     
     // Staged loading delays
     setHackingStep(1);
@@ -334,46 +338,18 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
       const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleanJson);
       
-      setHackedResult(parsed);
+      setHackedResult(parseHack(parsed));
       toast.success("Engenharia reversa concluída! Criativos gerados com alta conversão.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Erro ao processar ad hacking com IA: " + err.message);
-      // Fallback mockup so the user always has a high-converting result to test
-      setHackedResult({
-        analyzedCopy: "🚨 Cansado de pagar caro por lead no Facebook Ads? Descubra o ângulo secreto de Resposta Direta que mudou nossa escala nesta semana...",
-        psychologicalTriggers: ["Pattern Interrupt", "Curiosidade", "Segredo Exclusivo"],
-        targetAvatar: "Media Buyers e infoprodutores frustrados com oscilação de CPL",
-        uniqueMechanism: "Ângulo Contraintuitivo de Escala Lateral",
-        variations: [
-          {
-            title: "Variação 1: O Gancho Contraintuitivo",
-            gancho: "A verdade inconveniente sobre CPL alto que as agências escondem de você...",
-            narrativa: "Copywriter sênior disseca que tentar segmentar mais no Facebook Ads só encarece seu lead. A solução é mudar o gancho contraintuitivo do criativo para fisgar o avatar com curiosidade insaciável...",
-            cta: "Clique para copiar o modelo de direct response."
-          },
-          {
-            title: "Variação 2: O Gancho de Prova Social",
-            gancho: "Como baixei meu CPL de R$ 9,50 para R$ 2,10 em menos de 24 horas...",
-            narrativa: "Dados provam que criativos de depoimento de tela cheia superam 90% das artes profissionais. Veja o passo a passo exato do script que utilizamos para quebrar objeções...",
-            cta: "Assista o tutorial gratuito tocando abaixo."
-          },
-          {
-            title: "Variação 3: A VSL Direta",
-            gancho: "Seu tráfego está morrendo no checkout? Veja como corrigir hoje.",
-            narrativa: "Uma oferta irresistível stack de valor (Alex Hormozi style) inverte todo o risco do lead. Entregamos bônus e garantias reais para segurar a conversão nas últimas etapas do funil...",
-            cta: "Clique em saiba mais e ative o autoresponder do comitê."
-          }
-        ]
-      });
-      toast.success("Engenharia reversa concluída (carregado com Mockup inteligente de contingência)!");
+      toast.error("Erro ao processar ad hacking com IA: " + errorMessage(err));
     } finally {
       setIsHacking(false);
       setHackingStep(0);
     }
   };
 
-  const handleExportSwipe = async (variation: any) => {
+  const handleExportSwipe = async (variation: Variation) => {
     if (!user) { toast.error("Faça login para salvar criativos"); return; }
     try {
       const { error } = await supabase.from("imphq_swipes").insert({
@@ -392,12 +368,12 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
           narrativa: variation.narrativa,
           cta_venda: variation.cta
         }
-      } as any);
+      });
       
       if (error) throw error;
       toast.success("Criativo exportado e salvo com sucesso em Swipes e Studio!");
-    } catch (e: any) {
-      toast.error("Erro ao exportar criativo: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao exportar criativo: " + errorMessage(e));
     }
   };
 
@@ -934,7 +910,7 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
                 </h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {hackedResult.variations.map((v: any, index: number) => (
+                  {hackedResult.variations.map((v, index: number) => (
                     <Card key={index} className="border-emerald-500/20 hover:border-emerald-500/40 bg-slate-900/40 backdrop-blur-sm flex flex-col justify-between hover:scale-[1.01] transition-all">
                       <CardContent className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                         <div className="space-y-3">
@@ -999,7 +975,7 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
             <div>
               <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Produtos Encontrados ({aiIntelData.produtos.length})</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {aiIntelData.produtos.map((p: any, i: number) => (
+                {aiIntelData.produtos.map((p, i: number) => (
                   <Card key={i} className="border-border hover:border-primary/30 transition-colors">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-start justify-between">
@@ -1038,7 +1014,7 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
             <div>
               <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2"><Target className="h-4 w-4" /> Oportunidades Recomendadas ({aiIntelData.oportunidades.length})</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {aiIntelData.oportunidades.map((o: any, i: number) => (
+                {aiIntelData.oportunidades.map((o, i: number) => (
                   <Card key={i} className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-transparent">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-start justify-between">
@@ -1115,7 +1091,7 @@ Você DEVE responder rigorosamente apenas um JSON limpo, sem markdown, contendo 
       <NicheComparator
         open={compareOpen}
         onOpenChange={setCompareOpen}
-        offers={Array.from(compareSet).map(idx => NICHE_OFFERS[idx]).filter(Boolean) as any}
+        offers={Array.from(compareSet).map(idx => NICHE_OFFERS[idx]).filter(Boolean)}
       />
     </div>
   );

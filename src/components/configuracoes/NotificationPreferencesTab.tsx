@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -111,7 +112,7 @@ export function NotificationPreferencesTab() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (data) setPrefs(data as any);
+    if (data) setPrefs(data);
     setLoading(false);
   }, []);
 
@@ -126,9 +127,9 @@ export function NotificationPreferencesTab() {
       await subscribeCurrentDevice();
       setPushStatus("subscribed");
       toast.success("Push ativado neste dispositivo");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPushStatus(await getPushStatus());
-      toast.error(err?.message || "Erro ao ativar push");
+      toast.error(errorMessage(err) || "Erro ao ativar push");
     } finally {
       setPushBusy(false);
     }
@@ -140,8 +141,8 @@ export function NotificationPreferencesTab() {
       await unsubscribeCurrentDevice();
       setPushStatus("supported");
       toast.info("Push desativado neste dispositivo");
-    } catch (err: any) {
-      toast.error(err?.message || "Erro ao desativar push");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro ao desativar push");
     } finally {
       setPushBusy(false);
     }
@@ -153,8 +154,8 @@ export function NotificationPreferencesTab() {
       const { error } = await supabase.functions.invoke("send-push-test", { body: {} });
       if (error) throw error;
       toast.success("Teste enviado. Aguarde alguns segundos.");
-    } catch (err: any) {
-      toast.error(err?.message || "Erro no teste");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro no teste");
     } finally {
       setTestBusy(false);
     }
@@ -169,19 +170,19 @@ export function NotificationPreferencesTab() {
     setPrefs((prev) => ({ ...prev, [field]: value }));
 
     if (prefs.id) {
-      const { error } = await supabase.from("imphq_notification_preferences").update({ [field]: value } as any).eq("id", prefs.id);
+      const { error } = await supabase.from("imphq_notification_preferences").update({ [field]: value }).eq("id", prefs.id);
       if (error) toast.error(error.message);
       return;
     }
 
     const { data, error } = await supabase
       .from("imphq_notification_preferences")
-      .insert({ user_id: user.id, ...prefs, [field]: value } as any)
+      .insert({ user_id: user.id, ...prefs, [field]: value })
       .select()
       .single();
 
     if (error) toast.error(error.message);
-    else setPrefs(data as any);
+    else setPrefs(data);
   };
 
   if (loading) return <p className="p-4 text-sm text-muted-foreground">Carregando...</p>;

@@ -36,7 +36,7 @@ export function LinkFlowDialog({ open, onClose, projectId, currentFlowId, assetL
       .order("updated_at", { ascending: false })
       .limit(80)
       .then(({ data }) => {
-        setFlows((data as any) || []);
+        setFlows(data || []);
         setLoading(false);
       });
   }, [open, projectId]);

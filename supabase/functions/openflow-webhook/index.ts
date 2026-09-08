@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Gatilho público por webhook para o OpenFlow.
 // URL: {SUPABASE_URL}/functions/v1/openflow-webhook/{token}
 // Qualquer ferramenta externa (Zernio, n8n, Make, plataformas) pode disparar um fluxo.
@@ -12,17 +13,17 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function getPath(obj: any, path: string): any {
+function getPath(obj: unknown, path: string): unknown {
   if (!path) return undefined;
-  return path.split(".").reduce((acc: any, k) => {
+  return path.split(".").reduce<unknown>((acc, k) => {
     if (acc === null || acc === undefined) return undefined;
     const idx = Number(k);
-    return Array.isArray(acc) && !Number.isNaN(idx) ? acc[idx] : acc[k];
+    return Array.isArray(acc) && !Number.isNaN(idx) ? acc[idx] : typeof acc === "object" && Object.prototype.hasOwnProperty.call(acc, k) ? Object.getOwnPropertyDescriptor(acc, k)?.value : typeof acc === "string" && k === "length" ? acc.length : undefined;
   }, obj);
 }
 
 // Procura o primeiro valor não vazio entre vários caminhos possíveis
-function firstOf(obj: any, paths: string[]): any {
+function firstOf(obj: unknown, paths: string[]): unknown {
   for (const p of paths) {
     const v = getPath(obj, p);
     if (v !== undefined && v !== null && v !== "") return v;
@@ -77,16 +78,17 @@ Deno.serve(async (req) => {
     );
   }
 
-  let payload: any = {};
+  let payload: Record<string, unknown> | unknown[] = {};
   try {
     const raw = await req.text();
-    payload = raw ? JSON.parse(raw) : {};
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    payload = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" ? { ...parsed } : {};
   } catch {
     payload = {};
   }
   // Query params também entram no payload (útil para provedores que enviam via querystring)
   for (const [k, v] of url.searchParams.entries()) {
-    if (k !== "token" && payload[k] === undefined) payload[k] = v;
+    if (k !== "token" && getPath(payload, k) === undefined) Object.assign(payload, { [k]: v });
   }
 
   try {
@@ -111,8 +113,8 @@ Deno.serve(async (req) => {
     }
 
     // Monta lead_data: payload cru + campos normalizados (mapeamento manual > automático)
-    const fieldMap: Record<string, string> = (hook.field_map as any) || {};
-    const normalized: Record<string, any> = {};
+    const fieldMap = z.record(z.string()).parse(hook.field_map || {});
+    const normalized: Record<string, unknown> = {};
     for (const key of Object.keys(AUTO_MAP)) {
       const manual = fieldMap[key];
       const v = manual ? getPath(payload, manual) : firstOf(payload, AUTO_MAP[key]);
@@ -123,10 +125,10 @@ Deno.serve(async (req) => {
       firstOf(payload, ["evento", "event", "type", "action"]) ?? hook.evento ?? "",
     );
 
-    const leadData: Record<string, any> = {
+    const leadData: Record<string, unknown> = {
       ...payload,
       ...normalized,
-      phone: normalized.telefone ?? payload.phone ?? null,
+      phone: normalized.telefone ?? getPath(payload, "phone") ?? null,
       message_content: normalized.mensagem ?? evento,
       mensagem_recebida: normalized.mensagem ?? evento,
       webhook_evento: evento,
@@ -165,9 +167,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, executor_status: res.status }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     // Sempre 200 para não travar retries do provedor
-    console.error("[openflow-webhook] erro", e?.message);
+    console.error("[openflow-webhook] erro", eMessage);
     return new Response(JSON.stringify({ ok: true, error_logged: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -42,9 +42,9 @@ serve(async (req) => {
     const { data: scoreLogs } = await supabase.from("imphq_lead_scores_log").select("lead_id, acao, pontos").in("lead_id", lead_ids.slice(0, 20));
 
     // Build context per lead
-    const leadContexts = leads.map((lead: any) => {
-      const leadVendas = (vendas || []).filter((v: any) => v.lead_id === lead.id);
-      const leadScores = (scoreLogs || []).filter((s: any) => s.lead_id === lead.id);
+    const leadContexts = leads.map((lead) => {
+      const leadVendas = (vendas || []).filter((v) => v.lead_id === lead.id);
+      const leadScores = (scoreLogs || []).filter((s) => s.lead_id === lead.id);
       const data = lead.data || {};
       
       return {
@@ -61,8 +61,8 @@ serve(async (req) => {
         ultimo_evento: data.ultimo_evento,
         ultimo_produto: data.ultimo_produto,
         utms: data.utms,
-        vendas: leadVendas.map((v: any) => ({ produto: v.produto_nome, valor: v.valor, status: v.status })),
-        score_actions: leadScores.map((s: any) => `${s.acao}: ${s.pontos}pts`),
+        vendas: leadVendas.map((v) => ({ produto: v.produto_nome, valor: v.valor, status: v.status })),
+        score_actions: leadScores.map((s) => `${s.acao}: ${s.pontos}pts`),
         interacoes_count: Array.isArray(data.interacoes) ? data.interacoes.length : 0,
       };
     });
@@ -148,7 +148,7 @@ REGRAS:
     // Upsert predictions
     const results = [];
     for (const pred of predictions) {
-      const lead = leads.find((l: any) => l.id === pred.lead_id);
+      const lead = leads.find((l) => l.id === pred.lead_id);
       if (!lead) continue;
 
       // Delete old predictions for this lead

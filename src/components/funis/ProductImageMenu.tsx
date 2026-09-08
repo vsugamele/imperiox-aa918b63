@@ -1,3 +1,6 @@
+import { record, toJson, type Product } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +13,7 @@ import { toast } from "sonner";
 interface Props {
   projectId: string;
   productIdx: number;
-  product: any;
+  product: Product;
   imageUrl?: string;
   onSaved: (url: string) => void;
 }
@@ -45,18 +48,19 @@ export function ProductImageMenu({ projectId, productIdx, product, imageUrl, onS
   async function persistImage(url: string) {
     // Update imphq_projects.data.produtos[productIdx].imagem
     const { data: row } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
-    const dataObj: any = row?.data || {};
+    const dataObj = record(row?.data);
     const briefingKey = dataObj.briefing ? "briefing" : null;
-    const target = briefingKey ? dataObj.briefing : dataObj;
+    const target = briefingKey ? record(dataObj.briefing) : dataObj;
     const produtos = Array.isArray(target.produtos) ? [...target.produtos] : [];
     if (!produtos[productIdx]) produtos[productIdx] = {};
     produtos[productIdx] = {
-      ...(typeof produtos[productIdx] === "string" ? { nome: produtos[productIdx] } : produtos[productIdx]),
+      ...(typeof produtos[productIdx] === "string" ? { nome: produtos[productIdx] } : record(produtos[productIdx])),
       imagem: url,
     };
     if (briefingKey) dataObj.briefing = { ...target, produtos };
     else dataObj.produtos = produtos;
-    await supabase.from("imphq_projects").update({ data: dataObj }).eq("id", projectId);
+    const { error } = await supabase.from("imphq_projects").update({ data: toJson(dataObj) }).eq("id", projectId);
+    if (error) throw error;
     onSaved(url);
   }
 
@@ -72,8 +76,8 @@ export function ProductImageMenu({ projectId, productIdx, product, imageUrl, onS
       const { data } = supabase.storage.from("creative-assets").getPublicUrl(path);
       await persistImage(data.publicUrl);
       toast.success("Imagem anexada");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao subir imagem");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao subir imagem");
     } finally {
       setBusy(false);
     }
@@ -95,7 +99,7 @@ export function ProductImageMenu({ projectId, productIdx, product, imageUrl, onS
     if (!model) return;
     setBusy(true);
     try {
-      const params: any = { aspect_ratio: "1:1" };
+      const params: Record<string, Json> = { aspect_ratio: "1:1" };
       if (model.provider === "kie") {
         params.size = "1024x1024";
         params.quality = "high";
@@ -117,8 +121,8 @@ export function ProductImageMenu({ projectId, productIdx, product, imageUrl, onS
       await persistImage(url);
       toast.success("Imagem gerada");
       setGenOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || "Falha na geração");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha na geração");
     } finally {
       setBusy(false);
     }

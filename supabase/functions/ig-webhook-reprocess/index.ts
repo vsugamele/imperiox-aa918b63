@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // ig-webhook-reprocess — Reprocessa eventos Zernio/Instagram com processed=false
 // Útil quando o webhook falhou em encaminhar (instagram-webhook fora do ar etc.)
 // Body opcional: { project_id?: string, hours?: number (default 24), limit?: number (default 50) }
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
 
     const since = new Date(Date.now() - hours * 3600_000).toISOString();
 
-    let q = supa
+    const q = supa
       .from("imphq_ig_webhook_logs")
       .select("id, event_type, payload, created_at")
       .eq("processed", false)
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
 
     for (const row of rows) {
       try {
-        const payload = row.payload as any;
+        const payload = z.object({projectId:z.string().nullish(),data:z.object({account:z.object({projectId:z.string().nullish()}).passthrough().nullish()}).passthrough().nullish()}).passthrough().parse(row.payload);
         // Reinjeta no próprio zernio-webhook (que faz dedupe via messageId)
         const proj = projectId
           || payload?.data?.account?.projectId
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
         if (res.ok) {
           okCount++;
           await supa.from("imphq_ig_webhook_logs")
-            .update({ processed: true, error: null } as any)
+            .update({ processed: true, error: null })
             .eq("id", row.id);
         } else {
           failCount++;
@@ -81,9 +82,10 @@ Deno.serve(async (req) => {
           errors.push(`row ${row.id}: ${res.status} ${t.slice(0, 120)}`);
         }
         await new Promise(r => setTimeout(r, 80));
-      } catch (e: any) {
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
         failCount++;
-        errors.push(`row ${row.id}: ${e.message}`);
+        errors.push(`row ${row.id}: ${eMessage}`);
       }
     }
 
@@ -96,9 +98,10 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    console.error("[ig-webhook-reprocess] Erro:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("[ig-webhook-reprocess] Erro:", eMessage);
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

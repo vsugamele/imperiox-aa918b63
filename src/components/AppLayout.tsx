@@ -104,7 +104,7 @@ function CmdKHint() {
       const n = parseInt(localStorage.getItem(CMDK_LS_KEY) || "0", 10);
       localStorage.setItem(CMDK_LS_KEY, String(n + 1));
       if (n + 1 >= 5) setTimeout(() => setVisible(false), 8000);
-    } catch {}
+    } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [visible]);
 
   if (!visible) return null;
@@ -128,7 +128,7 @@ export function AppLayout() {
   });
 
   useEffect(() => {
-    try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
+    try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [open]);
 
   // Mobile auto-redirect removido — app desktop agora responsivo no celular.

@@ -11,7 +11,9 @@ const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
 const LUMA_API_KEY = Deno.env.get("LUMA_API_KEY");
 const BUCKET = "creative-assets";
 
-async function uploadFromUrl(supabase: any, userId: string, url: string, ext: string, mime: string) {
+function makeStudioClient(url: string, key: string) { return createClient(url, key); }
+
+async function uploadFromUrl(supabase: ReturnType<typeof makeStudioClient>, userId: string, url: string, ext: string, mime: string) {
   const r = await fetch(url);
   const buf = new Uint8Array(await r.arrayBuffer());
   const path = `studio/${userId}/${crypto.randomUUID()}.${ext}`;
@@ -101,8 +103,9 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, status: "failed", error: err }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     return new Response(JSON.stringify({ ok: true, status: "processing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-generate-status:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

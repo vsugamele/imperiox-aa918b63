@@ -37,11 +37,11 @@ export function BlendedFunnelStrip() {
       ]);
 
       const impressions = (adsRes.data || []).reduce(
-        (s: number, a: any) => s + Number(a.impressoes || 0),
+        (s: number, a) => s + Number(a.impressoes || 0),
         0,
       );
       const clicks = (adsRes.data || []).reduce(
-        (s: number, a: any) => s + Number(a.cliques || 0),
+        (s: number, a) => s + Number(a.cliques || 0),
         0,
       );
       return {

@@ -77,7 +77,7 @@ export default function Docs() {
       supabase.from("imphq_docs").select("id, title").order("created_at", { ascending: false }),
     ]);
     const map: Record<string, KBEntry> = {};
-    ((kbRes.data as any[]) || []).forEach((d) => { map[d.section_key] = d; });
+    (kbRes.data || []).forEach((d) => { map[d.section_key] = d; });
     setEntries(map);
     setAllDocs((docsRes.data || []) as DocItem[]);
   };
@@ -105,8 +105,8 @@ export default function Docs() {
       .map(e => ({
         key: e.section_key,
         title: e.title,
-        icon: (e as any).icon || "📝",
-        description: (e as any).description || "",
+        icon: e.icon || "📝",
+        description: e.description || "",
         isCustom: true,
         isTemplate: false,
         hasContent: !!(e.body || e.content),
@@ -156,7 +156,7 @@ export default function Docs() {
     const entry = entries[activeKey];
     const template = KB_SECTIONS.find(s => s.key === activeKey);
     if (entry?.is_custom) {
-      return { title: entry.title, icon: (entry as any).icon || "📝", description: (entry as any).description || "", isCustom: true };
+      return { title: entry.title, icon: entry.icon || "📝", description: entry.description || "", isCustom: true };
     }
     if (template) {
       return { title: template.title, icon: template.icon, description: template.description, isCustom: false };
@@ -176,7 +176,7 @@ export default function Docs() {
 
     if (existing?.id) {
       const { error } = await supabase.from("imphq_kb")
-        .update({ body: content, title: activeInfo.title } as any)
+        .update({ body: content, title: activeInfo.title })
         .eq("id", existing.id);
       if (error) { toast.error("Erro ao salvar"); setSaving(false); return; }
     } else {
@@ -188,7 +188,7 @@ export default function Docs() {
           title: template?.title || activeKey,
           body: content,
           order_idx: KB_SECTIONS.findIndex(s => s.key === activeKey),
-        } as any);
+        });
       if (error) { toast.error("Erro ao salvar"); setSaving(false); return; }
     }
 
@@ -215,7 +215,7 @@ export default function Docs() {
     }
     // Also export custom sections
     Object.values(entries).filter(e => e.is_custom).forEach(e => {
-      output += `${"=".repeat(60)}\n\n## ${(e as any).icon || "📝"} ${e.title.toUpperCase()}\n\n${"=".repeat(60)}\n\n${e.body || e.content || ""}\n\n`;
+      output += `${"=".repeat(60)}\n\n## ${e.icon || "📝"} ${e.title.toUpperCase()}\n\n${"=".repeat(60)}\n\n${e.body || e.content || ""}\n\n`;
     });
     await navigator.clipboard.writeText(output);
     toast.success("Knowledge Base completa copiada!");
@@ -235,7 +235,7 @@ export default function Docs() {
       parent_key: newSectionParent || null,
       icon: newSectionIcon,
       description: newSectionDesc.trim() || null,
-    } as any);
+    });
     if (error) { toast.error("Erro ao criar seção"); return; }
     toast.success("Seção criada!");
     setShowNewSection(false);
@@ -268,7 +268,7 @@ export default function Docs() {
     if (!renameKey || !renameValue.trim()) return;
     const entry = entries[renameKey];
     if (!entry?.id) return;
-    await supabase.from("imphq_kb").update({ title: renameValue.trim() } as any).eq("id", entry.id);
+    await supabase.from("imphq_kb").update({ title: renameValue.trim() }).eq("id", entry.id);
     toast.success("Renomeada!");
     setRenameKey(null);
     load();
@@ -279,7 +279,7 @@ export default function Docs() {
     const newIds = [...currentDocIds, docId];
     const entry = entries[activeKey];
     if (entry?.id) {
-      await supabase.from("imphq_kb").update({ doc_ids: newIds } as any).eq("id", entry.id);
+      await supabase.from("imphq_kb").update({ doc_ids: newIds }).eq("id", entry.id);
     } else {
       // Need to create the entry first
       const template = KB_SECTIONS.find(s => s.key === activeKey);
@@ -290,7 +290,7 @@ export default function Docs() {
         body: content,
         order_idx: KB_SECTIONS.findIndex(s => s.key === activeKey),
         doc_ids: newIds,
-      } as any);
+      });
     }
     toast.success("Documento vinculado");
     load();
@@ -300,7 +300,7 @@ export default function Docs() {
     const newIds = currentDocIds.filter(id => id !== docId);
     const entry = entries[activeKey];
     if (entry?.id) {
-      await supabase.from("imphq_kb").update({ doc_ids: newIds } as any).eq("id", entry.id);
+      await supabase.from("imphq_kb").update({ doc_ids: newIds }).eq("id", entry.id);
     }
     toast.success("Documento desvinculado");
     load();
@@ -309,7 +309,7 @@ export default function Docs() {
   const toggleCollapsed = (key: string) => {
     setCollapsed(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };

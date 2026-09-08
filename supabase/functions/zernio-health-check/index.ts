@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function json(d: any, s = 200) {
+function json(d: unknown, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -22,8 +22,8 @@ Deno.serve(async (req) => {
       .select("project_id, credentials")
       .eq("provider", "instagram");
 
-    const zernioProjects = (rows || []).filter((r: any) => r.credentials?.auth_method === "zernio");
-    const results: any[] = [];
+    const zernioProjects = (rows || []).filter((r) => r.credentials?.auth_method === "zernio");
+    const results: { project_id: string; status: string; apiOk: boolean; apiErr: string | null; silentMinutes: number | null }[] = [];
 
     for (const row of zernioProjects) {
       const project_id = row.project_id;
@@ -37,8 +37,9 @@ Deno.serve(async (req) => {
         });
         apiOk = r.ok;
         if (!r.ok) apiErr = `HTTP ${r.status}`;
-      } catch (e: any) {
-        apiErr = e.message;
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        apiErr = eMessage || String(e);
       }
 
       // Último webhook zernio_* recebido
@@ -95,8 +96,9 @@ Deno.serve(async (req) => {
     }
 
     return json({ success: true, checked: results.length, results });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[zernio-health-check]", e);
-    return json({ error: e.message }, 500);
+    return json({ error: eMessage }, 500);
   }
 });

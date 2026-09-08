@@ -1,4 +1,4 @@
-import { METRIC_FIELDS, formatMetric, autoStatusColor } from "./kanbanTemplates";
+import { METRIC_FIELDS, formatMetric, autoStatusColor } from "@/components/kanban/kanbanTemplates";
 
 const DOT: Record<string, string> = {
   green: "bg-success",
@@ -7,7 +7,7 @@ const DOT: Record<string, string> = {
 };
 
 interface Props {
-  metrics?: Record<string, any> | null;
+  metrics?: Record<string, number | string | null | undefined> | null;
   statusColor?: string | null;
   compact?: boolean;
 }

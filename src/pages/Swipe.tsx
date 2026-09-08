@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { SwipeMotorDialog } from "@/components/swipe/SwipeMotorDialog";
 import { SwipeIndexSidebar } from "@/components/swipe/SwipeIndexSidebar";
 import { SwipeRoteiroCard } from "@/components/swipe/SwipeRoteiroCard";
 
-function getLabel(s: any, idx: number): string {
+function getLabel(s: Pick<Tables<"imphq_swipes">,"title">, idx: number): string {
   const m = String(s.title || "").match(/ROTEIRO\s+([A-Z0-9]+)/i);
   if (m) return m[1].toUpperCase();
   if (idx < 26) return String.fromCharCode(65 + idx);
@@ -19,20 +20,20 @@ function getLabel(s: any, idx: number): string {
 }
 
 export default function Swipe() {
-  const [swipes, setSwipes] = useState<any[]>([]);
+  const [swipes, setSwipes] = useState<Tables<"imphq_swipes">[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [vslOnly, setVslOnly] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
-  const [selected, setSelected] = useState<any | null>(null);
+  const [selected, setSelected] = useState<(Partial<Tables<"imphq_swipes">> & { __new?: boolean }) | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const patchSwipe = (id: string, patch: any) =>
+  const patchSwipe = (id: string, patch: Partial<Tables<"imphq_swipes">>) =>
     setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
 
@@ -40,11 +41,11 @@ export default function Swipe() {
   const fetchSwipes = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("imphq_swipes" as any)
+      .from("imphq_swipes")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setSwipes((data as any) || []);
+    setSwipes(data || []);
     setLoading(false);
   };
 
@@ -88,19 +89,19 @@ export default function Swipe() {
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
-    ns.has(c) ? ns.delete(c) : ns.add(c);
+    if (ns.has(c)) { ns.delete(c); } else { ns.add(c); }
     setActiveChips(ns);
   };
 
   const toggleBulk = (id: string) => {
     const ns = new Set(bulkSelected);
-    ns.has(id) ? ns.delete(id) : ns.add(id);
+    if (ns.has(id)) { ns.delete(id); } else { ns.add(id); }
     setBulkSelected(ns);
   };
 
   const deleteSwipe = async (id: string) => {
     if (!confirm("Apagar esta swipe?")) return;
-    const { error } = await supabase.from("imphq_swipes" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_swipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Apagada");
     setSwipes(swipes.filter((s) => s.id !== id));

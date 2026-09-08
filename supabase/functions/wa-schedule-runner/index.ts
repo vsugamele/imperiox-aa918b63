@@ -53,9 +53,10 @@ Deno.serve(async (req) => {
         .update({ status: "sent", sent_at: new Date().toISOString() })
         .eq("id", row.id);
       sent++;
-    } catch (e: any) {
+    } catch (e) {
+      const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
       await supabase.from("imphq_wa_scheduled")
-        .update({ status: "failed", error: String(e?.message || e) })
+        .update({ status: "failed", error: String(message || e) })
         .eq("id", row.id);
       failed++;
     }

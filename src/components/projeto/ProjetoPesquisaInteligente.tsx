@@ -1,3 +1,6 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,11 +17,11 @@ import {
 
 interface Props {
   projectId: string;
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
 }
 
-interface ResearchResult {
+type ResearchResult = {
   id: string;
   type: "concorrente" | "produto" | "expert";
   query: string;
@@ -28,17 +31,20 @@ interface ResearchResult {
 }
 
 export function ProjetoPesquisaInteligente({ projectId, project, onUpdateData }: Props) {
-  const data = project.data || {};
+  const data = jsonFields(project.data);
   const [tab, setTab] = useState<"concorrente" | "produto" | "expert">("concorrente");
   const [query, setQuery] = useState("");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
-  const [savedResults, setSavedResults] = useState<ResearchResult[]>(data.pesquisa_inteligente || []);
+  const [savedResults, setSavedResults] = useState<ResearchResult[]>(() => Array.isArray(data.pesquisa_inteligente) ? data.pesquisa_inteligente.flatMap(value => {
+    const row=jsonFields(value), id=jsonText(row.id), type=jsonText(row.type), query=jsonText(row.query), result=jsonText(row.result), created_at=jsonText(row.created_at);
+    return id && (type === "concorrente" || type === "produto" || type === "expert") && query !== undefined && result !== undefined && created_at ? [{ ...row, id, type, query, result, created_at, url: jsonText(row.url) }] : [];
+  }) : []);
 
   const getContextForPrompt = () => {
-    const avatar = project.avatar || {};
-    const expert = data.expert || {};
+    const avatar = jsonFields(project.avatar);
+    const expert = jsonFields(data.expert);
     const produtos = data.produtos || [];
     const arsenal = data.copy_arsenal || {};
     return { projeto: project.name, avatar, expert, produtos, arsenal };
@@ -58,8 +64,8 @@ export function ProjetoPesquisaInteligente({ projectId, project, onUpdateData }:
         concorrente: `Analise o concorrente "${query || url}" para o projeto "${ctx.projeto}". 
 Extraia: 1) Posicionamento e promessa principal, 2) Público-alvo, 3) Pontos fortes e fracos, 4) Estrutura de oferta (preço, bônus, garantia), 5) Copy e gatilhos usados, 6) Canais de aquisição, 7) Oportunidades que podemos explorar. 
 ${url ? `URL para análise: ${url}` : ""}
-Nosso avatar: ${JSON.stringify({ dores: (ctx.avatar.dores || []).slice(0, 3), desejos: (ctx.avatar.desejos || []).slice(0, 3) })}
-Nossa promessa: "${ctx.arsenal.promessa || ""}"`,
+Nosso avatar: ${JSON.stringify({ dores: (Array.isArray(ctx.avatar.dores) ? ctx.avatar.dores : []).slice(0, 3), desejos: (Array.isArray(ctx.avatar.desejos) ? ctx.avatar.desejos : []).slice(0, 3) })}
+Nossa promessa: "${jsonText(jsonFields(ctx.arsenal).promessa) || ""}"`,
         produto: `Pesquise sobre o produto/infoproduto "${query}". 
 Extraia: 1) Tipo de produto (curso, mentoria, SaaS, etc), 2) Faixa de preço do mercado, 3) Estrutura de oferta comum (módulos, bônus, garantia), 4) Argumentos de venda mais usados, 5) Objeções comuns do público, 6) Diferenciais possíveis para nosso produto "${ctx.produtos[0]?.nome || ctx.projeto}". 
 ${url ? `URL: ${url}` : ""}`,
@@ -99,8 +105,8 @@ ${url ? `URL/perfil: ${url}` : ""}`,
         setResult(aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData));
       }
       toast.success("Pesquisa concluída!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro na pesquisa");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro na pesquisa");
     } finally {
       setLoading(false);
     }

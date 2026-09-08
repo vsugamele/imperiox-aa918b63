@@ -17,20 +17,24 @@ type Action = "ACTIVE" | "PAUSED" | "UPDATE_BUDGET" | "RENAME";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const startedAt = Date.now();
-  let body: any = {};
+  let body: unknown = {};
   try { body = await req.json(); } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: jsonHeaders });
   }
 
-  const {
-    project_id, entity_type, entity_id, entity_name,
-    action, previous_status, daily_budget, previous_budget,
-    new_name, previous_name,
-  } = body as {
-    project_id?: string; entity_type?: EntityType; entity_id?: string; entity_name?: string;
-    action?: Action; previous_status?: string; daily_budget?: number; previous_budget?: number;
-    new_name?: string; previous_name?: string;
-  };
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Missing/invalid params" }), { status: 400, headers: jsonHeaders });
+  }
+  const project_id = "project_id" in body && typeof body.project_id === "string" ? body.project_id : undefined;
+  const entity_type = "entity_type" in body && typeof body.entity_type === "string" ? body.entity_type : undefined;
+  const entity_id = "entity_id" in body && typeof body.entity_id === "string" ? body.entity_id : undefined;
+  const entity_name = "entity_name" in body && typeof body.entity_name === "string" ? body.entity_name : undefined;
+  const action = "action" in body && typeof body.action === "string" ? body.action : undefined;
+  const previous_status = "previous_status" in body ? body.previous_status : undefined;
+  const daily_budget = "daily_budget" in body ? body.daily_budget : undefined;
+  const previous_budget = "previous_budget" in body ? body.previous_budget : undefined;
+  const new_name = "new_name" in body && typeof body.new_name === "string" ? body.new_name : undefined;
+  const previous_name = "previous_name" in body ? body.previous_name : undefined;
 
   if (!project_id || !entity_type || !entity_id || !action) {
     return new Response(JSON.stringify({ error: "Missing/invalid params" }), { status: 400, headers: jsonHeaders });

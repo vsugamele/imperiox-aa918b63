@@ -24,11 +24,11 @@ export function FolderLightbox({ open, onClose, folderId, folderTitle, onUnlink 
     (async () => {
       setLoading(true);
       const { data } = await supabase
-        .from("imphq_ref_folder_items" as any)
+        .from("imphq_ref_folder_items")
         .select("id, url, thumb_url, titulo")
         .eq("folder_id", folderId)
         .order("ordem", { ascending: true });
-      setItems(((data as any[]) || []) as Item[]);
+      setItems(data || []);
       setIdx(0);
       setLoading(false);
     })();

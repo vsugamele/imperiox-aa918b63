@@ -1,3 +1,5 @@
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -54,8 +56,8 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
       const { error } = await supabase.functions.invoke("openflow-resume", { body: { execution_id: exec.id } });
       if (error) throw error;
       toast.success("Execução retomada");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao retomar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao retomar");
     } finally { setActing(false); }
   };
 
@@ -70,8 +72,8 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
       if (error) throw error;
       toast.success("Execução cancelada");
       onClose();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao cancelar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao cancelar");
     } finally { setActing(false); }
   };
 
@@ -84,8 +86,8 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
       });
       if (error) throw error;
       toast.success(`Replay a partir do step #${fromStep}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha no replay");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha no replay");
     } finally { setActing(false); }
   };
 
@@ -147,21 +149,22 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
             <div>
               <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2 tracking-widest">Timeline</p>
               <ol className="space-y-2">
-                {(exec.step_results || []).map((sr: any, i: number) => {
+                {(Array.isArray(exec.step_results) ? exec.step_results : []).map((value, i) => {
+                  const sr = jsonFields(value);
                   const idx = typeof sr.step === "number" ? sr.step : i;
                   const acao = acoes[idx];
                   return (
                     <li key={i} className="rounded-lg border border-white/5 bg-background/40 p-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-[11px] text-slate-200">
-                          {stepIcon(sr.status)}
+                          {stepIcon(jsonText(sr.status))}
                           <span className="font-mono text-[10px] text-muted-foreground">#{idx}</span>
-                          <span className="font-medium">{acao?.tipo || sr.tipo || "step"}</span>
+                          <span className="font-medium">{acao?.tipo || jsonText(sr.tipo) || "step"}</span>
                         </div>
-                        {sr.timestamp && <span className="text-[9px] text-muted-foreground font-mono">{new Date(sr.timestamp).toLocaleTimeString("pt-BR")}</span>}
+                        {typeof sr.timestamp === "string" && <span className="text-[9px] text-muted-foreground font-mono">{new Date(jsonText(sr.timestamp)).toLocaleTimeString("pt-BR")}</span>}
                       </div>
-                      {sr.detail && <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{typeof sr.detail === "string" ? sr.detail : JSON.stringify(sr.detail).slice(0, 200)}</p>}
-                      {sr.error && <p className="text-[10px] text-rose-300 mt-1 leading-snug">{String(sr.error).slice(0, 200)}</p>}
+                      {sr.detail != null && <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{typeof sr.detail === "string" ? sr.detail : JSON.stringify(sr.detail).slice(0, 200)}</p>}
+                      {sr.error != null && <p className="text-[10px] text-rose-300 mt-1 leading-snug">{String(sr.error).slice(0, 200)}</p>}
                       <div className="flex justify-end mt-1.5">
                         <Button size="sm" variant="ghost" disabled={acting} onClick={() => replayFrom(idx)} className="h-6 text-[10px] gap-1 text-muted-foreground hover:text-slate-100">
                           <RotateCcw className="h-3 w-3" /> Replay daqui
@@ -170,7 +173,7 @@ export function ExecutionDetail({ executionId, acoes, onClose, onFocusStep }: Pr
                     </li>
                   );
                 })}
-                {(!exec.step_results || exec.step_results.length === 0) && (
+                {(!Array.isArray(exec.step_results) || exec.step_results.length === 0) && (
                   <p className="text-[11px] text-muted-foreground text-center py-4">Sem passos executados ainda.</p>
                 )}
               </ol>

@@ -1,8 +1,10 @@
+import { mapSchema, type PublicMap, type PublicNodeData, type AnnotationData } from "@/pages/public-map-schema";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
-  Handle, Position, type Node, type Edge,
+  Handle, Position, type Node, type Edge, type NodeProps, type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Loader2, ExternalLink, Building2 } from "lucide-react";
@@ -10,7 +12,7 @@ import { Loader2, ExternalLink, Building2 } from "lucide-react";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANN_PREFIX = "ann-";
 
-function PublicNodeCard({ data }: { data: any }) {
+function PublicNodeCard({ data }: NodeProps<Node<PublicNodeData>>) {
   const color = data.color || "#c9922a";
   return (
     <div
@@ -43,7 +45,7 @@ function PublicNodeCard({ data }: { data: any }) {
   );
 }
 
-function PublicAnnotationNode({ data }: { data: any }) {
+function PublicAnnotationNode({ data }: NodeProps<Node<AnnotationData>>) {
   const style = data.style || {};
   const isFrame = data.kind === "frame";
   const isNote = data.kind === "note";
@@ -71,7 +73,7 @@ function PublicAnnotationNode({ data }: { data: any }) {
   );
 }
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
   mapnode: PublicNodeCard,
   annotation_frame: PublicAnnotationNode,
   annotation_note: PublicAnnotationNode,
@@ -83,7 +85,7 @@ const nodeTypes = {
   annotation_ad_asset: PublicAnnotationNode,
   annotation_schedule: PublicAnnotationNode,
   annotation_account: PublicAnnotationNode,
-} as any;
+};
 
 const ANN_KIND_TO_TYPE: Record<string, string> = {
   frame: "annotation_frame", note: "annotation_note", label: "annotation_label",
@@ -96,7 +98,7 @@ export default function MapaPublico() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [payload, setPayload] = useState<any>(null);
+  const [payload, setPayload] = useState<PublicMap | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -105,26 +107,26 @@ export default function MapaPublico() {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/company-map-public?token=${encodeURIComponent(token)}`);
         const d = await res.json();
         if (!res.ok) { setError(d?.error || "Erro ao carregar mapa"); return; }
-        setPayload(d);
-      } catch (e: any) {
-        setError(e?.message || "Erro ao carregar mapa");
+        setPayload(mapSchema.parse(d));
+      } catch (e: unknown) {
+        setError(errorMessage(e) || "Erro ao carregar mapa");
       } finally { setLoading(false); }
     })();
   }, [token]);
 
   const { nodes, edges } = useMemo(() => {
     if (!payload) return { nodes: [] as Node[], edges: [] as Edge[] };
-    const mapNodes: Node[] = (payload.nodes || []).map((n: any) => ({
+    const mapNodes: Node[] = (payload.nodes || []).map((n) => ({
       id: n.id,
       type: "mapnode",
-      position: n.position || { x: 0, y: 0 },
+      position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
       ...(n.width && n.height ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } } : {}),
       data: n,
       draggable: false,
       selectable: false,
       connectable: false,
     }));
-    const annNodes: Node[] = (payload.annotations || []).map((a: any) => ({
+    const annNodes: Node[] = (payload.annotations || []).map((a) => ({
       id: `${ANN_PREFIX}${a.id}`,
       type: ANN_KIND_TO_TYPE[a.kind] || "annotation_note",
       position: { x: a.x, y: a.y },
@@ -136,7 +138,7 @@ export default function MapaPublico() {
       selectable: false,
       connectable: false,
     }));
-    const edgs: Edge[] = (payload.edges || []).map((e: any) => ({
+    const edgs: Edge[] = (payload.edges || []).map((e) => ({
       id: e.id,
       source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
       target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
@@ -196,7 +198,7 @@ export default function MapaPublico() {
           >
             <Background color="#1a1a1a" gap={24} />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable nodeColor={(n: any) => n?.data?.color || "#c9922a"} />
+            <MiniMap pannable zoomable nodeColor={(n) => typeof n.data.color === "string" ? n.data.color : "#c9922a"} />
           </ReactFlow>
         </ReactFlowProvider>
       </div>

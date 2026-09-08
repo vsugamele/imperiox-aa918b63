@@ -1,21 +1,24 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import type { Tables, Json } from "@/integrations/supabase/types";
 import { AlertTriangle, Flame, EyeOff, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Props {
-  ads: any[];
+  ads: Pick<Tables<"imphq_ads_spend">, "campanha" | "valor" | "compras" | "frequencia" | "data_ref">[];
   onFilter?: (term: string) => void;
   projectId?: string;
 }
 
 interface Alert {
-  icon: any;
+  icon: LucideIcon;
   text: string;
   tone: "danger" | "warn" | "info";
   filter?: string;
-  imperius?: { kind: string; payload: any };
+  imperius?: { kind: string; payload: Json };
 }
 
 const toneClass = {
@@ -27,7 +30,7 @@ const toneClass = {
 export function AlertsHeader({ ads, onFilter, projectId }: Props) {
   const [enq, setEnq] = useState<number | null>(null);
   // Agrupa por campanha
-  const byCamp = new Map<string, any[]>();
+  const byCamp = new Map<string, Props["ads"]>();
   for (const a of ads) {
     const k = a.campanha || "Sem nome";
     if (!byCamp.has(k)) byCamp.set(k, []);
@@ -96,11 +99,11 @@ export function AlertsHeader({ ads, onFilter, projectId }: Props) {
         reason: "Alerta crítico detectado no Gerenciador.",
         source: "gerenciador_alerts",
         payload: a.imperius.payload,
-      } as any);
+      });
       if (error) throw error;
       toast.success("Ação enviada ao Imperius");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao enviar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao enviar");
     } finally {
       setEnq(null);
     }

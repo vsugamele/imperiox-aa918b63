@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { record, text } from "./value.ts";
 // Helper para executar uma skill do imphq_skills via Lovable AI Gateway.
 // Carrega o system_prompt da skill, monta o user message com contexto rico
 // (avatar, branding, produto) e retorna o texto (ou JSON se schema for passado).
@@ -8,13 +10,13 @@ export interface SkillContext {
   produto_nome: string;
   ticket?: string;
   promessa?: string;
-  avatar?: any;
-  branding?: any;
+  avatar?: unknown;
+  branding?: unknown;
   nicho?: string;
   extra?: string;
 }
 
-export async function loadSkillPrompt(supa: any, slug: string): Promise<string | null> {
+export async function loadSkillPrompt(supa: SupabaseClient, slug: string): Promise<string | null> {
   const { data } = await supa.from("imphq_skills").select("system_prompt").eq("slug", slug).maybeSingle();
   return data?.system_prompt || null;
 }
@@ -41,12 +43,12 @@ export async function runSkill(opts: {
   ctx: SkillContext;
   instruction: string;
   model?: string;
-  jsonSchema?: any;
+  jsonSchema?: Record<string, unknown>;
   fallbackSystem?: string;
-}): Promise<any> {
+}): Promise<unknown> {
   const system = opts.systemPrompt || opts.fallbackSystem || "Você é o Imperius, estrategista de copy pt-BR.";
   const user = buildUserMessage(opts.ctx, opts.instruction);
-  const body: any = {
+  const body: { model: string; messages: { role: string; content: string }[]; response_format?: unknown } = {
     model: opts.model || "google/gemini-2.5-flash",
     messages: [
       { role: "system", content: system },
@@ -60,7 +62,7 @@ export async function runSkill(opts: {
   const MAX_ATTEMPTS = 2;
   const fallbackModel = body.model?.includes("2.5-pro") ? "google/gemini-2.5-flash" : null;
 
-  let lastErr: any = null;
+  let lastErr: unknown = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -82,7 +84,7 @@ export async function runSkill(opts: {
         catch { return JSON.parse(content.replace(/```json|```/g, "").trim()); }
       }
       return content;
-    } catch (e: any) {
+    } catch (e: unknown) {
       clearTimeout(t);
       lastErr = e;
       if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 1500 * attempt));

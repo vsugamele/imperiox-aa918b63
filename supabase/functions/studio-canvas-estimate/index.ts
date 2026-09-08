@@ -8,7 +8,8 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function sha256(obj: any): Promise<string> {
+interface CanvasNode { id: string; status: string; tipo: string; titulo: string; config_hash: string | null; config: ({ provider?: string; model?: string } & Record<string, unknown>) | null; output: { url?: string } | null }
+async function sha256(obj: unknown): Promise<string> {
   const enc = new TextEncoder().encode(JSON.stringify(obj || {}));
   const h = await crypto.subtle.digest("SHA-256", enc);
   return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
 
     const { workflow_id, start_node_id, node_id } = await req.json();
     const [{ data: nodes }, { data: edges }, { data: costRows }] = await Promise.all([
-      admin.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", workflow_id),
+      admin.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", workflow_id).returns<CanvasNode[]>(),
       admin.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", workflow_id),
       admin.from("imphq_studio_model_costs").select("provider,model,cost_credits,avg_seconds"),
     ]);
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
     const costMap = new Map<string, { credits: number; seconds: number }>();
     for (const c of (costRows || [])) costMap.set(`${c.provider}:${c.model}`, { credits: Number(c.cost_credits), seconds: Number(c.avg_seconds) });
 
-    const byId: Record<string, any> = Object.fromEntries(nodes.map((n: any) => [n.id, n]));
+    const byId: Record<string, typeof nodes[number]> = Object.fromEntries(nodes.map((n) => [n.id, n]));
     const incoming: Record<string, string[]> = {};
     const outgoing: Record<string, string[]> = {};
     for (const e of (edges || [])) {
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
       walk(start_node_id);
       targetIds = [...set];
     } else {
-      targetIds = nodes.map((n: any) => n.id);
+      targetIds = nodes.map((n) => n.id);
     }
 
     const order: string[] = [];
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
     };
     for (const t of targetIds) visit(t);
 
-    const breakdown: any[] = [];
+    const breakdown: { node_id: string; tipo: string; titulo: string; model: string | null; credits: number; seconds: number; cached: boolean | string | undefined | null }[] = [];
     let totalCredits = 0, totalSeconds = 0, cachedCount = 0;
     // Simular cache com hash das entradas resolvidas (baseado em outputs existentes)
     const simOutputs: Record<string, boolean> = {};
@@ -93,7 +94,8 @@ Deno.serve(async (req) => {
       ok: true, total_credits: totalCredits, total_seconds: totalSeconds,
       total_nodes: order.length, cached_nodes: cachedCount, breakdown,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

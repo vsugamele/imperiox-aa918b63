@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // transcript-ingest: Direct text → chunk → embed → imphq_wa_knowledge
 // Called by the batch upload PowerShell script for JP Freitas transcripts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -33,7 +34,7 @@ async function getEmbedding(text: string): Promise<number[]> {
         const d = await res.json();
         if (d?.data?.[0]?.embedding) return d.data[0].embedding;
       }
-    } catch (_) {}
+    } catch { /* Fall back to OpenRouter when the primary provider fails. */ }
   }
 
   const OR_KEY = Deno.env.get("OPENROUTER_API_KEY");
@@ -56,9 +57,9 @@ Deno.serve(async (req) => {
     
     // Robustly parse body — avoid issues with large PowerShell-encoded JSON
     const rawBody = await req.text();
-    let parsed: any = {};
+    let parsed: {project_id?:string;title?:string;source_tag?:string;content?:string} = {};
     try {
-      parsed = JSON.parse(rawBody);
+      parsed = z.object({project_id:z.string().optional(),title:z.string().optional(),source_tag:z.string().optional(),content:z.string().nullish().transform(v=>v??undefined)}).passthrough().parse(JSON.parse(rawBody));
     } catch (e) {
       return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,17 +100,19 @@ Deno.serve(async (req) => {
         });
         inserted++;
         if (i % 20 === 0) console.log(`[transcript-ingest] Progress: ${i + 1}/${chunks.length}`);
-      } catch (e: any) {
-        console.warn(`[transcript-ingest] Chunk ${i + 1} failed: ${e.message}`);
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        console.warn(`[transcript-ingest] Chunk ${i + 1} failed: ${eMessage}`);
       }
     }
 
     return new Response(JSON.stringify({ success: true, title, chunks: inserted, total: chunks.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[transcript-ingest] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[transcript-ingest] Error:", errMessage);
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

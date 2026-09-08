@@ -4,7 +4,7 @@ import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowDown, TrendingUp, Maximize2 } from "lucide-react";
-import DashboardDrillSheet, { DrillMetric, FunnelStage } from "./DashboardDrillSheet";
+import DashboardDrillSheet, { DrillMetric, FunnelStage } from "@/components/dashboard/DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -48,7 +48,7 @@ export default function ConversionFunnel({ period, projectFilter, productFilter 
       const leadCount = leadsRes.count || 0;
 
       // Count vendas by status, applying product filter
-      const vendas = (vendasRes.data || []) as any[];
+      const vendas = (vendasRes.data || []);
       const statusCounts: Record<string, number> = {};
       vendas.forEach((v) => {
         if (productFilter && productFilter !== "all") {

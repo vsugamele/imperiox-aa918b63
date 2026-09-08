@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,18 +54,18 @@ export function FlowMediaLibrary({ projects, selectMode, filterKind, onSelect }:
   const [projectFilter, setProjectFilter] = useState<string>("__all__");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     let q = supabase.from("imphq_flow_media").select("*").order("created_at", { ascending: false }).limit(200);
     if (kindFilter !== "__all__") q = q.eq("kind", kindFilter);
     if (projectFilter !== "__all__") q = q.eq("project_id", projectFilter);
     const { data, error } = await q;
     if (error) toast.error("Erro ao carregar mídias: " + error.message);
-    setItems((data as any) || []);
+    setItems((data || []).flatMap(item => item.kind === "audio" || item.kind === "image" || item.kind === "video" || item.kind === "doc" ? [{ ...item, kind: item.kind }] : []));
     setLoading(false);
-  };
+  }, [kindFilter, projectFilter]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [kindFilter, projectFilter]);
+  useEffect(() => { load();   }, [load]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -98,14 +99,14 @@ export function FlowMediaLibrary({ projects, selectMode, filterKind, onSelect }:
         if (kind === "audio" || kind === "video") {
           try {
             duration_ms = await new Promise<number | null>((resolve) => {
-              const el: any = kind === "audio" ? new Audio() : document.createElement("video");
+              const el: HTMLMediaElement = kind === "audio" ? new Audio() : document.createElement("video");
               el.preload = "metadata";
               el.onloadedmetadata = () => resolve(Math.round((el.duration || 0) * 1000) || null);
               el.onerror = () => resolve(null);
               el.src = URL.createObjectURL(file);
               setTimeout(() => resolve(null), 3000);
             });
-          } catch {}
+          } catch { /* Media duration is optional; keep the upload when metadata cannot load. */ }
         }
 
         const { error: insErr } = await supabase.from("imphq_flow_media").insert({
@@ -121,8 +122,8 @@ export function FlowMediaLibrary({ projects, selectMode, filterKind, onSelect }:
         });
         if (insErr) throw insErr;
         toast.success(`✓ ${file.name}`);
-      } catch (err: any) {
-        toast.error(`Falha em ${file.name}: ${err?.message || err}`);
+      } catch (err: unknown) {
+        toast.error(`Falha em ${file.name}: ${errorMessage(err)}`);
       }
     }
     setUploading(false);

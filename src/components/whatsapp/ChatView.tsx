@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,13 +7,14 @@ import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import ContactTagsPanel from "./ContactTagsPanel";
-import AssignAndNotesBar from "./AssignAndNotesBar";
+import ContactTagsPanel from "@/components/whatsapp/ContactTagsPanel";
+import AssignAndNotesBar from "@/components/whatsapp/AssignAndNotesBar";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
-import { LeadIntelPanel } from "./LeadIntelPanel";
-import ConversationIntelCard from "./ConversationIntelCard";
+import { LeadIntelPanel } from "@/components/whatsapp/LeadIntelPanel";
+import ConversationIntelCard from "@/components/whatsapp/ConversationIntelCard";
+import { extractFilename } from "@/components/whatsapp/chat-media";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 
 const PAGE_SIZE = 50;
@@ -27,7 +29,8 @@ interface Message {
   status: string;
   message_type?: string;
   media_url?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
+  sent_by?: string | null;
   provider_message_id?: string | null;
   _optimistic?: boolean;
   transcript?: string | null;
@@ -39,6 +42,7 @@ interface WaTemplate {
 
 interface WaCommand {
   id: string; trigger_word: string; response_text: string | null;
+  _isTemplate?: boolean;
   sequence?: Array<{ content: string; delay_seconds?: number; media_url?: string; media_type?: string }>;
 }
 
@@ -49,6 +53,45 @@ interface Props {
   providerId: string | null;
   intelPanelOpen?: boolean;
   onToggleIntelPanel?: () => void;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function completionText(value: unknown): string {
+  const choices = asRecord(value).choices;
+  const message = asRecord(Array.isArray(choices) ? choices[0] : undefined).message;
+  const content = asRecord(message).content;
+  return typeof content === "string" ? content : "";
+}
+
+function errorMessage(error: unknown): string {
+  const message = asRecord(error).message;
+  return typeof message === "string" ? message : "Erro desconhecido";
+}
+
+function metadataText(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+}
+
+function toMessage(row: Tables<"imphq_wa_messages">): Message {
+  return { ...row, direction: row.direction ?? "", phone: row.phone ?? "", status: row.status ?? "", message_type: row.message_type ?? undefined, media_url: row.media_url ?? undefined, metadata: asRecord(row.metadata) };
+}
+
+function isQuickOption(value: unknown): value is { type: string; text: string } {
+  const option = asRecord(value);
+  return typeof option.type === "string" && typeof option.text === "string";
+}
+
+function parseSequence(value: unknown): NonNullable<WaCommand["sequence"]> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    const step = asRecord(item);
+    if (typeof step.content !== "string") return [];
+    return [{ content: step.content, delay_seconds: typeof step.delay_seconds === "number" ? step.delay_seconds : undefined, media_url: typeof step.media_url === "string" ? step.media_url : undefined, media_type: typeof step.media_type === "string" ? step.media_type : undefined }];
+  });
 }
 
 const EMOJI_LIST = ["😀", "😂", "❤️", "👍", "🙏", "🔥", "✅", "⭐", "💪", "🎉", "😍", "🤝", "💰", "📦", "🚀", "💡"];
@@ -73,24 +116,6 @@ function StatusIcon({ status }: { status: string }) {
   }
 }
 
-// Extract filename from message content (e.g. "📎 file.pdf") or URL
-function extractFilename(content: string | undefined, url: string | undefined): string {
-  if (content) {
-    const cleaned = content.replace(/^[📎🎵🎬🖼️]\s*/u, "").trim();
-    if (cleaned && !/^(mídia|midia|imagem|áudio|audio|vídeo|video|arquivo|document)$/i.test(cleaned)) {
-      return cleaned;
-    }
-  }
-  if (url) {
-    try {
-      const u = new URL(url);
-      const last = u.pathname.split("/").pop();
-      if (last) return decodeURIComponent(last);
-    } catch {}
-  }
-  return "arquivo";
-}
-
 // Force-download a remote file as a blob (bypasses inline PDF rendering / cross-origin issues)
 async function forceDownload(url: string, filename: string) {
   try {
@@ -105,8 +130,8 @@ async function forceDownload(url: string, filename: string) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-  } catch (err: any) {
-    toast.error("Falha ao baixar: " + err.message);
+  } catch (err: unknown) {
+    toast.error("Falha ao baixar: " + errorMessage(err));
     window.open(url, "_blank");
   }
 }
@@ -227,8 +252,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [iaAtiva, setIaAtiva] = useState<boolean>(true);
     const [togglingIa, setTogglingIa] = useState(false);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
-    const [objections, setObjections] = useState<any[]>([]);
-    const [aiConfigState, setAiConfigState] = useState<any | null>(null);
+    const [objections, setObjections] = useState<Pick<Tables<"imphq_wa_objections">, "id" | "objecao" | "resposta_padrao">[]>([]);
+    const [aiConfigState, setAiConfigState] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
     const [showIntelPanel, setShowIntelPanel] = useState(() => {
@@ -285,7 +310,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const audioChunksRef = useRef<Blob[]>([]);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
-    const timerIntervalRef = useRef<any>(null);
+    const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
     const startRecording = async () => {
@@ -320,8 +345,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setRecordTime(prev => prev + 1);
         }, 1000);
 
-      } catch (err: any) {
-        toast.error("Erro ao acessar microfone: " + (err.message || err));
+      } catch (err: unknown) {
+        toast.error("Erro ao acessar microfone: " + errorMessage(err));
       }
     };
 
@@ -476,8 +501,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           toast.success("Áudio sintetizado e enviado!");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao sintetizar áudio: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao sintetizar áudio: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         setText(textToSynthesize);
       } finally {
@@ -530,8 +555,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setBtn3("");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar botões: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar botões: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       } finally {
         setSending(false);
@@ -593,8 +618,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           ]);
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar lista: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar lista: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       } finally {
         setSending(false);
@@ -612,8 +637,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       setShowQuickSuggest(true);
       try {
         const savedKeys = localStorage.getItem("imphq_api_keys");
-        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-        const orKey = apiKeys.openrouter;
+        const apiKeys = asRecord(savedKeys ? JSON.parse(savedKeys) : {});
+        const orKey = typeof apiKeys.openrouter === "string" ? apiKeys.openrouter : undefined;
         if (!orKey) { setQuickOptions([]); setLoadingQuick(false); return; }
 
         const last = messages.filter(m => m.direction === "incoming").slice(-3);
@@ -634,15 +659,16 @@ Gere exatamente neste formato JSON (sem markdown):
           body: JSON.stringify({ model: "openai/gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 300, temperature: 0.7 }),
         });
         const data = await res.json();
-        const raw = data.choices?.[0]?.message?.content || "";
+        const raw = completionText(data);
         const clean = raw.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(clean);
+        const parsed: unknown = JSON.parse(clean);
+        if (!Array.isArray(parsed)) throw new Error("Sugestões inválidas");
         const labels: Record<string, {label: string; emoji: string}> = {
           empatica: { label: "Empática", emoji: "🤗" },
           tecnica: { label: "Técnica", emoji: "🎯" },
           fechamento: { label: "Fechamento", emoji: "🔥" },
         };
-        setQuickOptions(parsed.map((o: any) => ({
+        setQuickOptions(parsed.filter(isQuickOption).map(o => ({
           ...o, ...labels[o.type] || { label: o.type, emoji: "💬" },
         })));
       } catch (e) {
@@ -660,8 +686,8 @@ Gere exatamente neste formato JSON (sem markdown):
       setLoadingCopilot(true);
       try {
         const savedKeys = localStorage.getItem("imphq_api_keys");
-        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-        const orKey = apiKeys.openrouter;
+        const apiKeys = asRecord(savedKeys ? JSON.parse(savedKeys) : {});
+        const orKey = typeof apiKeys.openrouter === "string" ? apiKeys.openrouter : undefined;
 
         const [configRes, projectRes] = await Promise.all([
           supabase
@@ -677,7 +703,7 @@ Gere exatamente neste formato JSON (sem markdown):
         ]);
 
         const configs = configRes.data || [];
-        const aiConfig = configs.find((c: any) => !c.provider_id) || configs[0] || null;
+        const aiConfig = configs.find((c) => !c.provider_id) || configs[0] || null;
         const project = projectRes.data;
 
         let projectContext = "";
@@ -696,7 +722,7 @@ Gere exatamente neste formato JSON (sem markdown):
         }
 
         if (project) {
-          const d: any = project.data || {};
+          const d = asRecord(project.data);
           projectContext = `PROJETO: ${project.name}\n`;
           if (d.avatar) projectContext += `AVATAR (resumo): ${JSON.stringify(d.avatar).slice(0, 1000)}\n`;
           if (d.produtos) projectContext += `PRODUTOS: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
@@ -755,7 +781,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 - Se o lead pedir explicitamente para falar com um humano, diga que está chamando um atendente e pare imediatamente.`;
 
         const recentHistory = messages.slice(-10);
-        const chatMessages: any[] = [{ role: "system", content: systemPrompt }];
+        const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [{ role: "system", content: systemPrompt }];
 
         recentHistory.forEach((m) => {
           chatMessages.push({
@@ -788,7 +814,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           }
 
           const data = await response.json();
-          aiReply = data.choices?.[0]?.message?.content || "";
+          aiReply = completionText(data);
         } else {
           toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
           const incomingMsgs = messages.filter(m => m.direction === "incoming");
@@ -817,9 +843,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           toast.error("Não foi possível obter uma sugestão válida.");
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Copilot Error:", err);
-        toast.error(`Falha no Copilot: ${err.message || "Erro desconhecido"}`);
+        toast.error(`Falha no Copilot: ${errorMessage(err) || "Erro desconhecido"}`);
       } finally {
         setLoadingCopilot(false);
       }
@@ -832,7 +858,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .select("ia_ativa")
         .eq("id", conversationId)
         .maybeSingle()
-        .then(({ data }) => { if (data != null) setIaAtiva((data as any).ia_ativa ?? true); });
+        .then(({ data }) => { if (data != null) setIaAtiva(data.ia_ativa ?? true); });
     }, [conversationId]);
 
     // Carrega o último intent real desta conversa (classificador de triagem)
@@ -847,7 +873,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!stop) setLastIntent((data as any)?.intent ?? null);
+        if (!stop) setLastIntent(data?.intent ?? null);
       };
       load();
       const t = setInterval(() => {
@@ -887,7 +913,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           .limit(1).maybeSingle();
         if (!stop) {
           if (data) {
-            setDraft(data as any);
+            setDraft({ ...data, model: data.model ?? undefined });
           } else {
             // Only clear if the current draft is NOT a locally generated Copilot suggestion
             setDraft(prev => {
@@ -908,7 +934,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
     const resolveDraft = async (status: "used" | "edited" | "discarded", finalText?: string) => {
       if (!draft) return;
-      const updates: any = { status, resolved_at: new Date().toISOString() };
+      const updates: TablesUpdate<"imphq_wa_ai_drafts"> = { status, resolved_at: new Date().toISOString() };
       if (finalText) {
         updates.final_text = finalText;
         const a = draft.suggested_text || ""; const b = finalText || "";
@@ -920,7 +946,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     };
 
     useEffect(() => {
-      supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
+      supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates(data || []));
     }, []);
 
     // Load commands for slash autocomplete
@@ -929,7 +955,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .or(`project_id.eq.${projectId},project_id.is.null`)
         .eq("is_active", true)
         .order("trigger_word")
-        .then(({ data }) => setCommands((data as any[]) || []));
+        .then(({ data }) => setCommands((data || []).map(command => ({ ...command, sequence: parseSequence(command.sequence) }))));
     }, [projectId]);
 
     // Load objections matching current project ID
@@ -974,7 +1000,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
-      const sorted = ((data as any[]) || []).reverse();
+      const sorted = (data || []).map(toMessage).reverse();
       setMessages(sorted);
       setHasMore((data?.length || 0) >= PAGE_SIZE);
       initialLoadDone.current = true;
@@ -991,7 +1017,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .lt("created_at", oldest)
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
-      const older = ((data as any[]) || []).reverse();
+      const older = (data || []).map(toMessage).reverse();
       setMessages(prev => [...older, ...prev]);
       setHasMore((data?.length || 0) >= PAGE_SIZE);
       setLoadingMore(false);
@@ -1008,7 +1034,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       if (data && data.length > 0) {
         setMessages(prev => {
           const withoutOptimistic = prev.filter(m => !m._optimistic);
-          return [...withoutOptimistic, ...(data as any[])];
+          return [...withoutOptimistic, ...data.map(toMessage)];
         });
       }
     }, [conversationId]);
@@ -1038,14 +1064,14 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         setFeedbackCorrecting(null);
         setCorrectionText("");
         setCorrectionType("auto");
-        const finalType = (data as any)?.correction_type;
+        const finalType = asRecord(data).correction_type;
         const typeLabel = finalType === "rule" ? "📜 regra do projeto"
           : finalType === "unavailable" ? "🚫 produto indisponível"
           : finalType === "complement" ? "➕ complemento (P/R + regra)"
           : "✏️ resposta corrigida";
         toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
-      } catch (err: any) {
-        toast.error("Erro ao salvar feedback: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao salvar feedback: " + errorMessage(err));
       }
     };
 
@@ -1055,11 +1081,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           body: { conversation_id: conversationId, message_id: m.id, project_id: projectId, gold: true },
         });
         if (error) throw error;
-        if ((data as any)?.skipped) { toast.info("Pulado: " + (data as any).skipped); return; }
+        if (asRecord(data).skipped) { toast.info("Pulado: " + asRecord(data).skipped); return; }
         setFeedbackSent(prev => ({ ...prev, [m.id]: "good" }));
         toast.success("⭐ Marcada como exemplo de ouro — a IA vai replicar esse padrão");
-      } catch (e: any) {
-        toast.error("Erro: " + e.message);
+      } catch (e: unknown) {
+        toast.error("Erro: " + errorMessage(e));
       }
     };
 
@@ -1083,8 +1109,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           : m));
         setEditingId(null);
         setEditText("");
-      } catch (err: any) {
-        toast.error("Erro ao editar: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao editar: " + errorMessage(err));
       } finally {
         setEditSaving(false);
       }
@@ -1145,7 +1171,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             response_text: t.content,
             sequence: [],
             _isTemplate: true,
-          } as any));
+          }));
         const all = [...matchedCmds, ...matchedTpls].slice(0, 8);
         setCommandSuggestions(all);
         setShowCommands(all.length > 0);
@@ -1186,8 +1212,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             ...(mediaUrl ? { media_url: mediaUrl, media_type: mediaType || "image" } : {}),
           },
         });
-      } catch (e: any) {
-        toast.error("Falha em passo da sequência: " + e.message);
+      } catch (e: unknown) {
+        toast.error("Falha em passo da sequência: " + errorMessage(e));
       }
     };
 
@@ -1242,8 +1268,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           if (captionOverride === undefined) setText("");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar mídia: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar mídia: " + errorMessage(err));
       } finally {
         setUploading(false);
       }
@@ -1319,12 +1345,12 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         }
         // Auto-pausa IA por 1h quando humano responde (handoff implícito)
         supabase.from("imphq_wa_conversations")
-          .update({ ai_paused_until: new Date(Date.now() + 1 * 3600_000).toISOString() } as any)
+          .update({ ai_paused_until: new Date(Date.now() + 1 * 3600_000).toISOString() })
           .eq("id", conversationId)
           .then(() => {});
         setTimeout(() => pollNew(), 500);
-      } catch (err: any) {
-        toast.error("Erro ao enviar: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         setText(msgText);
       } finally {
@@ -1394,7 +1420,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
                   && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
                 const isEditing = editingId === m.id;
-                const editedAt = (m.metadata as any)?.edited_at;
+                const editedAt = metadataText(m.metadata, "edited_at");
 
                 return (
                   <React.Fragment key={m.id}>
@@ -1413,7 +1439,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                         }
                         ${m._optimistic ? "opacity-60" : ""}
                       `}>
-                        {isOutgoing && (m as any).sent_by === "ai" && (
+                        {isOutgoing && m.sent_by === "ai" && (
                           <div className="absolute -top-2 -right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-[9px] font-bold uppercase tracking-wider text-white shadow-md border border-amber-300/40" title="Mensagem enviada pela IA">
                             <Sparkles className="h-2.5 w-2.5" />
                             IA
@@ -1444,20 +1470,20 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                           )
                         )}
                         {/* Badge de reengajamento automático */}
-                        {isOutgoing && (m.metadata as any)?.source === "wa-reengagement" && (
+                        {isOutgoing && m.metadata?.source === "wa-reengagement" && (
                           <div className="flex items-center gap-1 mt-1 mb-0.5">
                             <Activity className="h-2.5 w-2.5 text-amber-300/80" />
                             <span className="text-[9px] text-amber-300/80 font-medium">
-                              Reengajamento automático · {(m.metadata as any).days_silent}d silêncio
+                              Reengajamento automático · {metadataText(m.metadata, "days_silent")}d silêncio
                             </span>
                           </div>
                         )}
                         {/* Badge de closer automático (hot lead) */}
-                        {isOutgoing && (m.metadata as any)?.source === "wa-closer-trigger" && (
+                        {isOutgoing && m.metadata?.source === "wa-closer-trigger" && (
                           <div className="flex items-center gap-1 mt-1 mb-0.5">
                             <Zap className="h-2.5 w-2.5 text-orange-300/80" />
                             <span className="text-[9px] text-orange-300/80 font-medium">
-                              Closer automático · score {(m.metadata as any).lead_score}/200
+                              Closer automático · score {metadataText(m.metadata, "lead_score")}/200
                             </span>
                           </div>
                         )}
@@ -1592,12 +1618,12 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                     className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
                     onClick={() => selectCommand(cmd)}
                   >
-                    {(cmd as any)._isTemplate ? (
+                    {cmd._isTemplate ? (
                       <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded shrink-0">template</span>
                     ) : (
                       <span className="font-mono text-primary shrink-0">/{cmd.trigger_word}</span>
                     )}
-                    {(cmd as any)._isTemplate && (
+                    {cmd._isTemplate && (
                       <span className="font-medium text-foreground/80 shrink-0">{cmd.trigger_word}</span>
                     )}
                     {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
@@ -2008,7 +2034,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                         const { error } = await supabase.from("imphq_wa_scheduled").insert({
                           conversation_id: conversationId, project_id: projectId, provider_id: providerId,
                           phone, content: text, scheduled_at: when.toISOString(),
-                        } as any);
+                        });
                         if (error) { toast.error("Falha ao agendar: " + error.message); return; }
                         toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
                         setText(""); setScheduleAt("");

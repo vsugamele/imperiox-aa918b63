@@ -28,7 +28,9 @@ async function hmacSha256(secret: string, body: string): Promise<string> {
     .join("");
 }
 
-async function deliver(supabase: any, webhook: any, deliveryId: string, event: string, payload: any, attempt: number) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Webhook { id: string; secret: string; url: string; headers?: Record<string, string> | null; max_attempts?: number | null; total_deliveries?: number | null; total_failures?: number | null; project_id?: string | null; active?: boolean }
+async function deliver(supabase: ReturnType<typeof makeClient>, webhook: Webhook, deliveryId: string, event: string, payload: unknown, attempt: number) {
   const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString(), webhook_id: webhook.id });
   const signature = await hmacSha256(webhook.secret, body);
   const headers: Record<string, string> = {
@@ -53,8 +55,9 @@ async function deliver(supabase: any, webhook: any, deliveryId: string, event: s
     status_code = res.status;
     response_body = (await res.text()).slice(0, 2000);
     ok = res.ok;
-  } catch (e: any) {
-    error_message = e?.message || String(e);
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    error_message = eMessage || String(e);
   } finally {
     clearTimeout(timer);
   }
@@ -143,7 +146,7 @@ Deno.serve(async (req) => {
     }
 
     // Se webhook_id explícito (teste manual ou reenvio), dispara só pra ele
-    let webhooks: any[] = [];
+    let webhooks: Webhook[] = [];
     if (webhook_id) {
       const { data } = await supabase
         .from("imphq_outbound_webhooks")
@@ -152,7 +155,7 @@ Deno.serve(async (req) => {
         .eq("active", true);
       webhooks = data || [];
     } else {
-      let q = supabase
+      const q = supabase
         .from("imphq_outbound_webhooks")
         .select("*")
         .eq("active", true)
@@ -163,7 +166,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const results: any[] = [];
+    const results: { webhook_id: string; delivery_id: string }[] = [];
     for (const w of webhooks) {
       const { data: delivery } = await supabase
         .from("imphq_outbound_webhook_deliveries")
@@ -178,9 +181,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ dispatched: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[outbound-webhook-dispatcher]", e);
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), {
+    return new Response(JSON.stringify({ error: eMessage || String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { z } from "zod";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import type { Tables, Json } from "@/integrations/supabase/types";
+import { openFlowActionsSchema } from "@/lib/openflow-action-schema";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -15,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { FlowEditor, type Acao, type ProjectTemplate } from "@/components/openflow/FlowEditor";
+import { FlowEditor, type Acao, type ProjectTemplate, type WaProvider } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
 import { AutomacaoLogs } from "@/components/openflow/AutomacaoLogs";
 import { WebhookGuide } from "@/components/openflow/WebhookGuide";
@@ -83,6 +87,7 @@ const CANAIS: { value: string; label: string; icon: string }[] = [
 ];
 
 const TRIGGER_GROUPS = ["Lead", "Pagamento", "Pós-venda", "Retenção", "WhatsApp", "Outros canais"];
+const triggerConfigSchema = z.object({ keywords: z.array(z.string()).optional(), match_mode: z.enum(["any", "all", "exact", "regex"]).optional() }).passthrough().nullable();
 
 
 
@@ -101,12 +106,25 @@ interface Automacao {
   follow_up_hours?: number | null;
   follow_up_template?: string | null;
   exit_trigger_tipo?: string | null;
-  exit_trigger_payload?: any;
+  exit_trigger_payload?: Json;
+  exit_conditions?: Json;
+  stats_cache?: Json;
   exit_cascade?: boolean;
   flow_objective?: string | null;
   prioridade?: number | null;
   exclusivo?: boolean | null;
   trigger_config?: { keywords?: string[]; match_mode?: "any" | "all" | "exact" | "regex" } | null;
+}
+
+function readAutomacao(row: Tables<"imphq_automacoes">): Automacao {
+  const acoes = openFlowActionsSchema.parse(row.acoes ?? []) as Acao[];
+  const trigger_config = triggerConfigSchema.parse(row.trigger_config ?? null);
+  return { ...row, acoes, trigger_config };
+}
+
+function actionJson(actions: Acao[]): Json {
+  // JSON serialization omits optional undefined properties before the database write.
+  return JSON.parse(JSON.stringify(openFlowActionsSchema.parse(actions))) as Json;
 }
 
 
@@ -124,9 +142,9 @@ const renderTriggerOptions = () => TRIGGER_GROUPS.map(g => (
 export default function OpenFlow() {
   const navigate = useNavigate();
   const [automacoes, setAutomacoes] = useState<Automacao[]>([]);
-  const [webhooks, setWebhooks] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [providers, setProviders] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<Tables<"imphq_webhooks">[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">, "id" | "name">[]>([]);
+  const [providers, setProviders] = useState<WaProvider[]>([]);
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Automacao | null>(null);
@@ -135,6 +153,7 @@ export default function OpenFlow() {
   const [projectProducts, setProjectProducts] = useState<string[]>([]);
   const [editProjectProducts, setEditProjectProducts] = useState<string[]>([]);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplate[]>([]);
+  const [templatesRefresh, setTemplatesRefresh] = useState(0);
   const [kpis, setKpis] = useState({ total: 0, success: 0, errors: 0, rate: 0 });
   const [filterProject, setFilterProject] = useState<string>("__all__");
   const [allTags, setAllTags] = useState<string[]>([]);
@@ -153,14 +172,25 @@ export default function OpenFlow() {
       supabase.from("imphq_webhooks").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_wa_providers").select("*").eq("is_active", true).order("created_at"),
-      supabase.from("wa_hub_iso_sessions" as any).select("id, session_key, tenant_id, status").eq("status", "connected"),
-      supabase.from("imphq_campanhas" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status").eq("status", "connected"),
+      supabase.from("imphq_campanhas").select("*").order("created_at", { ascending: false }),
     ]);
-    setAutomacoes((aRes.data || []).map((a: any) => ({ ...a, acoes: a.acoes || [] })));
+    const parsedAutomacoes: Automacao[] = [];
+    for (const a of aRes.data || []) {
+      const actions = openFlowActionsSchema.safeParse(a.acoes ?? []);
+      const trigger = triggerConfigSchema.safeParse(a.trigger_config ?? null);
+      if (!actions.success || !trigger.success) {
+        toast.error(`Configuração inválida no fluxo ${a.nome}. Os dados não foram alterados.`);
+        return;
+      }
+      // Zod validates every Acao field; strictNullChecks=false makes its inferred required keys optional.
+      parsedAutomacoes.push({ ...a, acoes: actions.data as Acao[], trigger_config: trigger.data });
+    }
+    setAutomacoes(parsedAutomacoes);
     setWebhooks(wRes.data || []);
     setProjects(pRes.data || []);
-    setCampanhas((cRes.data || []) as any);
-    const hubProviders = (hubRes.data || []).map((s: any) => ({
+    setCampanhas(cRes.data || []);
+    const hubProviders = (hubRes.data || []).map((s) => ({
       id: `hub_${s.id}`, provider: "hub_local", instance_name: s.session_key,
       twilio_from: null, project_id: s.tenant_id || null,
     }));
@@ -169,21 +199,21 @@ export default function OpenFlow() {
     try {
       const [fullProjsRes, tagCountsRes] = await Promise.all([
         supabase.from("imphq_projects").select("data"),
-        supabase.rpc("get_lead_tag_counts" as any, { p_project_id: null, p_limit: 200 })
+        supabase.rpc("get_lead_tag_counts", { p_project_id: null, p_limit: 200 })
       ]);
       const prodsSet = new Set<string>();
-      (fullProjsRes.data || []).forEach((p: any) => {
-        const prods = (p.data?.produtos || []) as any[];
-        prods.forEach(prod => { if (prod.nome) prodsSet.add(prod.nome); });
+      (fullProjsRes.data || []).forEach((p) => {
+        const prods = jsonFields(p.data).produtos;
+        if (Array.isArray(prods)) prods.forEach(prod => { const nome = jsonText(jsonFields(prod).nome); if (nome) prodsSet.add(nome); });
       });
       setAllProducts(Array.from(prodsSet).sort());
-      setAllTags((tagCountsRes.data || []).map((t: any) => t.tag).filter(Boolean));
+      setAllTags((tagCountsRes.data || []).map((t) => t.tag).filter(Boolean));
     } catch (e) { console.warn(e); }
 
     try {
-      const { data: hRows } = await supabase.from("imphq_automacao_health" as any).select("*");
-      const hMap = new Map<string, any>();
-      (hRows || []).forEach((h: any) => hMap.set(h.automacao_id, h));
+      const { data: hRows } = await supabase.from("imphq_automacao_health").select("*");
+      const hMap = new Map<string, Tables<"imphq_automacao_health">>();
+      (hRows || []).forEach((h) => hMap.set(h.automacao_id, h));
       setHealth(hMap);
     } catch (e) {
       console.warn("Erro ao buscar health metrics", e);
@@ -192,11 +222,11 @@ export default function OpenFlow() {
 
   const loadKpis = async () => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const { data: logs } = await supabase.from("imphq_automacao_logs" as any).select("status").gte("created_at", sevenDaysAgo);
+    const { data: logs } = await supabase.from("imphq_automacao_logs").select("status").gte("created_at", sevenDaysAgo);
     if (logs) {
       const total = logs.length;
-      const success = logs.filter((l: any) => l.status === "success").length;
-      const errors = logs.filter((l: any) => l.status === "error").length;
+      const success = logs.filter((l) => l.status === "success").length;
+      const errors = logs.filter((l) => l.status === "error").length;
       setKpis({ total, success, errors, rate: total > 0 ? Math.round((success / total) * 100) : 0 });
     }
   };
@@ -217,53 +247,59 @@ export default function OpenFlow() {
     }
   }, [automacoes, searchParams, setSearchParams]);
 
-  const loadTemplates = async () => {
-    if (!editing?.project_id) { setProjectTemplates([]); return; }
+  const editingProjectId = editing?.project_id;
+  useEffect(() => {
+    let cancelled = false;
+    const loadTemplates = async () => {
+    if (!editingProjectId) { setProjectTemplates([]); return; }
     const [projRes, waRes] = await Promise.all([
-      supabase.from("imphq_projects").select("data").eq("id", editing.project_id!).single(),
-      supabase.from("imphq_wa_templates").select("name, content").eq("project_id", editing.project_id!),
+      supabase.from("imphq_projects").select("data").eq("id", editingProjectId).single(),
+      supabase.from("imphq_wa_templates").select("name, content").eq("project_id", editingProjectId),
     ]);
     const tpls: ProjectTemplate[] = [];
-    const d = (projRes.data?.data || {}) as any;
-    if (Array.isArray(d.emails)) d.emails.forEach((e: any, i: number) => { if (e.body) tpls.push({ label: e.subject || `Email ${i + 1}`, content: e.body, source: "Email" }); });
-    if (waRes.data?.length) waRes.data.forEach((t: any) => { if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" }); });
-    setProjectTemplates(tpls);
+    const d = jsonFields(projRes.data?.data);
+    if (Array.isArray(d.emails)) d.emails.forEach((value, i) => { const e = jsonFields(value); const body = jsonText(e.body); if (body) tpls.push({ label: jsonText(e.subject) || `Email ${i + 1}`, content: body, source: "Email" }); });
+    if (waRes.data?.length) waRes.data.forEach((t) => { if (t.content) tpls.push({ label: t.name || "WhatsApp", content: t.content, source: "💬 WhatsApp" }); });
+    if (!cancelled) setProjectTemplates(tpls);
   };
+    void loadTemplates();
+    return () => { cancelled = true; };
+  }, [editingProjectId, templatesRefresh]);
 
-  useEffect(() => { loadTemplates(); }, [editing?.project_id]);
-
-  const createAutomacao = async (preset?: { nome?: string; trigger_tipo?: string; acoes?: Acao[] }) => {
+  const createAutomacao = async (preset?: { nome?: string; trigger_tipo?: string; acoes?: unknown }) => {
     const nome = preset?.nome || form.nome;
     if (!nome.trim()) { toast.error("Nome obrigatório"); return; }
+    const parsed = openFlowActionsSchema.safeParse(preset?.acoes ?? []);
+    if (!parsed.success) { toast.error("O template contém ações inválidas. Revise antes de criar."); return; }
     const { data, error } = await supabase.from("imphq_automacoes").insert({
       id: crypto.randomUUID(), nome, trigger_tipo: preset?.trigger_tipo || form.trigger_tipo,
-      project_id: form.project_id || null, acoes: (preset?.acoes || []) as any, ativo: true,
-      produto: (form as any).produto || null,
-      campanha_id: (form as any).campanha_id || null,
+      project_id: form.project_id || null, acoes: actionJson(parsed.data as Acao[]), ativo: true,
+      produto: form.produto || null,
+      campanha_id: form.campanha_id || null,
       tag_filtro: form.tag_filtro || null,
-      canal: (form as any).canal || "whatsapp",
-    } as any).select("*").single();
+      canal: "whatsapp",
+    }).select("*").single();
     if (error) { toast.error(error.message); return; }
     toast.success("Automação criada!"); setShowNew(false); load();
-    if (data && preset?.acoes?.length) setEditing(data as any);
+    if (data && parsed.data.length) setEditing(readAutomacao(data));
   };
 
   const saveAutomacao = async (a: Automacao, opts?: { silent?: boolean }) => {
     const { error } = await supabase.from("imphq_automacoes").update({
-      nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: a.acoes as any, ativo: a.ativo,
+      nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: actionJson(a.acoes), ativo: a.ativo,
       canal: a.canal || "whatsapp",
       produto: a.produto, project_id: a.project_id, quiet_start: a.quiet_start, quiet_end: a.quiet_end,
 
 
       dedupe_hours: a.dedupe_hours, campanha_id: a.campanha_id, tag_filtro: a.tag_filtro,
-      provider_id: a.provider_id, link_checkout: (a as any).link_checkout,
+      provider_id: a.provider_id, link_checkout: a.link_checkout,
       stalled_hours: a.stalled_hours, stalled_operator: a.stalled_operator,
       follow_up_hours: a.follow_up_hours, follow_up_template: a.follow_up_template,
       exit_trigger_tipo: a.exit_trigger_tipo, exit_cascade: a.exit_cascade,
       flow_objective: a.flow_objective,
       prioridade: a.prioridade ?? 5, exclusivo: !!a.exclusivo,
       trigger_config: a.trigger_config ?? null,
-    } as any).eq("id", a.id);
+    }).eq("id", a.id);
 
     if (error) {
       if (!opts?.silent) toast.error(error.message);
@@ -285,7 +321,11 @@ export default function OpenFlow() {
   }, [editing?.id]);
 
   const closeEditor = async () => {
-    try { await autoSave.forceSave(); } catch {}
+    const saved = await autoSave.forceSave();
+    if (!saved) {
+      toast.error("Não foi possível salvar. O editor continuará aberto para você tentar novamente.");
+      return;
+    }
     setEditing(null);
     load();
   };
@@ -307,10 +347,10 @@ export default function OpenFlow() {
 
   const filtered = automacoes.filter(a => filterProject === "__all__" || a.project_id === filterProject);
 
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<Tables<"imphq_flow_templates">[]>([]);
   useEffect(() => {
     if (!showNew) return;
-    supabase.from("imphq_flow_templates" as any).select("*").order("ordem").then(({ data }) => setTemplates(data || []));
+    supabase.from("imphq_flow_templates").select("*").order("ordem").then(({ data }) => setTemplates(data || []));
   }, [showNew]);
 
   return (
@@ -374,6 +414,9 @@ export default function OpenFlow() {
             {filtered.map(a => {
               const meta = triggerMeta(a.trigger_tipo);
               const stats = health.get(a.id);
+              const rawCache = jsonFields(a.stats_cache);
+              const cache = { executions: jsonNumber(rawCache.executions), success_rate: jsonNumber(rawCache.success_rate), revenue: jsonNumber(rawCache.revenue) };
+              const exitCount = Array.isArray(a.exit_conditions) ? a.exit_conditions.length : 0;
               return (
                 <Card key={a.id} className="bg-slate-900/40 border-white/5 hover:border-primary/20 transition-all group overflow-hidden">
                   <CardContent className={`p-5 border-l-4 ${meta.color} relative`}>
@@ -391,16 +434,16 @@ export default function OpenFlow() {
                     <div className="flex items-center gap-2 mb-4">
                       <Badge variant="outline" className="bg-slate-950/50 border-white/5 text-[10px]">{meta.icon} {meta.label}</Badge>
                       {a.produto && <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-none">📦 {a.produto}</Badge>}
-                      {(a as any).exit_conditions?.length > 0 && (
+                      {exitCount > 0 && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
                               <Badge variant="outline" className="text-[10px] border-rose-500/30 text-rose-400 bg-rose-500/5">
-                                <LogOut className="h-2.5 w-2.5 mr-1" /> {(a as any).exit_conditions.length} Saídas
+                                <LogOut className="h-2.5 w-2.5 mr-1" /> {exitCount} Saídas
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">Este fluxo possui {(a as any).exit_conditions.length} condições de saída configuradas.</p>
+                              <p className="text-xs">Este fluxo possui {exitCount} condições de saída configuradas.</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -410,23 +453,23 @@ export default function OpenFlow() {
                     <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/5">
                       <div className="text-center">
                         <p className="text-[9px] text-muted-foreground uppercase">Execs</p>
-                        <p className="text-xs font-bold">{(a as any).stats_cache?.executions || stats?.execucoes || 0}</p>
+                        <p className="text-xs font-bold">{cache.executions || stats?.execucoes || 0}</p>
                       </div>
                       <div className="text-center">
                         <p className="text-[9px] text-muted-foreground uppercase">Taxa</p>
-                        <p className={`text-xs font-bold ${(a as any).stats_cache?.success_rate > 70 ? 'text-emerald-400' : 'text-primary'}`}>
-                          {(a as any).stats_cache?.success_rate || stats?.taxa_sucesso || 0}%
+                        <p className={`text-xs font-bold ${cache.success_rate > 70 ? 'text-emerald-400' : 'text-primary'}`}>
+                          {cache.success_rate || stats?.taxa_sucesso || 0}%
                         </p>
                       </div>
                       <div className="text-center">
                         <p className="text-[9px] text-muted-foreground uppercase">Receita</p>
                         <p className="text-xs font-bold text-emerald-400">
-                          R$ {((a as any).stats_cache?.revenue || 0).toLocaleString('pt-BR')}
+                          R$ {(cache.revenue || 0).toLocaleString('pt-BR')}
                         </p>
                       </div>
                     </div>
 
-                    {((a as any).stats_cache?.success_rate < 30 && ((a as any).stats_cache?.executions > 10)) && (
+                    {(cache.success_rate < 30 && (cache.executions > 10)) && (
                       <div className="mt-3 flex items-center gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/20">
                         <Activity className="h-3 w-3 text-rose-400" />
                         <span className="text-[10px] text-rose-300 font-medium">Saúde Crítica: Ajuste o fluxo</span>
@@ -445,8 +488,8 @@ export default function OpenFlow() {
         <TabsContent value="analytics"><OpenFlowAnalytics automacoes={automacoes} /></TabsContent>
         <TabsContent value="roi"><FlowROIDashboard projectId={filterProject === "__all__" ? "" : filterProject} /></TabsContent>
         <TabsContent value="midias" className="pt-4"><FlowMediaLibrary projects={projects} /></TabsContent>
-        <TabsContent value="canais"><WebchatWidgets projects={projects as any} automacoes={automacoes as any} /></TabsContent>
-        <TabsContent value="webhooks" className="pt-4"><InboundWebhooks projects={projects as any} automacoes={automacoes as any} /></TabsContent>
+        <TabsContent value="canais"><WebchatWidgets projects={projects} automacoes={automacoes} /></TabsContent>
+        <TabsContent value="webhooks" className="pt-4"><InboundWebhooks projects={projects} automacoes={automacoes} /></TabsContent>
 
 
       </Tabs>
@@ -602,10 +645,10 @@ export default function OpenFlow() {
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Modo</Label>
                         <Select
                           value={editing.trigger_config?.match_mode || "any"}
-                          onValueChange={(v: any) => setEditing({
+                          onValueChange={(v) => { if (v === "any" || v === "all" || v === "exact" || v === "regex") setEditing({
                             ...editing,
                             trigger_config: { ...(editing.trigger_config || {}), match_mode: v },
-                          })}
+                          }); }}
                         >
                           <SelectTrigger className="h-8 w-[180px] bg-background/50 border-white/10 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -645,7 +688,7 @@ export default function OpenFlow() {
                   projectId={editing.project_id} 
                   providers={providers} 
                   templates={projectTemplates} 
-                  onTemplateSaved={loadTemplates} 
+                  onTemplateSaved={() => setTemplatesRefresh((value) => value + 1)}
                   automacaoId={editing.id} 
                   flowObjective={editing.flow_objective || ""}
                   onUpdateObjective={v => setEditing({ ...editing, flow_objective: v })}
@@ -709,14 +752,17 @@ export default function OpenFlow() {
         onOpenChange={setShowHistory}
         automacaoId={editing?.id || null}
         automacaoNome={editing?.nome}
-        onRestore={(snap) => {
+        onRestore={(snapshot) => {
           if (!editing) return;
+          const snap = jsonFields(snapshot);
+          const restoredActions = snap.acoes === undefined ? null : openFlowActionsSchema.safeParse(snap.acoes);
+          if (restoredActions && !restoredActions.success) { toast.error("Esta versão contém etapas inválidas."); return; }
           setEditing({
             ...editing,
-            ...(snap.nome ? { nome: snap.nome } : {}),
-            ...(snap.trigger_tipo ? { trigger_tipo: snap.trigger_tipo } : {}),
-            ...(Array.isArray(snap.acoes) ? { acoes: snap.acoes } : {}),
-            ...(snap.flow_objective !== undefined ? { flow_objective: snap.flow_objective } : {}),
+            ...(typeof snap.nome === "string" ? { nome: snap.nome } : {}),
+            ...(typeof snap.trigger_tipo === "string" ? { trigger_tipo: snap.trigger_tipo } : {}),
+            ...(restoredActions?.success ? { acoes: restoredActions.data as Acao[] } : {}),
+            ...(typeof snap.flow_objective === "string" || snap.flow_objective === null ? { flow_objective: typeof snap.flow_objective === "string" ? snap.flow_objective : null } : {}),
           });
           load();
         }}
@@ -736,7 +782,7 @@ export default function OpenFlow() {
         onCreated={async (id) => {
           await load();
           const { data } = await supabase.from("imphq_automacoes").select("*").eq("id", id).maybeSingle();
-          if (data) setEditing({ ...(data as any), acoes: (data as any).acoes || [] });
+          if (data) { try { setEditing(readAutomacao(data)); } catch { toast.error("O fluxo contém configurações inválidas e não pôde ser aberto."); } }
         }}
       />
 

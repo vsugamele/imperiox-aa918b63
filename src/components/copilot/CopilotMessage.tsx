@@ -3,11 +3,15 @@ import { Crown, User, Wrench, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-export interface ToolActivity {
-  name: string;
-  args: any;
-  result: any;
-  ts?: string;
+import type { Json } from "@/integrations/supabase/types";
+import type { CopilotToolActivity as ToolActivity } from "@/components/copilot/copilot-codec";
+export type { CopilotToolActivity as ToolActivity } from "@/components/copilot/copilot-codec";
+
+function resultFields(value: Json): { [key: string]: Json | undefined } {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function resultCount(value: Json | undefined): number {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 interface Props {
@@ -35,17 +39,17 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 function toolSummary(t: ToolActivity): string {
-  const r = t.result || {};
+  const r = resultFields(t.result);
   if (r.error) return `erro: ${String(r.error).slice(0, 60)}`;
   switch (t.name) {
     case "vendasDoDia": return `${r.total_vendas ?? 0} vendas · R$${Number(r.receita_total || 0).toFixed(0)}`;
     case "vendasResumo": return `R$${Number(r.receita_total || 0).toFixed(0)} (${r.total_vendas} vendas, ${r.periodo_dias}d)`;
     case "leadsTravadosWhatsapp": return `${r.total ?? 0} leads travados ≥${r.horas_min}h`;
-    case "ultimasMensagensWhatsapp": return `${r.mensagens?.length ?? 0} mensagens`;
-    case "adsPerformance": return `gasto R$${Number(r.gasto_total || 0).toFixed(0)} · ROAS ${r.roas?.toFixed(2) ?? "n/d"}`;
-    case "buscarProjeto": return `${r.matches?.length ?? 0} match`;
-    case "buscarLead": return `${r.matches?.length ?? 0} lead(s)`;
-    case "listarProjetos": return `${r.projetos?.length ?? 0} projetos`;
+    case "ultimasMensagensWhatsapp": return `${resultCount(r.mensagens)} mensagens`;
+    case "adsPerformance": return `gasto R$${Number(r.gasto_total || 0).toFixed(0)} · ROAS ${typeof r.roas === "number" ? r.roas.toFixed(2) : "n/d"}`;
+    case "buscarProjeto": return `${resultCount(r.matches)} match`;
+    case "buscarLead": return `${resultCount(r.matches)} lead(s)`;
+    case "listarProjetos": return `${resultCount(r.projetos)} projetos`;
     case "criarTarefas": return `${r.criadas ?? 0} criada(s) em ${r.projeto || "?"}`;
     case "adicionarChecklistNaTarefa": return `${r.adicionados ?? 0} item(s) em "${r.tarefa || "?"}"`;
     case "moverTarefa": return `"${r.tarefa || "?"}" → ${r.novaColuna || "?"}`;
@@ -60,8 +64,9 @@ function toolSummary(t: ToolActivity): string {
 function ToolChip({ tool }: { tool: ToolActivity }) {
   const [open, setOpen] = useState(false);
   const label = TOOL_LABELS[tool.name] || tool.name;
-  const hasError = tool.result?.error;
-  const isPending = tool.result?.status === "pending_approval";
+  const result = resultFields(tool.result);
+  const hasError = result.error;
+  const isPending = result.status === "pending_approval";
   return (
     <div className={cn(
       "text-[11px] border rounded-md mb-1.5 overflow-hidden",

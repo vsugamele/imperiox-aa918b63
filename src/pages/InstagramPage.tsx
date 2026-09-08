@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { Tables, Database as DatabaseSchema, Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -33,6 +36,7 @@ interface IgAccount {
 }
 
 interface IgConversation {
+  created_at?:string; updated_at?:string;
   id: string;
   account_id: string;
   participant_id: string;
@@ -60,7 +64,7 @@ interface IgConversation {
 interface IgMessage {
   id: string;
   conversation_id: string;
-  direction: "in" | "out";
+  direction: string;
   type: string;
   content: string | null;
   media_url: string | null;
@@ -69,7 +73,7 @@ interface IgMessage {
   ai_generated?: boolean;
   feedback?: string | null;
   feedback_correction?: string | null;
-  metadata?: any;
+  metadata?: Json;
   failure_reason?: string | null;
   _local?: boolean;
 }
@@ -96,15 +100,15 @@ export default function InstagramPage() {
   // Tab control
   const [activeMainTab, setActiveMainTab] = useState<"dms" | "comments" | "brain" | "triggers" | "funil" | "sequencias">("dms");
   const [brainSubTab, setBrainSubTab] = useState<"config" | "rag" | "aprendizado" | "objecoes">("config");
-  const [feedbackMessages, setFeedbackMessages] = useState<any[]>([]);
-  const [promptEvolutions, setPromptEvolutions] = useState<any[]>([]);
+  const [feedbackMessages, setFeedbackMessages] = useState<(Tables<"imphq_ig_messages"> & { conversation: { participant_username: string | null; participant_name: string | null } | null })[]>([]);
+  const [promptEvolutions, setPromptEvolutions] = useState<Tables<"imphq_ai_actions">[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
 
   // Objeções Calibradas state
-  const [objections, setObjections] = useState<any[]>([]);
+  const [objections, setObjections] = useState<Tables<"imphq_wa_objections">[]>([]);
   const [loadingObjections, setLoadingObjections] = useState(false);
   const [showObjectionDialog, setShowObjectionDialog] = useState(false);
-  const [editingObjection, setEditingObjection] = useState<any | null>(null);
+  const [editingObjection, setEditingObjection] = useState<Tables<"imphq_wa_objections"> | null>(null);
   const [objForm, setObjForm] = useState({ objecao: "", resposta_padrao: "", contexto_produto: "", status: "ativa" });
   const [savingObjection, setSavingObjection] = useState(false);
   
@@ -134,7 +138,7 @@ export default function InstagramPage() {
   const [showPrivateModal, setShowPrivateModal] = useState<string | null>(null);
   
   // Comment Triggers state
-  const [triggers, setTriggers] = useState<any[]>([]);
+  const [triggers, setTriggers] = useState<Tables<"imphq_ig_comment_triggers">[]>([]);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
   const [showAddTrigger, setShowAddTrigger] = useState(false);
   const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
@@ -149,18 +153,18 @@ export default function InstagramPage() {
 
 
   // AI Brain state
-  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [aiConfig, setAiConfig] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [testQuery, setTestQuery] = useState("");
   const [testLoading, setTestLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<{ query: string; matches: DatabaseSchema["public"]["Functions"]["match_wa_knowledge"]["Returns"] } | null>(null);
 
   // Icebreakers / FAQ initial questions state
   const [icebreakers, setIcebreakers] = useState<string[]>(["", "", "", ""]);
   const [savingIcebreakers, setSavingIcebreakers] = useState(false);
 
   // SDR Lead enrichment state
-  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Tables<"imphq_leads"> | null>(null);
   const [enriching, setEnriching] = useState(false);
 
   // Funnel view mode & metrics
@@ -195,15 +199,15 @@ export default function InstagramPage() {
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (record(data).error) throw new Error(String(record(data).error));
       setNewTrigger(prev => ({
         ...prev,
-        reply_comment_template: (data as any).reply_public || prev.reply_comment_template,
-        send_dm_template: (data as any).dm_message || prev.send_dm_template,
+        reply_comment_template: (typeof record(data).reply_public === "string" ? String(record(data).reply_public) : "") || prev.reply_comment_template,
+        send_dm_template: (typeof record(data).dm_message === "string" ? String(record(data).dm_message) : "") || prev.send_dm_template,
       }));
       toast.success("Copy gerada! Revise antes de salvar.");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao gerar copy");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar copy");
     } finally {
       setGenTriggerLoading(false);
     }
@@ -240,11 +244,11 @@ export default function InstagramPage() {
       .eq("provider", "instagram")
       .maybeSingle();
     
-    const creds = (data?.credentials as any) || {};
-    setIgAuthMethod(creds?.auth_method || null);
+    const creds = record(data?.credentials);
+    setIgAuthMethod(typeof creds.auth_method === "string" ? creds.auth_method : null);
     setIgHasMeta(!!creds?.page_access_token);
     if (creds?.icebreakers && Array.isArray(creds.icebreakers)) {
-      const qs = [...creds.icebreakers];
+      const qs = creds.icebreakers.map(q=>typeof q === "string" ? q : "");
       while (qs.length < 4) qs.push("");
       setIcebreakers(qs.slice(0, 4));
     } else {
@@ -271,8 +275,8 @@ export default function InstagramPage() {
       });
       if (error) throw error;
       toast.success("Icebreakers (FAQ) salvos e sincronizados com sucesso!");
-    } catch (err: any) {
-      toast.error("Erro ao salvar icebreakers: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao salvar icebreakers: " + errorMessage(err));
     } finally {
       setSavingIcebreakers(false);
     }
@@ -294,8 +298,8 @@ export default function InstagramPage() {
       toast.success("Perfil do Lead enriquecido com sucesso!");
       loadLeadData(selectedConv);
       loadConversations(selectedAccount.id); // reload triggers badge
-    } catch (err: any) {
-      toast.error("Erro ao enriquecer perfil: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao enriquecer perfil: " + errorMessage(err));
     } finally {
       setEnriching(false);
     }
@@ -316,7 +320,7 @@ export default function InstagramPage() {
         .select("id")
         .eq("account_id", accountId);
 
-      const convIds = (convs || []).map((c: any) => c.id);
+      const convIds = (convs || []).map((c) => c.id);
 
       let sentDmsCount = 0;
       let repliedDmsCount = 0;
@@ -337,7 +341,7 @@ export default function InstagramPage() {
           .in("conversation_id", convIds)
           .eq("direction", "in");
         
-        const uniqueConvsWithInbound = new Set((inboundMsgs || []).map((m: any) => m.conversation_id));
+        const uniqueConvsWithInbound = new Set((inboundMsgs || []).map((m) => m.conversation_id));
         repliedDmsCount = uniqueConvsWithInbound.size;
       }
 
@@ -379,7 +383,7 @@ export default function InstagramPage() {
   const [backfilling, setBackfilling] = useState(false);
 
   // Business hours state
-  const [businessHours, setBusinessHours] = useState<any>(null);
+  const [businessHours, setBusinessHours] = useState<Tables<"imphq_business_hours"> | null>(null);
   const [showBusinessHours, setShowBusinessHours] = useState(false);
   const [savingHours, setSavingHours] = useState(false);
   const [hoursForm, setHoursForm] = useState({
@@ -401,8 +405,8 @@ export default function InstagramPage() {
       if (error) throw error;
       toast.success(`Backfill concluído! ${data?.updated || 0} perfis atualizados.`);
       loadConversations(selectedAccount.id);
-    } catch (e: any) {
-      toast.error("Erro no backfill: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro no backfill: " + errorMessage(e));
     } finally {
       setBackfilling(false);
     }
@@ -430,15 +434,17 @@ export default function InstagramPage() {
     try {
       const payload = { ...hoursForm, project_id: selectedAccount.project_id, channel: "instagram" };
       if (businessHours?.id) {
-        await supabase.from("imphq_business_hours").update(payload).eq("id", businessHours.id);
+        const { error } = await supabase.from("imphq_business_hours").update(payload).eq("id", businessHours.id);
+        if (error) throw error;
       } else {
-        const { data } = await supabase.from("imphq_business_hours").insert(payload).select().single();
+        const { data, error } = await supabase.from("imphq_business_hours").insert(payload).select().single();
+        if (error) throw error;
         setBusinessHours(data);
       }
       toast.success("Horários salvos!");
       setShowBusinessHours(false);
-    } catch (e: any) {
-      toast.error("Erro ao salvar horários: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao salvar horários: " + errorMessage(e));
     } finally {
       setSavingHours(false);
     }
@@ -447,7 +453,7 @@ export default function InstagramPage() {
   const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
   // Sequences state (Bloco 2)
-  const [sequences, setSequences] = useState<any[]>([]);
+  const [sequences, setSequences] = useState<Tables<"imphq_ig_sequences">[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(false);
   const [showAddSeq, setShowAddSeq] = useState(false);
   const [newSeq, setNewSeq] = useState({ name: "", trigger_stage: "quente", trigger_delay_hours: 0, steps: [{message: "Oi {nome}! Vi que você se interessou. Posso te ajudar?", delay_hours: 0}] });
@@ -478,12 +484,12 @@ export default function InstagramPage() {
         cliente: "✅"
       };
 
-      return aiConfig.triage_stages.map((s: any) => ({
-        id: s.id,
-        label: s.label || s.id,
-        emoji: emojiMap[s.id] || "🏷️",
-        color: colorMap[s.color] || "border-border/50 bg-secondary/5 hover:bg-secondary/10"
-      }));
+      return aiConfig.triage_stages.map(value => { const s = record(value); return ({
+        id: String(s.id || ""),
+        label: String(s.label || s.id || ""),
+        emoji: emojiMap[String(s.id)] || "🏷️",
+        color: colorMap[String(s.color)] || "border-border/50 bg-secondary/5 hover:bg-secondary/10"
+      }); });
     }
 
     return [
@@ -522,22 +528,22 @@ export default function InstagramPage() {
           .eq("account_id", selectedAccount.id)
           .order("last_message_at", { ascending: false });
         
-        let enriched = convs || [];
+        let enriched: IgConversation[] = convs || [];
         
         if (enriched.length > 0) {
-          const convIds = enriched.map((c: any) => c.id);
+          const convIds = enriched.map((c) => c.id);
           const { data: triages } = await supabase
             .from("imphq_wa_triage")
             .select("conversation_id, intent, fit_score, created_at")
             .in("conversation_id", convIds)
             .order("created_at", { ascending: false });
 
-          const latestByConv: Record<string, any> = {};
+          const latestByConv: Record<string, Pick<Tables<"imphq_wa_triage">,"conversation_id"|"intent"|"fit_score"|"created_at">> = {};
           for (const t of triages || []) {
             if (!latestByConv[t.conversation_id]) latestByConv[t.conversation_id] = t;
           }
 
-          enriched = enriched.map((c: any) => ({
+          enriched = enriched.map((c) => ({
             ...c,
             triage_intent: latestByConv[c.id]?.intent ?? null,
             triage_fit_score: latestByConv[c.id]?.fit_score ?? null,
@@ -549,7 +555,7 @@ export default function InstagramPage() {
           groups[s.id] = [];
         }
         for (const c of enriched) {
-          const stage = (c as any).triage_intent || "frio";
+          const stage = c.triage_intent || "frio";
           if (!groups[stage]) groups[stage] = [];
           groups[stage].push(c);
         }
@@ -570,7 +576,7 @@ export default function InstagramPage() {
       const { data } = await supabase.from("imphq_projects").select("id, name").order("name");
       if (data && data.length > 0) {
         setProjects(data);
-        if (!selectedProjectId) setSelectedProjectId(data[0].id);
+        setSelectedProjectId(current => current || data[0].id);
       }
     }
     loadProjects();
@@ -606,7 +612,7 @@ export default function InstagramPage() {
 
     // Load latest triage per conversation (for hot lead badge)
     if (convs.length > 0) {
-      const convIds = convs.map((c: any) => c.id);
+      const convIds = convs.map((c) => c.id);
       const { data: triages } = await supabase
         .from("imphq_wa_triage")
         .select("conversation_id, intent, fit_score, created_at")
@@ -614,12 +620,12 @@ export default function InstagramPage() {
         .order("created_at", { ascending: false });
 
       // Keep only the latest triage per conversation
-      const latestByConv: Record<string, any> = {};
+      const latestByConv: Record<string, Pick<Tables<"imphq_wa_triage">,"conversation_id"|"intent"|"fit_score"|"created_at">> = {};
       for (const t of triages || []) {
         if (!latestByConv[t.conversation_id]) latestByConv[t.conversation_id] = t;
       }
 
-      const enriched = convs.map((c: any) => ({
+      const enriched = convs.map((c) => ({
         ...c,
         triage_intent: latestByConv[c.id]?.intent ?? null,
         triage_fit_score: latestByConv[c.id]?.fit_score ?? null,
@@ -645,7 +651,7 @@ export default function InstagramPage() {
       .select("*")
       .eq("conversation_id", convId)
       .order("created_at", { ascending: true });
-    setMessages((data as any) || []);
+    setMessages(data || []);
     setLoadingMsgs(false);
   }, []);
 
@@ -653,25 +659,15 @@ export default function InstagramPage() {
     if (selectedConv) {
       loadMessages(selectedConv.id);
       // Mark as read
-      supabase.from("imphq_ig_conversations").update({ unread_count: 0 } as any).eq("id", selectedConv.id).then(() => {
+      supabase.from("imphq_ig_conversations").update({ unread_count: 0 }).eq("id", selectedConv.id).then(({ error }) => {
+        if (error) { toast.error("Não foi possível marcar como lida."); return; }
         setConversations(prev => prev.map(c => c.id === selectedConv.id ? { ...c, unread_count: 0 } : c));
       });
     }
   }, [selectedConv, loadMessages]);
 
-  // SLA fetch quando seleciona conta
-  useEffect(() => {
-    if (!selectedAccount?.id) { setSlaStats(null); return; }
-    (supabase.rpc as any)("ig_sla_summary", { p_account_id: selectedAccount.id, p_hours: 168 }).then(({ data }: any) => {
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row) setSlaStats({
-        avg_min: Number(row.avg_min) || 0,
-        p90_min: Number(row.p90_min) || 0,
-        over_30min: Number(row.over_30min) || 0,
-        stale_open: Number(row.stale_open) || 0,
-      });
-    });
-  }, [selectedAccount?.id]);
+  // SLA aggregation is not available in the current database contract.
+  useEffect(() => { setSlaStats(null); }, [selectedAccount?.id]);
 
   // Load comments when tab is comments and account selected
   const loadComments = useCallback(async (accountId: string) => {
@@ -721,8 +717,8 @@ export default function InstagramPage() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       setTriggers(data || []);
-    } catch (e: any) {
-      toast.error("Erro ao carregar gatilhos: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao carregar gatilhos: " + errorMessage(e));
     } finally {
       setLoadingTriggers(false);
     }
@@ -785,12 +781,12 @@ export default function InstagramPage() {
         is_active: true
       });
       loadTriggers();
-    } catch (err: any) {
-      toast.error("Erro ao salvar gatilho: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao salvar gatilho: " + errorMessage(err));
     }
   };
 
-  const openEditTrigger = (trigger: any) => {
+  const openEditTrigger = (trigger: Tables<"imphq_ig_comment_triggers">) => {
     setEditingTriggerId(trigger.id);
     const pid = trigger.post_id || "all";
     const sourceType: "all" | "dm" | "story" | "story_mention" | "specific" =
@@ -821,8 +817,8 @@ export default function InstagramPage() {
       if (error) throw error;
       setTriggers(prev => prev.map(t => t.id === id ? { ...t, is_active: active } : t));
       toast.success(active ? "Gatilho ativado!" : "Gatilho desativado!");
-    } catch (err: any) {
-      toast.error("Erro ao alterar status: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao alterar status: " + errorMessage(err));
     }
   };
 
@@ -836,8 +832,8 @@ export default function InstagramPage() {
       if (error) throw error;
       setTriggers(prev => prev.filter(t => t.id !== id));
       toast.success("Gatilho excluído com sucesso!");
-    } catch (err: any) {
-      toast.error("Erro ao excluir gatilho: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao excluir gatilho: " + errorMessage(err));
     }
   };
 
@@ -925,9 +921,9 @@ export default function InstagramPage() {
       if (convData) {
         setSelectedConv(convData);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[simulate ig] error:", err);
-      toast.error("Erro na simulação: " + (err.message || err));
+      toast.error("Erro na simulação: " + (errorMessage(err) || err));
     } finally {
       setSimLoading(false);
     }
@@ -996,9 +992,9 @@ export default function InstagramPage() {
         last_message: textToSend,
         last_message_at: nowIso,
         updated_at: nowIso,
-      } as any).eq("id", selectedConv.id).then(() => {});
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao enviar mensagem");
+      }).eq("id", selectedConv.id).then(() => {});
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao enviar mensagem");
     } finally {
       setSendingMsg(false);
     }
@@ -1029,7 +1025,7 @@ export default function InstagramPage() {
       {
         loading: "Respondendo comentário...",
         success: "Comentário respondido!",
-        error: (err) => err.message || "Erro ao responder"
+        error: (err) => errorMessage(err) || "Erro ao responder"
       }
     );
   }
@@ -1094,7 +1090,7 @@ export default function InstagramPage() {
       {
         loading: "Buscando link do post...",
         success: "Abrindo post no Instagram!",
-        error: (err) => err.message || "Erro ao buscar link do post"
+        error: (err) => errorMessage(err) || "Erro ao buscar link do post"
       }
     );
   }
@@ -1122,7 +1118,7 @@ export default function InstagramPage() {
       {
         loading: "Enviando DM privada...",
         success: "Mensagem privada enviada!",
-        error: (err) => err.message || "Erro ao enviar mensagem"
+        error: (err) => errorMessage(err) || "Erro ao enviar mensagem"
       }
     );
   }
@@ -1158,8 +1154,8 @@ export default function InstagramPage() {
         query: testQuery,
         matches: matches || []
       });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao testar similaridade semântica");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao testar similaridade semântica");
     } finally {
       setTestLoading(false);
     }
@@ -1169,7 +1165,7 @@ export default function InstagramPage() {
   const activeUnreadCount = useMemo(() => conversations.reduce((acc, c) => acc + c.unread_count, 0), [conversations]);
 
   const filteredConversations = useMemo(() => {
-    const getTs = (c: any) =>
+    const getTs = (c: IgConversation) =>
       new Date(c.last_message_at || c.updated_at || c.created_at || 0).getTime();
     const sorted = [...conversations].sort((a, b) => getTs(b) - getTs(a));
     if (!convSearch.trim()) return sorted;
@@ -1214,7 +1210,8 @@ export default function InstagramPage() {
 
   // Toggle sequence active/inactive
   const handleToggleSeq = async (seqId: string, active: boolean) => {
-    await supabase.from("imphq_ig_sequences").update({ active }).eq("id", seqId);
+    const { error } = await supabase.from("imphq_ig_sequences").update({ active }).eq("id", seqId);
+    if (error) { toast.error("Não foi possível alterar a sequência."); return; }
     setSequences(prev => prev.map(s => s.id === seqId ? { ...s, active } : s));
   };
 
@@ -1294,8 +1291,8 @@ export default function InstagramPage() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       setObjections(data || []);
-    } catch (err: any) {
-      console.error("Erro ao carregar objeções:", err.message);
+    } catch (err: unknown) {
+      console.error("Erro ao carregar objeções:", errorMessage(err));
       toast.error("Erro ao carregar objeções.");
     } finally {
       setLoadingObjections(false);
@@ -1363,9 +1360,9 @@ export default function InstagramPage() {
       setEditingObjection(null);
       setObjForm({ objecao: "", resposta_padrao: "", contexto_produto: "", status: "ativa" });
       loadObjections();
-    } catch (err: any) {
-      console.error("Erro ao salvar objeção:", err.message);
-      toast.error("Erro ao salvar objeção: " + err.message);
+    } catch (err: unknown) {
+      console.error("Erro ao salvar objeção:", errorMessage(err));
+      toast.error("Erro ao salvar objeção: " + errorMessage(err));
     } finally {
       setSavingObjection(false);
     }
@@ -1381,8 +1378,8 @@ export default function InstagramPage() {
       if (error) throw error;
       toast.success("Objeção excluída.");
       loadObjections();
-    } catch (err: any) {
-      toast.error("Erro ao excluir: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao excluir: " + errorMessage(err));
     }
   };
 
@@ -1398,7 +1395,7 @@ export default function InstagramPage() {
           ai_paused: next,
           ai_paused_reason: next ? (minutes ? `Pausa ${minutes}min` : "Operador assumiu") : null,
           ai_paused_until: until,
-        } as any)
+        })
         .eq("id", conv.id);
       if (error) throw error;
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, ai_paused: next } : c));
@@ -1406,8 +1403,8 @@ export default function InstagramPage() {
       toast.success(next 
         ? (minutes ? `🧑 IA pausada por ${minutes}min nesta conversa.` : "🧑 Modo humano ativado.") 
         : "🤖 IA retomou o controle.");
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro: " + errorMessage(e));
     }
   };
   const selectedProjectName = useMemo(() => projects.find(p => p.id === selectedProjectId)?.name || "Projeto", [projects, selectedProjectId]);
@@ -1425,11 +1422,11 @@ export default function InstagramPage() {
         .update({ [field]: value })
         .eq("id", aiConfig.id);
       if (error) throw error;
-      setAiConfig((prev: any) => ({ ...prev, [field]: value }));
+      setAiConfig((prev) => ({ ...prev, [field]: value }));
       const label = field === 'instagram_enabled' ? 'IA no Direct' : 'IA nos Comentários';
       toast.success(value ? `${label} ativada!` : `${label} desativada!`);
-    } catch (e: any) {
-      toast.error("Erro ao atualizar configuração: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao atualizar configuração: " + errorMessage(e));
     }
   };
 
@@ -1938,20 +1935,20 @@ export default function InstagramPage() {
                                       </div>
                                     )}
                                     {/* Badge reengajamento automático */}
-                                    {!isInbound && (m.metadata as any)?.source === "ig-reengagement" && (
+                                    {!isInbound && record(m.metadata).source === "ig-reengagement" && (
                                       <div className="flex items-center gap-1 mt-1 mb-0.5">
                                         <Activity className="h-2.5 w-2.5 text-amber-300/80" />
                                         <span className="text-[9px] text-amber-300/80 font-medium">
-                                          Reengajamento automático · {(m.metadata as any).days_silent}d silêncio
+                                          Reengajamento automático · {String(record(m.metadata).days_silent ?? "")}d silêncio
                                         </span>
                                       </div>
                                     )}
                                     {/* Badge closer automático */}
-                                    {!isInbound && (m.metadata as any)?.source === "wa-closer-trigger" && (
+                                    {!isInbound && record(m.metadata).source === "wa-closer-trigger" && (
                                       <div className="flex items-center gap-1 mt-1 mb-0.5">
                                         <Zap className="h-2.5 w-2.5 text-orange-300/80" />
                                         <span className="text-[9px] text-orange-300/80 font-medium">
-                                          Closer automático · score {(m.metadata as any).lead_score}/200
+                                          Closer automático · score {String(record(m.metadata).lead_score ?? "")}/200
                                         </span>
                                       </div>
                                     )}
@@ -2085,6 +2082,7 @@ export default function InstagramPage() {
                               </div>
                             </div>
 
+                            {!slaStats && <p className="text-[10px] text-muted-foreground">SLA indisponível: agregação ainda não configurada no banco.</p>}
                             {slaStats && (
                               <div className="bg-secondary/30 border border-border/40 rounded-lg p-3 mb-6">
                                 <div className="flex items-center justify-between mb-2">
@@ -2215,7 +2213,7 @@ export default function InstagramPage() {
                         </div>
 
                         {/* SDR AI Enrichment Panel */}
-                        {selectedLead?.data?.enriched_profile ? (
+                        {record(selectedLead?.data).enriched_profile ? (
                           <div className="border-t border-border/40 pt-3 mt-3 space-y-2.5 text-xs text-left">
                             <h4 className="text-[10px] uppercase tracking-wider text-amber-500 font-bold flex items-center gap-1">
                               <span>⚡</span> SDR Inteligência de Perfil
@@ -2223,30 +2221,30 @@ export default function InstagramPage() {
                             
                             <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-2.5 space-y-2">
                               <div className="flex justify-between text-[10px] text-muted-foreground border-b border-border/10 pb-1">
-                                <span>Seguidores: <strong className="text-foreground">{selectedLead.data.enriched_profile.followers || "—"}</strong></span>
-                                <span>Seguindo: <strong className="text-foreground">{selectedLead.data.enriched_profile.following || "—"}</strong></span>
+                                <span>Seguidores: <strong className="text-foreground">{String(record(record(selectedLead.data).enriched_profile).followers || "—")}</strong></span>
+                                <span>Seguindo: <strong className="text-foreground">{String(record(record(selectedLead.data).enriched_profile).following || "—")}</strong></span>
                               </div>
                               <p className="text-[11px] leading-relaxed text-slate-300 italic">
-                                "{selectedLead.data.enriched_profile.bio || "Sem bio disponível."}"
+                                "{String(record(record(selectedLead.data).enriched_profile).bio || "Sem bio disponível.")}"
                               </p>
                             </div>
 
                             <div className="space-y-1">
                               <span className="text-[9px] uppercase font-bold text-muted-foreground">Persona / Maturidade:</span>
-                              <p className="font-semibold text-slate-100">{selectedLead.data.enriched_profile.persona_summary || "—"}</p>
+                              <p className="font-semibold text-slate-100">{String(record(record(selectedLead.data).enriched_profile).persona_summary || "—")}</p>
                             </div>
 
                             <div className="space-y-1">
                               <span className="text-[9px] uppercase font-bold text-muted-foreground">Dores Principais:</span>
                               <p className="text-slate-300 bg-secondary/15 p-2 rounded border border-border/20 leading-relaxed max-h-[80px] overflow-y-auto">
-                                {selectedLead.data.enriched_profile.dores || "—"}
+                                {String(record(record(selectedLead.data).enriched_profile).dores || "—")}
                               </p>
                             </div>
 
                             <div className="space-y-1">
                               <span className="text-[9px] uppercase font-bold text-muted-foreground">Desejos & Metas:</span>
                               <p className="text-slate-300 bg-secondary/15 p-2 rounded border border-border/20 leading-relaxed max-h-[80px] overflow-y-auto">
-                                {selectedLead.data.enriched_profile.desejos || "—"}
+                                {String(record(record(selectedLead.data).enriched_profile).desejos || "—")}
                               </p>
                             </div>
                           </div>
@@ -2557,8 +2555,8 @@ export default function InstagramPage() {
                                           });
                                           if (res.error) throw res.error;
                                           toast.success(`Lead enviado para WhatsApp! ${res.data?.phone_available ? "Flow disparado." : "Sem telefone — lead criado."}`);
-                                        } catch (err: any) {
-                                          toast.error("Erro ao enviar para WA: " + (err.message || err));
+                                        } catch (err: unknown) {
+                                          toast.error("Erro ao enviar para WA: " + (errorMessage(err) || err));
                                         }
                                       }}
                                     >
@@ -2781,7 +2779,7 @@ export default function InstagramPage() {
                             <div>
                               <p className="font-semibold text-sm">{seq.name}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Dispara quando lead é <strong>{seq.trigger_stage}</strong> • {(seq.steps || []).length} step(s)
+                                Dispara quando lead é <strong>{seq.trigger_stage}</strong> • {(Array.isArray(seq.steps) ? seq.steps : []).length} step(s)
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -2796,14 +2794,14 @@ export default function InstagramPage() {
                               </button>
                             </div>
                           </div>
-                          {(seq.steps || []).length > 0 && (
+                          {(Array.isArray(seq.steps) ? seq.steps : []).length > 0 && (
                             <div className="mt-3 space-y-1">
-                              {(seq.steps as any[]).map((step: any, si: number) => (
+                              {(Array.isArray(seq.steps) ? seq.steps : []).map((value, si: number) => { const step = record(value); return (
                                 <div key={si} className="text-[10px] bg-secondary/30 rounded px-2 py-1 border border-border/30">
-                                  <span className="text-muted-foreground">Step {si + 1} (+{step.delay_hours || 0}h): </span>
-                                  <span className="truncate">{step.message}</span>
+                                  <span className="text-muted-foreground">Step {si + 1} (+{Number(step.delay_hours) || 0}h): </span>
+                                  <span className="truncate">{String(step.message || "")}</span>
                                 </div>
-                              ))}
+                              ); })}
                             </div>
                           )}
                         </CardContent>
@@ -3066,7 +3064,7 @@ export default function InstagramPage() {
                               </div>
                             ) : (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {testResult.matches.map((m: any, idx: number) => {
+                                {testResult.matches.map((m, idx: number) => {
                                   const score = Math.round(m.similarity * 100);
                                   const isExcellent = score >= 75;
                                   return (
@@ -3118,7 +3116,7 @@ export default function InstagramPage() {
                           </div>
                         ) : (
                           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                            {feedbackMessages.map((msg: any) => {
+                            {feedbackMessages.map((msg) => {
                               const isPositive = msg.feedback === "positive" || msg.feedback === "like" || msg.feedback === "👍";
                               return (
                                 <div key={msg.id} className="bg-secondary/20 p-3.5 rounded-xl border border-border/30 space-y-2.5">
@@ -3181,7 +3179,7 @@ export default function InstagramPage() {
                           </div>
                         ) : (
                           <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
-                            {promptEvolutions.map((evt: any) => (
+                            {promptEvolutions.map((evt) => (
                               <div key={evt.id} className="p-3 bg-secondary/15 rounded-xl border border-border/25 space-y-1.5">
                                 <div className="flex justify-between items-start gap-2">
                                   <h4 className="text-xs font-bold text-slate-100 flex items-center gap-1 leading-tight">
@@ -3804,7 +3802,8 @@ export default function InstagramPage() {
                   <select
                     value={triggerSourceType}
                     onChange={(e) => {
-                      const val = e.target.value as any;
+                      const val = e.target.value;
+                      if (val !== "all" && val !== "dm" && val !== "story" && val !== "story_mention" && val !== "specific") return;
                       setTriggerSourceType(val);
                       if (val !== "specific") {
                         setNewTrigger(prev => ({ ...prev, post_id: val }));

@@ -96,9 +96,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ image_url: publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("hyper-prompt-preview:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(message || e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

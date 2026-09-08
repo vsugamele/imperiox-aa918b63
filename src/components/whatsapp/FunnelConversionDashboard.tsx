@@ -36,10 +36,10 @@ export function FunnelConversionDashboard({ projectId }: Props) {
         supabase.from("imphq_automacoes").select("id, nome").eq("project_id", projectId).eq("ativo", true),
       ]);
 
-      const leads = (leadsRes.data as any[]) || [];
-      const vendas = (vendasRes.data as any[]) || [];
-      const execs = (execRes.data as any[]) || [];
-      const autos = (autoRes.data as any[]) || [];
+      const leads = leadsRes.data || [];
+      const vendas = vendasRes.data || [];
+      const execs = execRes.data || [];
+      const autos = autoRes.data || [];
 
       const totalLeads = leads.length;
       const revenue = vendas.reduce((s, v) => s + Number(v.valor || 0), 0);

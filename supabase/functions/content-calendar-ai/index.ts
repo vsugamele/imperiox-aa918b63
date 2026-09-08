@@ -11,7 +11,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-async function genIdeas(projeto: any, vendasResumo: string, avatar: string) {
+async function genIdeas(projeto: {name:string;nicho?:string|null}, vendasResumo: string, avatar: string) {
   const sys = `Você é estrategista de conteúdo. Gere 7 ideias de posts para a semana (1/dia). Mix de formatos. Responda JSON: { "ideias": [{"dia": "Seg", "formato": "reel"|"carrossel"|"story", "titulo": "...", "hook": "...", "cta": "...", "prompt_studio": "prompt detalhado pra IA gerar copy completa"}] }`;
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       ]);
 
       const vendasResumo = (vendas || []).length > 0
-        ? `${vendas?.length} vendas, top: ${[...new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))].slice(0, 3).join(", ")}`
+        ? `${vendas?.length} vendas, top: ${[...new Set((vendas || []).map((v: {produto_nome:string|null}) => v.produto_nome).filter(Boolean))].slice(0, 3).join(", ")}`
         : "Sem vendas recentes";
       const avatarStr = JSON.stringify(avatarData?.data || {}).slice(0, 500);
 
@@ -104,9 +104,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, projetos: projsProcessados, ideias: totalIdeas }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("content-calendar-ai:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

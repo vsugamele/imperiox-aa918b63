@@ -40,9 +40,9 @@ Deno.serve(async (req) => {
         const r = await supabase.functions.invoke("wa-learn-from-human", {
           body: { conversation_id: m.conversation_id, message_id: m.id, project_id },
         });
-        const data: any = r.data || {};
-        if (data.id) aprendidas++;
-        else if (data.deduped) dedupadas++;
+        const data: unknown = r.data;
+        if (data && typeof data === "object" && "id" in data && data.id) aprendidas++;
+        else if (data && typeof data === "object" && "deduped" in data && data.deduped) dedupadas++;
         else puladas++;
       } catch (_) { erros++; }
       // Throttle leve pra não estourar rate-limit do embedding
@@ -52,9 +52,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, total: msgs?.length || 0, aprendidas, dedupadas, puladas, erros,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-learn-backfill] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

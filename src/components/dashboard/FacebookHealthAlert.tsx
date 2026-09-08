@@ -1,6 +1,8 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { jsonFields, jsonText, jsonNumber } from "@/components/dashboard/json-fields";
 import { AlertOctagon, ExternalLink, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -28,20 +30,21 @@ export default function FacebookHealthAlert() {
       .not("data", "is", null);
     const list: FailedProject[] = [];
     for (const p of data || []) {
-      const d: any = p.data || {};
+      const d = jsonFields(p.data);
+      const syncError = jsonFields(d.facebook_sync_error);
       const hasFb = d.facebook_ad_account_id && (d.facebook_marketing_token || d.facebook_access_token);
       if (!hasFb) continue;
       if (d.facebook_sync_status === "error" && d.facebook_sync_error) {
         list.push({
           id: p.id,
           name: p.name,
-          subcode: d.facebook_sync_error.subcode || null,
-          code: d.facebook_sync_error.code || null,
-          message: d.facebook_sync_error.message || "Erro desconhecido",
-          at: d.facebook_sync_error.at || "",
-          last_sync: d.facebook_last_sync || null,
+          subcode: jsonNumber(syncError.subcode) || null,
+          code: jsonNumber(syncError.code) || null,
+          message: jsonText(syncError.message) || "Erro desconhecido",
+          at: jsonText(syncError.at) || "",
+          last_sync: jsonText(d.facebook_last_sync) || null,
           kind: "error",
-          account_id: d.facebook_ad_account_id || null,
+          account_id: jsonText(d.facebook_ad_account_id) || (jsonNumber(d.facebook_ad_account_id) !== undefined ? String(d.facebook_ad_account_id) : null),
         });
       } else if (d.facebook_sync_status === "empty") {
         list.push({
@@ -50,10 +53,10 @@ export default function FacebookHealthAlert() {
           subcode: null,
           code: null,
           message: `Meta retornou 0 linhas para a conta act_${d.facebook_ad_account_id} nos últimos 7 dias`,
-          at: d.facebook_sync_error?.at || d.facebook_last_sync || "",
-          last_sync: d.facebook_last_sync || null,
+          at: jsonText(syncError.at) || jsonText(d.facebook_last_sync) || "",
+          last_sync: jsonText(d.facebook_last_sync) || null,
           kind: "empty",
-          account_id: d.facebook_ad_account_id || null,
+          account_id: jsonText(d.facebook_ad_account_id) || (jsonNumber(d.facebook_ad_account_id) !== undefined ? String(d.facebook_ad_account_id) : null),
         });
       }
     }
@@ -69,8 +72,8 @@ export default function FacebookHealthAlert() {
       if (error) throw error;
       toast.success("Sincronização disparada. Aguardando resultado...");
       setTimeout(() => load(), 4000);
-    } catch (e: any) {
-      toast.error("Falha ao disparar sync: " + (e.message || "erro"));
+    } catch (e: unknown) {
+      toast.error("Falha ao disparar sync: " + (errorMessage(e) || "erro"));
     } finally {
       setResyncing(false);
     }

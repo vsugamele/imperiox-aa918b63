@@ -14,7 +14,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface SwipeBlocks {
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 interface SwipeRow {
@@ -97,7 +97,7 @@ const VSL_SCHEMA = `{
   }
 }`;
 
-async function aiExtractStructure(rawText: string, vsl: boolean): Promise<Partial<SwipeRow> & { vsl_meta?: any }> {
+async function aiExtractStructure(rawText: string, vsl: boolean): Promise<Partial<SwipeRow> & { vsl_meta?: { promessa_central?: string; publico_alvo?: string; duracao_estimada_min?: number | string; tipo_garantia?: string } }> {
   const schema = vsl ? VSL_SCHEMA : SHORT_SCHEMA;
   const instruction = vsl
     ? `Você é um copywriter sênior dissecando uma VSL (Video Sales Letter). Preserve o TEXTO REAL de cada bloco — não resuma. Se um bloco não existir, devolva string vazia.`
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
     } else if (mode === "text" || mode === "url") {
       const text = mode === "url" ? await fetchUrl(payload) : payload;
       const vsl = force_format === "vsl" ? true : force_format === "short" ? false : looksLikeVsl(text);
-      const extracted: any = await aiExtractStructure(text, vsl);
+      const extracted = await aiExtractStructure(text, vsl);
       rows.push({
         user_id: user.id,
         project_id,
@@ -230,14 +230,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "mode inválido" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: inserted, error } = await supabase.from("imphq_swipes").insert(rows as any).select();
+    const { data: inserted, error } = await supabase.from("imphq_swipes").insert(rows).select();
     if (error) throw error;
 
     return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0, swipes: inserted }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[swipe-import]", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: eMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

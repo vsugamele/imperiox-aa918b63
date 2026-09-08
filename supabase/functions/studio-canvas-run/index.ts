@@ -1,5 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+declare const EdgeRuntime: { waitUntil: (task: Promise<unknown>) => void } | undefined;
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface ModelingFicha { modelagem_resumo?: string; [key: string]: unknown }
+interface CanvasConfig { url?: string; kind?: string; model_id?: string; ficha_snapshot?: ModelingFicha; scheduled_at?: string; channel?: string; caption?: string; texto?: string; prompt?: string; provider?: string; model?: string; voice_id?: string; params?: Record<string, unknown>; reference_urls?: string[]; reference_kinds?: string[] }
+interface CanvasNode { id: string; tipo: string; status?: string; config_hash?: string; config?: CanvasConfig | null; output?: { url?: string; kind?: string; ficha?: ModelingFicha } | null }
+type NodeResult = { ok: false; error: string } | { ok: true; output_url?: string; kind: string; ficha?: ModelingFicha; publication_id?: string };
+function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -12,7 +20,7 @@ const KIND_BY_TIPO: Record<string, "image" | "video" | "audio"> = {
   image: "image", video: "video", audio: "audio", avatar: "video",
 };
 
-function resolvePrompt(text: string, upstreamOutputs: string[], modelingFicha?: any): string {
+function resolvePrompt(text: string, upstreamOutputs: string[], modelingFicha?: ModelingFicha): string {
   if (!text) return text;
   const first = upstreamOutputs[0] || "";
   const fichaStr = modelingFicha ? JSON.stringify(modelingFicha) : "";
@@ -24,13 +32,13 @@ function resolvePrompt(text: string, upstreamOutputs: string[], modelingFicha?: 
     .replace(/\{\{upstream\.(\d+)\.output\}\}/g, (_, i) => upstreamOutputs[Number(i)] || "");
 }
 
-async function sha256(obj: any): Promise<string> {
+async function sha256(obj: unknown): Promise<string> {
   const enc = new TextEncoder().encode(JSON.stringify(obj || {}));
   const h = await crypto.subtle.digest("SHA-256", enc);
   return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function logEvent(admin: any, workflowId: string, nodeId: string | null, level: string, message: string, meta?: any) {
+async function logEvent(admin: ReturnType<typeof makeClient>, workflowId: string, nodeId: string | null, level: string, message: string, meta?: unknown) {
   try {
     await admin.from("imphq_studio_canvas_run_events").insert({
       workflow_id: workflowId, node_id: nodeId, level, message, meta: meta || null,
@@ -38,7 +46,7 @@ async function logEvent(admin: any, workflowId: string, nodeId: string | null, l
   } catch (_) { /* ignore */ }
 }
 
-async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
+async function pollGeneration(admin: ReturnType<typeof makeClient>, id: string, timeoutMs = 300_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const { data: g } = await admin.from("imphq_studio_generations").select("status,output_url,error").eq("id", id).single();
@@ -56,7 +64,7 @@ async function pollGeneration(admin: any, id: string, timeoutMs = 300_000) {
   return { ok: false, error: "timeout" };
 }
 
-async function runNode(admin: any, auth: string, node: any, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: any, userId?: string) {
+async function runNode(admin: ReturnType<typeof makeClient>, auth: string, node: CanvasNode, upstreamOutputs: string[], projetoId: string | null, workflowId: string, modelingFicha?: ModelingFicha, userId?: string): Promise<NodeResult> {
   // Media: bloco de mídia pronta (upload/biblioteca). Só devolve a URL.
   if (node.tipo === "media") {
     const url = node.config?.url || node.output?.url || "";
@@ -103,7 +111,7 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
   }
   const cfg = node.config || {};
   const prompt = resolvePrompt(cfg.prompt || "", upstreamOutputs, modelingFicha);
-  const params: Record<string, any> = { ...(cfg.params || {}) };
+  const params: Record<string, unknown> = { ...(cfg.params || {}) };
 
   // Referências visuais (fotos/vídeos anexados no drawer do bloco)
   const refUrls: string[] = Array.isArray(cfg.reference_urls) ? cfg.reference_urls : [];
@@ -116,7 +124,7 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
   }
   if (refVideos.length) params.reference_video_urls = refVideos;
 
-  const payload: any = {
+  const payload: { kind: string; provider: string; model?: string; prompt: string; params: Record<string, unknown>; projeto_id: string | null; image_url?: string; voice_id?: string } = {
     kind, provider: cfg.provider || "kie", model: cfg.model, prompt, params, projeto_id: projetoId,
   };
   if (kind === "video" && (upstreamOutputs[0] || refImages[0])) payload.image_url = upstreamOutputs[0] || refImages[0];
@@ -157,8 +165,8 @@ async function runNode(admin: any, auth: string, node: any, upstreamOutputs: str
         outputUrl = polled.output_url;
       }
       return { ok: true, output_url: outputUrl, kind };
-    } catch (e: any) {
-      lastErr = e?.message || String(e);
+    } catch (e) {
+      lastErr = errorMessage(e) || String(e);
       if (attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 2000));
       }
@@ -185,12 +193,12 @@ Deno.serve(async (req) => {
     const forceRerun: boolean = !!body.force_rerun;
 
     const [{ data: nodes }, { data: edges }] = await Promise.all([
-      admin.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", workflowId),
+      admin.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", workflowId).returns<CanvasNode[]>(),
       admin.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", workflowId),
     ]);
     if (!nodes) throw new Error("workflow vazio");
 
-    const byId: Record<string, any> = Object.fromEntries(nodes.map((n: any) => [n.id, n]));
+    const byId: Record<string, CanvasNode> = Object.fromEntries(nodes.map((n) => [n.id, n]));
     const incoming: Record<string, string[]> = {};
     const outgoing: Record<string, string[]> = {};
     for (const e of (edges || [])) {
@@ -210,7 +218,7 @@ Deno.serve(async (req) => {
 
     const runAsync = async () => {
       const outputs: Record<string, string> = {};
-      const modelingFichas: Record<string, any> = {};
+      const modelingFichas: Record<string, ModelingFicha> = {};
       for (const n of nodes) {
         if (n.status === "gerado" && n.output?.url) outputs[n.id] = n.output.url;
         if ((n.tipo === "modeling" || n.tipo === "storyboard") && n.output?.ficha) modelingFichas[n.id] = n.output.ficha;
@@ -225,7 +233,7 @@ Deno.serve(async (req) => {
         walk(startNodeId);
         targetIds = [...set];
       } else {
-        targetIds = nodes.map((n: any) => n.id);
+        targetIds = nodes.map((n) => n.id);
       }
 
       // Ordem topológica + set de alvos
@@ -274,9 +282,9 @@ Deno.serve(async (req) => {
         await logEvent(admin, workflowId, nid, "info", `▶ ${n.tipo} · ${cfg.model || "—"}${estCost ? ` (~${estCost} créditos)` : ""}`);
         const t0 = Date.now();
         const upIds = incoming[nid] || [];
-        let ficha: any = undefined;
+        let ficha: ModelingFicha | undefined = undefined;
         for (const uid of upIds) if (modelingFichas[uid]) { ficha = modelingFichas[uid]; break; }
-        const res: any = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha, userId);
+        const res = await runNode(admin, auth, n, ups, projetoId, workflowId, ficha, userId);
         const duration = Date.now() - t0;
         if (!res.ok) {
           await admin.from("imphq_studio_canvas_nodes").update({
@@ -310,17 +318,16 @@ Deno.serve(async (req) => {
       await logEvent(admin, workflowId, null, canceled ? "warn" : "success", canceled ? "Execução cancelada" : "Execução concluída");
     };
 
-    // @ts-ignore
     if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(runAsync().catch(async (e) => {
       console.error("studio-canvas-run fatal:", e);
-      await logEvent(admin, workflowId, null, "error", `fatal: ${e?.message || e}`);
+      await logEvent(admin, workflowId, null, "error", `fatal: ${errorMessage(e) || e}`);
       await admin.from("imphq_studio_workflows").update({ run_status: "idle", run_finished_at: new Date().toISOString() }).eq("id", workflowId);
     }));
     else runAsync().catch((e) => console.error("studio-canvas-run fatal:", e));
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("studio-canvas-run:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(errorMessage(e) || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

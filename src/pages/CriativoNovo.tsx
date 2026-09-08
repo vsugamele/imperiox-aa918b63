@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { record, readRecord, parseProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,13 +22,7 @@ const ANGULOS = CREATIVE_ANGLES.map((a) => ({ value: a.slug, label: a.nome }));
 
 const AVATAR_PRINCIPAL = "__principal__";
 
-interface Projeto {
-  id: string;
-  name: string;
-  avatar: any;
-  brand_kit: any;
-  data: any;
-}
+type Projeto = Pick<Tables<"imphq_projects">, "id" | "name" | "avatar" | "brand_kit" | "data">;
 
 interface ExpertFoto {
   id: string;
@@ -44,7 +41,7 @@ export default function CriativoNovo() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sourceSwipeId = searchParams.get("source_swipe");
-  const [sourceSwipe, setSourceSwipe] = useState<any>(null);
+  const [sourceSwipe, setSourceSwipe] = useState<Pick<Tables<"imphq_swipes">, "id" | "title" | "raw_text" | "media_urls" | "project_id" | "blocks" | "criador"> | null>(null);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -72,16 +69,16 @@ export default function CriativoNovo() {
   useEffect(() => {
     if (!sourceSwipeId) return;
     supabase
-      .from("imphq_swipes" as any)
+      .from("imphq_swipes")
       .select("id, title, raw_text, media_urls, project_id, blocks, criador")
       .eq("id", sourceSwipeId)
       .maybeSingle()
-      .then(({ data }: any) => {
+      .then(({ data }) => {
         if (!data) return;
         setSourceSwipe(data);
         if (data.project_id) setProjectId(data.project_id);
         setNome((n) => n || `Inspirado em: ${data.title}`);
-        setExtras((x) => x || `Inspiração (VSL): ${data.title}\n${data.blocks?.gancho ? "Hook: " + data.blocks.gancho + "\n" : ""}${(data.raw_text || "").slice(0, 800)}`);
+        setExtras((x) => x || `Inspiração (VSL): ${data.title}\n${record(data.blocks).gancho ? "Hook: " + record(data.blocks).gancho + "\n" : ""}${(data.raw_text || "").slice(0, 800)}`);
         if (data.media_urls?.[0]) {
           setReferenciasText((r) => (r ? r + "\n" : "") + data.media_urls[0]);
         }
@@ -95,13 +92,13 @@ export default function CriativoNovo() {
   const [selectedConcorrentes, setSelectedConcorrentes] = useState<Set<string>>(new Set());
 
   const currentProject = useMemo(() => projetos.find((p) => p.id === projectId), [projetos, projectId]);
-  const produtos: any[] = currentProject?.data?.produtos || [];
+  const produtos = useMemo(() => parseProjectData(currentProject?.data).produtos || [], [currentProject]);
 
   const currentAvatar = useMemo(() => {
     if (!currentProject) return null;
-    if (selectedProductIdx === AVATAR_PRINCIPAL) return currentProject.avatar || {};
-    const map = currentProject.data?.avatars_por_produto || {};
-    return map[selectedProductIdx] || {};
+    if (selectedProductIdx === AVATAR_PRINCIPAL) return readRecord(currentProject.avatar);
+    const map = record(readRecord(currentProject.data).avatars_por_produto);
+    return record(map[selectedProductIdx]);
   }, [currentProject, selectedProductIdx]);
 
   const currentProduct = useMemo(() => {
@@ -116,7 +113,7 @@ export default function CriativoNovo() {
         .from("imphq_projects")
         .select("id, name, avatar, brand_kit, data")
         .order("name", { ascending: true });
-      setProjetos((data as Projeto[]) || []);
+      setProjetos(data || []);
     })();
     // Pré-preenche extras se veio do Hyper Prompt Generator
     try {
@@ -131,7 +128,9 @@ export default function CriativoNovo() {
         sessionStorage.removeItem("criativo:previewUrl");
         toast.success("Prompt visual carregado nos Extras");
       }
-    } catch {}
+    } catch {
+      toast.error("Não foi possível recuperar o prompt transferido. Cole o texto nos Extras.");
+    }
   }, []);
 
   // Load project-scoped resources when project changes
@@ -159,7 +158,7 @@ export default function CriativoNovo() {
           .order("score_escala", { ascending: false, nullsFirst: false })
           .limit(10),
       ]);
-      const libImages: ExpertFoto[] = ((libRes.data as any[]) || [])
+      const libImages: ExpertFoto[] = (libRes.data || [])
         .filter((r) => {
           const tags: string[] = r.tags || [];
           return tags.some((t) => /expert|rosto|pessoa|self/i.test(t)) || /expert|self/i.test(r.title || "");
@@ -168,10 +167,10 @@ export default function CriativoNovo() {
       // fallback: if zero "expert"-tagged, just expose latest 12 images so user can pick
       const fallback: ExpertFoto[] =
         libImages.length === 0
-          ? ((libRes.data as any[]) || []).slice(0, 12).map((r) => ({ id: r.id, url: r.file_url, title: r.title || "Imagem" }))
+          ? (libRes.data || []).slice(0, 12).map((r) => ({ id: r.id, url: r.file_url, title: r.title || "Imagem" }))
           : libImages;
       setExpertLibrary(fallback);
-      setConcorrentes((compRes.data as Concorrente[]) || []);
+      setConcorrentes(compRes.data || []);
       setSelectedProductIdx(AVATAR_PRINCIPAL);
     })();
   }, [projectId]);
@@ -179,17 +178,17 @@ export default function CriativoNovo() {
   // Auto-fill from project + avatar + product when source changes
   useEffect(() => {
     if (!currentProject) return;
-    const briefing = currentProject.data?.briefing || {};
-    const brandKit = currentProject.brand_kit || {};
+    const briefing = record(readRecord(currentProject.data).briefing);
+    const brandKit = readRecord(currentProject.brand_kit);
     const avatar = currentAvatar || {};
-    const perfil = avatar.perfil_psicologico || {};
+    const perfil = record(avatar.perfil_psicologico);
 
     // Top dores/desejos from avatar arrays (if exist)
-    const doresArr: any[] = avatar.dores || [];
-    const desejosArr: any[] = avatar.desejos || [];
-    const topDor = doresArr[0]?.descricao || doresArr[0]?.text || avatar.dor_principal || perfil.ferida_central || "";
+    const doresArr = Array.isArray(avatar.dores) ? avatar.dores : [];
+    const desejosArr = Array.isArray(avatar.desejos) ? avatar.desejos : [];
+    const topDor = record(doresArr[0]).descricao || record(doresArr[0]).text || avatar.dor_principal || perfil.ferida_central || "";
     const topDesejo =
-      desejosArr[0]?.descricao || desejosArr[0]?.text || avatar.desejo_externo || avatar.resultado_sonhado || "";
+      record(desejosArr[0]).descricao || record(desejosArr[0]).text || avatar.desejo_externo || avatar.resultado_sonhado || "";
 
     const novoProduto =
       currentProduct?.nome ||
@@ -200,11 +199,11 @@ export default function CriativoNovo() {
     const novoPublico = avatar.publico || perfil.retrato || briefing.publico_alvo || "";
     const novoMecanismo = currentProduct?.mecanismo || avatar.mecanismo_unico || brandKit.mecanismo_unico || "";
 
-    setProduto(novoProduto);
-    setPublico(novoPublico);
-    setDor(topDor);
-    setDesejo(topDesejo);
-    setMecanismo(novoMecanismo);
+    setProduto(String(novoProduto));
+    setPublico(String(novoPublico));
+    setDor(String(topDor));
+    setDesejo(String(topDesejo));
+    setMecanismo(String(novoMecanismo));
 
     // Branding → extras
     const cores = brandKit.cores || brandKit.paleta || [];
@@ -320,8 +319,8 @@ export default function CriativoNovo() {
 
       // Auto-briefing: build a richer briefing from project context if mode = automático
       const avatar = currentAvatar || {};
-      const perfil = avatar.perfil_psicologico || {};
-      const brandKit = currentProject?.brand_kit || {};
+      const perfil = record(avatar.perfil_psicologico);
+      const brandKit = readRecord(currentProject?.brand_kit);
 
       const briefing = autoMode
         ? {
@@ -358,7 +357,7 @@ export default function CriativoNovo() {
           project_id: projectId,
           product_id: selectedProductIdx === AVATAR_PRINCIPAL ? null : selectedProductIdx,
           nome: nome || `${produto || currentProject?.name} — ${new Date().toLocaleDateString("pt-BR")}`,
-          briefing,
+          briefing: { ...briefing, ...(sourceSwipeId ? { source_swipe_ids: [sourceSwipeId] } : {}) },
           referencias_urls,
           expert_fotos: expertFotos,
           angulos,
@@ -368,16 +367,12 @@ export default function CriativoNovo() {
         },
       });
       if (error) throw error;
-      if (sourceSwipeId && (data as any)?.batch_id) {
-        await supabase
-          .from("imphq_creative_batches")
-          .update({ source_swipe_ids: [sourceSwipeId] } as any)
-          .eq("id", (data as any).batch_id);
-      }
+      const batchId = record(data).batch_id;
+      if (typeof batchId !== "string" || !batchId) throw new Error("A geração não retornou um identificador válido.");
       toast.success("Geração iniciada! Acompanhe em tempo real.");
-      navigate(`/criativos/${(data as any).batch_id}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao iniciar");
+      navigate(`/criativos/${batchId}`);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao iniciar");
     } finally {
       setLoading(false);
     }
@@ -388,16 +383,18 @@ export default function CriativoNovo() {
 
   // Top dores/desejos chips
   const doresChips: string[] = useMemo(() => {
-    const arr: any[] = currentAvatar?.dores || [];
-    return arr.slice(0, 3).map((d) => d.descricao || d.text || "").filter(Boolean);
+    const value = currentAvatar?.dores;
+    const arr = Array.isArray(value) ? value : [];
+    return arr.slice(0, 3).map((d) => String(record(d).descricao || record(d).text || (typeof d === "string" ? d : ""))).filter(Boolean);
   }, [currentAvatar]);
   const desejosChips: string[] = useMemo(() => {
-    const arr: any[] = currentAvatar?.desejos || [];
-    return arr.slice(0, 3).map((d) => d.descricao || d.text || "").filter(Boolean);
+    const value = currentAvatar?.desejos;
+    const arr = Array.isArray(value) ? value : [];
+    return arr.slice(0, 3).map((d) => String(record(d).descricao || record(d).text || (typeof d === "string" ? d : ""))).filter(Boolean);
   }, [currentAvatar]);
 
-  const hasAvatar = !!(currentAvatar && (currentAvatar.perfil_psicologico || currentAvatar.desejo_externo || (currentAvatar.dores || []).length));
-  const hasBrand = !!(currentProject?.brand_kit && (currentProject.brand_kit.arquetipo || currentProject.brand_kit.cores || currentProject.brand_kit.tom_voz));
+  const hasAvatar = !!(currentAvatar && (currentAvatar.perfil_psicologico || currentAvatar.desejo_externo || (Array.isArray(currentAvatar.dores) && currentAvatar.dores.length)));
+  const hasBrand = !!(currentProject?.brand_kit && (readRecord(currentProject.brand_kit).arquetipo || readRecord(currentProject.brand_kit).cores || readRecord(currentProject.brand_kit).tom_voz));
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -692,7 +689,7 @@ export default function CriativoNovo() {
         <div className="grid md:grid-cols-3 gap-3">
           <div>
             <Label>Provider de imagem</Label>
-            <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
+            <Select value={imageProvider} onValueChange={(v) => { if (v === "lovable-gemini" || v === "openai-image") setImageProvider(v); }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

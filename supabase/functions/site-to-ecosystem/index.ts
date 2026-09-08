@@ -1,3 +1,12 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const ecosystemSchema = z.object({
+  avatar: z.object({ nome: z.string().nullish() }).passthrough(),
+  produtos: z.array(z.object({ nome: z.string(), tipo: z.string(), preco_sugerido: z.union([z.number(), z.string()]), promessa: z.string(), mecanismo: z.string(), bullets: z.array(z.string()) }).passthrough()).nullish(),
+  vsl_roteiro: z.object({ hook: z.string(), historia: z.string(), problema: z.string(), solucao: z.string(), mecanismo: z.string(), oferta: z.string(), cta: z.string() }).passthrough(),
+  lp_estrutura: z.unknown().optional(),
+  criativos_imagem: z.array(z.object({ slug: z.string(), headline: z.string(), prompt_imagem: z.string() }).passthrough()).nullish(),
+  criativos_video: z.array(z.object({ slug: z.string(), hook: z.string(), roteiro: z.string() }).passthrough()).nullish(),
+}).passthrough();
 // Orquestra: site -> projeto + avatar + produtos (principal/OB/upsell/lowticket) + VSL + criativos + LP + funil
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
@@ -12,8 +21,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-async function gemini(system: string, user: string, jsonSchema?: any) {
-  const body: any = {
+async function gemini(system: string, user: string, jsonSchema?: Record<string, unknown>) {
+  const body: { model: string; messages: { role: string; content: string }[]; response_format?: { type: string; json_schema: { name: string; strict: boolean; schema: Record<string, unknown> } } } = {
     model: "google/gemini-2.5-flash",
     messages: [
       { role: "system", content: system },
@@ -167,13 +176,13 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
 - 4 criativos vídeo (Reels 30-60s): mesma regra, 4 slugs do catálogo, emoções distintas, hook forte nos primeiros 3s.
 - LP em markdown com blocos: Headline, Sub, Bullets, Prova, Oferta, Garantia, CTA.`;
 
-    const eco = await gemini(system, user, ECOSYSTEM_SCHEMA);
+    const eco = ecosystemSchema.parse(await gemini(system, user, ECOSYSTEM_SCHEMA));
 
     // 4. Persiste
     // 4a. Projeto: avatar + produtos no data
     const { data: projCur } = await sb.from("imphq_projects").select("data, avatar").eq("id", projectId).maybeSingle();
-    const curData = (projCur?.data as any) || {};
-    const novosProdutos = (eco.produtos || []).map((p: any) => ({
+    const curData = z.object({ produtos: z.array(z.unknown()).nullish() }).passthrough().parse(projCur?.data || {});
+    const novosProdutos = (eco.produtos || []).map((p) => ({
       nome: p.nome,
       tipo: p.tipo,
       preco: p.preco_sugerido,
@@ -192,7 +201,7 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
     // 4b. Vincula site
     await sb.from("imphq_project_sites").upsert({
       site_id, projeto_id: projectId, papel: site.tipo === "vsl" ? "lp" : (site.tipo || "lp"), user_id: userId,
-    }, { onConflict: "site_id,projeto_id" } as any).then(() => {}).catch(() => {});
+    }, { onConflict: "site_id,projeto_id" }).then(() => {}, () => {});
 
     // 4c. VSL como swipe
     const vslText = `# Roteiro VSL\n\n## Hook\n${eco.vsl_roteiro.hook}\n\n## História\n${eco.vsl_roteiro.historia}\n\n## Problema\n${eco.vsl_roteiro.problema}\n\n## Solução\n${eco.vsl_roteiro.solucao}\n\n## Mecanismo\n${eco.vsl_roteiro.mecanismo}\n\n## Oferta\n${eco.vsl_roteiro.oferta}\n\n## CTA\n${eco.vsl_roteiro.cta}`;
@@ -204,13 +213,13 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
 
     // 4d. Criativos imagem + vídeo como creative_assets
     const allCreatives = [
-      ...(eco.criativos_imagem || []).map((c: any) => ({
+      ...(eco.criativos_imagem || []).map((c) => ({
         user_id: userId, project_id: projectId, formato: "imagem",
         angulo: ANGLE_BY_SLUG[c.slug]?.nome || c.slug,
         headline_copy: c.headline, prompt_usado: c.prompt_imagem,
         aprovado: false, metadata: { origem: "site-to-ecosystem", site_id, slug: c.slug, emocao: ANGLE_BY_SLUG[c.slug]?.emocaoDominante },
       })),
-      ...(eco.criativos_video || []).map((c: any) => ({
+      ...(eco.criativos_video || []).map((c) => ({
         user_id: userId, project_id: projectId, formato: "video_script",
         angulo: ANGLE_BY_SLUG[c.slug]?.nome || c.slug,
         headline_copy: c.hook, prompt_usado: c.roteiro,
@@ -220,7 +229,7 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
     let criativosIds: string[] = [];
     if (allCreatives.length > 0) {
       const { data } = await sb.from("imphq_creative_assets").insert(allCreatives).select("id");
-      criativosIds = (data || []).map((r: any) => r.id);
+      criativosIds = (data || []).map((r) => r.id);
     }
 
     // 4e. Monta funil chamando funnel-autobuild
@@ -246,9 +255,10 @@ Gere o JSON do ecossistema seguindo o schema. Importantes:
       produtos_criados: novosProdutos.length,
       avatar_nome: eco.avatar?.nome,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[site-to-ecosystem] error", e);
-    return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ success: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

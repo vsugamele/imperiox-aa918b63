@@ -18,6 +18,12 @@ interface HandoffSummary {
   contexto?: string;
 }
 
+function parseHandoff(value: unknown): HandoffSummary | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const obj = value as Record<string, unknown>;
+  return { status: typeof obj.status === "string" ? obj.status : undefined, dor: typeof obj.dor === "string" ? obj.dor : undefined, proxima_acao: typeof obj.proxima_acao === "string" ? obj.proxima_acao : undefined, score: typeof obj.score === "string" || typeof obj.score === "number" ? String(obj.score) : undefined, contexto: typeof obj.contexto === "string" ? obj.contexto : undefined };
+}
+
 const intentLabel: Record<string, string> = {
   descoberta: "🔍 Descoberta",
   consideracao: "🤔 Considerando",
@@ -63,7 +69,9 @@ export default function ConversationIntelCard({ conversationId }: Props) {
       const next = !prev;
       try {
         window.localStorage.setItem("imperiohq_intel_minimized", String(next));
-      } catch {}
+      } catch {
+        // Keep the current UI state when browser storage is unavailable.
+      }
       return next;
     });
   };
@@ -78,8 +86,8 @@ export default function ConversationIntelCard({ conversationId }: Props) {
       .limit(1)
       .maybeSingle();
     if (data) {
-      setEmotional((data as any).emotional_state || null);
-      setLastObjection((data as any).last_objection || null);
+      setEmotional(data.emotional_state || null);
+      setLastObjection(data.last_objection || null);
     }
   };
 
@@ -95,10 +103,10 @@ export default function ConversationIntelCard({ conversationId }: Props) {
         setSummary(data.ai_summary || "");
         setTags(data.intent_tags || []);
         setUpdatedAt(data.ai_summary_updated_at || null);
-        setCurrentIntent((data as any).current_intent || null);
-        setHandoffSummary(((data as any).handoff_summary as HandoffSummary) || null);
-        setHandoffAt((data as any).handoff_at || null);
-        const lid = (data as any).lead_id || null;
+        setCurrentIntent(data.current_intent || null);
+        setHandoffSummary(parseHandoff(data.handoff_summary) || null);
+        setHandoffAt(data.handoff_at || null);
+        const lid = data.lead_id || null;
         if (lid) loadEmotional(lid);
         if (data.ai_summary) return;
       }

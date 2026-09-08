@@ -4,9 +4,13 @@
 // GROUP_PARTICIPANTS_UPDATE, SEND_MESSAGE) + Twilio inbound.
 
 import { sendMetaCloud, sendTwilio } from "./senders.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText } from "../../_shared/value.ts";
+declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void } | undefined;
+interface Conversation { id: string; message_count: number | null; contact_name?: string | null }
 
 export type WebhookDeps = {
-  supabase: any;
+  supabase: SupabaseClient;
   corsHeaders: Record<string, string>;
   evolutionEventFromPath: string | null;
   findOrCreateConversation: (
@@ -15,7 +19,7 @@ export type WebhookDeps = {
     providerId: string | null,
     contactName?: string,
     jidSuffix?: string,
-  ) => Promise<any>;
+  ) => Promise<Conversation>;
   updateConversationAfterMessage: (
     conversationId: string,
     content: string,
@@ -27,7 +31,7 @@ export type WebhookDeps = {
 
 async function runWhatsAppAutoresponder(
   deps: WebhookDeps,
-  conv: any,
+  conv: Conversation,
   phone: string,
   content: string,
   messageType: string,
@@ -60,14 +64,14 @@ async function runWhatsAppAutoresponder(
           lead_id: leadRow?.id || null,
           projeto_id: projectId,
         },
-      }).catch((e: any) => console.warn("[webhook] triagem invoke error:", e?.message));
-    } catch (tErr: any) {
-      console.warn("[webhook] triagem skip:", tErr?.message);
+      }).catch((e: unknown) => console.warn("[webhook] triagem invoke error:", errorText(e)));
+    } catch (tErr: unknown) {
+      console.warn("[webhook] triagem skip:", errorText(tErr));
     }
   }
 
   // Command matching
-  let matched: any = null;
+  let matched: { trigger_word: string; response_text: string | null } | null | undefined = null;
   try {
     const lowerContent = content.toLowerCase().trim();
     const { data: commands } = await supabase
@@ -77,7 +81,7 @@ async function runWhatsAppAutoresponder(
       .eq("is_active", true);
 
     if (commands && commands.length > 0) {
-      matched = commands.find((cmd: any) =>
+      matched = commands.find((cmd) =>
         lowerContent === cmd.trigger_word.toLowerCase() ||
         lowerContent.startsWith(cmd.trigger_word.toLowerCase() + " "),
       );
@@ -114,7 +118,7 @@ async function runWhatsAppAutoresponder(
             const resMeta = await sendMetaCloud(provCmd, phone, replyText);
             if (resMeta) {
               sendSuccess = true;
-              outMsgId = resMeta.key?.id || null;
+              outMsgId = typeof resMeta.key?.id === "string" ? resMeta.key.id : null;
             }
           } else if (provCmd.provider === "twilio") {
             const resTwilio = await sendTwilio(provCmd, phone, replyText);
@@ -144,8 +148,8 @@ async function runWhatsAppAutoresponder(
         }
       }
     }
-  } catch (cmdErr: any) {
-    console.warn("[webhook] Command auto-reply error:", cmdErr.message);
+  } catch (cmdErr: unknown) {
+    console.warn("[webhook] Command auto-reply error:", errorText(cmdErr));
   }
 
   // AI autoresponder: delega para wa-ai-reply com DEBOUNCE de 8s
@@ -192,20 +196,18 @@ async function runWhatsAppAutoresponder(
             .eq("id", conv.id);
           await supabase.functions.invoke("wa-ai-reply", { body: invokePayload });
           console.log(`[webhook] wa-ai-reply invocado (pós-debounce) conv=${conv.id}`);
-        } catch (e: any) {
-          console.warn("[webhook] debounce invoke error:", e?.message);
+        } catch (e: unknown) {
+          console.warn("[webhook] debounce invoke error:", errorText(e));
         }
       })();
 
-      // @ts-ignore EdgeRuntime é global no Supabase Edge Functions
       if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
-        // @ts-ignore
         EdgeRuntime.waitUntil(scheduled);
       }
       console.log(`[webhook] wa-ai-reply agendado conv=${conv.id} debounce=${DEBOUNCE_MS}ms media=${!!mediaUrl}`);
     }
-  } catch (aiErr: any) {
-    console.error("[webhook] AI delegate error:", aiErr.message);
+  } catch (aiErr: unknown) {
+    console.error("[webhook] AI delegate error:", errorText(aiErr));
   }
 }
 
@@ -217,7 +219,7 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
   const providerType = rawProvider.split("/")[0].toLowerCase();
 
   const rawEventType = evolutionEventFromPath || body?.event || "MESSAGES_UPSERT";
-  const eventType = rawEventType.toUpperCase().replace(/[.\-]/g, "_");
+  const eventType = rawEventType.toUpperCase().replace(/[.-]/g, "_");
   const instanceName = body?.instance || "";
 
   console.log(`[webhook] event=${eventType} instance=${instanceName} provider=${providerType}`);
@@ -366,8 +368,8 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
               console.warn("[webhook] Failed to fetch media base64:", mediaRes.status);
             }
           }
-        } catch (mediaErr: any) {
-          console.warn("[webhook] Media download error:", mediaErr.message);
+        } catch (mediaErr: unknown) {
+          console.warn("[webhook] Media download error:", errorText(mediaErr));
         }
       }
 
@@ -414,7 +416,7 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
         if (content && content.length > 15 && projectId) {
           supabase.functions.invoke("wa-learn-from-human", {
             body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: projectId },
-          }).catch((e: any) => console.warn("[webhook] learn invoke skip:", e?.message));
+          }).catch((e: unknown) => console.warn("[webhook] learn invoke skip:", errorText(e)));
         }
       } else {
         // Transcrição de áudio inbound — independente do autoresponder
@@ -427,7 +429,7 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
               conversation_id: conv.id,
               phone,
             },
-          }).catch((e: any) => console.warn("[webhook] wa-audio-transcribe skip:", e?.message));
+          }).catch((e: unknown) => console.warn("[webhook] wa-audio-transcribe skip:", errorText(e)));
         }
 
 
@@ -450,10 +452,10 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
                   provider_id: providerId,
                 },
               },
-            }).catch((e: any) => console.warn(`[webhook] openflow ${tt} skip:`, e?.message));
+            }).catch((e: unknown) => console.warn(`[webhook] openflow ${tt} skip:`, errorText(e)));
           }
-        } catch (e: any) {
-          console.warn("[webhook] openflow trigger error:", e?.message);
+        } catch (e: unknown) {
+          console.warn("[webhook] openflow trigger error:", errorText(e));
         }
 
         await runWhatsAppAutoresponder(
@@ -560,13 +562,13 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
 
         const { data: exitCampaigns } = await supabase
           .from("imphq_wa_campaigns")
-          .select("id, exit_message, provider_id")
+          .select("id, exit_message, provider_id, groups")
           .eq("status", "active")
           .not("exit_message", "is", null);
 
         if (exitCampaigns) {
           for (const ec of exitCampaigns) {
-            const groups: string[] = (ec as any).groups || [];
+            const groups = Array.isArray(ec.groups) ? ec.groups : [];
             if (!groups.includes(groupJid)) continue;
             if (!ec.exit_message || !ec.provider_id) continue;
 
@@ -580,19 +582,21 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
               const exitApi = exitProv.api_url.replace(/\/+$/, "");
               const exitInst = encodeURIComponent(exitProv.instance_name);
               try {
-                await fetch(`${exitApi}/message/sendText/${exitInst}`, {
+                const sent = await fetch(`${exitApi}/message/sendText/${exitInst}`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", apikey: exitProv.api_key },
                   body: JSON.stringify({ number: exitPhone + "@s.whatsapp.net", text: ec.exit_message }),
                 });
-                await supabase.from("imphq_wa_group_exits")
+                if (!sent.ok) throw new Error(`Exit DM HTTP ${sent.status}`);
+                const saved = await supabase.from("imphq_wa_group_exits")
                   .update({ message_sent: true, campaign_id: ec.id })
                   .eq("phone", exitPhone)
                   .eq("group_jid", groupJid)
                   .eq("message_sent", false);
+                if (saved.error) throw new Error(`Exit DM sent, log failed: ${saved.error.message}`);
                 console.log(`[webhook] Exit DM sent to ${exitPhone} from campaign ${ec.id}`);
-              } catch (dmErr: any) {
-                console.warn(`[webhook] Exit DM error: ${dmErr.message}`);
+              } catch (dmErr: unknown) {
+                console.warn(`[webhook] Exit DM error: ${errorText(dmErr)}`);
               }
             }
           }

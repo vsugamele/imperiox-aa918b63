@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Provider { id: string; provider: string; api_url: string; api_key: string; instance_name: string }
 // Hot Lead Auto-Responder — varre leads com score>70 com Pix/Boleto recente
 // e dispara mensagem personalizada via WhatsApp. Auto-executa (low risk).
 // Persona/branding usados via avatar do projeto se disponível.
@@ -18,7 +21,7 @@ function normalizePhone(p: string): string {
   return s;
 }
 
-async function findActiveProvider(supabase: any, projectId: string | null) {
+async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string | null) {
   // Hierarquia: 1) provider ativo do projeto  2) qualquer provider ativo global (fallback)
   if (projectId) {
     const { data } = await supabase
@@ -39,7 +42,7 @@ async function findActiveProvider(supabase: any, projectId: string | null) {
   return data;
 }
 
-async function sendWhatsApp(provider: any, phone: string, message: string) {
+async function sendWhatsApp(provider: Provider | null, phone: string, message: string) {
   if (!provider) return { ok: false, error: "no_provider" };
   try {
     if (provider.provider === "evolution") {
@@ -53,12 +56,13 @@ async function sendWhatsApp(provider: any, phone: string, message: string) {
       return { ok: true };
     }
     return { ok: false, error: "provider_unsupported" };
-  } catch (e: any) {
-    return { ok: false, error: String(e?.message || e) };
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return { ok: false, error: String(eMessage || e) };
   }
 }
 
-async function aiCopy(nome: string, produto: string, projeto: any): Promise<string> {
+async function aiCopy(nome: string, produto: string, projeto: { name?: string | null; avatar?: { nome?: string } | null; brand_kit?: { tom_de_voz?: string } | null } | null): Promise<string> {
   const fallback = `Oi ${nome || ""}! 👋 Vi seu interesse em *${produto || "nossa oferta"}* — quero garantir que você não perca essa chance. Posso te enviar o link de pagamento ou tirar qualquer dúvida agora?`;
   if (!OPENROUTER_API_KEY) return fallback;
 
@@ -100,11 +104,11 @@ Deno.serve(async (req) => {
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
     // Modo direcionado: { venda_id } enviado pelo webhook-pagamento (inline) → processa SÓ aquela venda
-    let body: any = null;
-    try { body = await req.json(); } catch { body = null; }
+    let body: { venda_id?: string | null } | null = null;
+    try { body = z.object({ venda_id: z.string().nullish() }).passthrough().parse(await req.json()); } catch { body = null; }
     const targetVendaId: string | null = body?.venda_id || null;
 
-    let vendas: any[] | null = null;
+    let vendas: { id: string; lead_id: string | null; project_id: string | null; produto_nome: string | null; valor: number | null; status: string; data: unknown; created_at: string }[] | null = null;
     if (targetVendaId) {
       const { data } = await supabase
         .from("imphq_vendas")
@@ -130,12 +134,12 @@ Deno.serve(async (req) => {
     }
 
     let sent = 0, skipped = 0;
-    const details: any[] = [];
+    const details: { lead_id: string; venda_id: string; ok: boolean }[] = [];
 
     for (const v of vendas) {
       if (!v.lead_id) { skipped++; continue; }
-      const meta: any = v.data || {};
-      if (meta.hot_lead_responder_sent) { skipped++; continue; }
+      const meta = z.record(z.unknown()).parse(v.data || {});
+      if (meta.hot_lead_responder_sent && meta.hot_lead_responder_ok !== false) { skipped++; continue; }
 
       const { data: lead } = await supabase
         .from("imphq_leads")
@@ -155,6 +159,7 @@ Deno.serve(async (req) => {
         .from("imphq_ai_actions")
         .select("id", { count: "exact", head: true })
         .eq("kind", "hot_lead_responder")
+        .eq("status", "executed")
         .gte("created_at", since24h)
         .contains("payload", { lead_id: lead.id });
       if ((recentCount || 0) > 0) { skipped++; continue; }
@@ -163,7 +168,7 @@ Deno.serve(async (req) => {
       const projectId = v.project_id || lead.project_id;
       const { data: projeto } = projectId
         ? await supabase.from("imphq_projects").select("name, avatar, brand_kit").eq("id", projectId).maybeSingle()
-        : { data: null } as any;
+        : { data: null };
 
       const message = await aiCopy(lead.nome || "", v.produto_nome || "", projeto);
       const provider = await findActiveProvider(supabase, projectId);
@@ -171,7 +176,7 @@ Deno.serve(async (req) => {
 
       // Marca venda
       await supabase.from("imphq_vendas").update({
-        data: { ...meta, hot_lead_responder_sent: now.toISOString(), hot_lead_responder_ok: result.ok },
+        data: { ...meta, hot_lead_responder_sent: result.ok ? now.toISOString() : null, hot_lead_responder_ok: result.ok },
       }).eq("id", v.id);
 
       await supabase.from("imphq_ai_actions").insert({
@@ -198,7 +203,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, processed: vendas.length, sent, skipped, details }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("[hot-lead-responder] Error:", err);
     return new Response(
       JSON.stringify({ error: "Erro interno.", code: "internal_error" }),

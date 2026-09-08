@@ -1,8 +1,13 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function objectValue(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.10";
+import type { Database, Tables, TablesInsert } from "../../../src/integrations/supabase/types.ts";
+import { safeError } from "../_shared/errors.ts";
 // Tool definitions + executors para Imperius agente
 // Formato OpenAI tool calling — compatível com OpenRouter
 
 export interface ToolCtx {
-  supabase: any;
+  supabase: SupabaseClient<Database>;
   userId: string;
   projectId: string | null;
 }
@@ -826,7 +831,7 @@ async function listarProjetos(ctx: ToolCtx) {
     .eq("is_archived", false)
     .order("name")
     .limit(50);
-  return { projetos: (data || []).map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })) };
+  return { projetos: (data || []).map((p) => ({ id: p.id, nome: p.name, ativo: p.active })) };
 }
 
 async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
@@ -840,7 +845,7 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
     .ilike("name", `%${t}%`)
     .limit(10);
   if ((r1.data || []).length) {
-    return { termo_buscado: t, matches: r1.data!.map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })) };
+    return { termo_buscado: t, matches: r1.data!.map((p) => ({ id: p.id, nome: p.name, ativo: p.active })) };
   }
 
   // 2ª tentativa: tokens ≥ 3 chars com OR
@@ -856,7 +861,7 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
       return {
         termo_buscado: t,
         fallback: "match_por_token",
-        matches: r2.data!.map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })),
+        matches: r2.data!.map((p) => ({ id: p.id, nome: p.name, ativo: p.active })),
       };
     }
   }
@@ -872,7 +877,7 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
     termo_buscado: t,
     fallback: "sem_match_exato",
     matches: [],
-    candidatos: (r3.data || []).map((p: any) => ({ id: p.id, nome: p.name, ativo: p.active })),
+    candidatos: (r3.data || []).map((p) => ({ id: p.id, nome: p.name, ativo: p.active })),
   };
 }
 
@@ -904,7 +909,7 @@ async function leadsDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: stri
     projeto_id: pid,
     total: data?.length || 0,
     por_plataforma: porPlataforma,
-    ultimos: (data || []).slice(0, 10).map((l: any) => ({
+    ultimos: (data || []).slice(0, 10).map((l) => ({
       nome: l.nome, email: l.email, phone: l.phone, plataforma: l.plataforma, hora: l.created_at,
     })),
   };
@@ -956,14 +961,14 @@ async function buscarLeads(ctx: ToolCtx, args: {
     if (ate) sq = sq.lte("created_at", ate);
     const { data: logs, error: le } = await sq;
     if (le) return { error: `evento: ${le.message}` };
-    idsFilter = [...new Set((logs || []).map((r: any) => r.lead_id).filter(Boolean))];
+    idsFilter = [...new Set((logs || []).map((r) => r.lead_id).filter(Boolean))];
     if (idsFilter.length === 0) {
       return { total: 0, filtros: { ...args, projeto_id: pid }, leads: [], resumo_por_plataforma: {}, resumo_por_tag: {}, nota: `Nenhum lead com evento '${args.evento}' no período.` };
     }
   }
 
   let q = ctx.supabase.from("imphq_leads")
-    .select("id, nome, email, phone, plataforma, status, tags, form_id, created_at, data, total_gasto")
+    .select("id, nome, email, phone, plataforma, status, tags, created_at, data, total_gasto")
     .order("created_at", { ascending: false })
     .limit(limite);
   if (pid) q = q.eq("project_id", pid);
@@ -972,7 +977,7 @@ async function buscarLeads(ctx: ToolCtx, args: {
   if (args.plataforma) q = q.eq("plataforma", args.plataforma);
   if (args.status) q = q.eq("status", args.status);
   if (args.tag) q = q.contains("tags", [args.tag]);
-  if (args.form_id) q = q.or(`form_id.eq.${args.form_id},data->>form_id.eq.${args.form_id}`);
+  if (args.form_id) q = q.eq("data->>form_id", args.form_id);
   if (idsFilter) q = q.in("id", idsFilter.slice(0, 500));
 
   const { data, error } = await q;
@@ -982,11 +987,11 @@ async function buscarLeads(ctx: ToolCtx, args: {
 
   // Filtro tem_venda (post-query)
   if (typeof args.tem_venda === "boolean" && leads.length > 0) {
-    const leadIds = leads.map((l: any) => l.id);
+    const leadIds = leads.map((l) => l.id);
     const { data: vendas } = await ctx.supabase.from("imphq_vendas")
       .select("lead_id").eq("status", "aprovado").in("lead_id", leadIds);
-    const comVenda = new Set((vendas || []).map((v: any) => v.lead_id));
-    leads = leads.filter((l: any) => args.tem_venda ? comVenda.has(l.id) : !comVenda.has(l.id));
+    const comVenda = new Set((vendas || []).map((v) => v.lead_id));
+    leads = leads.filter((l) => args.tem_venda ? comVenda.has(l.id) : !comVenda.has(l.id));
   }
 
   const porPlat: Record<string, number> = {};
@@ -1001,11 +1006,11 @@ async function buscarLeads(ctx: ToolCtx, args: {
     filtros: { ...args, projeto_id: pid },
     total: leads.length,
     resumo_por_plataforma: porPlat,
-    resumo_por_tag: Object.entries(porTag).sort((a, b) => b[1] - a[1]).slice(0, 10).reduce((acc: any, [k, v]) => (acc[k] = v, acc), {}),
-    leads: leads.slice(0, Math.min(limite, 30)).map((l: any) => ({
+    resumo_por_tag: Object.entries(porTag).sort((a, b) => b[1] - a[1]).slice(0, 10).reduce<Record<string, number>>((acc, [k, v]) => (acc[k] = v, acc), {}),
+    leads: leads.slice(0, Math.min(limite, 30)).map((l) => ({
       id: l.id, nome: l.nome, email: l.email, phone: l.phone,
       plataforma: l.plataforma, status: l.status, tags: l.tags,
-      form_id: l.form_id || l.data?.form_id, total_gasto: l.total_gasto,
+      form_id: objectValue(l.data).form_id, total_gasto: l.total_gasto,
       criado_em: l.created_at,
     })),
     truncado: leads.length >= limite,
@@ -1029,10 +1034,10 @@ async function vendasDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: str
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const total = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const total = (data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   // enriquecer com nome do lead
-  const leadIds = [...new Set((data || []).map((v: any) => v.lead_id).filter(Boolean))];
-  let leadsMap: Record<string, string> = {};
+  const leadIds = [...new Set((data || []).map((v) => v.lead_id).filter((id): id is string => typeof id === "string"))];
+  const leadsMap: Record<string, string> = {};
   if (leadIds.length) {
     const { data: leads } = await ctx.supabase.from("imphq_leads").select("id, nome, email").in("id", leadIds);
     for (const l of leads || []) leadsMap[l.id] = l.nome || l.email || l.id;
@@ -1042,7 +1047,7 @@ async function vendasDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: str
     projeto_id: pid,
     total_vendas: data?.length || 0,
     receita_total: total,
-    vendas: (data || []).map((v: any) => ({
+    vendas: (data || []).map((v) => ({
       produto: v.produto_nome, valor: Number(v.valor || 0), plataforma: v.plataforma,
       tipo: v.tipo_venda, lead: v.lead_id ? leadsMap[v.lead_id] : null, hora: v.data_venda,
     })),
@@ -1058,7 +1063,7 @@ async function vendasResumo(ctx: ToolCtx, args: { projeto_id?: string; dias?: nu
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const total = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const total = (data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   const map = new Map<string, { receita: number; vendas: number }>();
   for (const v of data || []) {
     const k = v.produto_nome || "—";
@@ -1093,12 +1098,12 @@ async function leadsTravadosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; 
   const { data: inbounds, error } = await q;
   if (error) return { error: error.message };
   // Agrupar por conversation_id (mais recente)
-  const byConv = new Map<string, any>();
+  const byConv = new Map<string, Pick<Tables<"imphq_wa_messages">, "id" | "content" | "conversation_id" | "phone" | "direction" | "created_at" | "project_id">>();
   for (const m of inbounds || []) {
     if (!byConv.has(m.conversation_id)) byConv.set(m.conversation_id, m);
   }
   // Filtrar: sem outbound posterior
-  const travados: any[] = [];
+  const travados: Array<Pick<Tables<"imphq_wa_messages">, "id" | "content" | "conversation_id" | "phone" | "direction" | "created_at" | "project_id">> = [];
   for (const m of byConv.values()) {
     const { data: laterOut } = await ctx.supabase.from("imphq_wa_messages")
       .select("id").eq("conversation_id", m.conversation_id).eq("direction", "outgoing")
@@ -1108,7 +1113,7 @@ async function leadsTravadosWhatsapp(ctx: ToolCtx, args: { projeto_id?: string; 
   }
   return {
     projeto_id: pid, horas_min: horas, total: travados.length,
-    leads: travados.map((m: any) => ({
+    leads: travados.map((m) => ({
       conversation_id: m.conversation_id, phone: m.phone,
       ultima_mensagem: (m.content || "").slice(0, 200),
       horas_aguardando: Math.round((Date.now() - new Date(m.created_at).getTime()) / 3600000),
@@ -1132,7 +1137,7 @@ async function ultimasMensagensWhatsapp(ctx: ToolCtx, args: { projeto_id?: strin
   const { data, error } = await q;
   if (error) return { error: error.message, projeto_id: pid, horas, leads: [] };
   // Agrupar por phone
-  const byPhone = new Map<string, { phone: string; conversation_id: string; qtd: number; ultima: string; em: string }>();
+  const byPhone = new Map<string, { phone: string; conversation_id: string; qtd: number; ultima: string; em: string; nome?: string | null }>();
   for (const m of data || []) {
     const ph = m.phone || "";
     if (!ph) continue;
@@ -1150,16 +1155,16 @@ async function ultimasMensagensWhatsapp(ctx: ToolCtx, args: { projeto_id?: strin
   const phones = Array.from(byPhone.keys());
   if (phones.length > 0) {
     const { data: leads } = await ctx.supabase.from("imphq_leads")
-      .select("nome, telefone, phone").or(`phone.in.(${phones.map((p) => `"${p}"`).join(",")}),telefone.in.(${phones.map((p) => `"${p}"`).join(",")})`)
+      .select("nome, phone").in("phone", phones)
       .limit(500);
     const nomeMap = new Map<string, string>();
     for (const l of leads || []) {
-      const k = (l.phone || l.telefone || "").replace(/\D/g, "");
+      const k = (l.phone || "").replace(/\D/g, "");
       if (k && l.nome) nomeMap.set(k, l.nome);
     }
     for (const v of byPhone.values()) {
       const k = (v.phone || "").replace(/\D/g, "");
-      (v as any).nome = nomeMap.get(k) || null;
+      v.nome = nomeMap.get(k) || null;
     }
   }
   const leads = Array.from(byPhone.values())
@@ -1180,7 +1185,7 @@ async function adsPerformance(ctx: ToolCtx, args: { projeto_id?: string; dias?: 
     .select("valor, campanha, plataforma, data_ref, project_id").gte("data_ref", since).limit(2000);
   if (pid) q = q.eq("project_id", pid);
   const { data } = await q;
-  const totalGasto = (data || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const totalGasto = (data || []).reduce((s: number, a) => s + Number(a.valor || 0), 0);
   const map = new Map<string, number>();
   for (const a of data || []) {
     const k = a.campanha || a.plataforma || "—";
@@ -1192,7 +1197,7 @@ async function adsPerformance(ctx: ToolCtx, args: { projeto_id?: string; dias?: 
     .gte("data_venda", new Date(Date.now() - dias * 86400000).toISOString()).limit(2000);
   if (pid) q2 = q2.eq("project_id", pid);
   const { data: vendas } = await q2;
-  const receita = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const receita = (vendas || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   return {
     projeto_id: pid, dias, gasto_total: totalGasto, receita_periodo: receita,
     roas: totalGasto > 0 ? receita / totalGasto : null,
@@ -1212,7 +1217,7 @@ async function buscarLead(ctx: ToolCtx, args: { termo: string; projeto_id?: stri
   return { matches: data || [] };
 }
 
-async function criarTarefas(ctx: ToolCtx, args: { projeto_id: string; tarefas: any[] }) {
+async function criarTarefas(ctx: ToolCtx, args: { projeto_id: string; tarefas: { titulo: string; descricao?: string; prioridade?: string; prazo?: string; checklist?: string[] }[] }) {
   if (!args.projeto_id || !Array.isArray(args.tarefas) || !args.tarefas.length) {
     return { error: "projeto_id e tarefas[] obrigatórios" };
   }
@@ -1220,7 +1225,7 @@ async function criarTarefas(ctx: ToolCtx, args: { projeto_id: string; tarefas: a
   const { data: proj } = await ctx.supabase.from("imphq_projects").select("id, name").eq("id", args.projeto_id).single();
   if (!proj) return { error: `projeto ${args.projeto_id} não encontrado` };
 
-  const rows = args.tarefas.map((t: any) => ({
+  const rows = args.tarefas.map((t) => ({
     project_id: args.projeto_id,
     title: t.titulo,
     description: t.descricao || null,
@@ -1238,17 +1243,17 @@ async function criarTarefas(ctx: ToolCtx, args: { projeto_id: string; tarefas: a
     await ctx.supabase.from("imphq_ai_actions").insert({
       kind: "createTask", projeto_id: args.projeto_id,
       title: `${data.length} tarefa(s) criada(s) via chat`,
-      reason: data.map((d: any) => d.title).join("; ").slice(0, 200),
+      reason: data.map((d) => d.title).join("; ").slice(0, 200),
       status: "executed", auto_executed: true, executed_at: new Date().toISOString(),
       risk_level: "low", confidence: 1.0,
-      payload: { task_ids: data.map((d: any) => d.id) },
-      result: { task_ids: data.map((d: any) => d.id) },
+      payload: { task_ids: data.map((d) => d.id) },
+      result: { task_ids: data.map((d) => d.id) },
     });
-  } catch (e: any) { console.warn("[criarTarefas] log fail", e?.message); }
+  } catch (e) { console.warn("[criarTarefas] log fail", safeError(e)); }
 
   return {
     projeto: proj.name, criadas: data.length,
-    tarefas: data.map((d: any) => ({ id: d.id, titulo: d.title })),
+    tarefas: data.map((d) => ({ id: d.id, titulo: d.title })),
   };
 }
 
@@ -1270,9 +1275,10 @@ async function adicionarChecklistNaTarefa(ctx: ToolCtx, args: { tarefa_id: strin
 async function moverTarefa(ctx: ToolCtx, args: { tarefa_id: string; coluna: string }) {
   const { data: card } = await ctx.supabase.from("imphq_kanban_cards").select("id, title, project_id, column_id").eq("id", args.tarefa_id).maybeSingle();
   if (!card) return { error: "tarefa não encontrada" };
-  const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title").eq("project_id", card.project_id);
-  const target = (cols || []).find((c: any) => (c.title || "").toLowerCase().includes(args.coluna.toLowerCase()));
-  if (!target) return { error: `coluna "${args.coluna}" não encontrada`, disponiveis: (cols || []).map((c: any) => c.title) };
+  const columnsQuery = ctx.supabase.from("imphq_kanban_columns").select("id, title");
+  const { data: cols } = await (card.project_id ? columnsQuery.eq("project_id", card.project_id) : columnsQuery.is("project_id", null));
+  const target = (cols || []).find((c) => (c.title || "").toLowerCase().includes(args.coluna.toLowerCase()));
+  if (!target) return { error: `coluna "${args.coluna}" não encontrada`, disponiveis: (cols || []).map((c) => c.title) };
   const { error } = await ctx.supabase.from("imphq_kanban_cards").update({ column_id: target.id }).eq("id", args.tarefa_id);
   if (error) return { error: error.message };
   await ctx.supabase.from("imphq_ai_actions").insert({
@@ -1303,6 +1309,7 @@ async function agendarLembrete(ctx: ToolCtx, args: { projeto_id: string; titulo:
 async function anotarLead(ctx: ToolCtx, args: { lead_id: string; nota: string }) {
   const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
   if (!lead) return { error: "lead não encontrado" };
+  if (!lead.project_id || !lead.phone) return { error: "lead sem projeto ou telefone" };
   const { data: conv } = await ctx.supabase.from("imphq_wa_conversations").select("id").eq("project_id", lead.project_id).eq("phone", lead.phone).maybeSingle();
   if (!conv) return { error: "sem conversa WhatsApp para este lead" };
   const { error } = await ctx.supabase.from("imphq_wa_internal_notes").insert({
@@ -1317,7 +1324,8 @@ async function anotarLead(ctx: ToolCtx, args: { lead_id: string; nota: string })
   return { lead: lead.nome || lead.phone, ok: true };
 }
 
-async function resolveProviderForProject(ctx: ToolCtx, projectId: string) {
+async function resolveProviderForProject(ctx: ToolCtx, projectId: string | null) {
+  if (!projectId) return null;
   const { data } = await ctx.supabase.from("imphq_wa_providers")
     .select("id, instance_name, provider").eq("project_id", projectId).eq("is_active", true).limit(1).maybeSingle();
   return data;
@@ -1327,6 +1335,7 @@ async function enviarWhatsapp(ctx: ToolCtx, args: { lead_id: string; mensagem: s
   const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
   if (!lead) return { error: "lead não encontrado" };
   if (!lead.phone) return { error: "lead sem telefone" };
+  if (!lead.project_id) return { error: "lead sem projeto configurado" };
   const prov = await resolveProviderForProject(ctx, lead.project_id);
   if (!prov) return { error: "nenhum provider WhatsApp ativo para o projeto" };
   const { data: act, error } = await ctx.supabase.from("imphq_ai_actions").insert({
@@ -1349,14 +1358,15 @@ async function enviarWhatsappEmMassa(ctx: ToolCtx, args: { lead_ids: string[]; m
   if (!args.lead_ids?.length) return { error: "lead_ids vazio" };
   const { data: leads } = await ctx.supabase.from("imphq_leads")
     .select("id, nome, phone, project_id").in("id", args.lead_ids);
-  const valid = (leads || []).filter((l: any) => l.phone);
+  const valid = (leads || []).filter((l) => l.phone);
   if (!valid.length) return { error: "nenhum lead com telefone" };
-  const byProject = new Map<string, any[]>();
+  const byProject = new Map<string, Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "project_id">[]>();
   for (const l of valid) {
+    if (!l.project_id) continue;
     const arr = byProject.get(l.project_id) || [];
     arr.push(l); byProject.set(l.project_id, arr);
   }
-  const actions: any[] = [];
+  const actions: TablesInsert<"imphq_ai_actions">[] = [];
   for (const [pid, ls] of byProject.entries()) {
     const prov = await resolveProviderForProject(ctx, pid);
     if (!prov) continue;
@@ -1400,7 +1410,7 @@ async function listarAnunciosAtivos(ctx: ToolCtx, args: { projeto_id?: string; d
   if (error) return { error: error.message };
 
   // Agregar por ad_id
-  const map = new Map<string, any>();
+  const map = new Map<string, { ad_id: string; adset_id: string | null; campaign_id: string | null; anuncio: string | null; conjunto: string | null; campanha: string | null; gasto: number; cliques: number; impressoes: number; compras: number; effective_status: string | null; daily_budget: number | null }>();
   for (const r of data || []) {
     const k = r.ad_id;
     if (!k) continue;
@@ -1417,8 +1427,8 @@ async function listarAnunciosAtivos(ctx: ToolCtx, args: { projeto_id?: string; d
     map.set(k, cur);
   }
   const ads = [...map.values()]
-    .filter((a: any) => (a.effective_status || "").toUpperCase() === "ACTIVE")
-    .map((a: any) => {
+    .filter((a) => (a.effective_status || "").toUpperCase() === "ACTIVE")
+    .map((a) => {
       const ctr = a.impressoes > 0 ? (a.cliques / a.impressoes) * 100 : 0;
       const cpa = a.compras > 0 ? a.gasto / a.compras : null;
       const categoria = ctr > 2 ? "Top" : ctr >= 1 ? "Mid" : "Low";
@@ -1429,7 +1439,7 @@ async function listarAnunciosAtivos(ctx: ToolCtx, args: { projeto_id?: string; d
   return { projeto_id: pid, dias, total: ads.length, anuncios: ads };
 }
 
-async function invokeAdsToggle(ctx: ToolCtx, payload: any) {
+async function invokeAdsToggle(ctx: ToolCtx, payload: Record<string, unknown>) {
   const { data, error } = await ctx.supabase.functions.invoke("facebook-ads-toggle", { body: payload });
   if (error) return { error: error.message || String(error) };
   return data;
@@ -1506,6 +1516,7 @@ async function agendarMensagemWhatsapp(ctx: ToolCtx, args: { lead_id: string; me
   const { data: lead } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, project_id").eq("id", args.lead_id).maybeSingle();
   if (!lead) return { error: "lead não encontrado" };
   if (!lead.phone) return { error: "lead sem telefone" };
+  if (!lead.project_id) return { error: "lead sem projeto configurado" };
   const prov = await resolveProviderForProject(ctx, lead.project_id);
   if (!prov) return { error: "nenhum provider WhatsApp ativo" };
   const when = new Date(args.quando);
@@ -1538,7 +1549,7 @@ async function listarAgendamentosWhatsapp(ctx: ToolCtx, args: { projeto_id?: str
   if (error) return { error: error.message };
   return {
     projeto_id: pid, total: data?.length || 0,
-    agendamentos: (data || []).map((s: any) => ({
+    agendamentos: (data || []).map((s) => ({
       id: s.id, phone: s.phone, mensagem: (s.content || "").slice(0, 120),
       quando: s.scheduled_at,
     })),
@@ -1572,7 +1583,7 @@ async function statusChipsWhatsapp(ctx: ToolCtx, args: { projeto_id?: string }) 
   const now = Date.now();
   return {
     projeto_id: pid, total: data?.length || 0,
-    chips: (data || []).map((p: any) => {
+    chips: (data || []).map((p) => {
       const lastSeenMin = p.last_seen_at ? Math.round((now - new Date(p.last_seen_at).getTime()) / 60000) : null;
       let saude = "desconhecida";
       if (!p.is_active) saude = "inativo";
@@ -1607,11 +1618,11 @@ async function diagnosticoYoshitani(ctx: ToolCtx, args: { projeto_id?: string; d
   ]);
 
   const ads = adsRes.data || [];
-  const gasto = ads.reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
-  const compras = ads.reduce((s: number, a: any) => s + Number(a.compras || 0), 0);
-  const lpv = ads.reduce((s: number, a: any) => s + Number(a.landing_page_views || 0), 0);
-  const clicks = ads.reduce((s: number, a: any) => s + Number(a.link_clicks || 0), 0);
-  const checkouts = ads.reduce((s: number, a: any) => s + Number(a.checkouts_iniciados || 0), 0);
+  const gasto = ads.reduce((s: number, a) => s + Number(a.valor || 0), 0);
+  const compras = ads.reduce((s: number, a) => s + Number(a.compras || 0), 0);
+  const lpv = ads.reduce((s: number, a) => s + Number(a.landing_page_views || 0), 0);
+  const clicks = ads.reduce((s: number, a) => s + Number(a.link_clicks || 0), 0);
+  const checkouts = ads.reduce((s: number, a) => s + Number(a.checkouts_iniciados || 0), 0);
 
   const vendasCount = vendasRes.data?.length || 0;
   const cpa = (compras || vendasCount) > 0 ? gasto / (compras || vendasCount) : null;
@@ -1652,7 +1663,7 @@ async function previsaoReceita(ctx: ToolCtx, args: { projeto_id?: string }) {
     .select("valor").eq("project_id", pid).eq("status", "aprovado")
     .gte("data_venda", inicioMes.toISOString()).limit(5000);
   if (error) return { error: error.message };
-  const receitaAtual = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const receitaAtual = (data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   const mediaDiaria = receitaAtual / diasPassados;
   const projecao = mediaDiaria * diasTotal;
   return {
@@ -1679,15 +1690,15 @@ async function leadsQuentes(ctx: ToolCtx, args: { projeto_id?: string; horas?: n
   const { data, error } = await q;
   if (error) return { error: error.message };
 
-  const leadIds = [...new Set((data || []).map((v: any) => v.lead_id).filter(Boolean))];
-  const leadsMap: Record<string, any> = {};
+  const leadIds = [...new Set((data || []).map((v) => v.lead_id).filter((id): id is string => typeof id === "string"))];
+  const leadsMap: Record<string, Pick<Tables<"imphq_leads">, "id" | "nome" | "phone" | "email">> = {};
   if (leadIds.length) {
     const { data: leads } = await ctx.supabase.from("imphq_leads").select("id, nome, phone, email").in("id", leadIds);
     for (const l of leads || []) leadsMap[l.id] = l;
   }
   return {
     projeto_id: pid, horas, total: data?.length || 0,
-    leads: (data || []).map((v: any) => ({
+    leads: (data || []).map((v) => ({
       venda_id: v.id, lead_id: v.lead_id,
       lead: v.lead_id ? leadsMap[v.lead_id] : null,
       produto: v.produto_nome, valor: Number(v.valor || 0),
@@ -1733,18 +1744,18 @@ async function listarRecuperaveis(ctx: ToolCtx, args: { projeto_id?: string; hor
   const since = new Date(Date.now() - horas * 3600000).toISOString();
   let q = ctx.supabase
     .from("imphq_vendas")
-    .select("id, valor, produto_nome, status, plataforma, data_venda, lead_id, projeto_id")
+    .select("id, valor, produto_nome, status, plataforma, data_venda, lead_id, project_id")
     .in("status", ["pix_gerado", "boleto_gerado", "aguardando_pagamento"])
     .gte("data_venda", since)
     .order("data_venda", { ascending: false })
     .limit(limite);
-  if (pid) q = q.eq("projeto_id", pid);
+  if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const total = (data || []).reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+  const total = (data || []).reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
   return {
     horas, total_recuperavel: total, count: data?.length || 0,
-    vendas: (data || []).map((v: any) => ({
+    vendas: (data || []).map((v) => ({
       venda_id: v.id, lead_id: v.lead_id, produto: v.produto_nome,
       valor: v.valor, status: v.status, plataforma: v.plataforma, em: v.data_venda,
     })),
@@ -1765,14 +1776,14 @@ async function lucroDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: stri
     .gte("data_venda", start).lte("data_venda", end).limit(2000);
   if (pid) qv = qv.eq("project_id", pid);
   const { data: vendas } = await qv;
-  const receita_bruta = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
-  const receita_liquida = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor_liquido || v.valor || 0), 0);
+  const receita_bruta = (vendas || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
+  const receita_liquida = (vendas || []).reduce((s: number, v) => s + Number(v.valor_liquido || v.valor || 0), 0);
 
   let qa = ctx.supabase.from("imphq_ads_spend")
     .select("valor").eq("data_ref", dia).limit(2000);
   if (pid) qa = qa.eq("project_id", pid);
   const { data: ads } = await qa;
-  const gasto_ads = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const gasto_ads = (ads || []).reduce((s: number, a) => s + Number(a.valor || 0), 0);
 
   const lucro = receita_liquida - gasto_ads;
   return {
@@ -1857,14 +1868,14 @@ async function projecaoLucroMes(ctx: ToolCtx, args: { projeto_id?: string }) {
     .select("valor, valor_liquido").eq("status", "aprovado").gte("data_venda", inicioMes).limit(10000);
   if (pid) qv = qv.eq("project_id", pid);
   const { data: vendas } = await qv;
-  const receita_bruta = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
-  const receita_liquida = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor_liquido || v.valor || 0), 0);
+  const receita_bruta = (vendas || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
+  const receita_liquida = (vendas || []).reduce((s: number, v) => s + Number(v.valor_liquido || v.valor || 0), 0);
 
   let qa = ctx.supabase.from("imphq_ads_spend")
     .select("valor").gte("data_ref", inicioMesDate).limit(10000);
   if (pid) qa = qa.eq("project_id", pid);
   const { data: ads } = await qa;
-  const gasto = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const gasto = (ads || []).reduce((s: number, a) => s + Number(a.valor || 0), 0);
 
   const fator = diaAtual > 0 ? diasNoMes / diaAtual : 1;
   return {
@@ -1898,7 +1909,7 @@ async function alertaQueimaOrcamento(ctx: ToolCtx, args: { projeto_id?: string; 
   if (pid) qa = qa.eq("project_id", pid);
   const { data: ads } = await qa;
 
-  const adsetMap = new Map<string, { adset_id: string; nome: string; gasto: number; compras: number }>();
+  const adsetMap = new Map<string, { adset_id: string | null; nome: string; gasto: number; compras: number }>();
   for (const a of ads || []) {
     const key = a.adset_id || a.conjunto_anuncios || a.anuncio || a.ad_id;
     if (!key) continue;
@@ -1935,17 +1946,17 @@ async function alertaQueimaOrcamento(ctx: ToolCtx, args: { projeto_id?: string; 
 async function recuperarVendaPix(ctx: ToolCtx, args: { venda_id: string }) {
   if (!args.venda_id) return { error: "venda_id obrigatório" };
   const { data: venda, error: vErr } = await ctx.supabase
-    .from("imphq_vendas").select("id, lead_id, projeto_id, status, valor, produto_nome")
+    .from("imphq_vendas").select("id, lead_id, project_id, status, valor, produto_nome")
     .eq("id", args.venda_id).maybeSingle();
   if (vErr || !venda) return { error: "venda não encontrada" };
 
   const { data, error } = await ctx.supabase.functions.invoke("hot-lead-responder", {
-    body: { venda_id: venda.id, lead_id: venda.lead_id, projeto_id: venda.projeto_id, source: "imperius" },
+    body: { venda_id: venda.id, lead_id: venda.lead_id, projeto_id: venda.project_id, source: "imperius" },
   });
   if (error) return { error: error.message };
 
   await ctx.supabase.from("imphq_ai_actions").insert({
-    user_id: ctx.userId, projeto_id: venda.projeto_id, kind: "recoverPix",
+    user_id: ctx.userId, projeto_id: venda.project_id, kind: "recoverPix",
     title: `Recuperação Pix: ${venda.produto_nome}`, status: "executed",
     auto_executed: true, risk_level: "low", confidence: 0.9,
     impact_brl: venda.valor, payload: { venda_id: venda.id, lead_id: venda.lead_id },
@@ -2008,8 +2019,8 @@ async function tarefasAtrasadas(ctx: ToolCtx, args: { projeto_id?: string; limit
   let colsQ = ctx.supabase.from("imphq_kanban_columns").select("id, title, project_id");
   if (pid) colsQ = colsQ.eq("project_id", pid);
   const { data: cols } = await colsQ;
-  const colsAbertas = (cols || []).filter((c: any) => !/conclu|done|finaliz/i.test(c.title || ""));
-  const colIds = colsAbertas.map((c: any) => c.id);
+  const colsAbertas = (cols || []).filter((c) => !/conclu|done|finaliz/i.test(c.title || ""));
+  const colIds = colsAbertas.map((c) => c.id);
   if (colIds.length === 0) return { count: 0, tarefas: [] };
   const { data, error } = await ctx.supabase
     .from("imphq_kanban_cards")
@@ -2048,11 +2059,12 @@ async function briefingDiario(ctx: ToolCtx, args: { projeto_id?: string }) {
     tarefasAtrasadas(ctx, { projeto_id: pid || undefined, limite: 10 }),
     proximosEventosCalendario(ctx, { projeto_id: pid || undefined, dias: 3, limite: 5 }),
   ]);
+  if ("error" in vendas || "error" in hot || "error" in tarefas || "error" in eventos) return { error: "Não foi possível completar o briefing", detalhes: { vendas, hot, tarefas, eventos } };
   return {
-    vendas_hoje: { count: (vendas as any)?.count || 0, receita: (vendas as any)?.receita_total || 0 },
-    hot_leads: { count: (hot as any)?.count || 0, leads: (hot as any)?.leads?.slice(0, 5) || [] },
-    tarefas_atrasadas: { count: (tarefas as any)?.count || 0 },
-    proximos_eventos: { count: (eventos as any)?.count || 0, eventos: (eventos as any)?.eventos || [] },
+    vendas_hoje: { count: vendas.total_vendas, receita: vendas.receita_total || 0 },
+    hot_leads: { count: hot.total, leads: hot.leads?.slice(0, 5) || [] },
+    tarefas_atrasadas: { count: tarefas.count || 0 },
+    proximos_eventos: { count: eventos.count || 0, eventos: eventos.eventos || [] },
   };
 }
 
@@ -2080,29 +2092,28 @@ async function topCriativos(ctx: ToolCtx, args: { projeto_id?: string; dias?: nu
   const since = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
   let q = ctx.supabase
     .from("imphq_ads_spend")
-    .select("anuncio, ad_id, gasto, compras, cliques, impressoes, valor_conversao")
+    .select("anuncio, ad_id, gasto:valor, compras, cliques, impressoes")
     .gte("data_ref", since);
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q.limit(2000);
   if (error) return { error: error.message };
-  const agg = new Map<string, any>();
+  const agg = new Map<string, { criativo: string; gasto: number; compras: number; cliques: number; impressoes: number }>();
   for (const r of (data || [])) {
     const key = r.ad_id || r.anuncio || "—";
-    const cur = agg.get(key) || { criativo: r.anuncio || key, gasto: 0, compras: 0, cliques: 0, impressoes: 0, receita: 0 };
+    const cur = agg.get(key) || { criativo: r.anuncio || key, gasto: 0, compras: 0, cliques: 0, impressoes: 0 };
     cur.gasto += Number(r.gasto || 0);
     cur.compras += Number(r.compras || 0);
     cur.cliques += Number(r.cliques || 0);
     cur.impressoes += Number(r.impressoes || 0);
-    cur.receita += Number(r.valor_conversao || 0);
     agg.set(key, cur);
   }
   const rows = [...agg.values()].map((r) => ({
     ...r,
     ctr: r.impressoes ? +(r.cliques / r.impressoes * 100).toFixed(2) : 0,
     cpa: r.compras ? +(r.gasto / r.compras).toFixed(2) : null,
-    roas: r.gasto ? +(r.receita / r.gasto).toFixed(2) : 0,
-  })).sort((a, b) => b.compras - a.compras || b.receita - a.receita).slice(0, limite);
-  return { dias, count: rows.length, criativos: rows };
+    roas: null,
+  })).sort((a, b) => b.compras - a.compras).slice(0, limite);
+  return { dias, count: rows.length, criativos: rows, aviso: "ROAS indisponível: a fonte de anúncios não registra receita por criativo." };
 }
 
 async function oportunidadesMercado(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
@@ -2134,15 +2145,15 @@ async function listarEquipe(ctx: ToolCtx, args: { apenas_ativos?: boolean }) {
 async function cargaTrabalhoEquipe(ctx: ToolCtx, args: { projeto_id?: string }) {
   const pid = resolveProjectId(ctx, args.projeto_id);
   const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title");
-  const closedIds = new Set((cols || []).filter((c: any) => /conclu|done|finaliz/i.test(c.title || "")).map((c: any) => c.id));
+  const closedIds = new Set((cols || []).filter((c) => /conclu|done|finaliz/i.test(c.title || "")).map((c) => c.id));
   let q = ctx.supabase.from("imphq_kanban_cards").select("id, assignee_id, due_date, column_id, project_id").limit(2000);
   if (pid) q = q.eq("project_id", pid);
   const { data: cards, error } = await q;
   if (error) return { error: error.message };
-  const open = (cards || []).filter((c: any) => !closedIds.has(c.column_id));
+  const open = (cards || []).filter((c) => (!c.column_id || !closedIds.has(c.column_id)));
   const { data: team } = await ctx.supabase.from("imphq_team_members").select("user_id, name, email");
   const nameMap = new Map<string, string>();
-  (team || []).forEach((t: any) => { if (t.user_id) nameMap.set(t.user_id, t.name || t.email || t.user_id); });
+  (team || []).forEach((t) => { if (t.user_id) nameMap.set(t.user_id, t.name || t.email || t.user_id); });
   const agg = new Map<string, { responsavel: string; abertas: number; atrasadas: number }>();
   const hoje = new Date().toISOString().slice(0, 10);
   for (const c of open) {
@@ -2164,20 +2175,20 @@ async function tarefasPorResponsavel(ctx: ToolCtx, args: { responsavel: string; 
   const { data: team } = await ctx.supabase.from("imphq_team_members")
     .select("user_id, name, email").or(`name.ilike.${term},email.ilike.${term}`);
   if (!team?.length) return { error: `Nenhum membro encontrado para "${args.responsavel}"` };
-  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t: any) => ({ nome: t.name, email: t.email })) };
+  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t) => ({ nome: t.name, email: t.email })) };
   const userId = team[0].user_id;
   if (!userId) return { error: "Membro sem user_id vinculado" };
   const { data: cols } = await ctx.supabase.from("imphq_kanban_columns").select("id, title");
-  const closedIds = new Set((cols || []).filter((c: any) => /conclu|done|finaliz/i.test(c.title || "")).map((c: any) => c.id));
-  const colMap = new Map((cols || []).map((c: any) => [c.id, c.title]));
+  const closedIds = new Set((cols || []).filter((c) => /conclu|done|finaliz/i.test(c.title || "")).map((c) => c.id));
+  const colMap = new Map((cols || []).map((c) => [c.id, c.title]));
   let q = ctx.supabase.from("imphq_kanban_cards")
     .select("id, title, due_date, priority, column_id, project_id, created_at")
     .eq("assignee_id", userId).order("due_date", { ascending: true, nullsFirst: false }).limit(limite);
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const rows = (data || []).filter((c: any) => !closedIds.has(c.column_id))
-    .map((c: any) => ({ ...c, coluna: colMap.get(c.column_id) || "—" }));
+  const rows = (data || []).filter((c) => (!c.column_id || !closedIds.has(c.column_id)))
+    .map((c) => ({ ...c, coluna: (c.column_id ? colMap.get(c.column_id) : undefined) || "—" }));
   return { responsavel: team[0].name || team[0].email, count: rows.length, tarefas: rows };
 }
 
@@ -2186,7 +2197,7 @@ async function atribuirTarefa(ctx: ToolCtx, args: { tarefa_id: string; responsav
   const { data: team } = await ctx.supabase.from("imphq_team_members")
     .select("user_id, name, email").or(`name.ilike.${term},email.ilike.${term}`);
   if (!team?.length) return { error: `Membro "${args.responsavel}" não encontrado` };
-  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t: any) => ({ nome: t.name, email: t.email })) };
+  if (team.length > 1) return { ambiguo: true, candidatos: team.map((t) => ({ nome: t.name, email: t.email })) };
   const userId = team[0].user_id;
   if (!userId) return { error: "Membro sem user_id vinculado" };
   const { data, error } = await ctx.supabase.from("imphq_kanban_cards")
@@ -2205,7 +2216,7 @@ async function estatisticasKanban(ctx: ToolCtx, args: { projeto_id?: string }) {
   const { data: cards } = await ctx.supabase.from("imphq_kanban_cards")
     .select("column_id, due_date").eq("project_id", pid).limit(2000);
   const hoje = new Date().toISOString().slice(0, 10);
-  const colCount = new Map<string, { abertas: number; atrasadas: number }>();
+  const colCount = new Map<string | null, { abertas: number; atrasadas: number }>();
   for (const c of cards || []) {
     const cur = colCount.get(c.column_id) || { abertas: 0, atrasadas: 0 };
     cur.abertas += 1;
@@ -2213,7 +2224,7 @@ async function estatisticasKanban(ctx: ToolCtx, args: { projeto_id?: string }) {
     colCount.set(c.column_id, cur);
   }
   const total = cards?.length || 0;
-  const colunas = (cols || []).map((c: any) => {
+  const colunas = (cols || []).map((c) => {
     const st = colCount.get(c.id) || { abertas: 0, atrasadas: 0 };
     const isDone = /conclu|done|finaliz/i.test(c.title || "");
     return { coluna: c.title, cards: st.abertas, atrasadas: st.atrasadas, pct: total ? +(st.abertas / total * 100).toFixed(1) : 0, concluida: isDone };
@@ -2274,13 +2285,13 @@ async function chargebacksRecentes(ctx: ToolCtx, args: { projeto_id?: string; di
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const perdido = (data || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+  const perdido = (data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
   const porStatus = new Map<string, number>();
-  for (const v of data || []) porStatus.set(v.status, (porStatus.get(v.status) || 0) + 1);
+  for (const v of data || []) porStatus.set(v.status || "desconhecido", (porStatus.get(v.status || "desconhecido") || 0) + 1);
   return {
     dias, count: data?.length || 0, valor_perdido: +perdido.toFixed(2),
     por_status: Object.fromEntries(porStatus),
-    vendas: (data || []).map((v: any) => ({
+    vendas: (data || []).map((v) => ({
       id: v.id, produto: v.produto_nome, valor: Number(v.valor || 0),
       status: v.status, plataforma: v.plataforma, em: v.data_venda,
     })),
@@ -2300,10 +2311,10 @@ async function fluxoCaixaMes(ctx: ToolCtx, args: { projeto_id?: string }) {
   if (pid) qc = qc.eq("project_id", pid);
   let qa = ctx.supabase.from("imphq_ads_spend").select("valor").gte("data_ref", inicioMes.slice(0, 10)).limit(5000);
   if (pid) qa = qa.eq("project_id", pid);
-  const [{ data: vendas }, { data: custos }, { data: ads }] = await Promise.all([qv, qc, qa] as PromiseLike<any>[]);
-  const receita = (vendas || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
-  const custoFixo = (custos || []).reduce((s: number, c: any) => s + Number(c.valor || 0), 0);
-  const custoAds = (ads || []).reduce((s: number, a: any) => s + Number(a.valor || 0), 0);
+  const [{ data: vendas }, { data: custos }, { data: ads }] = await Promise.all([qv, qc, qa]);
+  const receita = (vendas || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
+  const custoFixo = (custos || []).reduce((s: number, c) => s + Number(c.valor || 0), 0);
+  const custoAds = (ads || []).reduce((s: number, a) => s + Number(a.valor || 0), 0);
   const custoTotal = custoFixo + custoAds;
   const margem = receita - custoTotal;
   return {
@@ -2326,7 +2337,7 @@ async function automacoesAtivas(ctx: ToolCtx, args: { projeto_id?: string; limit
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const ids = (data || []).map((a: any) => a.id);
+  const ids = (data || []).map((a) => a.id);
   const since = new Date(Date.now() - 86400000).toISOString();
   const runMap: Record<string, number> = {};
   if (ids.length) {
@@ -2336,7 +2347,7 @@ async function automacoesAtivas(ctx: ToolCtx, args: { projeto_id?: string; limit
   }
   return {
     count: data?.length || 0,
-    automacoes: (data || []).map((a: any) => ({
+    automacoes: (data || []).map((a) => ({
       id: a.id, nome: a.nome, trigger: a.trigger_tipo,
       execucoes_24h: runMap[a.id] || 0, atualizado: a.updated_at,
     })),
@@ -2356,11 +2367,11 @@ async function execucoesTravadas(ctx: ToolCtx, args: { projeto_id?: string; hora
   if (pid) q = q.eq("project_id", pid);
   const { data, error } = await q;
   if (error) return { error: error.message };
-  const waiting = (data || []).filter((e: any) => e.status === "waiting").length;
-  const errored = (data || []).filter((e: any) => e.status === "error").length;
+  const waiting = (data || []).filter((e) => e.status === "waiting").length;
+  const errored = (data || []).filter((e) => e.status === "error").length;
   return {
     count: data?.length || 0, waiting, errored, horas_min: horas,
-    execucoes: (data || []).map((e: any) => ({
+    execucoes: (data || []).map((e) => ({
       id: e.id, automacao_id: e.automacao_id, lead_id: e.lead_id,
       status: e.status, step: e.current_step, erro: e.error_message,
       proxima_execucao: e.next_run_at, ultimo_update: e.updated_at,
@@ -2369,72 +2380,128 @@ async function execucoesTravadas(ctx: ToolCtx, args: { projeto_id?: string; hora
 }
 
 
-export async function runTool(name: string, args: any, ctx: ToolCtx): Promise<any> {
+const toolArguments = {buscarProjeto: z.object({termo:z.string()}).passthrough(),
+leadsDoDia: z.object({projeto_id:z.string().optional(),data:z.string().optional()}).passthrough(),
+leadsResumo: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+buscarLeads: z.object({projeto_id:z.string().optional(),desde:z.string().optional(),ate:z.string().optional(),tag:z.string().optional(),form_id:z.string().optional(),plataforma:z.string().optional(),status:z.string().optional(),evento:z.string().optional(),tem_venda:z.boolean().optional(),limite:z.number().optional()}).passthrough(),
+vendasDoDia: z.object({projeto_id:z.string().optional(),data:z.string().optional()}).passthrough(),
+vendasResumo: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+leadsTravadosWhatsapp: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough(),
+ultimasMensagensWhatsapp: z.object({projeto_id:z.string().optional(),limite:z.number().optional(),horas:z.number().optional()}).passthrough(),
+adsPerformance: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+buscarLead: z.object({termo:z.string(),projeto_id:z.string().optional()}).passthrough(),
+criarTarefas: z.object({projeto_id:z.string(),tarefas:z.array(z.object({titulo:z.string(),descricao:z.string().optional(),prioridade:z.string().optional(),prazo:z.string().optional(),checklist:z.array(z.string()).optional()}).passthrough())}).passthrough(),
+adicionarChecklistNaTarefa: z.object({tarefa_id:z.string(),itens:z.array(z.string())}).passthrough(),
+moverTarefa: z.object({tarefa_id:z.string(),coluna:z.string()}).passthrough(),
+agendarLembrete: z.object({projeto_id:z.string(),titulo:z.string(),quando:z.string(),descricao:z.string().optional()}).passthrough(),
+anotarLead: z.object({lead_id:z.string(),nota:z.string()}).passthrough(),
+enviarWhatsapp: z.object({lead_id:z.string(),mensagem:z.string()}).passthrough(),
+enviarWhatsappEmMassa: z.object({lead_ids:z.array(z.string()),mensagem:z.string()}).passthrough(),
+listarAnunciosAtivos: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
+pausarAnuncio: z.object({projeto_id:z.string(),ad_id:z.string(),motivo:z.string().optional()}).passthrough(),
+ativarAnuncio: z.object({projeto_id:z.string(),ad_id:z.string(),motivo:z.string().optional()}).passthrough(),
+ajustarOrcamentoAdset: z.object({projeto_id:z.string(),adset_id:z.string(),novo_orcamento:z.number(),orcamento_anterior:z.number().optional(),motivo:z.string().optional()}).passthrough(),
+agendarMensagemWhatsapp: z.object({lead_id:z.string(),mensagem:z.string(),quando:z.string()}).passthrough(),
+listarAgendamentosWhatsapp: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+cancelarAgendamentoWhatsapp: z.object({scheduled_id:z.string()}).passthrough(),
+statusChipsWhatsapp: z.object({projeto_id:z.string().optional()}).passthrough(),
+diagnosticoYoshitani: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+previsaoReceita: z.object({projeto_id:z.string().optional()}).passthrough(),
+leadsQuentes: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough(),
+funilPorEtapa: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+listarRecuperaveis: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough(),
+lucroDoDia: z.object({projeto_id:z.string().optional(),data:z.string().optional()}).passthrough(),
+roasPorCriativo: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
+projecaoLucroMes: z.object({projeto_id:z.string().optional()}).passthrough(),
+alertaQueimaOrcamento: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),gasto_minimo:z.number().optional()}).passthrough(),
+recuperarVendaPix: z.object({venda_id:z.string()}).passthrough(),
+listarTemplatesRecuperacao: z.object({projeto_id:z.string().optional(),canal:z.string().optional()}).passthrough(),
+pontuarLead: z.object({lead_id:z.string()}).passthrough(),
+proximosEventosCalendario: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
+tarefasAtrasadas: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+statusWebinar: z.object({projeto_id:z.string().optional()}).passthrough(),
+briefingDiario: z.object({projeto_id:z.string().optional()}).passthrough(),
+listarBatchesCriativos: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+topCriativos: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
+oportunidadesMercado: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+listarEquipe: z.object({apenas_ativos:z.boolean().optional()}).passthrough(),
+cargaTrabalhoEquipe: z.object({projeto_id:z.string().optional()}).passthrough(),
+tarefasPorResponsavel: z.object({responsavel:z.string(),projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+atribuirTarefa: z.object({tarefa_id:z.string(),responsavel:z.string()}).passthrough(),
+estatisticasKanban: z.object({projeto_id:z.string().optional()}).passthrough(),
+concorrentesAtivos: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+vendasPorPlataforma: z.object({projeto_id:z.string().optional(),dias:z.number().optional()}).passthrough(),
+chargebacksRecentes: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
+fluxoCaixaMes: z.object({projeto_id:z.string().optional()}).passthrough(),
+automacoesAtivas: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+execucoesTravadas: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough()};
+
+export async function runTool(name: string, args: unknown, ctx: ToolCtx): Promise<unknown> {
 
 
   try {
     switch (name) {
       case "listarProjetos": return await listarProjetos(ctx);
-      case "buscarProjeto": return await buscarProjeto(ctx, args);
-      case "vendasDoDia": return await vendasDoDia(ctx, args);
-      case "leadsDoDia": return await leadsDoDia(ctx, args);
-      case "leadsResumo": return await leadsResumo(ctx, args);
-      case "buscarLeads": return await buscarLeads(ctx, args);
-      case "vendasResumo": return await vendasResumo(ctx, args);
-      case "leadsTravadosWhatsapp": return await leadsTravadosWhatsapp(ctx, args);
-      case "ultimasMensagensWhatsapp": return await ultimasMensagensWhatsapp(ctx, args);
-      case "adsPerformance": return await adsPerformance(ctx, args);
-      case "buscarLead": return await buscarLead(ctx, args);
-      case "criarTarefas": return await criarTarefas(ctx, args);
-      case "adicionarChecklistNaTarefa": return await adicionarChecklistNaTarefa(ctx, args);
-      case "moverTarefa": return await moverTarefa(ctx, args);
-      case "agendarLembrete": return await agendarLembrete(ctx, args);
-      case "anotarLead": return await anotarLead(ctx, args);
-      case "enviarWhatsapp": return await enviarWhatsapp(ctx, args);
-      case "enviarWhatsappEmMassa": return await enviarWhatsappEmMassa(ctx, args);
-      case "listarAnunciosAtivos": return await listarAnunciosAtivos(ctx, args);
-      case "pausarAnuncio": return await pausarAnuncio(ctx, args);
-      case "ativarAnuncio": return await ativarAnuncio(ctx, args);
-      case "ajustarOrcamentoAdset": return await ajustarOrcamentoAdset(ctx, args);
-      case "agendarMensagemWhatsapp": return await agendarMensagemWhatsapp(ctx, args);
-      case "listarAgendamentosWhatsapp": return await listarAgendamentosWhatsapp(ctx, args);
-      case "cancelarAgendamentoWhatsapp": return await cancelarAgendamentoWhatsapp(ctx, args);
-      case "statusChipsWhatsapp": return await statusChipsWhatsapp(ctx, args);
-      case "diagnosticoYoshitani": return await diagnosticoYoshitani(ctx, args);
-      case "previsaoReceita": return await previsaoReceita(ctx, args);
-      case "leadsQuentes": return await leadsQuentes(ctx, args);
-      case "funilPorEtapa": return await funilPorEtapa(ctx, args);
-      case "listarRecuperaveis": return await listarRecuperaveis(ctx, args);
-      case "recuperarVendaPix": return await recuperarVendaPix(ctx, args);
-      case "listarTemplatesRecuperacao": return await listarTemplatesRecuperacao(ctx, args);
-      case "pontuarLead": return await pontuarLead(ctx, args);
-      case "lucroDoDia": return await lucroDoDia(ctx, args);
-      case "roasPorCriativo": return await roasPorCriativo(ctx, args);
-      case "projecaoLucroMes": return await projecaoLucroMes(ctx, args);
-      case "alertaQueimaOrcamento": return await alertaQueimaOrcamento(ctx, args);
-      case "proximosEventosCalendario": return await proximosEventosCalendario(ctx, args);
-      case "tarefasAtrasadas": return await tarefasAtrasadas(ctx, args);
-      case "statusWebinar": return await statusWebinar(ctx, args);
-      case "briefingDiario": return await briefingDiario(ctx, args);
-      case "listarBatchesCriativos": return await listarBatchesCriativos(ctx, args);
-      case "topCriativos": return await topCriativos(ctx, args);
-      case "oportunidadesMercado": return await oportunidadesMercado(ctx, args);
-      case "concorrentesAtivos": return await concorrentesAtivos(ctx, args);
-      case "listarEquipe": return await listarEquipe(ctx, args);
-      case "cargaTrabalhoEquipe": return await cargaTrabalhoEquipe(ctx, args);
-      case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, args);
-      case "atribuirTarefa": return await atribuirTarefa(ctx, args);
-      case "estatisticasKanban": return await estatisticasKanban(ctx, args);
-      case "vendasPorPlataforma": return await vendasPorPlataforma(ctx, args);
-      case "chargebacksRecentes": return await chargebacksRecentes(ctx, args);
-      case "fluxoCaixaMes": return await fluxoCaixaMes(ctx, args);
-      case "automacoesAtivas": return await automacoesAtivas(ctx, args);
-      case "execucoesTravadas": return await execucoesTravadas(ctx, args);
+      case "buscarProjeto": return await buscarProjeto(ctx, toolArguments.buscarProjeto.parse(args));
+      case "vendasDoDia": return await vendasDoDia(ctx, toolArguments.vendasDoDia.parse(args));
+      case "leadsDoDia": return await leadsDoDia(ctx, toolArguments.leadsDoDia.parse(args));
+      case "leadsResumo": return await leadsResumo(ctx, toolArguments.leadsResumo.parse(args));
+      case "buscarLeads": return await buscarLeads(ctx, toolArguments.buscarLeads.parse(args));
+      case "vendasResumo": return await vendasResumo(ctx, toolArguments.vendasResumo.parse(args));
+      case "leadsTravadosWhatsapp": return await leadsTravadosWhatsapp(ctx, toolArguments.leadsTravadosWhatsapp.parse(args));
+      case "ultimasMensagensWhatsapp": return await ultimasMensagensWhatsapp(ctx, toolArguments.ultimasMensagensWhatsapp.parse(args));
+      case "adsPerformance": return await adsPerformance(ctx, toolArguments.adsPerformance.parse(args));
+      case "buscarLead": return await buscarLead(ctx, toolArguments.buscarLead.parse(args));
+      case "criarTarefas": return await criarTarefas(ctx, toolArguments.criarTarefas.parse(args));
+      case "adicionarChecklistNaTarefa": return await adicionarChecklistNaTarefa(ctx, toolArguments.adicionarChecklistNaTarefa.parse(args));
+      case "moverTarefa": return await moverTarefa(ctx, toolArguments.moverTarefa.parse(args));
+      case "agendarLembrete": return await agendarLembrete(ctx, toolArguments.agendarLembrete.parse(args));
+      case "anotarLead": return await anotarLead(ctx, toolArguments.anotarLead.parse(args));
+      case "enviarWhatsapp": return await enviarWhatsapp(ctx, toolArguments.enviarWhatsapp.parse(args));
+      case "enviarWhatsappEmMassa": return await enviarWhatsappEmMassa(ctx, toolArguments.enviarWhatsappEmMassa.parse(args));
+      case "listarAnunciosAtivos": return await listarAnunciosAtivos(ctx, toolArguments.listarAnunciosAtivos.parse(args));
+      case "pausarAnuncio": return await pausarAnuncio(ctx, toolArguments.pausarAnuncio.parse(args));
+      case "ativarAnuncio": return await ativarAnuncio(ctx, toolArguments.ativarAnuncio.parse(args));
+      case "ajustarOrcamentoAdset": return await ajustarOrcamentoAdset(ctx, toolArguments.ajustarOrcamentoAdset.parse(args));
+      case "agendarMensagemWhatsapp": return await agendarMensagemWhatsapp(ctx, toolArguments.agendarMensagemWhatsapp.parse(args));
+      case "listarAgendamentosWhatsapp": return await listarAgendamentosWhatsapp(ctx, toolArguments.listarAgendamentosWhatsapp.parse(args));
+      case "cancelarAgendamentoWhatsapp": return await cancelarAgendamentoWhatsapp(ctx, toolArguments.cancelarAgendamentoWhatsapp.parse(args));
+      case "statusChipsWhatsapp": return await statusChipsWhatsapp(ctx, toolArguments.statusChipsWhatsapp.parse(args));
+      case "diagnosticoYoshitani": return await diagnosticoYoshitani(ctx, toolArguments.diagnosticoYoshitani.parse(args));
+      case "previsaoReceita": return await previsaoReceita(ctx, toolArguments.previsaoReceita.parse(args));
+      case "leadsQuentes": return await leadsQuentes(ctx, toolArguments.leadsQuentes.parse(args));
+      case "funilPorEtapa": return await funilPorEtapa(ctx, toolArguments.funilPorEtapa.parse(args));
+      case "listarRecuperaveis": return await listarRecuperaveis(ctx, toolArguments.listarRecuperaveis.parse(args));
+      case "recuperarVendaPix": return await recuperarVendaPix(ctx, toolArguments.recuperarVendaPix.parse(args));
+      case "listarTemplatesRecuperacao": return await listarTemplatesRecuperacao(ctx, toolArguments.listarTemplatesRecuperacao.parse(args));
+      case "pontuarLead": return await pontuarLead(ctx, toolArguments.pontuarLead.parse(args));
+      case "lucroDoDia": return await lucroDoDia(ctx, toolArguments.lucroDoDia.parse(args));
+      case "roasPorCriativo": return await roasPorCriativo(ctx, toolArguments.roasPorCriativo.parse(args));
+      case "projecaoLucroMes": return await projecaoLucroMes(ctx, toolArguments.projecaoLucroMes.parse(args));
+      case "alertaQueimaOrcamento": return await alertaQueimaOrcamento(ctx, toolArguments.alertaQueimaOrcamento.parse(args));
+      case "proximosEventosCalendario": return await proximosEventosCalendario(ctx, toolArguments.proximosEventosCalendario.parse(args));
+      case "tarefasAtrasadas": return await tarefasAtrasadas(ctx, toolArguments.tarefasAtrasadas.parse(args));
+      case "statusWebinar": return await statusWebinar(ctx, toolArguments.statusWebinar.parse(args));
+      case "briefingDiario": return await briefingDiario(ctx, toolArguments.briefingDiario.parse(args));
+      case "listarBatchesCriativos": return await listarBatchesCriativos(ctx, toolArguments.listarBatchesCriativos.parse(args));
+      case "topCriativos": return await topCriativos(ctx, toolArguments.topCriativos.parse(args));
+      case "oportunidadesMercado": return await oportunidadesMercado(ctx, toolArguments.oportunidadesMercado.parse(args));
+      case "concorrentesAtivos": return await concorrentesAtivos(ctx, toolArguments.concorrentesAtivos.parse(args));
+      case "listarEquipe": return await listarEquipe(ctx, toolArguments.listarEquipe.parse(args));
+      case "cargaTrabalhoEquipe": return await cargaTrabalhoEquipe(ctx, toolArguments.cargaTrabalhoEquipe.parse(args));
+      case "tarefasPorResponsavel": return await tarefasPorResponsavel(ctx, toolArguments.tarefasPorResponsavel.parse(args));
+      case "atribuirTarefa": return await atribuirTarefa(ctx, toolArguments.atribuirTarefa.parse(args));
+      case "estatisticasKanban": return await estatisticasKanban(ctx, toolArguments.estatisticasKanban.parse(args));
+      case "vendasPorPlataforma": return await vendasPorPlataforma(ctx, toolArguments.vendasPorPlataforma.parse(args));
+      case "chargebacksRecentes": return await chargebacksRecentes(ctx, toolArguments.chargebacksRecentes.parse(args));
+      case "fluxoCaixaMes": return await fluxoCaixaMes(ctx, toolArguments.fluxoCaixaMes.parse(args));
+      case "automacoesAtivas": return await automacoesAtivas(ctx, toolArguments.automacoesAtivas.parse(args));
+      case "execucoesTravadas": return await execucoesTravadas(ctx, toolArguments.execucoesTravadas.parse(args));
       default: return { error: `tool desconhecida: ${name}` };
 
 
     }
-  } catch (e: any) {
-    return { error: e?.message || String(e) };
+  } catch (e) {
+    return { error: safeError(e) };
   }
 }

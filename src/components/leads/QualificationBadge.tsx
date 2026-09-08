@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Snowflake, Sun } from "lucide-react";
 
@@ -12,7 +13,7 @@ type Qualificacao = {
 
 export function QualificationBadge({ q, compact }: { q?: Qualificacao | null; compact?: boolean }) {
   if (!q?.temperatura) return null;
-  const map: Record<string, { icon: any; color: string; label: string }> = {
+  const map: Record<string, { icon: LucideIcon; color: string; label: string }> = {
     quente: { icon: Flame, color: "border-rose-500/40 text-rose-400 bg-rose-500/10", label: "Quente" },
     morno: { icon: Sun, color: "border-amber-500/40 text-amber-400 bg-amber-500/10", label: "Morno" },
     frio: { icon: Snowflake, color: "border-sky-500/40 text-sky-400 bg-sky-500/10", label: "Frio" },

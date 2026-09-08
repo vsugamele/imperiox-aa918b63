@@ -1,9 +1,68 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } from "../_shared/creativeAngles.ts";
-import { validateAndFixAngles, withRetry } from "./_validators.ts";
+import { validateAndFixAngles, withRetry, type AngleOut } from "./_validators.ts";
 import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 import { requireUser } from "../_shared/require-auth.ts";
+
+
+function createOpenflowClient(url: string, key: string) { return createClient(url, key); }
+
+const optionalText = z.string().nullish().transform(value => value ?? undefined);
+const optionalNumber = z.number().nullish().transform(value => value ?? undefined);
+const briefSchema = z.object({
+  produto: optionalText, transformacao: optionalText, nicho: optionalText, sub_nicho: optionalText,
+  publico: optionalText, nao_publico: optionalText, preco: z.union([z.string(), z.number()]).optional(),
+  objection: optionalText, modelo: optionalText, palavras_proibidas: z.array(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  objetivo: optionalText, temperatura: optionalText, tamanho: optionalText, observacoes: optionalText,
+  ativos: z.array(z.string()).optional(), objecoes: z.array(z.string()).optional(), tom: z.array(z.string()).optional(),
+}).passthrough();
+const productSchema = z.object({
+  nome: optionalText, name: optionalText, mecanismo_unico: optionalText, contexto: optionalText,
+  checkout_urls: z.union([z.string(), z.object({url:z.string()}).passthrough(), z.array(z.union([z.string(), z.object({url:z.string()}).passthrough()]))]).optional(),
+  links: z.union([z.string(),z.record(z.unknown())]).nullish(), copy_arsenal: z.unknown(),
+}).passthrough();
+const projectPayloadSchema = z.object({produtos:z.array(productSchema).optional(), briefing:briefSchema.optional(),facebook_creatives:z.array(z.unknown()).optional()}).passthrough();
+const projectSchema = z.object({
+  name:optionalText, data:z.union([z.string(),projectPayloadSchema]).nullish(),
+  avatar:z.object({dores:z.array(z.union([z.string(),z.object({descricao:optionalText,text:optionalText}).passthrough()])).nullish(), desejos:z.array(z.union([z.string(),z.object({descricao:optionalText,text:optionalText}).passthrough()])).nullish()}).passthrough().nullish(),
+}).passthrough();
+type ProjectContextData = z.infer<typeof projectSchema>;
+const requestSchema = z.object({
+  action:optionalText, project_id:optionalText, trigger_tipo:optionalText, num_etapas:optionalNumber,
+  model:optionalText, openrouter_key:optionalText, mente_id:optionalText, produto:optionalText, product_index:optionalNumber,
+  skill_slugs:z.array(z.string()).optional(), stories_per_day:optionalNumber, extra_urls:z.array(z.string()).optional(), briefing_extra:optionalText, briefing:briefSchema.optional(),
+  intent:optionalText, objective:optionalText, mode:optionalText, search_query:optionalText, deep_dive_target:optionalText,
+  skill_id:optionalText, skill_slug:optionalText, skill_system_prompt:optionalText, extra_instructions:optionalText,
+  prompt:optionalText, content_type:optionalText, user_prompt:optionalText, campaign_count:optionalNumber,
+  funnel_stage:optionalText, budget_range:optionalText, previous_result:optionalText, content_objective:optionalText,
+  posts_per_day:optionalNumber, priority_platforms:z.array(z.string()).optional(), product_name:optionalText,
+  campaign_id:optionalText, step_order:optionalNumber, total_steps:optionalNumber, media_type:optionalText, produto_fallback:optionalText,
+  trigger:optionalText, custom_prompt:optionalText, quality:optionalText, image_style:optionalText, source_image_url:optionalText, instruction:optionalText,
+  content_focus:optionalText, num_ideas:optionalNumber, description:optionalText, num_nodes:optionalNumber,
+  lead:z.object({nome:optionalText,email:optionalText,phone:optionalText,plataforma:optionalText,score:optionalNumber,total_gasto:optionalNumber,tags:z.array(z.string()).nullish(),data:z.object({interacoes:z.array(z.unknown()).optional(),qualificacao:z.unknown()}).passthrough().nullish()}).passthrough().optional(),
+  form_responses:z.array(z.object({question:z.string(),answer:z.unknown()}).passthrough()).optional(),
+  score_log:z.array(z.object({acao:z.string(),pontos:z.number()}).passthrough()).optional(),
+  extra:z.object({products:z.array(z.unknown()).optional(),project_name:optionalText,nicho:optionalText,prompt:optionalText,briefing:briefSchema.optional(),existing_etapas:z.array(z.object({nome:optionalText,tipo:optionalText}).passthrough()).optional()}).passthrough().optional(),
+}).passthrough();
+type OpenflowRequest = z.infer<typeof requestSchema>;
+function parseProjectPayload(value: ProjectContextData["data"]) {
+  return projectPayloadSchema.parse(typeof value === "string" ? JSON.parse(value) : value || {});
+}
+
+const generatedAngleSchema = z.object({slug:z.string(),headline:z.string(),corpo:z.string().default(""),cta:z.string().default(""),nome:optionalText,risk_warning:optionalText}).passthrough();
+const avatarAngleSchema = z.object({slug:z.string(),texto:optionalText,gancho_emocional:optionalText,categoria:optionalText}).passthrough();
+const nodeSchema = z.object({title:optionalText,subtitle:optionalText,type:optionalText,color:optionalText,pos_x:optionalNumber,pos_y:optionalNumber,connects_to:z.array(z.number().int()).optional()}).passthrough();
+const stageSchema = z.object({nome:optionalText,tipo:optionalText,url:optionalText,pos_x:optionalNumber,pos_y:optionalNumber,descricao:optionalText,connects_to:z.array(z.number().int()).optional()}).passthrough();
+const emailSchema = z.object({numero:z.number(),assunto:z.string(),preheader:z.string(),corpo:z.string(),cta:z.string()}).passthrough();
+const vslSchema = z.object({blocos:z.array(z.object({numero:z.number(),nome:z.string(),duracao:z.string(),roteiro:z.string()}).passthrough()),duracao_total:optionalText}).passthrough();
+interface SkillOutput { id:string; result:string; extra_instructions:string|null; feedback:string|null; feedback_correction:string|null }
+interface CampaignStep { step_order:number; content:string|null; media_type:string|null }
+interface SaleMetrics { produto_nome: string | null; valor: number | null; status: string | null; created_at: string | null }
+interface CostMetrics { valor: number | null }
+interface AdMetrics extends CostMetrics { leads: number | null; cliques: number | null; impressoes: number | null; data: string | null }
+interface FunctionTool { type: string; function: { name: string; description: string; parameters: Record<string, unknown> } }
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +76,9 @@ serve(async (req) => {
   if (!auth.ok) return auth.response;
 
   try {
-    const body = await req.json();
+    const parsedBody = requestSchema.safeParse(await req.json());
+    if (!parsedBody.success) return new Response(JSON.stringify({ error: "Invalid request fields", fields: parsedBody.error.issues.map(issue => issue.path.join(".")) }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const body = parsedBody.data;
     const { project_id, trigger_tipo, num_etapas = 4, action, model: requestedModel, openrouter_key, mente_id, produto, product_index, skill_slugs, stories_per_day, extra_urls, briefing_extra, briefing } = body;
     const model = requestedModel || "google/gemini-3-flash-preview";
 
@@ -77,12 +138,12 @@ serve(async (req) => {
     } catch (e) { console.error("Error fetching skills:", e); }
 
     // Gather project context
-    let projectData: any = {};
+    let projectData: ProjectContextData = {};
     let projectContext = "";
     if (project_id) {
       const { data: project } = await sb.from("imphq_projects").select("*").eq("id", project_id).single();
       if (project) {
-        projectData = project;
+        projectData = projectSchema.parse(project);
         projectContext += `\n## Projeto: ${project.name}\n`;
         const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
         if (d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 800)}\n`;
@@ -135,28 +196,28 @@ serve(async (req) => {
       // ── KPIs REAIS calculados (últimos 30d quando aplicável) ──
       const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-      const { data: vendas } = await sb.from("imphq_vendas").select("produto_nome, valor, status, created_at").eq("project_id", project_id).limit(500);
-      const vendasAprovadas = (vendas || []).filter((v: any) => v.status === "aprovado");
-      const totalVendas = vendasAprovadas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const { data: vendas } = await sb.from("imphq_vendas").select("produto_nome, valor, status, created_at").eq("project_id", project_id).limit(500).returns<SaleMetrics[]>();
+      const vendasAprovadas = (vendas || []).filter((v) => v.status === "aprovado");
+      const totalVendas = vendasAprovadas.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
       const totalVendasCount = vendasAprovadas.length;
       const ticketMedio = totalVendasCount > 0 ? totalVendas / totalVendasCount : 0;
-      const produtosVendidos = [...new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))];
-      const vendas30d = vendasAprovadas.filter((v: any) => v.created_at >= since30d);
-      const receita30d = vendas30d.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const produtosVendidos = [...new Set((vendas || []).map((v) => v.produto_nome).filter(Boolean))];
+      const vendas30d = vendasAprovadas.filter((v) => (v.created_at || "") >= since30d);
+      const receita30d = vendas30d.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
 
       const { count: leadsCount } = await sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", project_id);
       const { count: leads30d } = await sb.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", project_id).gte("created_at", since30d);
 
-      const { data: costs } = await sb.from("imphq_project_costs").select("valor").eq("project_id", project_id).limit(100);
-      const totalCosts = (costs || []).reduce((s: number, c: any) => s + (parseFloat(c.valor) || 0), 0);
+      const { data: costs } = await sb.from("imphq_project_costs").select("valor").eq("project_id", project_id).limit(100).returns<CostMetrics[]>();
+      const totalCosts = (costs || []).reduce((s: number, c) => s + (Number(c.valor) || 0), 0);
 
-      const { data: adsData } = await sb.from("imphq_ads_spend").select("valor, leads, cliques, impressoes, data").eq("project_id", project_id).limit(200);
-      const totalAds = (adsData || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-      const totalAdsLeads = (adsData || []).reduce((s: number, a: any) => s + (a.leads || 0), 0);
-      const totalCliques = (adsData || []).reduce((s: number, a: any) => s + (a.cliques || 0), 0);
-      const totalImpr = (adsData || []).reduce((s: number, a: any) => s + (a.impressoes || 0), 0);
-      const ads30d = (adsData || []).filter((a: any) => a.data >= since30d.slice(0, 10));
-      const spend30d = ads30d.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
+      const { data: adsData } = await sb.from("imphq_ads_spend").select("valor, leads, cliques, impressoes, data").eq("project_id", project_id).limit(200).returns<AdMetrics[]>();
+      const totalAds = (adsData || []).reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
+      const totalAdsLeads = (adsData || []).reduce((s: number, a) => s + (a.leads || 0), 0);
+      const totalCliques = (adsData || []).reduce((s: number, a) => s + (a.cliques || 0), 0);
+      const totalImpr = (adsData || []).reduce((s: number, a) => s + (a.impressoes || 0), 0);
+      const ads30d = (adsData || []).filter((a) => (a.data || "") >= since30d.slice(0, 10));
+      const spend30d = ads30d.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
 
       // KPIs derivados
       const cpl = totalAdsLeads > 0 ? totalAds / totalAdsLeads : 0;
@@ -259,7 +320,7 @@ ${briefing.observacoes ? `- Observações extras: ${briefing.observacoes}` : ""}
     const numEtapasReal = briefing?.tamanho === "enxuto" ? 4 : briefing?.tamanho === "longo" ? 12 : briefing?.tamanho === "padrao" ? 7 : num_etapas;
 
     const systemPrompt = `Você é um estrategista de copy e funis de resposta direta (escola Hormozi + Sobral + Hopkins), atuando como o Imperius no ImperioHQ.
-Seu objetivo: criar uma sequência de ${numEtapasReal} ações para a automação de "${triggerLabels[trigger_tipo] || trigger_tipo}", diagnosticando o contexto ANTES de gerar.
+Seu objetivo: criar uma sequência de ${numEtapasReal} ações para a automação de "${triggerLabels[trigger_tipo || ""] || trigger_tipo}", diagnosticando o contexto ANTES de gerar.
 ${produtoFoco}${acquisitionGuidance}${briefingBlock}${projectContext ? `\nContexto do projeto:\n${projectContext}` : ""}
 ${skillsContext}
 REGRAS:
@@ -335,8 +396,8 @@ ESTILO SUGAMELE (obrigatório em templates de mensagem):
     if (!response.ok) return handleAIError(response);
     const result = await response.json();
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    let parsed: any = { acoes: [], diagnostico: "", ab_suggestions: [] };
-    if (toolCall?.function?.arguments) parsed = { ...parsed, ...JSON.parse(toolCall.function.arguments) };
+    let parsed: Record<string, unknown> = { acoes: [], diagnostico: "", ab_suggestions: [] };
+    if (toolCall?.function?.arguments) parsed = { ...parsed, ...z.record(z.unknown()).parse(JSON.parse(toolCall.function.arguments)) };
     return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("openflow-ai error:", e);
@@ -349,8 +410,8 @@ async function fetchAI(url: string, init: RequestInit, timeoutMs = 60_000) {
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: ctrl.signal });
-  } catch (e: any) {
-    if (e?.name === "AbortError") {
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
       return new Response(JSON.stringify({ error: "TIMEOUT_GUARD", message: "Modelo demorou mais de 60s. Use modo background ou um modelo mais rápido (ex.: gemini-3-flash).", suggest_background: true }), {
         status: 408,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -372,7 +433,7 @@ async function handleAIError(response: Response) {
   throw new Error("AI gateway error: " + status);
 }
 
-async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: any[], toolName: string, baseUrl = "https://ai.gateway.lovable.dev/v1") {
+async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, model: string, tools: FunctionTool[], toolName: string, baseUrl = "https://ai.gateway.lovable.dev/v1") {
   const isOpenRouter = baseUrl.includes("openrouter.ai");
   const makeHeaders = (key: string, openRouter: boolean): Record<string, string> => {
     const h: Record<string, string> = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
@@ -395,8 +456,8 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   let response: Response;
   try {
     response = await fetchWithTimeout(`${baseUrl}/chat/completions`, makeHeaders(apiKey, isOpenRouter));
-  } catch (e: any) {
-    if (e?.name === "AbortError") {
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
       return { error: `Modelo "${model}" demorou demais (>60s). Use um modelo mais rápido (ex.: gemini-3-flash, gpt-5-mini) ou reduza o contexto.` };
     }
     throw e;
@@ -409,8 +470,8 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
       console.log(`Lovable gateway error ${response.status}, falling back to OpenRouter for model:`, model);
       try {
         response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", makeHeaders(orKey, true));
-      } catch (e: any) {
-        if (e?.name === "AbortError") {
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
           return { error: `Modelo "${model}" via OpenRouter excedeu 60s. Tente um modelo mais rápido.` };
         }
         throw e;
@@ -443,11 +504,11 @@ async function callAI(systemPrompt: string, userPrompt: string, apiKey: string, 
   return JSON.parse(tc.function.arguments);
 }
 
-async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "", extraUrls: string[] = [], briefingExtra = "") {
+async function handleCopyArsenal(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: ProjectContextData = {}, productIndex?: number, skillsContext = "", extraUrls: string[] = [], briefingExtra = "") {
   // Enrich context with scraped website content via Firecrawl
   let scrapedContext = "";
   try {
-    const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const d = parseProjectPayload(projectData.data);
     const produtos = Array.isArray(d.produtos) ? d.produtos : [];
     
     // Get product links to scrape
@@ -456,7 +517,7 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
       const prod = produtos[productIndex];
       if (prod.checkout_urls) {
         const urls = Array.isArray(prod.checkout_urls) ? prod.checkout_urls : [prod.checkout_urls];
-        productLinks.push(...urls.map((u: any) => typeof u === "string" ? u : u.url).filter(Boolean));
+        productLinks.push(...urls.map((u) => typeof u === "string" ? u : u.url).filter(Boolean));
       }
       if (prod.links) {
         const links = typeof prod.links === "object" ? Object.values(prod.links) : [];
@@ -504,7 +565,7 @@ async function handleCopyArsenal(ctx: string, apiKey: string, model: string, bas
   // Resolve selected product name for a more specific user prompt
   let selectedProductName = "";
   try {
-    const d2 = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const d2 = parseProjectPayload(projectData.data);
     const prods2 = Array.isArray(d2.produtos) ? d2.produtos : [];
     if (typeof productIndex === "number" && prods2[productIndex]) {
       selectedProductName = prods2[productIndex].nome || prods2[productIndex].name || "";
@@ -540,18 +601,18 @@ REGRAS:
   return new Response(JSON.stringify({ arsenal }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleProductIntel(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}, productIndex?: number, skillsContext = "") {
+async function handleProductIntel(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: ProjectContextData = {}, productIndex?: number, skillsContext = "") {
   // Scrape product URLs to generate mecanismo, contexto, and suggested offers
   let scrapedContext = "";
   try {
-    const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+    const d = parseProjectPayload(projectData.data);
     const produtos = Array.isArray(d.produtos) ? d.produtos : [];
     const productLinks: string[] = [];
     if (typeof productIndex === "number" && produtos[productIndex]) {
       const prod = produtos[productIndex];
       if (prod.checkout_urls) {
         const urls = Array.isArray(prod.checkout_urls) ? prod.checkout_urls : [prod.checkout_urls];
-        productLinks.push(...urls.map((u: any) => typeof u === "string" ? u : u.url).filter(Boolean));
+        productLinks.push(...urls.map((u) => typeof u === "string" ? u : u.url).filter(Boolean));
       }
       if (prod.links) {
         const links = typeof prod.links === "object" ? Object.values(prod.links) : [];
@@ -629,11 +690,11 @@ async function handleGatilhos(ctx: string, apiKey: string, model: string, baseUr
   return new Response(JSON.stringify({ gatilhos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAvatarAngles(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
+async function handleAvatarAngles(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: ProjectContextData = {}) {
   // Extrai top 3 dores e desejos do avatar pra dar foco ao prompt
   const avatar = projectData?.avatar || {};
-  const topDores = (avatar.dores || []).slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
-  const topDesejos = (avatar.desejos || []).slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
+  const topDores = (avatar.dores || []).slice(0, 3).map((d) => typeof d === "string" ? "" : d.descricao || d.text || "").filter(Boolean);
+  const topDesejos = (avatar.desejos || []).slice(0, 3).map((d) => typeof d === "string" ? "" : d.descricao || d.text || "").filter(Boolean);
   const focus = `\n\nTOP 3 DORES:\n- ${topDores.join("\n- ") || "(usar avatar do contexto)"}\n\nTOP 3 DESEJOS:\n- ${topDesejos.join("\n- ") || "(usar avatar do contexto)"}\n`;
 
   const angles = await callAI(
@@ -645,7 +706,7 @@ async function handleAvatarAngles(ctx: string, apiKey: string, model: string, ba
   );
   if (angles instanceof Response) return angles;
   // Adapta {texto} -> {headline/corpo/cta} para reaproveitar o validator
-  const asAngleOut = (angles.angulos || []).map((a: any) => ({
+  const asAngleOut = z.array(avatarAngleSchema).parse(angles?.angulos || []).map((a) => ({
     slug: a.slug,
     headline: a.texto || "",
     corpo: a.gancho_emocional || a.categoria || "",
@@ -656,7 +717,7 @@ async function handleAvatarAngles(ctx: string, apiKey: string, model: string, ba
   }));
   const { angles: clean, drops } = validateAndFixAngles(asAngleOut, { min: 3, seed: "avatar-angles" });
   if (drops.length) console.warn("[handleAvatarAngles] saneados:", drops);
-  const hydrated = { angulos: clean.map((a: any) => ({ ...a, nome: a.nome, emocao: a.emocao_dominante, estrutura: ANGLE_BY_SLUG[a.slug]?.estrutura })) };
+  const hydrated = { angulos: clean.map((a) => ({ ...a, nome: a.nome, emocao: a.emocao_dominante, estrutura: ANGLE_BY_SLUG[a.slug]?.estrutura })) };
   return new Response(JSON.stringify({ angles: hydrated }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -696,12 +757,12 @@ async function handleAvatarPerfil(ctx: string, apiKey: string, model: string, ba
   return new Response(JSON.stringify({ avatar_perfil }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleMarketIntelResearch(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: any = {}) {
+async function handleMarketIntelResearch(body: OpenflowRequest, sb: ReturnType<typeof createOpenflowClient>, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", projectData: ProjectContextData = {}) {
   const { mode = "DISCOVERY", search_query, deep_dive_target } = body;
   const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
 
   // Extract nicho from project context
-  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  const d = parseProjectPayload(projectData.data);
   const briefing = d.briefing || {};
   const nicho = search_query || briefing.nicho || briefing.sub_nicho || projectData?.name || "";
 
@@ -921,7 +982,7 @@ Retorne a análise completa via tool call.`;
   if (project_id) {
     try {
       const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).single();
-      const currentData = (proj?.data as Record<string, any>) || {};
+      const currentData = projectPayloadSchema.parse(proj?.data || {});
       await sb.from("imphq_projects").update({
         data: {
           ...currentData,
@@ -943,7 +1004,7 @@ Retorne a análise completa via tool call.`;
   return new Response(JSON.stringify({ intel }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleRefineSkill(body: any, sb: any, apiKey: string, model: string, baseUrl: string) {
+async function handleRefineSkill(body: OpenflowRequest, sb: ReturnType<typeof createOpenflowClient>, apiKey: string, model: string, baseUrl: string) {
   const { skill_id } = body;
   if (!skill_id) throw new Error("skill_id obrigatório");
 
@@ -963,7 +1024,7 @@ async function handleRefineSkill(body: any, sb: any, apiKey: string, model: stri
     .eq("skill_id", skill_id)
     .not("feedback", "is", null)
     .eq("refined", false)
-    .limit(30);
+    .limit(30).returns<SkillOutput[]>();
 
   if (outErr) throw outErr;
   if (!outputs || outputs.length < 20) {
@@ -973,7 +1034,7 @@ async function handleRefineSkill(body: any, sb: any, apiKey: string, model: stri
   }
 
   // 3. Monta o relatório de feedbacks para a IA
-  const feedbackReport = outputs.map((out: any, idx: number) => {
+  const feedbackReport = outputs.map((out, idx: number) => {
     return `Execução #${idx + 1}:
 - Instruções Extras: "${out.extra_instructions || 'Nenhuma'}"
 - Avaliação: ${out.feedback === 'thumbs_up' ? '👍 APROVADO' : '👎 REPROVADO'}
@@ -1010,7 +1071,7 @@ Instruções de Refinamento:
       "X-Title": "Imperio HQ",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro" || "openai/gpt-4o",
+      model: "google/gemini-2.5-pro",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: "Refine o prompt com base na análise e retorne o JSON solicitado." }
@@ -1032,7 +1093,7 @@ Instruções de Refinamento:
   if (!refinedPrompt) throw new Error("Refined prompt not generated by AI");
 
   // 4. Incrementa versão da skill
-  let currentVersion = skill.versao || "V1.0";
+  const currentVersion = skill.versao || "V1.0";
   let nextVersion = "V1.1";
   const verMatch = currentVersion.match(/V(\d+)\.(\d+)/i);
   if (verMatch) {
@@ -1051,7 +1112,7 @@ Instruções de Refinamento:
     .eq("id", skill_id);
 
   // 6. Marca os outputs como refinados
-  const outputIds = outputs.map((out: any) => out.id);
+  const outputIds = outputs.map((out) => out.id);
   await sb.from("imphq_skill_outputs")
     .update({ refined: true })
     .in("id", outputIds);
@@ -1082,7 +1143,7 @@ Instruções de Refinamento:
   });
 }
 
-async function handleExecuteSkill(body: any, sb: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleExecuteSkill(body: OpenflowRequest, sb: ReturnType<typeof createOpenflowClient>, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { skill_id, skill_slug, skill_system_prompt, produto, extra_instructions } = body;
 
   // Get skill system prompt - prefer passed prompt, fallback to DB by id, then by slug/nome
@@ -1173,7 +1234,7 @@ async function handleExecuteSkill(body: any, sb: any, projectContext: string, sk
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleGenerateContent(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleGenerateContent(body: OpenflowRequest, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { prompt, content_type } = body;
   const systemPrompt = `${mentePrefix}Você é um estrategista de conteúdo e copywriter brasileiro de alto nível.
 Especialista em criar conteúdos para redes sociais, marketing digital e lançamentos.
@@ -1210,7 +1271,7 @@ REGRAS:
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAnalyzeLead(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleAnalyzeLead(body: OpenflowRequest, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { lead, form_responses, score_log } = body;
 
   let leadContext = `\n## Dados do Lead:\n`;
@@ -1224,12 +1285,12 @@ async function handleAnalyzeLead(body: any, projectContext: string, apiKey: stri
 
   if (form_responses?.length) {
     leadContext += `\n## Respostas de Formulário:\n`;
-    form_responses.forEach((r: any) => { leadContext += `- ${r.question}: ${r.answer}\n`; });
+    form_responses.forEach((r) => { leadContext += `- ${r.question}: ${r.answer}\n`; });
   }
 
   if (score_log?.length) {
     leadContext += `\n## Log de Score:\n`;
-    score_log.forEach((s: any) => { leadContext += `- ${s.acao}: +${s.pontos}\n`; });
+    score_log.forEach((s) => { leadContext += `- ${s.acao}: +${s.pontos}\n`; });
   }
 
   const systemPrompt = `${mentePrefix}Você é um analista de leads brasileiro especialista em qualificação e comportamento do consumidor.
@@ -1257,7 +1318,7 @@ REGRAS:
   return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleCampaignDrafts(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
+async function handleCampaignDrafts(body: OpenflowRequest, projectContext: string, projectData: ProjectContextData, sb: ReturnType<typeof createOpenflowClient>, apiKey: string, model: string, baseUrl: string) {
   const { project_id, user_prompt, objective, campaign_count, funnel_stage, budget_range, previous_result } = body;
   const numCampaigns = Math.min(campaign_count || 3, 5);
 
@@ -1272,7 +1333,7 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
 
   // Fetch creatives
   let creativesContext = "";
-  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  const d = parseProjectPayload(projectData.data);
   if (d.facebook_creatives?.length) {
     creativesContext = "\n## Criativos sincronizados do Facebook:\n" + JSON.stringify(d.facebook_creatives.slice(0, 10), null, 2);
   }
@@ -1293,7 +1354,7 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
     engajamento: "Engajamento social",
     retargeting: "Retargeting de visitantes/compradores",
   };
-  const objectiveLabel = objectiveLabels[objective] || "Conversão";
+  const objectiveLabel = objectiveLabels[objective || ""] || "Conversão";
 
   const funnelLabels: Record<string, string> = {
     topo: "Topo de funil (Awareness) — público frio, ainda não conhece a marca",
@@ -1302,7 +1363,7 @@ async function handleCampaignDrafts(body: any, projectContext: string, projectDa
     retencao: "Retenção/Upsell — clientes existentes",
     todas: "Todas as etapas do funil",
   };
-  const funnelLabel = funnelLabels[funnel_stage] || "Todas";
+  const funnelLabel = funnelLabels[funnel_stage || ""] || "Todas";
 
   const systemPrompt = `Você é um media buyer brasileiro de ALTO nível, especialista em Meta Ads (Facebook/Instagram) com experiência em escalar campanhas de infoprodutos e e-commerce.
 
@@ -1364,14 +1425,14 @@ ${budget_range ? `- Range de budget diário: ${budget_range}` : "- Budget: suger
   return new Response(JSON.stringify({ campaigns }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleAnalyzeAds(body: any, projectContext: string, projectData: any, sb: any, apiKey: string, model: string, baseUrl: string) {
+async function handleAnalyzeAds(body: OpenflowRequest, projectContext: string, projectData: ProjectContextData, sb: ReturnType<typeof createOpenflowClient>, apiKey: string, model: string, baseUrl: string) {
   const { project_id } = body;
 
   // Fetch all ads data
   const { data: adsData } = await sb.from("imphq_ads_spend").select("*").eq("project_id", project_id).order("data_ref", { ascending: false }).limit(100);
   const { data: vendasData } = await sb.from("imphq_vendas").select("produto_nome, valor, status, data_venda").eq("project_id", project_id).eq("status", "aprovado").limit(100);
 
-  const d = typeof projectData?.data === "string" ? JSON.parse(projectData.data) : (projectData?.data || {});
+  const d = parseProjectPayload(projectData.data);
   let creativesInfo = "";
   if (d.facebook_creatives?.length) creativesInfo = "\n## Criativos:\n" + JSON.stringify(d.facebook_creatives.slice(0, 10), null, 2);
 
@@ -1407,7 +1468,7 @@ REGRAS:
   return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleContentPlan(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", body: any = {}) {
+async function handleContentPlan(ctx: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "", body: OpenflowRequest = {}) {
   const objective = body.content_objective || "";
   const postsPerDay = body.posts_per_day || 2;
   const platforms = body.priority_platforms?.length ? body.priority_platforms.join(", ") : "Instagram, YouTube, TikTok, LinkedIn, Blog, Email, WhatsApp";
@@ -1510,7 +1571,7 @@ Seja direto, prático e motivacional. Máximo 500 palavras.`;
   return new Response(JSON.stringify({ expert_notes: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleCampaignMessage(body: any, projectContext: string, sb: any, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+async function handleCampaignMessage(body: OpenflowRequest, projectContext: string, sb: ReturnType<typeof createOpenflowClient>, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
   const { campaign_id, produto, step_order, total_steps, media_type } = body;
 
   let campaignName = "";
@@ -1518,7 +1579,7 @@ async function handleCampaignMessage(body: any, projectContext: string, sb: any,
   if (campaign_id) {
     const [campRes, otherStepsRes] = await Promise.all([
       sb.from("imphq_wa_campaigns").select("name, produto").eq("id", campaign_id).maybeSingle(),
-      sb.from("imphq_wa_campaign_steps").select("step_order, content, media_type").eq("campaign_id", campaign_id).order("step_order", { ascending: true })
+      sb.from("imphq_wa_campaign_steps").select("step_order, content, media_type").eq("campaign_id", campaign_id).order("step_order", { ascending: true }).returns<CampaignStep[]>()
     ]);
     const camp = campRes.data;
     if (camp) {
@@ -1528,7 +1589,7 @@ async function handleCampaignMessage(body: any, projectContext: string, sb: any,
     const otherSteps = otherStepsRes.data;
     if (otherSteps && otherSteps.length > 0) {
       otherStepsContext = "\n## Mensagens existentes nesta sequência (leia atentamente para garantir coesão e evitar repetição):\n";
-      otherSteps.forEach((s: any) => {
+      otherSteps.forEach((s) => {
         const isCurrent = s.step_order === step_order;
         otherStepsContext += `### Passo #${s.step_order + 1} (${s.media_type}) ${isCurrent ? "[ESTA ETAPA - GERANDO AGORA]" : ""}\n`;
         if (isCurrent) {
@@ -1598,14 +1659,14 @@ REGRAS DE CONTEÚDO E ESCRITA:
   return new Response(JSON.stringify({ text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleContentPack(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleContentPack(body: OpenflowRequest, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { content_type, trigger, custom_prompt, funnel_stage } = body;
   const stageGuidance: Record<string, string> = {
     topo: "ESTÁGIO: TOPO DO FUNIL (Awareness). Foco: atrair atenção, educar sobre o problema, gerar curiosidade. NÃO venda diretamente — desperte interesse.",
     meio: "ESTÁGIO: MEIO DO FUNIL (Consideração). Foco: nutrir o lead, mostrar autoridade, comparar soluções, gerar desejo. CTA suave para próximo passo.",
     fundo: "ESTÁGIO: FUNDO DO FUNIL (Decisão). Foco: converter, quebrar objeções, urgência real, prova social forte, CTA direto de compra.",
   };
-  const stageNote = funnel_stage ? `\n\n🎯 ${stageGuidance[funnel_stage] || ""}` : "";
+  const stageNote = funnel_stage ? `\n\n🎯 ${stageGuidance[funnel_stage || ""] || ""}` : "";
 
   const typePrompts: Record<string, string> = {
     recovery_email: `Gere 3 variações de EMAIL DE RECUPERAÇÃO para o gatilho "${trigger}".
@@ -1665,7 +1726,7 @@ REGRAS ABSOLUTAS:
 - Seja específico — NUNCA genérico
 ${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}${stageNote}`;
 
-  const userPrompt = typePrompts[content_type] || `Gere conteúdo do tipo "${content_type}" para o gatilho "${trigger}".`;
+  const userPrompt = typePrompts[content_type || ""] || `Gere conteúdo do tipo "${content_type}" para o gatilho "${trigger}".`;
 
   const isOR = baseUrl.includes("openrouter.ai");
   const mkH = (key: string, or: boolean): Record<string, string> => {
@@ -1691,7 +1752,7 @@ ${custom_prompt ? `\nINSTRUÇÕES EXTRAS DO USUÁRIO: ${custom_prompt}` : ""}${s
   return new Response(JSON.stringify({ result: text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleOrganizeFunnel(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+async function handleOrganizeFunnel(body: OpenflowRequest, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
   const { extra } = body;
   const products = extra?.products || [];
   const projectName = extra?.project_name || "";
@@ -1724,7 +1785,7 @@ Organize um funil de vendas completo e estratégico baseado nos produtos e dados
   const userPrompt = `Projeto: ${projectName}
 Nicho: ${nicho}
 Produtos disponíveis: ${JSON.stringify(products)}
-${existingEtapas.length > 0 ? `Etapas existentes (reorganize): ${JSON.stringify(existingEtapas.map((e: any) => ({ nome: e.nome, tipo: e.tipo })))}` : "Crie um funil do zero."}
+${existingEtapas.length > 0 ? `Etapas existentes (reorganize): ${JSON.stringify(existingEtapas.map((e) => ({ nome: e.nome, tipo: e.tipo })))}` : "Crie um funil do zero."}
 
 Organize o funil completo com todas as etapas necessárias.`;
 
@@ -1796,7 +1857,7 @@ Organize o funil completo com todas as etapas necessárias.`;
   });
 }
 
-async function handleGenerateFunnelFromPrompt(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+async function handleGenerateFunnelFromPrompt(body: OpenflowRequest, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
   const { extra } = body;
   const prompt = extra?.prompt || "";
   const products = extra?.products || [];
@@ -1878,7 +1939,7 @@ criativo, pagina, vsl, checkout, upsell, face_ads, instagram, tiktok, email, wha
 }
 
 // ── Image Generation ──
-async function handleGenerateImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
+async function handleGenerateImage(body: OpenflowRequest, sb: ReturnType<typeof createOpenflowClient>, projectContext: string, apiKey: string, mentePrefix = "") {
   const { project_id, prompt, quality = "fast", image_style } = body;
   const imageModel = quality === "high" ? "google/gemini-3-pro-image-preview" : "google/gemini-3.1-flash-image-preview";
 
@@ -1933,7 +1994,7 @@ async function handleGenerateImage(body: any, sb: any, projectContext: string, a
 }
 
 // ── Image Editing ──
-async function handleEditImage(body: any, sb: any, projectContext: string, apiKey: string, mentePrefix = "") {
+async function handleEditImage(body: OpenflowRequest, sb: ReturnType<typeof createOpenflowClient>, projectContext: string, apiKey: string, mentePrefix = "") {
   const { project_id, source_image_url, instruction } = body;
 
   const response = await fetchAI("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1980,7 +2041,7 @@ async function handleEditImage(body: any, sb: any, projectContext: string, apiKe
 }
 
 // ── Brainstorm Ideas ──
-async function handleBrainstorm(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
+async function handleBrainstorm(body: OpenflowRequest, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix = "") {
   const { content_focus, num_ideas = 10 } = body;
   const isOpenRouter = baseUrl.includes("openrouter.ai");
   const brainstorm = await callAI(
@@ -1998,7 +2059,7 @@ ${content_focus ? `Foco: ${content_focus}` : "Diversifique entre formatos (reels
 }
 
 // ── Generate Flowchart ──
-async function handleGenerateFlowchart(body: any, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+async function handleGenerateFlowchart(body: OpenflowRequest, projectContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
   const { description, num_nodes = 8 } = body;
   if (!description) return new Response(JSON.stringify({ error: "description is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -2051,9 +2112,9 @@ Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
   if (result instanceof Response) return result;
   
   // Convert index-based connects_to to UUID-based
-  const nodesRaw = result.nodes || [];
+  const nodesRaw = z.array(nodeSchema).parse(result?.nodes || []);
   const ids = nodesRaw.map(() => crypto.randomUUID());
-  const nodes = nodesRaw.map((n: any, i: number) => ({
+  const nodes = nodesRaw.map((n, i: number) => ({
     id: ids[i],
     title: n.title || `Nó ${i + 1}`,
     subtitle: n.subtitle || "",
@@ -2068,7 +2129,7 @@ Gere entre 4 e ${num_nodes} nós dependendo da complexidade.`;
 }
 
 // ── Funnel Pipeline (one-click full generation) ──
-async function handleGenerateFunnelPipeline(body: any, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
+async function handleGenerateFunnelPipeline(body: OpenflowRequest, projectContext: string, skillsContext: string, apiKey: string, model: string, baseUrl: string, mentePrefix: string) {
   const { extra, project_id } = body;
   const briefing = extra?.briefing || {};
   const products = extra?.products || [];
@@ -2079,7 +2140,7 @@ async function handleGenerateFunnelPipeline(body: any, projectContext: string, s
   let publico = briefing.publico || "";
   let naoPublico = briefing.nao_publico || "";
   let palavrasProibidas: string[] = Array.isArray(briefing.palavras_proibidas)
-    ? briefing.palavras_proibidas.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean)
+    ? briefing.palavras_proibidas.map((s) => String(s).toLowerCase().trim()).filter(Boolean)
     : [];
   const preco = briefing.preco || "";
   const objection = briefing.objection || "";
@@ -2093,7 +2154,7 @@ async function handleGenerateFunnelPipeline(body: any, projectContext: string, s
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
       const { data: proj } = await sb.from("imphq_projects").select("data").eq("id", project_id).maybeSingle();
-      const derived = deriveAudienceGuardrails((proj as any)?.data, produto, {
+      const derived = deriveAudienceGuardrails(proj?.data, produto, {
         publico,
         naoPublico,
         palavrasProibidas,
@@ -2141,7 +2202,7 @@ Você deve retornar:
 4. 4 ÂNGULOS CRIATIVOS: SELECIONE 4 ângulos do catálogo canônico acima (use o campo "slug"). Regras obrigatórias: cada ângulo escolhido deve ter uma EMOÇÃO DOMINANTE diferente dos outros três; a headline deve seguir a "estrutura" documentada no catálogo; NÃO invente ângulos novos; RESPEITE a REGRA CRÍTICA DE PÚBLICO acima.
 5. POSICIONAMENTO: como o produto deve ser posicionado para se diferenciar`;
 
-  const intelResult = await callAI(intelSystem, intelPrompt, apiKey, model, [{
+  const intelResponse = await callAI(intelSystem, intelPrompt, apiKey, model, [{
     type: "function",
     function: {
       name: "intel_analysis",
@@ -2170,7 +2231,8 @@ Você deve retornar:
     },
   }], "intel_analysis", baseUrl);
 
-  if (intelResult instanceof Response) return intelResult;
+  if (intelResponse instanceof Response) return intelResponse;
+  const intelResult = z.object({angles:z.array(generatedAngleSchema),avatar:z.object({linguagem:optionalText,nivel_consciencia:optionalText,dores:z.array(z.string()).optional()}).passthrough().optional(),mecanismo_unico:optionalText,posicionamento:optionalText}).passthrough().parse(intelResponse);
 
   // Valida + hidrata os ângulos com metadados do catálogo canônico
   const { angles: cleanAngles, drops: angleDrops } = validateAndFixAngles(intelResult.angles, { min: 4, seed: produto });
@@ -2179,7 +2241,7 @@ Você deve retornar:
 
   // ── Guarda-corpo determinístico: rejeita ângulos que violem palavras proibidas ──
   if (palavrasProibidas.length && intelResult.angles?.length) {
-    const violates = (a: any) => {
+    const violates = (a: AngleOut) => {
       const blob = `${a.headline || ""} ${a.cta || ""} ${a.nome || ""}`.toLowerCase();
       return palavrasProibidas.some(p => blob.includes(p));
     };
@@ -2189,7 +2251,7 @@ Você deve retornar:
       const retryPrompt = `Você gerou ângulos que VIOLAM a regra crítica de público. Refaça APENAS estes ${invalid.length} ângulo(s), substituindo por novos slugs do catálogo, respeitando as PALAVRAS PROIBIDAS (${palavrasProibidas.join(", ")}) e o público (${publico || nicho}).
 
 Ângulos rejeitados:
-${invalid.map((a: any, i: number) => `${i + 1}. slug=${a.slug} headline="${a.headline}"`).join("\n")}
+${invalid.map((a, i: number) => `${i + 1}. slug=${a.slug} headline="${a.headline}"`).join("\n")}
 
 Retorne apenas o array "angles" com ${invalid.length} novos ângulos válidos.`;
       const retry = await callAI(intelSystem, retryPrompt, apiKey, model, [{
@@ -2209,17 +2271,17 @@ Retorne apenas o array "angles" com ${invalid.length} novos ângulos válidos.`;
         },
       }], "regen_angles", baseUrl);
       if (!(retry instanceof Response) && Array.isArray(retry?.angles)) {
-        const { angles: retryClean } = validateAndFixAngles(retry.angles, { min: invalid.length, seed: `${produto}-retry` });
-        const stillOk = retryClean.filter((a: any) => !violates(a));
-        const keeping = intelResult.angles.filter((a: any) => !violates(a));
+        const { angles: retryClean } = validateAndFixAngles(z.array(generatedAngleSchema).parse(retry.angles), { min: invalid.length, seed: `${produto}-retry` });
+        const stillOk = retryClean.filter((a) => !violates(a));
+        const keeping = intelResult.angles.filter((a) => !violates(a));
         intelResult.angles = [...keeping, ...stillOk].slice(0, 4);
       } else {
-        intelResult.angles = intelResult.angles.filter((a: any) => !violates(a));
+        intelResult.angles = intelResult.angles.filter((a) => !violates(a));
       }
     }
   }
 
-  const anglesList = intelResult.angles.map((a: any) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}${a.risk_warning ? ` ⚠️ ${a.risk_warning}` : ""}`);
+  const anglesList = intelResult.angles.map((a) => `${a.nome || a.slug}: ${a.headline} → ${a.cta}${a.risk_warning ? ` ⚠️ ${a.risk_warning}` : ""}`);
 
 
 
@@ -2364,14 +2426,14 @@ Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
     const r = await callAI(vslSystem, vslPrompt, apiKey, model, vslTools, "vsl_outline", baseUrl);
     if (r instanceof Response) throw new Error(`vsl callAI status ${r.status}`);
     if (!r?.blocos?.length) throw new Error("vsl vazio");
-    return r;
+    return vslSchema.parse(r);
   }, 2, 500);
 
   const runEmails = () => withRetry(async () => {
     const r = await callAI(emailSystem, emailPrompt, apiKey, model, emailTools, "email_sequence", baseUrl);
     if (r instanceof Response) throw new Error(`emails callAI status ${r.status}`);
     if (!r?.emails?.length) throw new Error("emails vazio");
-    return r;
+    return z.object({emails:z.array(emailSchema)}).parse(r);
   }, 2, 500);
 
   const [vslSettled, emailSettled] = await Promise.allSettled([runVsl(), runEmails()]);
@@ -2383,7 +2445,7 @@ Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
   let vslOutlineText = "";
   if (vslSettled.status === "fulfilled") {
     const vslResult = vslSettled.value;
-    vslOutlineText = vslResult.blocos.map((b: any) => `[${b.numero}] ${b.nome} (${b.duracao})\n${b.roteiro}`).join("\n\n");
+    vslOutlineText = vslResult.blocos.map((b) => `[${b.numero}] ${b.nome} (${b.duracao})\n${b.roteiro}`).join("\n\n");
     if (vslResult.duracao_total) vslOutlineText += `\n\nDuração Total: ${vslResult.duracao_total}`;
   } else {
     phases.vsl = "failed";
@@ -2392,7 +2454,7 @@ Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
   }
 
   // Build email list
-  let emailsData: any[] = [];
+  let emailsData: z.infer<typeof emailSchema>[] = [];
   if (emailSettled.status === "fulfilled") {
     emailsData = emailSettled.value.emails;
   } else {
@@ -2402,7 +2464,7 @@ Para cada email: assunto, preheader, corpo (8-12 linhas), CTA.`;
   }
 
   // Map etapas to final format
-  const etapas = (funnelResult.etapas || []).map((e: any) => ({
+  const etapas = z.array(stageSchema).parse(funnelResult?.etapas || []).map((e) => ({
     nome: e.nome || "Etapa",
     tipo: e.tipo || "outro",
     visitantes: 0,

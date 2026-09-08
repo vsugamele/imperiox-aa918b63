@@ -18,15 +18,26 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-function originAllowed(widget: any, origin: string | null) {
+function originAllowed(widget: { allowed_origins?: string[] | null }, origin: string | null) {
   const list: string[] = widget.allowed_origins || [];
   if (!list.length) return true;
   if (!origin) return false;
+  let requestOrigin: URL;
+  try { requestOrigin = new URL(origin); } catch { return false; }
+  if (!["http:", "https:"].includes(requestOrigin.protocol) || requestOrigin.username || requestOrigin.password || requestOrigin.pathname !== "/" || requestOrigin.search || requestOrigin.hash) return false;
   return list.some((o) => {
     const clean = o.trim().replace(/\/$/, "");
     if (!clean) return false;
     if (clean === "*") return true;
-    return origin.replace(/\/$/, "").endsWith(clean.replace(/^https?:\/\//, ""));
+    try {
+      if (/^https?:\/\//i.test(clean)) {
+        const allowed = new URL(clean);
+        return !allowed.username && !allowed.password && allowed.pathname === "/" && !allowed.search && !allowed.hash && requestOrigin.origin === allowed.origin;
+      }
+      const allowed = new URL(`https://${clean}`);
+      if (allowed.username || allowed.password || allowed.pathname !== "/" || allowed.search || allowed.hash) return false;
+      return requestOrigin.port === allowed.port && (requestOrigin.hostname === allowed.hostname || requestOrigin.hostname.endsWith(`.${allowed.hostname}`));
+    } catch { return false; }
   });
 }
 
@@ -142,7 +153,7 @@ Deno.serve(async (req) => {
             lead_data: {
               canal: "webchat",
               channel_session_id: session.id,
-              nome: session.nome || "Visitante do site",
+              nome: "nome" in session && typeof session.nome === "string" && session.nome ? session.nome : "Visitante do site",
               message_content: text,
               mensagem_recebida: text,
             },

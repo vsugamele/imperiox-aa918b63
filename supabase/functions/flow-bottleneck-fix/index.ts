@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // flow-bottleneck-fix: identifica nó com pior conversão e gera correção via Lovable AI Gateway
 // usando frameworks Schwartz/Bencivenga/Filemon-E3. Cria sugestão como variante B testável.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -39,8 +40,8 @@ Deno.serve(async (req) => {
 
     // Pior nó: maior drop_rate com volume mínimo
     const candidates = stats
-      .filter((s: any) => (s.entered || 0) >= 10)
-      .map((s: any) => ({
+      .filter((s: {node_id:string;entered:number;dropped:number;completed:number;active:number}) => (s.entered || 0) >= 10)
+      .map((s: {node_id:string;entered:number;dropped:number;completed:number;active:number}) => ({
         ...s,
         drop_rate: s.entered > 0 ? s.dropped / s.entered : 0,
         conv_rate: s.entered > 0 ? s.completed / s.entered : 0,
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
     // Achar texto original do nó
     let originalCopy = "";
     let blockId = "";
-    const nodes = (bp.blueprint as any)?.nodes || [];
+    const nodes = z.object({nodes:z.array(z.object({id:z.string(),blocks:z.array(z.object({id:z.string(),content:z.string().nullish()}).passthrough()).nullish()}).passthrough()).nullish()}).passthrough().parse(bp.blueprint || {}).nodes || [];
     for (const n of nodes) {
       if (n.id === worst.node_id) {
         for (const blk of (n.blocks || [])) {
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
         .select("id, variant_key")
         .eq("blueprint_id", blueprint_id)
         .eq("node_id", worst.node_id);
-      const hasA = existing?.some((v: any) => v.variant_key === "A");
+      const hasA = existing?.some((v: {variant_key:string}) => v.variant_key === "A");
       if (!hasA && originalCopy) {
         await supa.from("imphq_flow_node_variants").insert({
           blueprint_id, node_id: worst.node_id, block_id: blockId,

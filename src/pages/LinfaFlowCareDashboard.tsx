@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BarChart3, CheckCircle2, ClipboardCheck, Clock3, LifeBuoy, Loader2, MessageCircle, MousePointerClick, RefreshCw, Stethoscope, Workflow } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -131,8 +132,8 @@ export default function LinfaFlowCareDashboard() {
       setTotals(data.totals);
       setRecovery(data.recovery || []);
       setLatest(data.latest || []);
-    } catch (err: any) {
-      setError(err?.message || "Erro ao carregar dashboard");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Erro ao carregar dashboard");
     } finally {
       setLoading(false);
     }

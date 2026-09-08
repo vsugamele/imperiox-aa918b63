@@ -71,16 +71,16 @@ Retorne EXATAMENTE este JSON:
     const parsed = JSON.parse(json?.choices?.[0]?.message?.content || "{}");
     return {
       postmortem: String(parsed.postmortem || "").slice(0, 500),
-      what_worked: Array.isArray(parsed.what_worked) ? parsed.what_worked.slice(0, 4).map((s: any) => String(s).slice(0, 150)) : [],
-      what_failed: Array.isArray(parsed.what_failed) ? parsed.what_failed.slice(0, 4).map((s: any) => String(s).slice(0, 150)) : [],
+      what_worked: Array.isArray(parsed.what_worked) ? parsed.what_worked.slice(0, 4).map((s: unknown) => String(s).slice(0, 150)) : [],
+      what_failed: Array.isArray(parsed.what_failed) ? parsed.what_failed.slice(0, 4).map((s: unknown) => String(s).slice(0, 150)) : [],
     };
   } catch (_) { return null; }
 }
 
-function buildDigest(messages: any[]): string {
+function buildDigest(messages: { direction: string | null; sent_by: string | null; content: string | null }[]): string {
   return messages
     .slice(-25)
-    .map((m: any) => {
+    .map((m) => {
       const speaker = m.direction === "incoming" ? "LEAD" : (m.sent_by === "ai" ? "IA" : "HUM");
       return `[${speaker}]: ${String(m.content || "").slice(0, 200)}`;
     })
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const enabledProjects = new Set(configs.map((c: any) => c.project_id));
+    const enabledProjects = new Set(configs.map((c) => c.project_id));
     const cutoff = new Date(Date.now() - INACTIVE_HOURS * 3600 * 1000).toISOString();
     const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
 
@@ -152,13 +152,13 @@ Deno.serve(async (req) => {
     }
 
     // Filtra as não pontuadas
-    const candIds = candConvs.map((c: any) => c.id);
+    const candIds = candConvs.map((c) => c.id);
     const { data: alreadyScored } = await supa
       .from("imphq_wa_conversation_scores")
       .select("conversation_id")
       .in("conversation_id", candIds);
-    const scoredSet = new Set((alreadyScored || []).map((s: any) => s.conversation_id));
-    const pending = candConvs.filter((c: any) => !scoredSet.has(c.id)).slice(0, MAX_PER_RUN);
+    const scoredSet = new Set((alreadyScored || []).map((s) => s.conversation_id));
+    const pending = candConvs.filter((c) => !scoredSet.has(c.id)).slice(0, MAX_PER_RUN);
 
     if (pending.length === 0) {
       return new Response(JSON.stringify({ ok: true, scored: 0, reason: "all_scored" }), {
@@ -181,13 +181,13 @@ Deno.serve(async (req) => {
         .select("id, phone")
         .eq("project_id", projectId)
         .in("phone", phones);
-      const leadIds = (leads || []).map((l: any) => l.id);
+      const leadIds = (leads || []).map((l) => l.id);
       if (leadIds.length === 0) continue;
       const { data: vendas } = await supa
         .from("imphq_vendas")
         .select("lead_id, status")
         .in("lead_id", leadIds);
-      const leadPhoneMap = new Map((leads || []).map((l: any) => [l.id, l.phone]));
+      const leadPhoneMap = new Map((leads || []).map((l) => [l.id, l.phone]));
       for (const v of (vendas || [])) {
         const ph = leadPhoneMap.get(v.lead_id);
         if (!ph) continue;
@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const scored: any[] = [];
+    const scored: { conv_id: string; score: number; outcome: string }[] = [];
 
     for (const conv of pending) {
       const { data: msgs } = await supa
@@ -208,8 +208,8 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true })
         .limit(40);
 
-      const leadMsgCount = (msgs || []).filter((m: any) => m.direction === "incoming").length;
-      const aiMsgCount = (msgs || []).filter((m: any) => m.sent_by === "ai").length;
+      const leadMsgCount = (msgs || []).filter((m) => m.direction === "incoming").length;
+      const aiMsgCount = (msgs || []).filter((m) => m.sent_by === "ai").length;
       const sale = phoneToSale.get(conv.phone) || { approved: false, pending: false };
 
       const { score, outcome } = computeHeuristicScore({
@@ -264,9 +264,9 @@ Deno.serve(async (req) => {
       sample: scored.slice(0, 5),
       dry_run: dryRun,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[wa-ai-conv-scoring] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String((e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined) || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

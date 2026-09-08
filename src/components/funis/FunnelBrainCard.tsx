@@ -1,3 +1,6 @@
+import { record } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Brain, AlertTriangle, X, Loader2, Sparkles, ChevronRight } from "lucide-react";
@@ -6,17 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-interface Signal {
-  id: string;
-  projeto_id: string;
-  signal_type: string;
-  severity: "low" | "medium" | "high" | "critical";
-  title: string;
-  reasoning?: string | null;
-  suggested_action: any;
-  status: string;
-  created_at: string;
-}
+type Signal = Tables<"imphq_funnel_brain_signals">;
 
 interface Props {
   projectId?: string;
@@ -47,7 +40,7 @@ export function FunnelBrainCard({ projectId, onRunAudit }: Props) {
       .limit(8);
     if (projectId) q = q.eq("projeto_id", projectId);
     const { data } = await q;
-    setSignals((data as any) || []);
+    setSignals(data || []);
     setLoading(false);
   };
 
@@ -72,8 +65,8 @@ export function FunnelBrainCard({ projectId, onRunAudit }: Props) {
       if (error) throw error;
       toast.success("Cérebro atualizado");
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao atualizar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao atualizar");
     } finally {
       setGenerating(false);
     }
@@ -125,7 +118,10 @@ export function FunnelBrainCard({ projectId, onRunAudit }: Props) {
             </Button>
           </div>
         )}
-        {signals.map((s) => (
+        {signals.map((s) => {
+          const action = record(s.suggested_action);
+          const cta = typeof action.cta === "string" ? action.cta : "";
+          return (
           <div key={s.id} className={cn("rounded-lg border p-2 space-y-1", SEVERITY_STYLES[s.severity])}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-1.5 min-w-0 flex-1">
@@ -139,21 +135,21 @@ export function FunnelBrainCard({ projectId, onRunAudit }: Props) {
                 <X className="h-3 w-3" />
               </button>
             </div>
-            {s.suggested_action?.cta && (
+            {cta && (
               <Button
                 size="sm"
                 variant="outline"
                 className="h-6 w-full text-[10px] gap-1 border-current/40"
                 onClick={() => {
-                  if (s.suggested_action?.kind === "run_audit" && onRunAudit) onRunAudit();
-                  else toast.info(s.suggested_action?.cta);
+                  if (action.kind === "run_audit" && onRunAudit) onRunAudit();
+                  else toast.info(cta);
                 }}
               >
-                {s.suggested_action.cta} <ChevronRight className="h-3 w-3" />
+                {cta} <ChevronRight className="h-3 w-3" />
               </Button>
             )}
           </div>
-        ))}
+        ); })}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { Site } from "./SiteCard";
+import type { Site } from "@/components/sites/SiteCard";
 
 const PAPEIS = [
   { value: "lp", label: "LP Principal" },
@@ -20,15 +20,15 @@ const PAPEIS = [
 export function AttachToProjectModal({
   site, onOpenChange,
 }: { site: Site | null; onOpenChange: (v: boolean) => void }) {
-  const [projects, setProjects] = useState<{ id: string; nome: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projetoId, setProjetoId] = useState<string>("");
   const [papel, setPapel] = useState("lp");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!site) return;
-    supabase.from("imphq_projects").select("id, nome").order("nome").then(({ data }) => {
-      setProjects((data || []) as any);
+    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
+      setProjects(data || []);
     });
   }, [site]);
 
@@ -64,7 +64,7 @@ export function AttachToProjectModal({
             <Select value={projetoId} onValueChange={setProjetoId}>
               <SelectTrigger><SelectValue placeholder="Escolha um projeto" /></SelectTrigger>
               <SelectContent>
-                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { parseProjectData, record } from "@/lib/funis-data";
+const planSchema = z.object({ resumo: z.string().optional(), fases: z.array(z.object({ nome: z.string(), objetivo: z.string().optional(), dias: z.array(z.union([z.string(), z.number()])).optional(), acoes: z.array(z.object({ dia: z.union([z.string(), z.number()]), tipo: z.string(), titulo: z.string() }).passthrough()).optional() }).passthrough()).optional() }).passthrough();
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -32,7 +36,7 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
   const [objetivo, setObjetivo] = useState("");
   const [count, setCount] = useState(tipo === "nutricao" ? 12 : 7);
   const [prazoDias, setPrazoDias] = useState(30);
-  const [preview, setPreview] = useState<any>(null);
+  const [preview, setPreview] = useState<z.infer<typeof planSchema> | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoLoading, setAutoLoading] = useState(false);
 
@@ -48,29 +52,29 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
         const { data: proj } = await supabase.from("imphq_projects").select("name,data").eq("id", projectId).maybeSingle();
         if (!proj) return;
 
-        const d: any = (proj as any).data || {};
+        const d = parseProjectData(proj.data);
         const avatar = d.avatar || d.avatars_por_produto || null;
         const branding = d.branding || d.brand || null;
-        const produtos: any[] = Array.isArray(d.produtos) ? d.produtos : [];
+        const produtos = Array.isArray(d.produtos) ? d.produtos : [];
         const prod = produto ? produtos.find(p => p.nome === produto || p.slug === produto) : produtos[0];
 
         const parts: string[] = [];
-        parts.push(`Projeto: ${(proj as any).name || ""}`);
+        parts.push(`Projeto: ${proj.name || ""}`);
         if (prod?.nome) parts.push(`Produto: ${prod.nome}${prod.preco_por || prod.preco ? ` (R$ ${prod.preco_por || prod.preco})` : ""}`);
         if (prod?.promessa || prod?.descricao) parts.push(`Promessa: ${prod.promessa || prod.descricao}`);
         if (avatar) {
-          const av = typeof avatar === "string" ? avatar : (avatar?.descricao || avatar?.resumo || JSON.stringify(avatar).slice(0, 400));
+          const av = typeof avatar === "string" ? avatar : (record(avatar).descricao || record(avatar).resumo || JSON.stringify(avatar).slice(0, 400));
           parts.push(`Avatar: ${av}`);
         }
         if (branding) {
-          const tom = typeof branding === "string" ? branding : (branding?.tom_voz || branding?.tom || branding?.voz || "");
+          const tom = typeof branding === "string" ? branding : (record(branding).tom_voz || record(branding).tom || record(branding).voz || "");
           if (tom) parts.push(`Tom de voz: ${tom}`);
         }
         setBriefing(parts.join("\n"));
       } catch { /* silent */ }
       finally { setAutoLoading(false); }
     })();
-  }, [open, projectId, produto]);
+  }, [open, projectId, produto, briefing]);
 
 
 
@@ -82,7 +86,7 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
           body: { project_id: projectId, produto, objetivo, prazo_dias: prazoDias, briefing, apply: false },
         });
         if (error || data?.error) throw new Error(data?.error || error?.message);
-        setPreview(data.plano);
+        setPreview(planSchema.parse(data.plano));
       } else if (tipo === "nutricao") {
         // gera direto (cria sequência rascunho + e-mails). Sem preview porque já vai pro banco.
         const { data, error } = await supabase.functions.invoke("nurture-ai-generate", {
@@ -97,8 +101,8 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
         close(); return;
       }
       setStep(3);
-    } catch (e: any) {
-      toast.error(e.message || "Falha na geração");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha na geração");
     } finally { setLoading(false); }
   };
 
@@ -111,8 +115,8 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast.success(`✅ Plano aplicado: ${data.cards} cards criados no Kanban`);
       onDone?.(); close();
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao aplicar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao aplicar");
     } finally { setLoading(false); }
   };
 
@@ -167,12 +171,12 @@ export function BuilderWizard({ open, onClose, tipo, projectId, produto, onDone 
         {step === 3 && preview && (
           <div className="space-y-3 text-sm leading-7">
             <p className="text-muted-foreground italic">{preview.resumo}</p>
-            {(preview.fases || []).map((f: any, i: number) => (
+            {(preview.fases || []).map((f, i) => (
               <div key={i} className="rounded border border-border/50 p-3 bg-secondary/20">
                 <p className="font-medium">{f.nome} <span className="text-xs text-muted-foreground">· dias {f.dias?.join("–") || "?"}</span></p>
                 <p className="text-xs text-muted-foreground mt-1">{f.objetivo}</p>
                 <ul className="mt-2 space-y-1">
-                  {(f.acoes || []).map((a: any, j: number) => (
+                  {(f.acoes || []).map((a, j) => (
                     <li key={j} className="text-xs flex gap-2">
                       <span className="text-gold">D{a.dia}</span>
                       <span className="text-muted-foreground">[{a.tipo}]</span>

@@ -1,3 +1,4 @@
+import { record, text } from "./value.ts";
 // Guardrails de público-alvo compartilhados.
 // Deriva público + palavras proibidas a partir do projeto (avatar/produto/branding)
 // e gera bloco de sistema + validador determinístico.
@@ -15,13 +16,13 @@ export interface DerivedGuardrails {
  * Aceita `imphq_projects.data` (objeto) e slug/nome do produto.
  */
 export function deriveAudienceGuardrails(
-  projectData: any,
+  projectData: unknown,
   productSlugOrName?: string,
   overrides?: Partial<DerivedGuardrails>,
 ): DerivedGuardrails {
-  const d: any = projectData || {};
+  const d = record(projectData);
   const avatar = d.avatar || d.avatars_por_produto || {};
-  const produtos: any[] = Array.isArray(d.produtos) ? d.produtos : [];
+  const produtos = Array.isArray(d.produtos) ? d.produtos.map(record) : [];
   const prod = productSlugOrName
     ? produtos.find((p) => p?.nome === productSlugOrName || p?.slug === productSlugOrName)
     : produtos[0];
@@ -32,14 +33,14 @@ export function deriveAudienceGuardrails(
     const parts = [
       typeof avatar === "string"
         ? avatar
-        : (avatar?.descricao || avatar?.retrato || avatar?.perfil_psicologico?.retrato || ""),
+        : (text(record(avatar).descricao) || text(record(avatar).retrato) || text(record(record(avatar).perfil_psicologico).retrato) || ""),
       prod?.publico_alvo || prod?.avatar || "",
       d.nicho || "",
     ].filter(Boolean);
     publico = parts.join(" — ").slice(0, 600);
   }
 
-  const naoPublico = (overrides?.naoPublico || d.nao_publico || "").trim();
+  const naoPublico = (overrides?.naoPublico || text(d.nao_publico)).trim();
 
   // Heurísticas de palavras proibidas baseadas em segmento detectado
   const blob = `${publico} ${prod?.nome || ""} ${prod?.descricao || ""} ${
@@ -65,7 +66,7 @@ export function deriveAudienceGuardrails(
 
   // Sobrescritas manuais do projeto
   const manual: string[] = Array.isArray(d.palavras_proibidas)
-    ? d.palavras_proibidas.map((s: any) => String(s).toLowerCase())
+    ? d.palavras_proibidas.map((s) => String(s).toLowerCase())
     : [];
 
   const override: string[] = Array.isArray(overrides?.palavrasProibidas)

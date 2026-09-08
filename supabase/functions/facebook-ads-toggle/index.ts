@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -15,9 +16,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const startedAt = Date.now();
-  let body: any = {};
+  let rawBody: unknown = {};
   try {
-    body = await req.json();
+    rawBody = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,
@@ -25,16 +26,19 @@ Deno.serve(async (req) => {
     });
   }
 
-  const project_id: string | undefined = body.project_id;
-  const entity_type: EntityType = body.entity_type;
-  const entity_id: string | undefined = body.entity_id;
-  const entity_name: string | undefined = body.entity_name;
-  const action: Action = body.action;
-  const previous_status: string | undefined = body.previous_status;
-  const daily_budget_brl: number | undefined = body.daily_budget; // em reais
-  const previous_budget: number | undefined = body.previous_budget;
-  const new_name: string | undefined = body.new_name;
-  const previous_name: string | undefined = body.previous_name;
+  const checked = z.object({project_id:z.string().nullish(),entity_type:z.enum(["campaign","adset","ad"]).optional(),entity_id:z.string().nullish(),entity_name:z.string().nullish(),action:z.enum(["ACTIVE","PAUSED","UPDATE_BUDGET","DUPLICATE_CAMPAIGN","RENAME"]).optional(),previous_status:z.string().nullish(),daily_budget:z.union([z.number(),z.string()]).nullish(),previous_budget:z.union([z.number(),z.string()]).nullish(),new_name:z.string().nullish(),previous_name:z.string().nullish()}).passthrough().safeParse(rawBody);
+  if (!checked.success) return new Response(JSON.stringify({error:"Missing/invalid params"}), {status:400,headers:{...corsHeaders,"Content-Type":"application/json"}});
+  const body = checked.data;
+  const project_id = body.project_id;
+  const entity_type = body.entity_type;
+  const entity_id = body.entity_id;
+  const entity_name = body.entity_name;
+  const action = body.action;
+  const previous_status = body.previous_status;
+  const daily_budget_brl = body.daily_budget; // em reais
+  const previous_budget = body.previous_budget;
+  const new_name = body.new_name;
+  const previous_name = body.previous_name;
 
   if (!project_id || !entity_type || !entity_id || !action) {
     return new Response(JSON.stringify({ error: "Missing/invalid params" }), {
@@ -114,7 +118,7 @@ Deno.serve(async (req) => {
   try {
     let url = `${FB_BASE}/${entity_id}?access_token=${accessToken}`;
     let payload: Record<string, unknown> = {};
-    let method: "POST" = "POST";
+    const method = "POST" as const;
 
     if (action === "ACTIVE" || action === "PAUSED") {
       payload = { status: action };
@@ -190,9 +194,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true, fb: fbBody }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    await logAction("erro", e?.message || String(e));
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    await logAction("erro", eMessage || String(e));
+    return new Response(JSON.stringify({ error: eMessage || String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

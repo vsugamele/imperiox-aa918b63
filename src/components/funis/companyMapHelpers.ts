@@ -1,3 +1,4 @@
+import { parseProjectData, type Product } from "@/lib/funis-data";
 import { supabase } from "@/integrations/supabase/client";
 import dagre from "dagre";
 import { toPng } from "html-to-image";
@@ -25,7 +26,7 @@ export async function applyTemplate(mapId: string, tpl: MapTemplate) {
       map_id: mapId, kind: n.kind, color: KIND_COLORS[n.kind] || "#c9922a",
       label: n.label, description: n.description || null,
       position: n.position,
-      checklist: (n.checklist || []).map(c => ({ id: crypto.randomUUID(), text: c.text, done: false })) as any,
+      checklist: (n.checklist || []).map(c => ({ id: crypto.randomUUID(), text: c.text, done: false })),
     }).select("id").single();
     if (data) keyToId[n.key] = data.id;
   }
@@ -48,9 +49,9 @@ export async function autopopulateFromBusiness(mapId: string) {
     supabase.from("imphq_flows").select("id,nome").limit(20),
     supabase.from("imphq_wa_providers").select("id,display_name,instance_name").limit(10),
   ]);
-  const projects = (projectsR.data || []) as any[];
-  const flows = (flowsR.data || []) as any[];
-  const providers = (providersR.data || []) as any[];
+  const projects = (projectsR.data || []);
+  const flows = (flowsR.data || []);
+  const providers = (providersR.data || []);
 
   // raiz: "Império"
   const { data: root } = await supabase.from("imphq_company_map_nodes").insert({
@@ -100,15 +101,15 @@ export async function autopopulateFromProject(mapId: string, projectId: string) 
     supabase.from("imphq_projects").select("id,name,data").eq("id", projectId).maybeSingle(),
     supabase.from("imphq_flows").select("id,nome,project_id").eq("project_id", projectId).limit(30),
     supabase.from("imphq_wa_providers").select("id,display_name,instance_name,project_id").eq("project_id", projectId).limit(20),
-    supabase.from("imphq_funis" as any).select("id,nome,project_id").eq("project_id", projectId).limit(20),
+    supabase.from("imphq_funis").select("id,nome,project_id").eq("project_id", projectId).limit(20),
   ]);
 
-  const proj = projR.data as any;
+  const proj = projR.data;
   if (!proj) throw new Error("Projeto não encontrado");
-  const flows = (flowsR.data || []) as any[];
-  const providers = (providersR.data || []) as any[];
-  const funis = ((funisR as any).data || []) as any[];
-  const produtos: any[] = Array.isArray(proj.data?.produtos) ? proj.data.produtos : [];
+  const flows = (flowsR.data || []);
+  const providers = (providersR.data || []);
+  const funis = ((funisR).data || []);
+  const produtos = parseProjectData(proj.data).produtos || [];
 
   const { data: root } = await supabase.from("imphq_company_map_nodes").insert({
     map_id: mapId, kind: "vertical", color: KIND_COLORS.vertical,
@@ -187,7 +188,7 @@ export async function autopopulateFromProject(mapId: string, projectId: string) 
   const downsells = produtos.filter(p => /downsell/i.test(p.tipo || ""));
 
   // linha inferior espalhada
-  const spread = async (items: any[], kind: string, baseY: number, fallbackLabel: string, xOffset: number) => {
+  const spread = async (items: Product[], kind: string, baseY: number, fallbackLabel: string, xOffset: number) => {
     const list = items.length ? items : [{ nome: fallbackLabel }];
     const startX = CX + xOffset - ((list.length - 1) * 200) / 2;
     for (let i = 0; i < list.length; i++) {

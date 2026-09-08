@@ -1,3 +1,14 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const metricSchema = z.union([z.string(), z.number()]).transform(String);
+const actionSchema = z.object({ action_type: z.string().nullish(), value: metricSchema });
+const creativeSchema = z.object({ id: z.string().nullish(), name: z.string().nullish(), thumbnail_url: z.string().nullish(), image_url: z.string().nullish(), body: z.string().nullish(), title: z.string().nullish() }).passthrough();
+const graphItemSchema = z.object({
+  id: z.string().nullish(), name: z.string().nullish(), creative: creativeSchema.nullish(), effective_status: z.string().nullish(),
+  campaign_name: z.string().nullish(), adset_name: z.string().nullish(), ad_name: z.string().nullish(), campaign_id: z.string().nullish(), adset_id: z.string().nullish(), ad_id: z.string().nullish(), date_start: z.string().nullish(),
+  spend: metricSchema.nullish(), impressions: metricSchema.nullish(), clicks: metricSchema.nullish(), reach: metricSchema.nullish(), ctr: metricSchema.nullish(), frequency: metricSchema.nullish(), inline_link_clicks: metricSchema.nullish(),
+  actions: z.array(actionSchema).nullish(), video_play_actions: z.array(actionSchema).nullish(), video_thruplay_watched_actions: z.array(actionSchema).nullish(),
+}).passthrough();
+const graphResponseSchema = z.object({ data: z.array(graphItemSchema).nullish(), error: z.unknown().optional() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -30,7 +41,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const configuredProjects = (allProjects || []).filter((p: any) => {
+    const configuredProjects = (allProjects || []).filter((p) => {
       const d = p.data;
       return d?.facebook_ad_account_id && (d?.facebook_marketing_token || d?.facebook_access_token);
     });
@@ -89,8 +100,8 @@ Deno.serve(async (req) => {
           const errBody = await insightsRes.text();
           console.error(`[FB Sync] ${proj.name} insights failed (${insightsRes.status}):`, errBody.slice(0, 500));
           // Persist error state for dashboard alert
-          let parsedErr: any = {};
-          try { parsedErr = JSON.parse(errBody)?.error || {}; } catch (_) {}
+          let parsedErr: Record<string, unknown> = {};
+          try { parsedErr = z.record(z.unknown()).parse(JSON.parse(errBody)?.error || {}); } catch (_) { /* retain raw provider error when JSON parsing fails */ }
           const errData = {
             ...proj.data,
             facebook_sync_status: "error",
@@ -108,7 +119,7 @@ Deno.serve(async (req) => {
         }
 
         const insightsData = await insightsRes.json();
-        const rows = insightsData.data || [];
+        const rows = z.array(graphItemSchema).parse(insightsData.data || []);
         console.log(`[FB Sync] ${proj.name} act=${actId} range=${dfrom}..${dto} rows=${rows.length}`);
 
         // Fetch campaigns metadata (status + daily_budget) — keyed by campaign_id
@@ -134,10 +145,10 @@ Deno.serve(async (req) => {
         for (const row of rows) {
           const actions = row.actions || [];
           const getAction = (type: string) => {
-            const a = actions.find((x: any) => x.action_type === type);
+            const a = actions.find((x) => x.action_type === type);
             return a ? parseInt(a.value) : 0;
           };
-          const getActionList = (list: any[]) => Array.isArray(list) && list[0] ? parseInt(list[0].value) : 0;
+          const getActionList = (list: z.infer<typeof actionSchema>[] | null | undefined) => Array.isArray(list) && list[0] ? parseInt(list[0].value) : 0;
 
           const leads = getAction("lead") + getAction("offsite_conversion.fb_pixel_lead");
           const compras = getAction("offsite_conversion.fb_pixel_purchase") + getAction("purchase");
@@ -209,10 +220,10 @@ Deno.serve(async (req) => {
           const adsRes = await fetch(adsUrl);
           if (adsRes.ok) {
             const adsData = await adsRes.json();
-            const adItems = adsData.data || [];
+            const adItems = z.array(graphItemSchema).parse(adsData.data || []);
             const creatives = adItems
-              .filter((ad: any) => ad.creative)
-              .map((ad: any) => ({
+              .filter((ad): ad is typeof ad & { creative: z.infer<typeof creativeSchema> } => !!ad.creative)
+              .map((ad) => ({
                 name: ad.creative.name || ad.name,
                 thumbnail_url: ad.creative.thumbnail_url,
                 image_url: ad.creative.image_url,
@@ -222,7 +233,7 @@ Deno.serve(async (req) => {
                 ad_name: ad.name,
               }));
             const uniqueCreatives = Array.from(
-              new Map(creatives.map((c: any) => [c.name + (c.image_url || c.thumbnail_url || ""), c])).values()
+              new Map(creatives.map((c) => [c.name + (c.image_url || c.thumbnail_url || ""), c])).values()
             );
             creativesCount = uniqueCreatives.length;
             const newData = { ...proj.data, facebook_creatives: uniqueCreatives, facebook_last_sync: new Date().toISOString() };
@@ -269,8 +280,9 @@ Deno.serve(async (req) => {
       period: { from: dfrom, to: dto },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 type AIAction = {
   id: string;
   kind: string;
-  risk_level: "low" | "medium" | "high";
+  risk_level: string;
   status: string;
   confidence: number;
   title: string;
@@ -71,8 +71,8 @@ export function ImperiusRail() {
   );
   const hasHigh = pending.some((a) => a.risk_level === "high" || Number(a.impact_brl || 0) > 1000);
 
-  useEffect(() => { try { localStorage.setItem(RAIL_LS_KEY, open ? "1" : "0"); } catch {} }, [open]);
-  useEffect(() => { try { localStorage.setItem(RAIL_VISIBLE_KEY, visible ? "1" : "0"); } catch {} }, [visible]);
+  useEffect(() => { try { localStorage.setItem(RAIL_LS_KEY, open ? "1" : "0"); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ } }, [open]);
+  useEffect(() => { try { localStorage.setItem(RAIL_VISIBLE_KEY, visible ? "1" : "0"); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ } }, [visible]);
 
   const load = async () => {
     setLoading(true);
@@ -84,7 +84,7 @@ export function ImperiusRail() {
       .order("priority_score", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(30);
-    setActions((data as any) || []);
+    setActions((data) || []);
     setLoading(false);
   };
 
@@ -113,7 +113,7 @@ export function ImperiusRail() {
         toast.success(mode === "revert" ? "Revertida" : "Executada");
       }
       await load();
-    } catch (e: any) {
+    } catch (e) {
       toast.error(`Erro: ${e?.message || e}`);
     } finally {
       setBusyId(null);

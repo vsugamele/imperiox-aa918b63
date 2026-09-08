@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -17,12 +20,12 @@ type Exec = {
   next_retry_at: string | null;
   last_error: string | null;
   author_key: string | null;
-  payload: any;
+  payload: Json;
   created_at: string;
   updated_at: string;
 };
 
-const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
+const STATUS_MAP: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   sent: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
   retrying: { label: "Aguardando retry", color: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Clock },
   pending: { label: "Pendente", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: Clock },
@@ -38,7 +41,7 @@ export default function ZernioMonitorPanel({ projectId }: { projectId?: string }
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      let q: any = supabase
+      let q = supabase
         .from("imphq_ig_trigger_executions")
         .select("*")
         .order("created_at", { ascending: false })
@@ -47,8 +50,8 @@ export default function ZernioMonitorPanel({ projectId }: { projectId?: string }
       const { data, error } = await q;
       if (error) throw error;
       setRows((data || []) as Exec[]);
-    } catch (e: any) {
-      toast.error("Erro ao carregar execuções: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao carregar execuções: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -58,7 +61,7 @@ export default function ZernioMonitorPanel({ projectId }: { projectId?: string }
 
   const kpis = useMemo(() => {
     const c = { sent: 0, retrying: 0, dead: 0, total: rows.length };
-    rows.forEach((r) => { if (r.status in c) (c as any)[r.status]++; });
+    rows.forEach((r) => { if (r.status === "sent" || r.status === "retrying" || r.status === "dead") c[r.status]++; });
     return c;
   }, [rows]);
 
@@ -69,8 +72,8 @@ export default function ZernioMonitorPanel({ projectId }: { projectId?: string }
       if (error) throw error;
       toast.success(`Worker: ${data?.recovered || 0} recuperadas, ${data?.dead || 0} mortas (${data?.processed || 0} processadas)`);
       load();
-    } catch (e: any) {
-      toast.error("Erro no worker: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro no worker: " + errorMessage(e));
     } finally {
       setRetrying(false);
     }
@@ -84,8 +87,8 @@ export default function ZernioMonitorPanel({ projectId }: { projectId?: string }
       }).eq("comment_id", row.comment_id);
       toast.success("Reagendado. Rodando worker…");
       await runWorker();
-    } catch (e: any) {
-      toast.error("Erro ao reagendar: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao reagendar: " + errorMessage(e));
     }
   };
 

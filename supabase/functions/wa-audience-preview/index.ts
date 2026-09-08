@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
 
     // Post-filter: bought_produto / never_bought — requires join with imphq_vendas
     if (filters.bought_produto || filters.never_bought) {
-      const phones = rows.map((r: any) => r.phone).filter(Boolean);
+      const phones = rows.map((r) => r.phone).filter(Boolean);
       if (phones.length) {
         let vq = admin
           .from("imphq_vendas")
@@ -95,11 +96,11 @@ Deno.serve(async (req) => {
           .in("telefone", phones);
         if (filters.bought_produto) vq = vq.eq("produto", filters.bought_produto);
         const { data: vendas } = await vq;
-        const boughtSet = new Set((vendas ?? []).map((v: any) => v.telefone));
+        const boughtSet = new Set((vendas ?? []).map((v) => v.telefone));
         if (filters.bought_produto) {
-          rows = rows.filter((r: any) => boughtSet.has(r.phone));
+          rows = rows.filter((r) => boughtSet.has(r.phone));
         } else if (filters.never_bought) {
-          rows = rows.filter((r: any) => !boughtSet.has(r.phone));
+          rows = rows.filter((r) => !boughtSet.has(r.phone));
         }
       }
     }
@@ -119,9 +120,9 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ ...seg.filters, project_id: filters.project_id, limit: 5000 }),
         });
         if (ex.ok) {
-          const { sample } = await ex.json();
-          const exSet = new Set((sample ?? []).map((s: any) => s.phone));
-          rows = rows.filter((r: any) => !exSet.has(r.phone));
+          const { sample } = z.object({ sample: z.array(z.object({ phone: z.string().nullish() }).passthrough()).nullish() }).parse(await ex.json());
+          const exSet = new Set((sample ?? []).map((s) => s.phone));
+          rows = rows.filter((r) => !exSet.has(r.phone));
         }
       }
     }

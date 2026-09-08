@@ -36,7 +36,7 @@ export interface FlowBlock {
   code?: string;
   folder_id?: string;
   folder_title?: string;
-  raw?: any; // preserva original
+  raw?: unknown; // preserva original
 }
 
 export interface FlowNode {
@@ -69,14 +69,34 @@ export interface FlowBlueprint {
   start_node_id?: string;
 }
 
-function richTextToString(rt: any): string {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function record(value: unknown): Record<string, unknown> { return isRecord(value) ? value : {}; }
+function requireRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new Error(`Typebot: ${label} inválido`);
+  return value;
+}
+function text(value: unknown): string | undefined { return typeof value === "string" ? value : undefined; }
+function requiredId(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value) throw new Error(`Typebot: ${label} sem identificador`);
+  return value;
+}
+function array(value: unknown, label: string): unknown[] {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error(`Typebot: ${label} deve ser lista`);
+  return value;
+}
+
+function richTextToString(rt: unknown): string {
   if (!rt) return "";
   if (typeof rt === "string") return rt;
   if (Array.isArray(rt)) {
     return rt.map(richTextToString).join("\n").trim();
   }
+  if (!isRecord(rt)) return "";
   if (rt.children) return richTextToString(rt.children);
-  if (rt.text) return rt.text;
+  if (typeof rt.text === "string") return rt.text;
   return "";
 }
 
@@ -99,96 +119,83 @@ function mapBlockType(t: string): BlockType {
   return "unknown";
 }
 
-function parseBlock(b: any): FlowBlock {
-  const type = mapBlockType(b.type);
-  const block: FlowBlock = { id: b.id || crypto.randomUUID(), type, raw: b };
+function parseBlock(value: unknown): FlowBlock {
+  const b = requireRecord(value, "bloco");
+  const content = record(b.content);
+  const options = record(b.options);
+  const type = mapBlockType(text(b.type) || "");
+  const block: FlowBlock = { id: text(b.id) || crypto.randomUUID(), type, raw: b };
   switch (type) {
     case "text":
-      block.text = richTextToString(b.content?.richText) || b.content?.plainText || "";
+      block.text = richTextToString(content.richText) || text(content.plainText) || "";
       break;
     case "image":
-      block.image_url = b.content?.url;
+      block.image_url = text(content.url);
       break;
     case "video":
-      block.video_url = b.content?.url;
+      block.video_url = text(content.url);
       break;
     case "set_variable":
-      block.variable = b.options?.variableId;
-      block.expression = b.options?.expressionToEvaluate;
+      block.variable = text(options.variableId);
+      block.expression = text(options.expressionToEvaluate);
       break;
     case "code":
-      block.code = b.options?.content;
+      block.code = text(options.content);
       break;
     case "wait":
-      block.seconds = Number(b.options?.secondsToWaitFor || 0);
+      block.seconds = Number(options.secondsToWaitFor || 0);
       break;
     case "redirect":
-      block.url = b.options?.url;
+      block.url = text(options.url);
       break;
     case "webhook":
-      block.url = b.options?.webhook?.url;
+      block.url = text(record(options.webhook).url);
       break;
     case "input_choice":
-      block.options = (b.items || []).map((it: any) => it.content || it.label || "").filter(Boolean);
+      block.options = array(b.items, "items").map(item => { const it = record(item); return text(it.content) || text(it.label) || ""; }).filter(Boolean);
       break;
     default:
       // outros inputs: tenta extrair placeholder
-      block.text = b.options?.labels?.placeholder || "";
+      block.text = text(record(options.labels).placeholder) || "";
   }
   return block;
 }
 
-export function typebotToBlueprint(json: any): FlowBlueprint {
-  const groups = json.groups || [];
-  const edges = json.edges || [];
-  const events = json.events || [];
-  const variables = (json.variables || []).map((v: any) => ({
-    id: v.id,
-    name: v.name,
-    default: v.defaultValue,
-  }));
-
-  const startEvent = events.find((e: any) => e.type === "start");
-
-  const nodes: FlowNode[] = groups.map((g: any) => ({
-    id: g.id,
-    title: g.title || "Sem título",
-    x: Math.round((g.graphCoordinates?.x ?? 0) + 1500),
-    y: Math.round((g.graphCoordinates?.y ?? 0) + 800),
-    blocks: (g.blocks || []).map(parseBlock),
-  }));
-
-  // Edges: cada edge do typebot tem from.{eventId|blockId|itemId} e to.{groupId}
-  const parsedEdges: FlowEdge[] = edges.map((e: any) => {
-    const fromId = e.from?.blockId || e.from?.eventId || e.from?.groupId;
-    const toId = e.to?.groupId;
-    // mapear blockId -> groupId que contém esse block
-    let fromGroupId = fromId;
-    if (e.from?.blockId) {
-      const g = groups.find((g: any) => g.blocks?.some((b: any) => b.id === e.from.blockId));
-      if (g) fromGroupId = g.id;
-    }
+export function typebotToBlueprint(value: unknown): FlowBlueprint {
+  const json = requireRecord(value, "export");
+  const groups = array(json.groups, "groups").map(g => requireRecord(g, "grupo"));
+  const edges = array(json.edges, "edges").map(e => requireRecord(e, "edge"));
+  const events = array(json.events, "events").map(e => requireRecord(e, "evento"));
+  const variables = array(json.variables, "variables").map(value => {
+    const v = requireRecord(value, "variável");
+    return { id: requiredId(v.id, "variável"), name: requiredId(v.name, "nome da variável"), default: text(v.defaultValue) };
+  });
+  const startEvent = events.find(e => e.type === "start");
+  const nodes: FlowNode[] = groups.map(g => {
+    const coordinates = record(g.graphCoordinates);
     return {
-      id: e.id || crypto.randomUUID(),
-      from: fromGroupId,
-      to: toId,
-      from_block: e.from?.blockId,
+      id: requiredId(g.id, "grupo"), title: text(g.title) || "Sem título",
+      x: Math.round((typeof coordinates.x === "number" ? coordinates.x : 0) + 1500),
+      y: Math.round((typeof coordinates.y === "number" ? coordinates.y : 0) + 800),
+      blocks: array(g.blocks, "blocks").map(parseBlock),
     };
-  }).filter((e: FlowEdge) => e.from && e.to);
-
-  // start: edge a partir do evento start
-  let startNodeId: string | undefined;
-  if (startEvent?.outgoingEdgeId) {
-    const startEdge = edges.find((e: any) => e.id === startEvent.outgoingEdgeId);
-    startNodeId = startEdge?.to?.groupId;
-  }
-
+  });
+  const parsedEdges: FlowEdge[] = edges.flatMap(e => {
+    const from = record(e.from);
+    const to = record(e.to);
+    const fromBlock = text(from.blockId);
+    let fromId = fromBlock || text(from.eventId) || text(from.groupId);
+    const toId = text(to.groupId);
+    if (fromBlock) {
+      const group = nodes.find(g => g.blocks.some(b => b.id === fromBlock));
+      if (group) fromId = group.id;
+    }
+    return fromId && toId ? [{ id: text(e.id) || crypto.randomUUID(), from: fromId, to: toId, from_block: fromBlock }] : [];
+  });
+  const startEdge = startEvent?.outgoingEdgeId ? edges.find(e => e.id === startEvent.outgoingEdgeId) : undefined;
   return {
-    title: json.name || "Fluxo importado",
-    nodes,
-    edges: parsedEdges,
-    variables,
-    start_node_id: startNodeId,
+    title: text(json.name) || "Fluxo importado", nodes, edges: parsedEdges, variables,
+    start_node_id: text(record(startEdge?.to).groupId),
   };
 }
 
@@ -218,7 +225,7 @@ export function autoLayout(blueprint: FlowBlueprint): FlowBlueprint {
   }
 
   // nodes não alcançados: empilha no final
-  let orphanLvl = Math.max(0, ...Array.from(levels.values())) + 1;
+  const orphanLvl = Math.max(0, ...Array.from(levels.values())) + 1;
   blueprint.nodes.forEach(n => {
     if (!levels.has(n.id)) levels.set(n.id, orphanLvl);
   });

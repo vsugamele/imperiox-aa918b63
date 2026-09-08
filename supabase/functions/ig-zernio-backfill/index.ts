@@ -1,3 +1,15 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const participantSchema = z.object({ id: z.string().nullish(), username: z.string().nullish(), name: z.string().nullish(), avatarUrl: z.string().nullish() }).passthrough().nullish();
+const conversationSchema = z.object({
+  id: z.string().nullish(), _id: z.string().nullish(), conversationId: z.string().nullish(), participantId: z.string().nullish(), userId: z.string().nullish(),
+  participant: participantSchema, user: participantSchema,
+  lastMessage: z.union([z.string(), z.object({ text: z.string().nullish() }).passthrough()]).nullish(), lastMessageAt: z.string().nullish(), updatedAt: z.string().nullish(),
+}).passthrough();
+const messageSchema = z.object({
+  id: z.string().nullish(), _id: z.string().nullish(), messageId: z.string().nullish(), from: z.string().nullish(), outbound: z.boolean().nullish(), sentByMe: z.boolean().nullish(),
+  attachments: z.array(z.object({ type: z.string().nullish(), url: z.string().nullish() }).passthrough()).nullish(),
+  text: z.string().nullish(), message: z.string().nullish(), body: z.string().nullish(), createdAt: z.string().nullish(), timestamp: z.union([z.string(), z.number()]).nullish(),
+}).passthrough();
 // Backfill: importa conversas e mensagens recentes do Zernio para imphq_ig_conversations + imphq_ig_messages
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
@@ -9,7 +21,7 @@ const corsHeaders = {
 
 const ZERNIO = "https://zernio.com/api/v1";
 
-function json(d: any, s = 200) {
+function json(d: unknown, s = 200) {
   return new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -49,7 +61,7 @@ Deno.serve(async (req) => {
       return json({ error: `Zernio conversations ${convRes.status}: ${t.slice(0, 300)}` }, 400);
     }
     const convData = await convRes.json();
-    const conversations: any[] = convData.conversations || convData.data || [];
+    const conversations = z.array(conversationSchema).parse(convData.conversations || convData.data || []);
 
     let upsertedConvs = 0;
     let upsertedMsgs = 0;
@@ -70,14 +82,14 @@ Deno.serve(async (req) => {
         .eq("participant_id", participantId)
         .maybeSingle();
 
-      const convPayload: any = {
+      const convPayload: unknown = {
         account_id: acc.id,
         ig_thread_id: threadId,
         participant_id: participantId,
         participant_username: participantUsername,
         participant_name: participantName,
         participant_avatar: participantAvatar,
-        last_message: c.lastMessage?.text || c.lastMessage || null,
+        last_message: (typeof c.lastMessage === "object" ? c.lastMessage?.text : undefined) || c.lastMessage || null,
         last_message_at: c.lastMessageAt || c.updatedAt || null,
       };
       let convId: string;
@@ -94,7 +106,7 @@ Deno.serve(async (req) => {
       const msgRes = await fetch(`${ZERNIO}/inbox/conversations/${threadId}/messages?limit=${max_messages}`, { headers: auth });
       if (!msgRes.ok) continue;
       const msgData = await msgRes.json();
-      const messages: any[] = msgData.messages || msgData.data || [];
+      const messages = z.array(messageSchema).parse(msgData.messages || msgData.data || []);
 
       for (const m of messages) {
         const mid = m.id || m._id || m.messageId;
@@ -127,8 +139,9 @@ Deno.serve(async (req) => {
       conversations_processed: upsertedConvs,
       messages_imported: upsertedMsgs,
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[ig-zernio-backfill]", e);
-    return json({ error: e.message || "Erro interno" }, 500);
+    return json({ error: eMessage || "Erro interno" }, 500);
   }
 });

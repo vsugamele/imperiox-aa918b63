@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Avatar 3.0 Pipeline — 3 estágios:
 // 1) EXTRACT: lê todas as fontes do projeto (briefing, expert, pesquisa, concorrentes, dores, desejos,
 //    voyerismos, leads-respostas) e produz "evidências" tipadas com source.
@@ -6,6 +7,9 @@
 // Retorna { perfil, camadas, crencas, evidencias_por_campo, confianca_por_campo }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+const FilledAvatar = z.object({ fields: z.record(z.object({ valor: z.string().nullish(), evidence_ids: z.array(z.string()).nullish() }).passthrough()).nullish() }).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,8 +44,8 @@ const FIELDS = [
   { key: "c4_trauma", label: "C4 — Trauma / Ferida core", group: "camadas" },
 ];
 
-async function callAI(system: string, user: string, schema?: any, fnName?: string): Promise<any> {
-  const body: any = {
+async function callAI(system: string, user: string, schema?: Record<string, unknown>, fnName?: string): Promise<unknown> {
+  const body: { model: string; messages: { role: string; content: string }[]; tools?: { type: string; function: { name: string; parameters: Record<string, unknown> } }[]; tool_choice?: { type: string; function: { name: string } } } = {
     model: MODEL,
     messages: [{ role: "system", content: system }, { role: "user", content: user }],
   };
@@ -64,16 +68,16 @@ async function callAI(system: string, user: string, schema?: any, fnName?: strin
 }
 
 // === STAGE 1: EXTRACT ===
-function extractEvidences(project: any, leadAnswers: any[]): Evidence[] {
+function extractEvidences(project: { data?: unknown; avatar?: unknown }, leadAnswers: { answer?: unknown; response?: unknown; text?: unknown }[]): Evidence[] {
   const ev: Evidence[] = [];
-  const d = project?.data || {};
-  const briefing = d.briefing || {};
-  const expert = d.expert || {};
-  const pesquisa = d.pesquisa || {};
-  const concorrentes = d.concorrentes || [];
-  const avatar = project.avatar || {};
+  const d = record(project?.data);
+  const briefing = record(d.briefing);
+  const expert = record(d.expert);
+  const pesquisa = record(d.pesquisa);
+  const concorrentes = Array.isArray(d.concorrentes) ? d.concorrentes : [];
+  const avatar = record(project.avatar);
 
-  const push = (source: string, text: any, weight = 1) => {
+  const push = (source: string, text: unknown, weight = 1) => {
     if (!text) return;
     const s = typeof text === "string" ? text : JSON.stringify(text);
     if (s.length < 4) return;
@@ -93,35 +97,35 @@ function extractEvidences(project: any, leadAnswers: any[]): Evidence[] {
   if (Array.isArray(expert.pilares)) push("expert.pilares", expert.pilares.join(" | "), 1);
 
   // Pesquisa
-  if (Array.isArray(pesquisa.dores)) pesquisa.dores.forEach((d: any, i: number) =>
-    push(`pesquisa.dor_${i + 1}`, typeof d === "string" ? d : d?.dor || d?.texto, 3));
-  if (Array.isArray(pesquisa.desejos)) pesquisa.desejos.forEach((d: any, i: number) =>
-    push(`pesquisa.desejo_${i + 1}`, typeof d === "string" ? d : d?.desejo || d?.texto, 3));
-  if (Array.isArray(pesquisa.objecoes)) pesquisa.objecoes.forEach((d: any, i: number) =>
-    push(`pesquisa.objecao_${i + 1}`, typeof d === "string" ? d : d?.texto, 2));
-  if (Array.isArray(pesquisa.frases_reais)) pesquisa.frases_reais.slice(0, 10).forEach((f: any, i: number) =>
-    push(`pesquisa.frase_${i + 1}`, typeof f === "string" ? f : f?.texto, 4));
+  if (Array.isArray(pesquisa.dores)) pesquisa.dores.forEach((d: unknown, i: number) =>
+    push(`pesquisa.dor_${i + 1}`, typeof d === "string" ? d : record(d).dor || record(d).texto, 3));
+  if (Array.isArray(pesquisa.desejos)) pesquisa.desejos.forEach((d: unknown, i: number) =>
+    push(`pesquisa.desejo_${i + 1}`, typeof d === "string" ? d : record(d).desejo || record(d).texto, 3));
+  if (Array.isArray(pesquisa.objecoes)) pesquisa.objecoes.forEach((d: unknown, i: number) =>
+    push(`pesquisa.objecao_${i + 1}`, typeof d === "string" ? d : record(d).texto, 2));
+  if (Array.isArray(pesquisa.frases_reais)) pesquisa.frases_reais.slice(0, 10).forEach((f: unknown, i: number) =>
+    push(`pesquisa.frase_${i + 1}`, typeof f === "string" ? f : record(f).texto, 4));
 
   // Avatar existente (dores/desejos/voyerismos)
-  if (Array.isArray(avatar.dores)) avatar.dores.slice(0, 8).forEach((d: any, i: number) =>
-    push(`avatar.dor_${i + 1}`, typeof d === "string" ? d : d?.dor || d?.texto, 3));
-  if (Array.isArray(avatar.desejos_externos)) avatar.desejos_externos.slice(0, 5).forEach((d: any, i: number) =>
-    push(`avatar.desejo_ext_${i + 1}`, d.nome || d.texto, 2));
-  if (Array.isArray(avatar.desejos_internos)) avatar.desejos_internos.slice(0, 5).forEach((d: any, i: number) =>
-    push(`avatar.desejo_int_${i + 1}`, d.nome || d.texto, 3));
-  if (Array.isArray(avatar.voyerismos)) avatar.voyerismos.slice(0, 5).forEach((v: any, i: number) =>
-    push(`avatar.cena_${i + 1}`, [v.nome, v.situacao, v.pensamento].filter(Boolean).join(" — "), 4));
-  if (Array.isArray(avatar.problemas)) avatar.problemas.slice(0, 5).forEach((p: any, i: number) =>
-    push(`avatar.problema_${i + 1}`, typeof p === "string" ? p : p?.nome, 2));
+  if (Array.isArray(avatar.dores)) avatar.dores.slice(0, 8).forEach((d: unknown, i: number) =>
+    push(`avatar.dor_${i + 1}`, typeof d === "string" ? d : record(d).dor || record(d).texto, 3));
+  if (Array.isArray(avatar.desejos_externos)) avatar.desejos_externos.slice(0, 5).forEach((d: unknown, i: number) =>
+    push(`avatar.desejo_ext_${i + 1}`, record(d).nome || record(d).texto, 2));
+  if (Array.isArray(avatar.desejos_internos)) avatar.desejos_internos.slice(0, 5).forEach((d: unknown, i: number) =>
+    push(`avatar.desejo_int_${i + 1}`, record(d).nome || record(d).texto, 3));
+  if (Array.isArray(avatar.voyerismos)) avatar.voyerismos.slice(0, 5).forEach((v: unknown, i: number) =>
+    push(`avatar.cena_${i + 1}`, [record(v).nome, record(v).situacao, record(v).pensamento].filter(Boolean).join(" — "), 4));
+  if (Array.isArray(avatar.problemas)) avatar.problemas.slice(0, 5).forEach((p: unknown, i: number) =>
+    push(`avatar.problema_${i + 1}`, typeof p === "string" ? p : record(p).nome, 2));
 
   // Concorrentes — promessas/headlines
-  concorrentes.slice(0, 5).forEach((c: any, i: number) => {
-    push(`concorrente.${i + 1}.promessa`, c.promessa || c.headline, 1);
-    push(`concorrente.${i + 1}.angulo`, c.angulo, 1);
+  concorrentes.slice(0, 5).forEach((c: unknown, i: number) => {
+    push(`concorrente.${i + 1}.promessa`, record(c).promessa || record(c).headline, 1);
+    push(`concorrente.${i + 1}.angulo`, record(c).angulo, 1);
   });
 
   // Lead answers (vozes reais!) — peso máximo
-  leadAnswers.slice(0, 30).forEach((a: any, i: number) => {
+  leadAnswers.slice(0, 30).forEach((a, i: number) => {
     const txt = a.answer || a.response || a.text;
     if (txt && String(txt).length > 10) push(`lead.resposta_${i + 1}`, txt, 5);
   });
@@ -161,13 +165,13 @@ Deno.serve(async (req) => {
       .select("id, name, data, avatar").eq("id", projectId).single();
     if (!project) throw new Error("project not found");
 
-    let leadAnswers: any[] = [];
+    let leadAnswers: { answer: string }[] = [];
     try {
       const { data } = await supa.from("imphq_lead_responses")
         .select("response_data").eq("project_id", projectId).limit(30).order("created_at", { ascending: false });
-      leadAnswers = (data || []).flatMap((r: any) => {
+      leadAnswers = (data || []).flatMap((r) => {
         const rd = r.response_data || {};
-        return Object.values(rd).filter((v: any) => typeof v === "string" && v.length > 10).map((v: any) => ({ answer: v }));
+        return Object.values(rd).filter((v): v is string => typeof v === "string" && v.length > 10).map((v) => ({ answer: v }));
       });
     } catch (_) { /* table optional */ }
 
@@ -225,14 +229,14 @@ ${fieldsSpec}`;
     };
 
     const aiResult = await callAI(sys, user, schema, "fill_avatar");
-    const filled = aiResult?.fields || {};
+    const filled = FilledAvatar.parse(aiResult).fields || {};
 
     // ===== STAGE 3: SCORE + assemble =====
     const evidByField: Record<string, Evidence[]> = {};
     const confidenceByField: Record<string, number> = {};
-    const perfil: any = {};
-    const camadas: any = {};
-    const root: any = {};
+    const perfil: Record<string, string> = {};
+    const camadas: Record<string, string> = {};
+    const root: Record<string, string> = {};
 
     for (const f of FIELDS) {
       const cell = filled[f.key] || {};
@@ -270,9 +274,9 @@ ${fieldsSpec}`;
     return new Response(JSON.stringify({ avatar_pipeline: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[avatar-pipeline] error", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : record(err).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,3 +1,7 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const productSchema = z.object({ nome: z.string().nullish(), name: z.string().nullish() }).passthrough();
+const projectContextSchema = z.object({ briefing: z.object({ produtos: z.array(productSchema).nullish(), products: z.array(productSchema).nullish(), avatar: z.unknown().optional(), branding: z.unknown().optional() }).passthrough().nullish(), avatar: z.unknown().optional(), branding: z.unknown().optional() }).passthrough();
+const blueprintSchema = z.object({ title: z.string().nullish(), start_node_id: z.string().nullish(), nodes: z.array(z.object({ id: z.string(), blocks: z.array(z.object({ id: z.string(), type: z.string().nullish(), image_prompt: z.string().nullish(), image_url: z.string().nullish() }).passthrough()).nullish() }).passthrough()).nullish(), edges: z.array(z.unknown()).nullish(), variables: z.array(z.unknown()).nullish() }).passthrough();
 // Gera um FlowBlueprint completo a partir do briefing do produto.
 // Usa Gemini para estruturar fluxo + dispara jobs assíncronos para imagens.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -46,14 +50,15 @@ Deno.serve(async (req) => {
       .eq('id', project_id)
       .maybeSingle();
 
-    const briefing = (project?.data as any)?.briefing || {};
+    const projectContext = projectContextSchema.parse(project?.data || {});
+    const briefing = projectContext.briefing || {};
     const produtos = briefing.produtos || briefing.products || [];
     const produto = produto_nome
-      ? produtos.find((p: any) => (p.nome || p.name) === produto_nome) || produtos[0]
+      ? produtos.find((p) => (p.nome || p.name) === produto_nome) || produtos[0]
       : produtos[0];
 
-    const avatar = (project?.data as any)?.avatar || briefing.avatar || {};
-    const branding = (project?.data as any)?.branding || briefing.branding || {};
+    const avatar = projectContext.avatar || briefing.avatar || {};
+    const branding = projectContext.branding || briefing.branding || {};
 
     const systemPrompt = `Você é arquiteto de funis conversacionais (estilo Typebot). Gera fluxos completos em JSON.
 
@@ -128,15 +133,15 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN.`;
 
     const aiData = await aiResp.json();
     const raw = aiData.choices?.[0]?.message?.content || '{}';
-    let blueprint: any;
-    try { blueprint = JSON.parse(raw); } catch {
+    let blueprint: z.infer<typeof blueprintSchema>;
+    try { blueprint = blueprintSchema.parse(JSON.parse(raw)); } catch {
       const m = raw.match(/\{[\s\S]*\}/);
-      blueprint = m ? JSON.parse(m[0]) : { nodes: [], edges: [], variables: [] };
+      blueprint = m ? blueprintSchema.parse(JSON.parse(m[0])) : { nodes: [], edges: [], variables: [] };
     }
 
     // Auto-layout
     const COL_W = 380, ROW_H = 240;
-    const nodes = (blueprint.nodes || []).map((n: any, i: number) => ({
+    const nodes = (blueprint.nodes || []).map((n, i: number) => ({
       ...n,
       x: 200 + (i % 4) * COL_W,
       y: 200 + Math.floor(i / 4) * ROW_H,
@@ -169,7 +174,7 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN.`;
     }
 
     // Disparar jobs de imagem
-    const imageJobs: any[] = [];
+    const imageJobs: { blueprint_id: string; block_id: string; prompt: string }[] = [];
     for (const n of nodes) {
       for (const b of (n.blocks || [])) {
         if (b.type === 'image' && b.image_prompt && !b.image_url) {
@@ -190,8 +195,9 @@ RESPONDA APENAS COM O JSON, SEM MARKDOWN.`;
     return new Response(JSON.stringify({ blueprint_id: saved.id, image_jobs: imageJobs.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

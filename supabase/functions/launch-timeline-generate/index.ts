@@ -48,10 +48,24 @@ Datas devem ser sequenciais e fazer sentido para o modelo.`;
     }
     const aiJson = await aiRes.json();
     const content = aiJson?.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-    const items = (parsed.items || []).slice(0, 60);
+    const parsed: unknown = JSON.parse(content);
+    const rawItems = parsed && typeof parsed === "object" && "items" in parsed ? parsed.items : [];
+    if (!Array.isArray(rawItems)) throw new Error("Invalid timeline items");
+    const items = rawItems.slice(0, 60).map((value: unknown) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid timeline item");
+      const scheduled = "scheduled_at" in value ? value.scheduled_at : undefined;
+      if (typeof scheduled !== "string" && typeof scheduled !== "number") throw new Error("Invalid timeline date");
+      return {
+        peca_tipo: "peca_tipo" in value ? value.peca_tipo : undefined,
+        title: "title" in value ? value.title : undefined,
+        description: "description" in value ? value.description : undefined,
+        scheduled_at: scheduled,
+        duration_min: "duration_min" in value ? value.duration_min : undefined,
+        is_milestone: "is_milestone" in value ? value.is_milestone : undefined,
+      };
+    });
 
-    const rows = items.map((it: any) => ({
+    const rows = items.map((it) => ({
       projeto_id: project_id,
       funil_id: funil_id || null,
       peca_tipo: String(it.peca_tipo || 'evento'),

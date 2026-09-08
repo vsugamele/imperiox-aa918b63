@@ -1,3 +1,7 @@
+import type { Json } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -9,23 +13,24 @@ import { toast } from "sonner";
 
 interface Props {
   projectId: string;
-  avatar: any;
-  onApply: (newAvatar: any) => void;
+  avatar: Json;
+  onApply: (newAvatar: Json) => void;
 }
 
 type Step = "idle" | "extract" | "enrich" | "score" | "done" | "error";
 
-const STEPS: { id: Step; label: string; icon: any; desc: string }[] = [
+const STEPS: { id: Step; label: string; icon: LucideIcon; desc: string }[] = [
   { id: "extract", label: "Extração de evidências", icon: Database, desc: "Lê briefing, pesquisa, dores, desejos, voyerismos, concorrentes e respostas de leads." },
   { id: "enrich", label: "Síntese guiada", icon: Brain, desc: "IA preenche cada campo CITANDO as evidências reais — não inventa." },
   { id: "score", label: "Score de confiança", icon: Gauge, desc: "Cada campo recebe um score 0-100 baseado em quantidade/qualidade das evidências." },
 ];
 
-export function AvatarPipelineRunner({ projectId, avatar, onApply }: Props) {
+export function AvatarPipelineRunner({ projectId, avatar: rawAvatar, onApply }: Props) {
+  const avatar = jsonFields(rawAvatar);
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Step>("idle");
   const [evidenceCount, setEvidenceCount] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, Json | undefined> | null>(null);
   const [overwriteFilled, setOverwriteFilled] = useState(false);
 
   const run = async () => {
@@ -33,13 +38,13 @@ export function AvatarPipelineRunner({ projectId, avatar, onApply }: Props) {
     setResult(null);
     try {
       // Stage 1: extract
-      const ext = await supabase.functions.invoke("avatar-pipeline", {
+      const ext = await supabase.functions.invoke<Json>("avatar-pipeline", {
         body: { project_id: projectId, stage: "extract" },
       });
       if (ext.error) throw ext.error;
-      setEvidenceCount(ext.data?.count || 0);
+      setEvidenceCount(jsonNumber(jsonFields(ext.data).count) || 0);
 
-      if (!ext.data?.count) {
+      if (!jsonNumber(jsonFields(ext.data).count)) {
         setCurrent("error");
         toast.error("Nenhuma evidência encontrada. Preencha briefing/pesquisa/dores antes.");
         return;
@@ -47,50 +52,50 @@ export function AvatarPipelineRunner({ projectId, avatar, onApply }: Props) {
 
       // Stage 2+3: enrich + score
       setCurrent("enrich");
-      const full = await supabase.functions.invoke("avatar-pipeline", {
+      const full = await supabase.functions.invoke<Json>("avatar-pipeline", {
         body: { project_id: projectId, stage: "all" },
       });
       if (full.error) throw full.error;
 
       setCurrent("score");
       await new Promise(r => setTimeout(r, 400));
-      setResult(full.data?.avatar_pipeline);
+      setResult(jsonFields(jsonFields(full.data).avatar_pipeline));
       setCurrent("done");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setCurrent("error");
-      toast.error(err.message || "Erro no pipeline");
+      toast.error(errorMessage(err) || "Erro no pipeline");
     }
   };
 
   const apply = () => {
     if (!result) return;
     const next = { ...avatar };
-    const meta = result._meta || {};
-    const conf = meta.confidence_by_field || {};
+    const meta = jsonFields(result._meta);
+    const conf = jsonFields(meta.confidence_by_field);
 
     // perfil_psicologico
-    const perfil = { ...(avatar.perfil_psicologico || {}) };
-    for (const [k, v] of Object.entries(result.perfil_psicologico || {})) {
+    const perfil = { ...jsonFields(avatar.perfil_psicologico) };
+    for (const [k, v] of Object.entries(jsonFields(result.perfil_psicologico))) {
       if (v && (overwriteFilled || !perfil[k])) perfil[k] = v;
     }
     next.perfil_psicologico = perfil;
 
     // camadas_psique
-    const cam = { ...(avatar.camadas_psique || {}) };
-    for (const [k, v] of Object.entries(result.camadas_psique || {})) {
+    const cam = { ...jsonFields(avatar.camadas_psique) };
+    for (const [k, v] of Object.entries(jsonFields(result.camadas_psique))) {
       if (v && (overwriteFilled || !cam[k])) cam[k] = v;
     }
     next.camadas_psique = cam;
 
     // root fields
     for (const k of ["desejo_externo", "desejo_interno", "inimigo", "resultado_sonhado", "trigger_event", "fase_consciencia", "crenca_bloqueadora", "crenca_necessaria", "epifania_central"]) {
-      const v = (result as any)[k];
-      if (v && (overwriteFilled || !avatar[k])) (next as any)[k] = v;
+      const v = result[k];
+      if (v && (overwriteFilled || !avatar[k])) next[k] = v;
     }
 
     next._avatar_meta = {
-      ...(avatar._avatar_meta || {}),
+      ...jsonFields(avatar._avatar_meta),
       confidence: conf,
       evidences: meta.evidences_by_field,
       generated_at: meta.generated_at,
@@ -155,10 +160,10 @@ export function AvatarPipelineRunner({ projectId, avatar, onApply }: Props) {
           {result && current === "done" && (
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
               <div className="text-xs text-muted-foreground">
-                {result._meta?.evidence_used_count || 0} de {result._meta?.evidence_count || 0} evidências usadas.
+                {jsonNumber(jsonFields(result._meta).evidence_used_count) || 0} de {jsonNumber(jsonFields(result._meta).evidence_count) || 0} evidências usadas.
               </div>
               <div className="space-y-2">
-                {Object.entries(result._meta?.confidence_by_field || {}).map(([k, score]) => {
+                {Object.entries(jsonFields(jsonFields(result._meta).confidence_by_field)).map(([k, score]) => {
                   const s = score as number;
                   const tone = s >= 70 ? "text-emerald-500" : s >= 40 ? "text-amber-500" : "text-destructive";
                   const bar = s >= 70 ? "bg-emerald-500" : s >= 40 ? "bg-amber-500" : "bg-destructive";

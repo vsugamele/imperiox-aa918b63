@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Zap, X, AlertTriangle, TrendingUp, Clock, Sparkles } from "lucide-react
 import { useProactiveAlerts, type ProactiveAlert } from "@/hooks/useProactiveAlerts";
 import { useNavigate } from "react-router-dom";
 
-const ICON: Record<ProactiveAlert["kind"], any> = {
+const ICON: Record<ProactiveAlert["kind"], LucideIcon> = {
   roas_drop: TrendingUp,
   stale_conv: Clock,
   pix_pending: AlertTriangle,

@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
         supabase.from("imphq_ads_spend").select("valor, ctr, cliques").eq("project_id", a.project_id).eq(col, a.entidade_id).gte("data_ref", postFrom).lte("data_ref", postTo),
       ]);
 
-      const agg = (rows: any[] | null) => {
+      const agg = (rows: Array<{valor:number|null;ctr:number|null;cliques:number|null}> | null) => {
         const arr = rows || [];
         const spend = arr.reduce((s, r) => s + Number(r.valor || 0), 0);
         const clicks = arr.reduce((s, r) => s + Number(r.cliques || 0), 0);
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     }
 
     // Agrupa por ação e calcula sugestões
-    const rules: any[] = [];
+    const rules: Array<{name:string;rule_type:string;conditions:{min_ctr:number;min_spend?:number;scale_pct?:number};expected_delta:string;confidence:number;samples:number;rationale:string}> = [];
 
     // 1) Pausar quando CTR baixo + gasto alto
     const pauses = samples.filter((s) => s.acao === "pause" && s.preCtr > 0);
@@ -109,8 +109,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ rules, total_samples: samples.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

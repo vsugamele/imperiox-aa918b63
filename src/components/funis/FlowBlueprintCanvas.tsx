@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { record, toJson } from "@/lib/funis-data";
+import { parseFlowBlueprint } from "@/components/funis/flow-blueprint-data";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -76,7 +79,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
   const [folderLightbox, setFolderLightbox] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => {
-    const h = (e: any) => setLightbox({ url: e.detail?.url, label: e.detail?.label });
+    const h = (e: Event) => { if (!(e instanceof CustomEvent)) return; const d=record(e.detail); if(typeof d.url === "string") setLightbox({url:d.url,label:typeof d.label === "string" ? d.label : undefined}); };
     window.addEventListener("open-image-lightbox", h);
     return () => window.removeEventListener("open-image-lightbox", h);
   }, []);
@@ -86,7 +89,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     (async () => {
       const { data } = await supabase.from("imphq_flow_blueprints").select("*").eq("id", blueprintId).maybeSingle();
       if (data) {
-        setBlueprint(data.blueprint as any);
+        setBlueprint(parseFlowBlueprint(data.blueprint));
         setTitle(data.title);
       }
     })();
@@ -97,18 +100,19 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         { event: "*", schema: "public", table: "imphq_flow_image_jobs", filter: `blueprint_id=eq.${blueprintId}` },
         async () => {
           const { data } = await supabase.from("imphq_flow_blueprints").select("blueprint").eq("id", blueprintId).maybeSingle();
-          if (data) setBlueprint(data.blueprint as any);
+          if (data) setBlueprint(parseFlowBlueprint(data.blueprint));
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [blueprintId]);
 
-  const persist = async (next: FlowBlueprint) => {
+  const persist = useCallback(async (next: FlowBlueprint) => {
+    const { error } = await supabase.from("imphq_flow_blueprints").update({ blueprint: toJson(next), title }).eq("id", blueprintId);
+    if (error) { toast.error(error.message); throw error; }
     setBlueprint(next);
-    await supabase.from("imphq_flow_blueprints").update({ blueprint: next as any, title }).eq("id", blueprintId);
-  };
+  }, [blueprintId,title]);
 
-  const updateBlock = async (nodeId: string, blockId: string, patch: Partial<FlowBlock>) => {
+  const updateBlock = useCallback(async (nodeId: string, blockId: string, patch: Partial<FlowBlock>) => {
     if (!blueprint) return;
     const next: FlowBlueprint = {
       ...blueprint,
@@ -117,7 +121,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
         : n),
     };
     await persist(next);
-  };
+  }, [blueprint,persist]);
 
   const regenImage = async (nodeId: string, block: FlowBlock) => {
     if (!block.image_prompt) {
@@ -144,10 +148,10 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       if (error) throw error;
       toast.success("Imagem gerada com contexto!");
       const { data: bp } = await supabase.from("imphq_flow_blueprints").select("blueprint").eq("id", blueprintId).maybeSingle();
-      if (bp) setBlueprint(bp.blueprint as any);
+      if (bp) setBlueprint(parseFlowBlueprint(bp.blueprint));
       setCtxExtra(""); setCtxRefUrl("");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao gerar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar");
     } finally {
       setCtxLoading(false);
     }
@@ -161,14 +165,14 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     if (signed?.signedUrl) { setCtxRefUrl(signed.signedUrl); toast.success("Referência anexada"); }
   };
 
-  const uploadFlowImage = async (file: File): Promise<string | null> => {
+  const uploadFlowImage = useCallback(async (file: File): Promise<string | null> => {
     const ext = (file.name.split(".").pop() || "png").toLowerCase();
     const path = `paste/${blueprintId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("flow-media").upload(path, file, { upsert: false, contentType: file.type || undefined });
     if (error) { toast.error(error.message); return null; }
     const { data: signed } = await supabase.storage.from("flow-media").createSignedUrl(path, 60 * 60 * 24 * 365);
     return signed?.signedUrl || null;
-  };
+  }, [blueprintId]);
 
   // Colar imagem (Ctrl+V) — preenche o bloco de imagem em edição
   useEffect(() => {
@@ -199,7 +203,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
     };
     window.addEventListener("paste", handler);
     return () => window.removeEventListener("paste", handler);
-  }, [editing, blueprintId]);
+  }, [editing, updateBlock, uploadFlowImage]);
 
   const onCanvasMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
@@ -251,7 +255,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
   const onMouseUp = async () => {
     setPanning(null);
     if (dragNodeId && blueprint) {
-      await supabase.from("imphq_flow_blueprints").update({ blueprint: blueprint as any }).eq("id", blueprintId);
+      await supabase.from("imphq_flow_blueprints").update({ blueprint: toJson(blueprint) }).eq("id", blueprintId);
     }
     setDragNodeId(null);
     // se soltou fora de um node, cancela a conexão
@@ -306,8 +310,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
       } else {
         toast.error(data?.error || "Falha ao reescrever");
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setRefineLoading(false);
     }
@@ -338,8 +342,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
             const { data, error } = await supabase.functions.invoke("flow-materialize", { body: { blueprint_id: blueprintId } });
             if (error) throw error;
             toast.success(`Automação criada com ${data?.steps} steps`, { id: t });
-          } catch (e: any) {
-            toast.error(e?.message || "Falha ao materializar", { id: t });
+          } catch (e: unknown) {
+            toast.error(errorMessage(e) || "Falha ao materializar", { id: t });
           }
         }}>
           <Zap className="h-3.5 w-3.5" /> Materializar
@@ -413,7 +417,8 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
                 <span className="truncate">{n.title}</span>
                 <div className="flex items-center gap-1">
                   {(() => {
-                    const skillLog = ((blueprint as any).meta?.skill_log || []) as Array<{ node_id: string; skill: string; label: string; before: string; after: string }>;
+                    const rawLog = record(record(blueprint).meta).skill_log;
+                    const skillLog = (Array.isArray(rawLog) ? rawLog : []).map(value=>{const row=record(value);return {node_id:String(row.node_id||""),skill:String(row.skill||""),label:String(row.label||""),before:String(row.before||""),after:String(row.after||"")};});
                     const applied = skillLog.filter(s => s.node_id === n.id);
                     if (!applied.length) return null;
                     return (
@@ -689,7 +694,7 @@ export function FlowBlueprintCanvas({ blueprintId, onClose }: Props) {
               });
               toast.success(`Pasta "${item.title}" vinculada`);
             } else {
-              const patch: Record<string, any> = { image_url: imgUrl, folder_id: undefined, folder_title: undefined };
+              const patch: Partial<FlowBlock> = { image_url: imgUrl, folder_id: undefined, folder_title: undefined };
               if (item.kind === "site") patch.url = item.url;
               updateBlock(editing.nodeId, editing.blockId, patch);
               toast.success(item.kind === "site" ? "Site aplicado" : "Imagem da biblioteca aplicada");

@@ -27,14 +27,14 @@ export function ProductRoutingRulesTab() {
 
   const load = async () => {
     const [{ data: r }, { data: p }, { data: v }] = await Promise.all([
-      supabase.from("imphq_product_project_rules" as any).select("*").order("produto_nome"),
+      supabase.from("imphq_product_project_rules").select("*").order("produto_nome"),
       supabase.from("imphq_projects").select("id,name,icon").eq("is_archived", false).order("name"),
       supabase.from("imphq_vendas").select("produto_nome").not("produto_nome", "is", null).limit(2000),
-    ] as PromiseLike<any>[]);
-    setRules((r || []) as any);
-    setProjects((p || []) as any);
+    ]);
+    setRules(r || []);
+    setProjects(p || []);
     const set = new Set<string>();
-    (v || []).forEach((row: any) => row.produto_nome && set.add(row.produto_nome));
+    (v || []).forEach((row) => row.produto_nome && set.add(row.produto_nome));
     setProducts(Array.from(set).sort());
   };
 
@@ -43,9 +43,9 @@ export function ProductRoutingRulesTab() {
   const add = async () => {
     if (!produto || !projectId) { toast.error("Selecione produto e projeto"); return; }
     setBusy(true);
-    const { error } = await supabase.from("imphq_product_project_rules" as any).upsert({
+    const { error } = await supabase.from("imphq_product_project_rules").upsert({
       produto_nome: produto, project_id: projectId, override_existing: overrideExisting,
-    } as any, { onConflict: "produto_nome" });
+    }, { onConflict: "produto_nome" });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setProduto(""); setProjectId(""); setOverrideExisting(false);
@@ -55,14 +55,15 @@ export function ProductRoutingRulesTab() {
 
   const remove = async (id: string) => {
     if (!confirm("Remover esta regra?")) return;
-    await supabase.from("imphq_product_project_rules" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_product_project_rules").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
     toast.success("Removida");
     load();
   };
 
   const backfill = async (r: Rule) => {
     setBackfilling(r.id);
-    const { data, error } = await supabase.rpc("backfill_product_project_rule" as any, {
+    const { data, error } = await supabase.rpc("backfill_product_project_rule", {
       p_produto: r.produto_nome, p_project: r.project_id, p_override: r.override_existing,
     });
     setBackfilling(null);

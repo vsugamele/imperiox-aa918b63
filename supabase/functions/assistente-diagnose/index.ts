@@ -3,6 +3,9 @@
 // Output: { results: [{ area, score, checklist, gargalos, next_action }] }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Bottleneck { titulo: string; desc: string; impacto: string }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -51,34 +54,34 @@ function buildChecklist(area: string, signals: Record<string, boolean>) {
     key: it.key, label: it.label, weight: it.weight, done: !!signals[it.key],
   }));
 }
-function scoreOf(checklist: any[]) {
+function scoreOf(checklist: ReturnType<typeof buildChecklist>) {
   return checklist.reduce((s, i) => s + (i.done ? i.weight : 0), 0);
 }
 
-async function diagCampanhas(sb: any, project_id: string) {
+async function diagCampanhas(sb: ReturnType<typeof makeClient>, project_id: string) {
   const [{ data: camps }, { data: steps }, { data: providers }] = await Promise.all([
     sb.from("imphq_wa_campaigns").select("id,welcome_message,exit_message,status,provider_id").eq("project_id", project_id),
     sb.from("imphq_wa_campaign_steps").select("id,campaign_id,content,content_b,days_offset").in("campaign_id", []),
     sb.from("imphq_wa_providers").select("id,project_id").eq("project_id", project_id).limit(1),
   ]);
-  const campIds = (camps || []).map((c: any) => c.id);
-  let allSteps: any[] = [];
+  const campIds = (camps || []).map((c) => c.id);
+  let allSteps: { content: string | null; days_offset: number; content_b: string | null }[] = [];
   if (campIds.length) {
     const { data: s2 } = await sb.from("imphq_wa_campaign_steps").select("*").in("campaign_id", campIds);
     allSteps = s2 || [];
   }
   const sig: Record<string, boolean> = {
-    welcome: (camps || []).some((c: any) => !!c.welcome_message),
+    welcome: (camps || []).some((c) => !!c.welcome_message),
     aquecimento: allSteps.length >= 3,
-    cta_checkout: allSteps.some((s: any) => /checkout|comprar|pagar|garanta|vaga/i.test(s.content || "")),
-    recovery: allSteps.some((s: any) => /pix|boleto|carrinho|abandonou/i.test(s.content || "")),
-    upsell: allSteps.some((s: any) => /upsell|order ?bump|oferta extra/i.test(s.content || "")),
-    delays: allSteps.some((s: any) => s.days_offset > 0),
+    cta_checkout: allSteps.some((s) => /checkout|comprar|pagar|garanta|vaga/i.test(s.content || "")),
+    recovery: allSteps.some((s) => /pix|boleto|carrinho|abandonou/i.test(s.content || "")),
+    upsell: allSteps.some((s) => /upsell|order ?bump|oferta extra/i.test(s.content || "")),
+    delays: allSteps.some((s) => s.days_offset > 0),
     provider: (providers || []).length > 0,
-    variacoes: allSteps.some((s: any) => !!s.content_b),
+    variacoes: allSteps.some((s) => !!s.content_b),
   };
   const checklist = buildChecklist("campanhas", sig);
-  const gargalos: any[] = [];
+  const gargalos: Bottleneck[] = [];
   if (!sig.provider) gargalos.push({ titulo: "Sem provider WhatsApp", desc: "Configure um chip antes de qualquer envio.", impacto: "alto" });
   if ((camps || []).length === 0) gargalos.push({ titulo: "Nenhuma campanha criada", desc: "Crie a primeira campanha (welcome + aquecimento + CTA).", impacto: "alto" });
   if (!sig.recovery) gargalos.push({ titulo: "Sem recuperação de PIX/boleto", desc: "Adicione 2-3 mensagens de cobrança para PIX pendente.", impacto: "alto" });
@@ -88,7 +91,7 @@ async function diagCampanhas(sb: any, project_id: string) {
   return { area: "campanhas", score: checklistScore, checklist, gargalos: gargalos.slice(0, 5), next_action: next };
 }
 
-async function diagLancamento(sb: any, project_id: string) {
+async function diagLancamento(sb: ReturnType<typeof makeClient>, project_id: string) {
   const [{ data: proj }, { data: forms }, { data: camps }, { data: kanbanCols }] = await Promise.all([
     sb.from("imphq_projects").select("avatar,settings,daily_revenue_goal").eq("id", project_id).maybeSingle(),
     sb.from("imphq_lead_forms").select("id").eq("project_id", project_id).limit(5),
@@ -97,21 +100,21 @@ async function diagLancamento(sb: any, project_id: string) {
   ]);
   const avatarOk = !!proj?.avatar && Object.keys(proj.avatar || {}).length > 2;
   const settings = proj?.settings || {};
-  const cks = (camps || []).reduce((acc: any, c: any) => { acc[c.funil || "x"] = true; return acc; }, {});
+  const cks = (camps || []).reduce((acc: Record<string, boolean>, c) => { acc[c.funil || "x"] = true; return acc; }, {});
   const sig: Record<string, boolean> = {
     avatar: avatarOk,
     mecanismo: !!settings.mecanismo || !!settings.mecanismo_unico,
     captura: (forms || []).length > 0 || !!cks.aquisicao,
     aquecimento: !!cks.aquisicao || !!cks.conversao,
-    cpl: !!settings.cpl_url || (camps || []).some((c: any) => /cpl|webinar|evento/i.test(c?.data?.tipo || "")),
-    carta: !!settings.sales_page_url || (camps || []).some((c: any) => /carta|vsl/i.test(c?.data?.tipo || "")),
+    cpl: !!settings.cpl_url || (camps || []).some((c) => /cpl|webinar|evento/i.test(c?.data?.tipo || "")),
+    carta: !!settings.sales_page_url || (camps || []).some((c) => /carta|vsl/i.test(c?.data?.tipo || "")),
     carrinho: !!cks.conversao,
-    recovery: (camps || []).some((c: any) => /recuper|abando/i.test(c?.data?.objetivo || "")),
+    recovery: (camps || []).some((c) => /recuper|abando/i.test(c?.data?.objetivo || "")),
     posvenda: !!cks.maximizacao || !!cks.retencao,
     metas: Number(proj?.daily_revenue_goal || 0) > 0,
   };
   const checklist = buildChecklist("lancamento", sig);
-  const gargalos: any[] = [];
+  const gargalos: Bottleneck[] = [];
   if (!sig.avatar) gargalos.push({ titulo: "Avatar incompleto", desc: "Sem avatar definido, copy fica genérica e CPL sobe.", impacto: "alto" });
   if (!sig.captura) gargalos.push({ titulo: "Sem página de captura", desc: "Funil precisa de entrada. Crie um formulário de captura.", impacto: "alto" });
   if (!sig.carrinho) gargalos.push({ titulo: "Falta sequência de carrinho", desc: "Adicione campanha de conversão (carrinho aberto).", impacto: "alto" });
@@ -120,35 +123,35 @@ async function diagLancamento(sb: any, project_id: string) {
   return { area: "lancamento", score: scoreOf(checklist), checklist, gargalos: gargalos.slice(0, 5), next_action: next };
 }
 
-async function diagNutricao(sb: any, project_id: string) {
+async function diagNutricao(sb: ReturnType<typeof makeClient>, project_id: string) {
   const [{ data: seqs }] = await Promise.all([
     sb.from("imphq_nurture_sequences").select("*").eq("project_id", project_id),
   ]);
-  const seqIds = (seqs || []).map((s: any) => s.id);
-  let emails: any[] = [];
+  const seqIds = (seqs || []).map((s) => s.id);
+  let emails: { sequence_id: string; estagio: string | null; aberto_em: string | null; clicado_em: string | null; enviado_em: string | null }[] = [];
   if (seqIds.length) {
     const { data } = await sb.from("imphq_nurture_emails").select("sequence_id,estagio,aberto_em,clicado_em,enviado_em").in("sequence_id", seqIds).limit(5000);
     emails = data || [];
   }
-  const ativa = (seqs || []).some((s: any) => s.ativa);
+  const ativa = (seqs || []).some((s) => s.ativa);
   const emailsPorSeq: Record<string, number> = {};
-  emails.forEach((e: any) => { emailsPorSeq[e.sequence_id] = (emailsPorSeq[e.sequence_id] || 0) + 1; });
-  const estagios = new Set(emails.map((e: any) => e.estagio).filter(Boolean));
-  const aberturas = emails.filter((e: any) => e.aberto_em).length;
-  const enviados = emails.filter((e: any) => e.enviado_em).length;
+  emails.forEach((e) => { emailsPorSeq[e.sequence_id] = (emailsPorSeq[e.sequence_id] || 0) + 1; });
+  const estagios = new Set(emails.map((e) => e.estagio).filter(Boolean));
+  const aberturas = emails.filter((e) => e.aberto_em).length;
+  const enviados = emails.filter((e) => e.enviado_em).length;
   const taxaAbertura = enviados > 0 ? aberturas / enviados : 0;
 
   const sig: Record<string, boolean> = {
     ativa,
-    cadencia: (seqs || []).some((s: any) => !!s.cadencia),
+    cadencia: (seqs || []).some((s) => !!s.cadencia),
     minimo_emails: Object.values(emailsPorSeq).some((n) => n >= 12),
-    tags: (seqs || []).some((s: any) => (s.filter_tags || []).length > 0),
+    tags: (seqs || []).some((s) => (s.filter_tags || []).length > 0),
     templates: estagios.size >= 2,
-    tracking: (seqs || []).some((s: any) => Number(s.total_conversoes || 0) > 0 || Number(s.receita_atribuida || 0) > 0),
-    reativacao: (seqs || []).some((s: any) => /reativ|90d|inativo|frio/i.test(`${s.nome} ${s.objetivo || ""}`)),
+    tracking: (seqs || []).some((s) => Number(s.total_conversoes || 0) > 0 || Number(s.receita_atribuida || 0) > 0),
+    reativacao: (seqs || []).some((s) => /reativ|90d|inativo|frio/i.test(`${s.nome} ${s.objetivo || ""}`)),
   };
   const checklist = buildChecklist("nutricao", sig);
-  const gargalos: any[] = [];
+  const gargalos: Bottleneck[] = [];
   if ((seqs || []).length === 0) gargalos.push({ titulo: "Nenhuma sequência criada", desc: "Crie a primeira sequência de nutrição com IA.", impacto: "alto" });
   if (!ativa && seqs?.length) gargalos.push({ titulo: "Sequências pausadas", desc: "Ative as sequências para começar a nutrir.", impacto: "alto" });
   if (enviados > 50 && taxaAbertura < 0.15) gargalos.push({ titulo: `Taxa de abertura baixa (${(taxaAbertura * 100).toFixed(0)}%)`, desc: "Reescreva assuntos com IA. Meta: 25%+.", impacto: "alto" });
@@ -170,7 +173,7 @@ Deno.serve(async (req) => {
         .select("*").eq("project_id", project_id)
         .gte("calculated_at", new Date(Date.now() - 6 * 3600 * 1000).toISOString());
       if (cached && cached.length) {
-        const filtered = area === "all" ? cached : cached.filter((c: any) => c.area === area);
+        const filtered = area === "all" ? cached : cached.filter((c) => c.area === area);
         if (filtered.length === (area === "all" ? 3 : 1)) {
           return new Response(JSON.stringify({ results: filtered, cached: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -180,7 +183,7 @@ Deno.serve(async (req) => {
     }
 
     const areas = area === "all" ? ["campanhas", "lancamento", "nutricao"] : [area];
-    const results: any[] = [];
+    const results: (Awaited<ReturnType<typeof diagCampanhas>> | Awaited<ReturnType<typeof diagLancamento>> | Awaited<ReturnType<typeof diagNutricao>>)[] = [];
     for (const a of areas) {
       let r;
       if (a === "campanhas") r = await diagCampanhas(sb, project_id);
@@ -196,9 +199,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ results, cached: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("assistente-diagnose:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String((e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined) || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

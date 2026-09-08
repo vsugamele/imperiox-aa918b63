@@ -1,6 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function textField(value: unknown): string | undefined { return typeof value === "string" ? value : undefined; }
+interface CaptureForm { settings?: Record<string, unknown> | null; nome?: string | null; name?: string | null; campos?: unknown[] | null; fields?: unknown[] | null; redirect_url?: string | null }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -17,7 +21,7 @@ async function sendCapiLead(opts: {
   eventId: string; campaignName?: string; productName?: string;
   sourceUrl?: string; clientIp?: string; userAgent?: string; fbc?: string; fbp?: string;
 }) {
-  const ud: any = {};
+  const ud: { em?: string[]; fn?: string[]; ph?: string[]; client_ip_address?: string; client_user_agent?: string; fbc?: string; fbp?: string } = {};
   if (opts.email) ud.em = [await sha256(opts.email.toLowerCase())];
   if (opts.name) ud.fn = [await sha256(opts.name.toLowerCase().split(" ")[0])];
   if (opts.phone) ud.ph = [await sha256(opts.phone.replace(/\D/g, ""))];
@@ -26,7 +30,8 @@ async function sendCapiLead(opts: {
   if (opts.fbc) ud.fbc = opts.fbc;
   if (opts.fbp) ud.fbp = opts.fbp;
 
-  const payload: any = {
+  const payload = {
+    test_event_code: opts.testCode || undefined,
     data: [{
       event_name: "Lead",
       event_time: Math.floor(Date.now() / 1000),
@@ -63,22 +68,22 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    let projectIdFromQuery = url.searchParams.get("project");
+    const projectIdFromQuery = url.searchParams.get("project");
 
-    let body: any;
+    let body: Record<string, unknown>;
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
-      body = await req.json();
+      body = record(await req.json());
     } else if (contentType.includes("form")) {
       const formData = await req.formData();
       body = Object.fromEntries(formData.entries());
     } else {
-      body = await req.json().catch(() => ({}));
+      body = record(await req.json().catch(() => ({})));
     }
 
     // --- Resolve form config if form_id is present ---
-    let formConfig: any = null;
+    let formConfig: CaptureForm | null = null;
     let projectId = projectIdFromQuery;
     let step: string | null = null;
 
@@ -121,9 +126,9 @@ Deno.serve(async (req) => {
     let leadId: string;
 
     // Build form metadata to persist in lead.data
-    const formMeta: Record<string, any> = {};
+    const formMeta: Record<string, unknown> = {};
     if (body.form_id && formConfig) {
-      const s = (formConfig.settings || {}) as Record<string, any>;
+      const s = (formConfig.settings || {}) as Record<string, unknown>;
       formMeta.form_id = body.form_id;
       formMeta.form_name = formConfig.nome || formConfig.name || null;
       formMeta.captura_form_step = step || null;
@@ -136,7 +141,7 @@ Deno.serve(async (req) => {
 
     if (existing) {
       leadId = existing.id;
-      const updates: any = {};
+      const updates: { nome?: string; phone?: string; tags?: unknown[]; status?: string; data?: Record<string, unknown> } = {};
       if (name) updates.nome = name;
       if (phone) updates.phone = phone;
       if (tags.length) updates.tags = tags;
@@ -152,7 +157,7 @@ Deno.serve(async (req) => {
           .from("imphq_tag_project_rules")
           .select("project_id, priority, tag, tags_all, origem, plataforma")
           .order("priority", { ascending: true });
-        const match = (allRules || []).find((r: any) => {
+        const match = (allRules || []).find((r) => {
           const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
           if (needed.length === 0) return false;
           if (!needed.every((t: string) => tags.includes(t))) return false;
@@ -204,10 +209,11 @@ Deno.serve(async (req) => {
       const fieldLabelMap: Record<string, string> = {};
       const campos = formConfig.campos || formConfig.fields || [];
       if (Array.isArray(campos)) {
-        campos.forEach((campo: any) => {
+        campos.forEach((value: unknown) => {
+          const campo = record(value);
           const key = campo.name || campo.key || campo.id;
           const label = campo.label || campo.question || campo.placeholder || key;
-          if (key) fieldLabelMap[key] = label;
+          if (typeof key === "string" && typeof label === "string") fieldLabelMap[key] = label;
         });
       }
 
@@ -217,7 +223,7 @@ Deno.serve(async (req) => {
         "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
       ]);
 
-      const rows: any[] = [];
+      const rows: { id: string; lead_id: string; project_id: string | null; form_id: unknown; step: string | null; field_key: string; question: string; answer: string }[] = [];
       for (const [key, value] of Object.entries(body)) {
         if (!standardKeys.has(key) && value !== undefined && value !== "") {
           rows.push({
@@ -243,7 +249,7 @@ Deno.serve(async (req) => {
 
     // --- Lead scoring on capture ---
     try {
-      const scoreRows: any[] = [];
+      const scoreRows: { lead_id: string; acao: string; pontos: number }[] = [];
       scoreRows.push({ lead_id: leadId, acao: "lead_capturado", pontos: 10 });
       if (body.form_id) scoreRows.push({ lead_id: leadId, acao: "form_preenchido", pontos: 5 });
       if (phone) scoreRows.push({ lead_id: leadId, acao: "telefone_informado", pontos: 5 });
@@ -255,8 +261,8 @@ Deno.serve(async (req) => {
     // --- Accumulate interaction in lead.data.interacoes ---
     try {
       const { data: currentLeadData } = await supabase.from("imphq_leads").select("data").eq("id", leadId).maybeSingle();
-      const ld = (currentLeadData?.data as Record<string, any>) || {};
-      const interacoes: any[] = ld.interacoes || [];
+      const ld = record(currentLeadData?.data);
+      const interacoes: unknown[] = Array.isArray(ld.interacoes) ? ld.interacoes : [];
       interacoes.push({
         evento: "lead_capturado",
         data: new Date().toISOString(),
@@ -286,10 +292,10 @@ Deno.serve(async (req) => {
 
     // --- Auto-enroll em sequência de nutrição (default da campanha) ---
     try {
-      const campaignId = (formConfig?.settings as any)?.campaign_id;
+      const campaignId = formConfig?.settings?.campaign_id;
       if (campaignId) {
         const { data: camp } = await supabase.from("imphq_campaigns").select("data").eq("id", campaignId).maybeSingle();
-        const seqId = (camp?.data as any)?.default_sequence_id;
+        const seqId = record(camp?.data)?.default_sequence_id;
         if (seqId) {
           // Checar filter_tags da sequência
           const { data: seq } = await supabase
@@ -297,8 +303,8 @@ Deno.serve(async (req) => {
             .select("filter_tags, filter_tags_mode")
             .eq("id", seqId)
             .maybeSingle();
-          const ft: string[] = ((seq as any)?.filter_tags || []) as string[];
-          const mode = ((seq as any)?.filter_tags_mode || "any") as string;
+          const ft: string[] = (seq?.filter_tags || []) as string[];
+          const mode = (seq?.filter_tags_mode || "any") as string;
           let allowed = true;
           if (ft.length) {
             allowed = mode === "all"
@@ -317,7 +323,7 @@ Deno.serve(async (req) => {
                 data_inicio: new Date().toISOString(),
                 dia_atual: 0,
                 proximo_envio_em: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-              } as any);
+              });
             }
           }
         }
@@ -331,9 +337,9 @@ Deno.serve(async (req) => {
     try {
       if (projectId) {
         const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
-        const pd: any = proj?.data || {};
-        const fbToken = (pd.facebook_access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
-        const fbPixel = pd.facebook_pixel_id;
+        const pd = record(proj?.data);
+        const fbToken = (textField(pd.facebook_access_token) || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
+        const fbPixel = textField(pd.facebook_pixel_id);
         if (fbToken && fbPixel) {
           const eventId = `lead_${leadId}_${Date.now()}`;
           const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined;
@@ -341,14 +347,14 @@ Deno.serve(async (req) => {
           await sendCapiLead({
             pixelId: fbPixel,
             token: fbToken,
-            testCode: pd.facebook_test_event_code,
+            testCode: textField(pd.facebook_test_event_code),
             email, name, phone,
             eventId,
-            campaignName: (formConfig?.settings as any)?.campaign_name || body.utm_campaign,
-            productName: (formConfig?.settings as any)?.product_name,
-            sourceUrl: body.page_url,
+            campaignName: textField(formConfig?.settings?.campaign_name) || textField(body.utm_campaign),
+            productName: textField(formConfig?.settings?.product_name),
+            sourceUrl: textField(body.page_url),
             clientIp, userAgent,
-            fbc: body.fbc, fbp: body.fbp,
+            fbc: textField(body.fbc), fbp: textField(body.fbp),
           });
         }
       }
@@ -360,7 +366,7 @@ Deno.serve(async (req) => {
     if (body.redirect_url) {
       return new Response(null, {
         status: 302,
-        headers: { ...corsHeaders, Location: body.redirect_url },
+        headers: { ...corsHeaders, Location: String(body.redirect_url) },
       });
     }
 
@@ -379,7 +385,7 @@ Deno.serve(async (req) => {
             payload: { lead_id: leadId, nome: name, email, telefone: phone, project_id: projectId },
           }),
         }).catch(() => {});
-      } catch (_) {}
+      } catch { /* Capture notification is best effort. */ }
     }
 
     return new Response(

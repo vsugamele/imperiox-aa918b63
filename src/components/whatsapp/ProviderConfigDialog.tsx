@@ -1,3 +1,5 @@
+import { providerCredentialPatch } from "@/components/whatsapp/provider-credentials";
+import type { Tables } from "@/integrations/supabase/types";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -8,15 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Eye, EyeOff, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import MetaCloudGuide from "./MetaCloudGuide";
-import EvolutionGuide from "./EvolutionGuide";
+import MetaCloudGuide from "@/components/whatsapp/MetaCloudGuide";
+import EvolutionGuide from "@/components/whatsapp/EvolutionGuide";
+
+type EditableProvider = Pick<Tables<"imphq_wa_providers">, "id" | "project_id" | "provider"> & Partial<Tables<"imphq_wa_providers">>;
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  projects: any[];
-  existingProviders?: any[];
-  editingProvider?: any;
+  projects: { id: string; name: string }[];
+  existingProviders?: EditableProvider[];
+  editingProvider?: EditableProvider | null;
   onCreated: () => void;
 }
 
@@ -82,7 +86,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
       toast.error("Projeto e provider obrigatórios");
       return;
     }
-    if (form.provider === "meta_cloud" && (!form.phone_number_id || !form.access_token || !form.webhook_verify_token)) {
+    if (form.provider === "meta_cloud" && (!form.phone_number_id || ((!editingProvider || editingProvider.provider !== "meta_cloud") && !form.access_token) || !form.webhook_verify_token)) {
       toast.error("Phone Number ID, Access Token e Verify Token são obrigatórios");
       return;
     }
@@ -93,11 +97,10 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
       instance_name: form.instance_name || null,
       display_name: form.display_name || null,
       api_url: form.api_url || null,
-      api_key: form.api_key || null,
+      ...providerCredentialPatch(form, !!editingProvider),
       twilio_from: form.twilio_from || null,
       phone_number_id: form.phone_number_id || null,
       waba_id: form.waba_id || null,
-      access_token: form.access_token || null,
       webhook_verify_token: form.webhook_verify_token || null,
       ai_enabled: form.ai_enabled,
     };
@@ -105,14 +108,14 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
     if (editingProvider) {
       const { error } = await supabase
         .from("imphq_wa_providers")
-        .update(payload as any)
+        .update(payload)
         .eq("id", editingProvider.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Provider atualizado com sucesso!");
     } else {
       const { error } = await supabase
         .from("imphq_wa_providers")
-        .insert(payload as any);
+        .insert(payload);
       if (error) { toast.error(error.message); return; }
       toast.success("Provider configurado!");
     }
@@ -127,6 +130,7 @@ export default function ProviderConfigDialog({ open, onOpenChange, projects, exi
         <DialogContent className="max-w-md bg-secondary/40 max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-serif text-primary">{editingProvider ? "Editar Provider WhatsApp" : "Configurar Provider WhatsApp"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            {editingProvider && <p className="text-xs text-muted-foreground">Deixe API Key e Access Token em branco para manter as credenciais já salvas.</p>}
             <div>
               <Label>Projeto</Label>
               <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>

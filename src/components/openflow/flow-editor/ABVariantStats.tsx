@@ -32,16 +32,16 @@ export function ABVariantStats({ automacaoId, stepIndex, jumpSteps, onPromoteWin
         .eq("automacao_id", automacaoId)
         .limit(500);
       const s: Stats = { totalA: 0, totalB: 0, okA: 0, okB: 0 };
-      (data || []).forEach((r: any) => {
-        const steps = Array.isArray(r.step_results) ? r.step_results : [];
-        const ab = steps.find((x: any) => (x.step ?? -1) === stepIndex && x.tipo === "ab_split");
+      (data || []).forEach((r) => {
+        const steps = Array.isArray(r.step_results) ? r.step_results.map(jsonFields) : [];
+        const ab = steps.find((x) => (x.step ?? -1) === stepIndex && x.tipo === "ab_split");
         if (!ab) return;
         const isA = ab.chosen_path === "A";
         if (isA) s.totalA++; else s.totalB++;
         // Downstream success: count any step AFTER stepIndex with status sent/completed
         const idx = steps.indexOf(ab);
         const downstream = steps.slice(idx + 1);
-        const hasOk = downstream.some((x: any) => x.status === "sent" || x.status === "completed");
+        const hasOk = downstream.some((x) => x.status === "sent" || x.status === "completed");
         if (hasOk) { if (isA) s.okA++; else s.okB++; }
       });
       setStats(s);
@@ -99,3 +99,4 @@ export function ABVariantStats({ automacaoId, stepIndex, jumpSteps, onPromoteWin
     </div>
   );
 }
+import { jsonFields } from "@/lib/json-fields";

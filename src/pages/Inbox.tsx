@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail, Sparkles, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,8 +11,8 @@ import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileInboxList } from "@/components/mobile/MobileInboxList";
 
-const WhatsAppPage = lazy(() => import("./WhatsAppPage"));
-const InstagramPage = lazy(() => import("./InstagramPage"));
+const WhatsAppPage = lazy(() => import("@/pages/WhatsAppPage"));
+const InstagramPage = lazy(() => import("@/pages/InstagramPage"));
 const ImperiusSuggestionsTab = lazy(() => import("@/components/inbox/ImperiusSuggestionsTab"));
 
 const TabLoader = () => (
@@ -24,15 +25,9 @@ const TabLoader = () => (
 );
 
 // ── Hot Leads Tab ─────────────────────────────────────────────────────────────
-interface Lead {
-  id: string;
-  nome: string | null;
-  email: string | null;
+type Lead = Pick<Tables<"imphq_leads">, "id" | "nome" | "email" | "score" | "criado_em" | "data"> & {
   telefone: string | null;
-  score: number | null;
-  criado_em: string;
-  data: any;
-}
+};
 
 function HotLeadsTab() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -48,7 +43,7 @@ function HotLeadsTab() {
       .order("score", { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        setLeads(((data as any[]) || []).map(l => ({ ...l, telefone: l.phone })) as Lead[]);
+        setLeads((data || []).map(l => ({ ...l, telefone: l.phone })));
         setLoading(false);
       });
   }, []);
@@ -104,7 +99,7 @@ function HotLeadsTab() {
                   {lead.telefone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.telefone}</span>}
                   {lead.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> {lead.email}</span>}
                   <span>
-                    {new Date(lead.criado_em).toLocaleTimeString("pt-BR", {
+                    {new Date(lead.criado_em ?? 0).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -283,8 +278,6 @@ export default function Inbox() {
   const [params, setParams] = useSearchParams();
   const { data: badges } = useSidebarBadges();
 
-  if (isMobile) return <MobileInboxList />;
-
   const defaultTab = ((): InboxTab => {
     const p = params.get("tab") as InboxTab | null;
     if (p && TABS.some((t) => t.value === p)) return p;
@@ -297,6 +290,8 @@ export default function Inbox() {
   const [showKpiStrip, setShowKpiStrip] = useState(() => localStorage.getItem("wa.showKpiStrip") !== "false");
 
   useEffect(() => { localStorage.setItem("wa.showKpiStrip", String(showKpiStrip)); }, [showKpiStrip]);
+
+  if (isMobile) return <MobileInboxList />;
 
   const handleChange = (val: string) => {
     const tab = val as InboxTab;

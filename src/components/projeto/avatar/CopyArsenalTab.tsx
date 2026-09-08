@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,32 +8,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { EditableTagList } from "../EditableTagList";
-import { AIGenerateButton } from "../AIGenerateButton";
+import { EditableTagList } from "@/components/projeto/EditableTagList";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { toast } from "sonner";
 
+const strings = (v: Json | undefined): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+const items = (v: Json | undefined) => Array.isArray(v) ? v.map(jsonFields) : [];
+
 interface Props {
-  avatar: any;
-  onUpdate: (avatar: any) => void;
+  avatar: Json;
+  onUpdate: (avatar: Json) => void;
   projectId?: string;
 }
 
 // ── Headlines importadas (.hl-card) ─────────────────────────────────────────
-function HeadlinesSection({ avatar, onUpdate, projectId }: Props) {
-  const headlines: any[] = avatar.headlines || [];
+function HeadlinesSection({ avatar: rawAvatar, onUpdate, projectId }: Props) {
+  const avatar = jsonFields(rawAvatar);
+  const headlines = items(avatar.headlines);
   const add = () => onUpdate({ ...avatar, headlines: [...headlines, { categoria: "", texto: "" }] });
-  const remove = (i: number) => onUpdate({ ...avatar, headlines: headlines.filter((_: any, j: number) => j !== i) });
+  const remove = (i: number) => onUpdate({ ...avatar, headlines: headlines.filter((_, j: number) => j !== i) });
   const edit = (i: number, key: string, val: string) => {
     const u = [...headlines];
     u[i] = { ...u[i], [key]: val };
     onUpdate({ ...avatar, headlines: u });
   };
 
-  const handleAnglesResult = (data: any) => {
-    const novos = (data?.angles?.angulos || data?.angulos || []).map((a: any) => ({
-      categoria: a.categoria || "Avatar",
-      texto: a.texto || "",
-    })).filter((a: any) => a.texto);
+  const handleAnglesResult = (rawData: unknown) => {
+    const data = objectFields(rawData);
+    const rawAngles = objectFields(data.angles).angulos ?? data.angulos;
+    const novos = (Array.isArray(rawAngles) ? rawAngles : []).map(objectFields).map(a => ({
+      categoria: jsonText(a.categoria) || "Avatar",
+      texto: jsonText(a.texto),
+    })).filter(a => a.texto);
     if (!novos.length) {
       toast.error("IA não retornou ângulos.");
       return;
@@ -61,17 +69,17 @@ function HeadlinesSection({ avatar, onUpdate, projectId }: Props) {
       </CardHeader>
       <CardContent className="space-y-2">
         {headlines.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma headline. Importe o HTML ou adicione manualmente.</p>}
-        {headlines.map((h: any, i: number) => (
+        {headlines.map((h, i: number) => (
           <div key={i} className="flex gap-2 items-start group">
             <div className="flex-1 space-y-1">
               <Input
-                value={h.categoria || ""}
+                value={jsonText(h.categoria) || ""}
                 onChange={e => edit(i, "categoria", e.target.value)}
                 className="bg-secondary text-xs h-7"
                 placeholder="Categoria (ex: Headline 1.1)"
               />
               <Textarea
-                value={h.texto || ""}
+                value={jsonText(h.texto) || ""}
                 onChange={e => edit(i, "texto", e.target.value)}
                 className="bg-secondary text-sm min-h-[40px]"
                 placeholder="Texto da headline..."
@@ -88,11 +96,12 @@ function HeadlinesSection({ avatar, onUpdate, projectId }: Props) {
 }
 
 // ── Anúncios importados (.ad-card) ───────────────────────────────────────────
-function AnunciosSection({ avatar, onUpdate }: Props) {
+function AnunciosSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
   const [open, setOpen] = useState<number | null>(null);
-  const anuncios: any[] = avatar.anuncios || [];
+  const anuncios = items(avatar.anuncios);
   const add = () => onUpdate({ ...avatar, anuncios: [...anuncios, { angulo: "", avatar_alvo: "", hook: "", corpo: "", cta: "" }] });
-  const remove = (i: number) => onUpdate({ ...avatar, anuncios: anuncios.filter((_: any, j: number) => j !== i) });
+  const remove = (i: number) => onUpdate({ ...avatar, anuncios: anuncios.filter((_, j: number) => j !== i) });
   const edit = (i: number, key: string, val: string) => {
     const u = [...anuncios];
     u[i] = { ...u[i], [key]: val };
@@ -107,15 +116,15 @@ function AnunciosSection({ avatar, onUpdate }: Props) {
       </CardHeader>
       <CardContent className="space-y-2">
         {anuncios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum anúncio. Importe o HTML ou adicione manualmente.</p>}
-        {anuncios.map((ad: any, i: number) => (
+        {anuncios.map((ad, i: number) => (
           <div key={i} className="rounded-md border border-border overflow-hidden">
             <div
               className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary/50"
               onClick={() => setOpen(open === i ? null : i)}
             >
               {open === i ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
-              <span className="flex-1 text-sm font-medium truncate">{ad.angulo || `Anúncio ${i + 1}`}</span>
-              {ad.avatar_alvo && <Badge variant="outline" className="text-[9px]">{ad.avatar_alvo}</Badge>}
+              <span className="flex-1 text-sm font-medium truncate">{jsonText(ad.angulo) || `Anúncio ${i + 1}`}</span>
+              {jsonText(ad.avatar_alvo) && <Badge variant="outline" className="text-[9px]">{jsonText(ad.avatar_alvo)}</Badge>}
               <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={e => { e.stopPropagation(); remove(i); }}>
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -132,9 +141,9 @@ function AnunciosSection({ avatar, onUpdate }: Props) {
                   <div key={f.key}>
                     <Label className="text-[10px] text-muted-foreground">{f.label}</Label>
                     {f.textarea ? (
-                      <Textarea value={ad[f.key] || ""} onChange={e => edit(i, f.key, e.target.value)} className="bg-secondary text-sm min-h-[50px] mt-0.5" />
+                      <Textarea value={jsonText(ad[f.key]) || ""} onChange={e => edit(i, f.key, e.target.value)} className="bg-secondary text-sm min-h-[50px] mt-0.5" />
                     ) : (
-                      <Input value={ad[f.key] || ""} onChange={e => edit(i, f.key, e.target.value)} className="bg-secondary text-sm mt-0.5" />
+                      <Input value={jsonText(ad[f.key]) || ""} onChange={e => edit(i, f.key, e.target.value)} className="bg-secondary text-sm mt-0.5" />
                     )}
                   </div>
                 ))}
@@ -148,10 +157,11 @@ function AnunciosSection({ avatar, onUpdate }: Props) {
 }
 
 // ── VSL Timeline ──────────────────────────────────────────────────────────────
-function VslSection({ avatar, onUpdate }: Props) {
-  const vsl: any[] = avatar.vsl_timeline || [];
+function VslSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
+  const vsl = items(avatar.vsl_timeline);
   const add = () => onUpdate({ ...avatar, vsl_timeline: [...vsl, { tempo: "", titulo: "", corpo: "" }] });
-  const remove = (i: number) => onUpdate({ ...avatar, vsl_timeline: vsl.filter((_: any, j: number) => j !== i) });
+  const remove = (i: number) => onUpdate({ ...avatar, vsl_timeline: vsl.filter((_, j: number) => j !== i) });
   const edit = (i: number, key: string, val: string) => {
     const u = [...vsl];
     u[i] = { ...u[i], [key]: val };
@@ -166,12 +176,12 @@ function VslSection({ avatar, onUpdate }: Props) {
       </CardHeader>
       <CardContent className="space-y-2">
         {vsl.length === 0 && <p className="text-sm text-muted-foreground">Nenhum bloco VSL.</p>}
-        {vsl.map((block: any, i: number) => (
+        {vsl.map((block, i: number) => (
           <div key={i} className="flex gap-2 items-start border-l-2 border-primary/30 pl-3 group">
             <div className="flex-1 space-y-1">
-              <Input value={block.tempo || ""} onChange={e => edit(i, "tempo", e.target.value)} className="bg-secondary text-xs h-7" placeholder="Tempo (ex: 0:00 – 0:30)" />
-              <Input value={block.titulo || ""} onChange={e => edit(i, "titulo", e.target.value)} className="bg-secondary text-sm font-medium" placeholder="Título do bloco..." />
-              <Textarea value={block.corpo || ""} onChange={e => edit(i, "corpo", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Conteúdo..." />
+              <Input value={jsonText(block.tempo) || ""} onChange={e => edit(i, "tempo", e.target.value)} className="bg-secondary text-xs h-7" placeholder="Tempo (ex: 0:00 – 0:30)" />
+              <Input value={jsonText(block.titulo) || ""} onChange={e => edit(i, "titulo", e.target.value)} className="bg-secondary text-sm font-medium" placeholder="Título do bloco..." />
+              <Textarea value={jsonText(block.corpo) || ""} onChange={e => edit(i, "corpo", e.target.value)} className="bg-secondary text-sm min-h-[50px]" placeholder="Conteúdo..." />
             </div>
             <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0 opacity-0 group-hover:opacity-100" onClick={() => remove(i)}>
               <Trash2 className="h-3 w-3" />
@@ -184,7 +194,8 @@ function VslSection({ avatar, onUpdate }: Props) {
 }
 
 // ── Objeções (string[]) ───────────────────────────────────────────────────────
-function ObjecoesSection({ avatar, onUpdate }: Props) {
+function ObjecoesSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
   return (
     <Card className="bg-card border-border">
       <CardHeader>
@@ -192,10 +203,10 @@ function ObjecoesSection({ avatar, onUpdate }: Props) {
       </CardHeader>
       <CardContent>
         <EditableTagList
-          tags={avatar.objecoes || []}
+          tags={strings(avatar.objecoes)}
           onChange={v => onUpdate({ ...avatar, objecoes: v })}
         />
-        {(avatar.objecoes || []).length === 0 && (
+        {(strings(avatar.objecoes)).length === 0 && (
           <p className="text-sm text-muted-foreground mt-1">Importe o HTML para preencher automaticamente.</p>
         )}
       </CardContent>
@@ -204,9 +215,10 @@ function ObjecoesSection({ avatar, onUpdate }: Props) {
 }
 
 // ── Página de Vendas (.copy-block) ────────────────────────────────────────────
-function PaginaVendasSection({ avatar, onUpdate }: Props) {
+function PaginaVendasSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
   const [open, setOpen] = useState<number | null>(null);
-  const pagina: any[] = avatar.pagina_vendas || [];
+  const pagina = items(avatar.pagina_vendas);
 
   if (pagina.length === 0) return null;
 
@@ -216,20 +228,20 @@ function PaginaVendasSection({ avatar, onUpdate }: Props) {
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🛒 Página de Vendas</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1.5">
-        {pagina.map((block: any, i: number) => (
+        {pagina.map((block, i: number) => (
           <div key={i} className="rounded-md border border-border overflow-hidden">
             <div
               className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary/50"
               onClick={() => setOpen(open === i ? null : i)}
             >
               {open === i ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-              <Badge variant="outline" className="text-[9px] shrink-0">{block.label || `Bloco ${i + 1}`}</Badge>
-              <span className="text-sm truncate flex-1">{block.titulo || ""}</span>
+              <Badge variant="outline" className="text-[9px] shrink-0">{jsonText(block.label) || `Bloco ${i + 1}`}</Badge>
+              <span className="text-sm truncate flex-1">{jsonText(block.titulo) || ""}</span>
             </div>
             {open === i && (
               <div className="border-t border-border px-3 py-3 bg-secondary/30">
-                <p className="text-sm text-foreground/80 whitespace-pre-wrap">{block.corpo || block.titulo || ""}</p>
-                {block.nota && <p className="text-xs text-muted-foreground mt-2 italic">{block.nota}</p>}
+                <p className="text-sm text-foreground/80 whitespace-pre-wrap">{jsonText(block.corpo) || jsonText(block.titulo) || ""}</p>
+                {jsonText(block.nota) && <p className="text-xs text-muted-foreground mt-2 italic">{jsonText(block.nota)}</p>}
               </div>
             )}
           </div>
@@ -240,8 +252,9 @@ function PaginaVendasSection({ avatar, onUpdate }: Props) {
 }
 
 // ── Value Stack ───────────────────────────────────────────────────────────────
-function ValueStackSection({ avatar, onUpdate }: Props) {
-  const stack: any[] = avatar.value_stack || [];
+function ValueStackSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
+  const stack = items(avatar.value_stack);
   if (stack.length === 0) return null;
 
   return (
@@ -250,11 +263,11 @@ function ValueStackSection({ avatar, onUpdate }: Props) {
         <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">💰 Value Stack</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {stack.map((item: any, i: number) => (
+        {stack.map((item, i: number) => (
           <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-md border ${item.principal ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/30"}`}>
-            <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{item.numero || i + 1}</span>
-            <span className="flex-1 text-sm">{item.titulo}</span>
-            {item.valor && <Badge variant="outline" className="text-xs font-mono text-emerald-400 border-emerald-500/30">{item.valor}</Badge>}
+            <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{jsonText(item.numero) || i + 1}</span>
+            <span className="flex-1 text-sm">{jsonText(item.titulo)}</span>
+            {jsonText(item.valor) && <Badge variant="outline" className="text-xs font-mono text-emerald-400 border-emerald-500/30">{jsonText(item.valor)}</Badge>}
           </div>
         ))}
       </CardContent>
@@ -263,7 +276,8 @@ function ValueStackSection({ avatar, onUpdate }: Props) {
 }
 
 // ── Palavras-Gatilho ──────────────────────────────────────────────────────────
-function PalavrasSection({ avatar, onUpdate }: Props) {
+function PalavrasSection({ avatar: rawAvatar, onUpdate }: Props) {
+  const avatar = jsonFields(rawAvatar);
   return (
     <Card className="bg-card border-border">
       <CardHeader>
@@ -278,7 +292,7 @@ function PalavrasSection({ avatar, onUpdate }: Props) {
         ].map(p => (
           <div key={p.key}>
             <Label className={`text-xs font-semibold ${p.color}`}>{p.label}</Label>
-            <EditableTagList tags={avatar[p.key] || []} onChange={v => onUpdate({ ...avatar, [p.key]: v })} />
+            <EditableTagList tags={strings(avatar[p.key])} onChange={v => onUpdate({ ...avatar, [p.key]: v })} />
           </div>
         ))}
       </CardContent>
@@ -287,10 +301,11 @@ function PalavrasSection({ avatar, onUpdate }: Props) {
 }
 
 // ── Frases-Gatilho ────────────────────────────────────────────────────────────
-function FrasesSection({ avatar }: { avatar: any }) {
-  const dor = avatar.frases_gatilho_dor || [];
-  const desejo = avatar.frases_gatilho_desejo || [];
-  const decisao = avatar.frases_gatilho_decisao || [];
+function FrasesSection({ avatar: rawAvatar }: { avatar: Json }) {
+  const avatar = jsonFields(rawAvatar);
+  const dor = strings(avatar.frases_gatilho_dor);
+  const desejo = strings(avatar.frases_gatilho_desejo);
+  const decisao = strings(avatar.frases_gatilho_decisao);
   if (!dor.length && !desejo.length && !decisao.length) return null;
 
   return (

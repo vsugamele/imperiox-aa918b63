@@ -43,7 +43,7 @@ export function useCompanyMapLiveStats(projectIds: string[]) {
       const map: Record<string, NodeStats> = {};
       projectIds.forEach(id => (map[id] = empty()));
 
-      (vendas30.data || []).forEach((v: any) => {
+      (vendas30.data || []).forEach((v) => {
         if (map[v.project_id]) map[v.project_id].revenue30d += Number(v.valor || 0);
       });
 
@@ -52,7 +52,7 @@ export function useCompanyMapLiveStats(projectIds: string[]) {
       const bumpLeads: Record<string, Set<string>> = {};
       const upsellLeads: Record<string, Set<string>> = {};
 
-      (vendas7.data || []).forEach((v: any) => {
+      (vendas7.data || []).forEach((v) => {
         const s = map[v.project_id]; if (!s) return;
         const valor = Number(v.valor || 0);
         s.revenue7d += valor;
@@ -85,8 +85,8 @@ export function useCompanyMapLiveStats(projectIds: string[]) {
         }
       });
 
-      (leadsOpen.data || []).forEach((l: any) => { if (map[l.project_id]) map[l.project_id].leadsAbertos += 1; });
-      (leadsAll.data || []).forEach((l: any) => { if (map[l.project_id]) map[l.project_id].leadsTotais += 1; });
+      (leadsOpen.data || []).forEach((l) => { if (map[l.project_id]) map[l.project_id].leadsAbertos += 1; });
+      (leadsAll.data || []).forEach((l) => { if (map[l.project_id]) map[l.project_id].leadsTotais += 1; });
 
       return map;
     },

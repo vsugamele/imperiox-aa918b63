@@ -4,6 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Bot, TrendingUp, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+
+type RecoveryAction = Pick<Tables<"imphq_ai_actions">, "id" | "kind" | "payload" | "projeto_id" | "executed_at" | "status" | "created_at">;
+type RecoverySale = Pick<Tables<"imphq_vendas">, "id" | "lead_id" | "valor" | "status" | "data_venda" | "created_at" | "project_id">;
 
 interface Props {
   projectFilter?: string; // "all" ou project_id
@@ -14,8 +18,8 @@ const fmt = (n: number) =>
 
 export default function AIRevenueRecoveredCard({ projectFilter = "all" }: Props) {
   const [loading, setLoading] = useState(true);
-  const [actions, setActions] = useState<any[]>([]);
-  const [vendas, setVendas] = useState<any[]>([]);
+  const [actions, setActions] = useState<RecoveryAction[]>([]);
+  const [vendas, setVendas] = useState<RecoverySale[]>([]);
 
   useEffect(() => {
     let cancel = false;
@@ -53,10 +57,10 @@ export default function AIRevenueRecoveredCard({ projectFilter = "all" }: Props)
     // Para cada ação, ver se houve venda paga do mesmo lead em até 48h após executed_at.
     let recovered = 0;
     let recoveredCount = 0;
-    let touches = actions.length;
+    const touches = actions.length;
     const seenVenda = new Set<string>();
 
-    const vByLead = new Map<string, any[]>();
+    const vByLead = new Map<string, RecoverySale[]>();
     for (const v of vendas) {
       if (!v.lead_id) continue;
       const arr = vByLead.get(v.lead_id) || [];
@@ -65,8 +69,10 @@ export default function AIRevenueRecoveredCard({ projectFilter = "all" }: Props)
     }
 
     for (const a of actions) {
-      const leadId = a.payload?.lead_id;
-      if (!leadId) continue;
+      const payload = a.payload;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) continue;
+      const leadId = payload.lead_id;
+      if (typeof leadId !== "string" || !leadId) continue;
       const t0 = new Date(a.executed_at || a.created_at).getTime();
       const candidates = vByLead.get(leadId) || [];
       for (const v of candidates) {

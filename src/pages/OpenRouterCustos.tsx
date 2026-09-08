@@ -164,7 +164,7 @@ export default function OpenRouterCustos() {
               {modelsAvailable.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+          <Select value={status} onValueChange={(v) => setStatus(v === "ok" || v === "err" ? v : "all")}>
             <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos status</SelectItem>

@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,9 @@ export function CreateCampaignModal({ open, onOpenChange, defaultProjectId, onCr
     (async () => {
       const { data } = await supabase.from("imphq_projects").select("id, name").order("name");
       setProjects(data || []);
-      if (!projectId && defaultProjectId) setProjectId(defaultProjectId);
+      if (defaultProjectId) setProjectId(current => current || defaultProjectId);
     })();
-  }, [open]);
+  }, [open, defaultProjectId]);
 
   useEffect(() => {
     if (!projectId) { setAdAccounts([]); return; }
@@ -129,12 +130,12 @@ export function CreateCampaignModal({ open, onOpenChange, defaultProjectId, onCr
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (data && typeof data === "object" && "error" in data && typeof data.error === "string" && data.error) throw new Error(data.error);
       toast.success("Campanha criada em PAUSA. Revise no Meta antes de ativar.");
       onCreated?.();
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao criar campanha");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao criar campanha");
     } finally {
       setSubmitting(false);
     }

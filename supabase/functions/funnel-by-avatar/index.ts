@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: proj } = await sb.from("imphq_projects").select("data, nome").eq("id", project_id).maybeSingle();
-    const d = (proj as any)?.data || {};
+    const d = proj?.data || {};
     const avatar = d.avatar || d.avatars_por_produto;
     const branding = d.branding || d.brand;
 
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
 Sua entrega é prescritiva: ativos certos na ordem certa, com copy adaptada ao estado mental real do avatar.`;
 
-    const usr = `PROJETO: ${(proj as any)?.nome || project_id}
+    const usr = `PROJETO: ${proj?.nome || project_id}
 PRODUTO: ${product?.nome || product?.name} (R$ ${product?.preco_por || product?.preco || "—"})
 AVATAR BASE: ${typeof avatar === "string" ? avatar : JSON.stringify(avatar || {}).slice(0, 1500)}
 BRANDING: ${JSON.stringify(branding || {}).slice(0, 500)}
@@ -74,14 +74,15 @@ Português BR. Seja específico — nada genérico.`;
     }
     const j = await aiRes.json();
     const content = j?.choices?.[0]?.message?.content || "{}";
-    let result: any = {};
+    let result: unknown = {};
     try { result = JSON.parse(content); } catch { result = { raw: content }; }
 
     return new Response(JSON.stringify({ result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || "unknown" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

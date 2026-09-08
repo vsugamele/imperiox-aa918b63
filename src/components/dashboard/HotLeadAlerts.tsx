@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { RealtimePostgresChangesFilter } from "@supabase/supabase-js";
+import { jsonFields, jsonText, jsonNumber } from "@/components/dashboard/json-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,16 +48,16 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
       const { data } = await query;
 
       const hot: HotLead[] = [];
-      (data || []).forEach((lead: any) => {
-        const d = lead.data || {};
-        const evento = d.ultimo_evento || "";
+      (data || []).forEach((lead) => {
+        const d = jsonFields(lead.data);
+        const evento = jsonText(d.ultimo_evento) || "";
         const hotEvents = [
           "aguardando_pagamento", "pix_gerado", "pix_created",
           "boleto_gerado", "purchase_billet_printed",
           "pagamento_recusado", "refused", "pagamento_pendente",
         ];
         if (!hotEvents.includes(evento)) return;
-        if (parseFloat(lead.total_gasto || 0) > 0) return;
+        if (parseFloat(String(lead.total_gasto || 0)) > 0) return;
 
         const minutesAgo = Math.floor((Date.now() - new Date(lead.updated_at).getTime()) / 60000);
         hot.push({
@@ -64,8 +66,8 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
           phone: lead.phone || "",
           email: lead.email || "",
           evento,
-          produto: d.ultimo_produto || "",
-          valor: d.ultimo_valor || 0,
+          produto: jsonText(d.ultimo_produto) || "",
+          valor: jsonNumber(d.ultimo_valor) ?? (Number(jsonText(d.ultimo_valor)) || 0),
           minutos_ago: minutesAgo,
           updated_at: lead.updated_at,
         });
@@ -76,7 +78,7 @@ export default function HotLeadAlerts({ projectFilter }: Props) {
     load();
     // Realtime: atualiza imediatamente quando um lead muda de status
     // Onda 7: filtra por project_id no servidor quando possível para reduzir broadcast
-    const rtFilter: any = { event: "UPDATE", schema: "public", table: "imphq_leads" };
+    const rtFilter: RealtimePostgresChangesFilter<"UPDATE"> = { event: "UPDATE", schema: "public", table: "imphq_leads" };
     if (projectFilter && projectFilter !== "all" && projectFilter !== "none") {
       rtFilter.filter = `project_id=eq.${projectFilter}`;
     }

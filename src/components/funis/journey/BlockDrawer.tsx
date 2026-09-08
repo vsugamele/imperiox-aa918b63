@@ -1,16 +1,18 @@
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Sparkles, CheckCircle2 } from "lucide-react";
-import { BLOCK_TYPES } from "./BlockLibrary";
+import { BLOCK_TYPES } from "@/components/funis/journey/block-library-data";
 import { useEffect, useState } from "react";
 
 interface Props {
-  step: any | null;
+  step: Tables<"imphq_journey_steps"> | null;
   onClose: () => void;
-  onGenerate: (step: any) => void;
-  onUpdate: (patch: any) => Promise<void>;
+  onGenerate: (step: Tables<"imphq_journey_steps">) => void;
+  onUpdate: (patch: TablesUpdate<"imphq_journey_steps">) => Promise<void>;
 }
 
 export function BlockDrawer({ step, onClose, onGenerate, onUpdate }: Props) {
@@ -20,16 +22,17 @@ export function BlockDrawer({ step, onClose, onGenerate, onUpdate }: Props) {
   useEffect(() => {
     if (step) {
       setTitulo(step.titulo || "");
-      setNotas(step.config?.notas || "");
+      const notas = record(step.config).notas;
+      setNotas(typeof notas === "string" ? notas : "");
     }
-  }, [step?.id]);
+  }, [step]);
 
   if (!step) return null;
   const meta = BLOCK_TYPES.find(b => b.id === step.bloco_tipo);
-  const output = step.output || {};
+  const output = record(step.output);
 
   const save = async () => {
-    await onUpdate({ titulo, config: { ...step.config, notas } });
+    await onUpdate({ titulo, config: toJson({ ...record(step.config), notas }) });
   };
 
   return (
@@ -73,7 +76,7 @@ export function BlockDrawer({ step, onClose, onGenerate, onUpdate }: Props) {
           {output && Object.keys(output).length > 0 && (
             <div className="rounded-lg border border-border/60 bg-background/40 p-3">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Output</p>
-              {output.texto && (
+              {typeof output.texto === "string" && (
                 <pre className="text-xs whitespace-pre-wrap leading-6 text-foreground/90">{output.texto}</pre>
               )}
               {!output.texto && (

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Send, Trash2, ExternalLink, RefreshCw } from "lucide-react";
@@ -26,19 +27,19 @@ export function StudioPublicationsPanel({ workflowId }: { workflowId: string | n
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!workflowId) return;
     setLoading(true);
-    const { data } = await (supabase.from("imphq_studio_publications") as any)
+    const { data } = await supabase.from("imphq_studio_publications")
       .select("id,status,channel,media_url,media_kind,caption,scheduled_at,published_at,error,created_at")
       .eq("workflow_id", workflowId)
       .order("created_at", { ascending: false })
       .limit(50);
-    setRows((data as Row[]) || []);
+    setRows(data || []);
     setLoading(false);
-  };
+  }, [workflowId]);
 
-  useEffect(() => { load(); }, [workflowId]);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     if (!workflowId) return;
@@ -46,7 +47,7 @@ export function StudioPublicationsPanel({ workflowId }: { workflowId: string | n
       .on("postgres_changes", { event: "*", schema: "public", table: "imphq_studio_publications", filter: `workflow_id=eq.${workflowId}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [workflowId]);
+  }, [workflowId, load]);
 
   const runWorker = async () => {
     setRunning(true);
@@ -55,12 +56,12 @@ export function StudioPublicationsPanel({ workflowId }: { workflowId: string | n
       if (error) throw error;
       toast.success("Fila processada");
       await load();
-    } catch (e: any) { toast.error(e.message || "Falha no worker"); }
+    } catch (e: unknown) { toast.error(errorMessage(e) || "Falha no worker"); }
     finally { setRunning(false); }
   };
 
   const remove = async (id: string) => {
-    await (supabase.from("imphq_studio_publications") as any).delete().eq("id", id);
+    await supabase.from("imphq_studio_publications").delete().eq("id", id);
     setRows(prev => prev.filter(r => r.id !== id));
   };
 

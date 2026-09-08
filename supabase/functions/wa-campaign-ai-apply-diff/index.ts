@@ -28,7 +28,7 @@ serve(async (req) => {
 
     for (const u of updates) {
       if (!u?.id) continue;
-      const patch: Record<string, any> = {};
+      const patch: { content?: string; days_offset?: number; send_time?: string } = {};
       if (typeof u.content === "string") patch.content = u.content.slice(0, 4000);
       if (Number.isInteger(u.days_offset)) patch.days_offset = u.days_offset;
       if (typeof u.send_time === "string" && /^\d{2}:\d{2}/.test(u.send_time)) patch.send_time = u.send_time.slice(0, 5);
@@ -46,8 +46,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, applied, errors }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

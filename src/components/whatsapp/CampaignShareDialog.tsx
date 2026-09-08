@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,7 @@ export default function CampaignShareDialog({ open, onClose, campaignId, campaig
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
   const [resultSlug, setResultSlug] = useState<string | null>(null);
-  const [steps, setSteps] = useState<any[]>([]);
+  const [steps, setSteps] = useState<Pick<Tables<"imphq_wa_campaign_steps">, "step_order" | "content" | "content_b" | "media_type" | "send_time" | "days_offset" | "is_active">[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,20 +55,20 @@ export default function CampaignShareDialog({ open, onClose, campaignId, campaig
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Faça login");
       const slug = genSlug();
-      const { error } = await supabase.from("imphq_wa_campaign_templates" as any).insert({
+      const { error } = await supabase.from("imphq_wa_campaign_templates").insert({
         slug,
         name,
         description: description || null,
         produto: produto || null,
         author_id: user.id,
-        steps: steps as any,
+        steps: steps.map(step => ({ ...step })),
         is_public: isPublic,
-      } as any);
+      });
       if (error) throw error;
       setResultSlug(slug);
       toast.success("Template publicado!");
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setLoading(false);
     }

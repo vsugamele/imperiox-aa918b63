@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, ListTodo, Users, FolderKanban, CalendarIcon, Zap, CheckCircle2 } from "lucide-react";
+import { type LucideIcon, Activity, ListTodo, Users, FolderKanban, CalendarIcon, Zap, CheckCircle2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -14,7 +14,7 @@ interface ActivityItem {
   created_at: string;
 }
 
-const actionIcons: Record<string, any> = {
+const actionIcons: Record<string, LucideIcon> = {
   task_created: ListTodo,
   lead_created: Users,
   project_updated: FolderKanban,

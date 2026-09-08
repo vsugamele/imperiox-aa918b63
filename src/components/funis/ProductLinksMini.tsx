@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  produto: any;
+  produto: unknown;
   onEdit?: () => void;
   maxItems?: number;
 }

@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -40,14 +43,14 @@ interface OpenRouterModel {
 interface AIGenerateButtonProps {
   projectId: string;
   action: string;
-  onResult: (data: any) => void;
+  onResult: (data: Json) => void;
   contextSources?: string[];
   fieldsToFill?: string[];
   label?: string;
   size?: "sm" | "default" | "lg" | "icon";
   variant?: "outline" | "default" | "secondary" | "ghost";
   className?: string;
-  extraBody?: Record<string, any>;
+  extraBody?: Record<string, Json>;
   showMenteSelector?: boolean;
   showSkillSelector?: boolean;
 }
@@ -88,7 +91,7 @@ export function AIGenerateButton({
         console.warn("OpenRouter models fetch falhou", e);
       }
     })();
-  }, [open]);
+  }, [open, orModels.length]);
 
   const filteredOr = useMemo(() => {
     const q = orSearch.toLowerCase().trim();
@@ -108,7 +111,7 @@ export function AIGenerateButton({
   const isOpenRouter = !model.startsWith("google/") && !model.startsWith("openai/");
   const shouldUseAsync = forceAsync || isSlowModel(model);
 
-  const pollJob = async (jobId: string): Promise<any> => {
+  const pollJob = async (jobId: string): Promise<Json> => {
     const start = Date.now();
     const MAX_MS = 8 * 60 * 1000; // 8 minutos
     while (Date.now() - start < MAX_MS) {
@@ -139,7 +142,7 @@ export function AIGenerateButton({
     setJobStatus(null);
     setOpen(false);
     try {
-      const bodyPayload: Record<string, any> = { project_id: projectId, action, model, ...extraBody };
+      const bodyPayload: Record<string, Json> = { project_id: projectId, action, model, ...extraBody };
       if (isOpenRouter) bodyPayload.openrouter_key = getOpenRouterKey();
       if (selectedMente && selectedMente !== "none") bodyPayload.mente_id = selectedMente;
       if (selectedSkills.length > 0) bodyPayload.skill_slugs = selectedSkills;
@@ -168,14 +171,14 @@ export function AIGenerateButton({
         onResult(result);
         toast.success("Geração concluída!");
       } else {
-        const { data, error } = await supabase.functions.invoke("openflow-ai", { body: bodyPayload });
+        const { data, error } = await supabase.functions.invoke<Json>("openflow-ai", { body: bodyPayload });
         if (error) throw error;
         onResult(data);
       }
-    } catch (err: any) {
-      if (err?.message?.includes("429") || err?.status === 429) toast.error("Rate limit excedido.");
-      else if (err?.message?.includes("402") || err?.status === 402) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar com IA");
+    } catch (err: unknown) {
+      if (errorMessage(err).includes("429") || (err && typeof err === "object" && "status" in err && err.status === 429)) toast.error("Rate limit excedido.");
+      else if (errorMessage(err).includes("402") || (err && typeof err === "object" && "status" in err && err.status === 402)) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar com IA");
     } finally {
       setGenerating(false);
       setJobStatus(null);

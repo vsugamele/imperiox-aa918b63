@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import type { Tables } from "@/integrations/supabase/types";
+import type { User } from "@supabase/supabase-js";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -119,7 +122,7 @@ function UsuariosTab() {
   const [resetPassword, setResetPassword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const callAdminApi = async (action: string, body?: any) => {
+  const callAdminApi = useCallback(async (action: string, body?: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tkbivipqiewkfnhktmqq";
@@ -132,15 +135,15 @@ function UsuariosTab() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erro na API");
     return data;
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try { setLoading(true); const data = await callAdminApi("list"); setUsers(data.users || []); }
-    catch (err: any) { toast.error("Erro ao carregar usuários: " + err.message); }
+    catch (err: unknown) { toast.error("Erro ao carregar usuários: " + errorMessage(err)); }
     finally { setLoading(false); }
-  };
+  }, [callAdminApi]);
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreate = async () => {
     if (!newEmail || !newPassword) { toast.error("Preencha email e senha"); return; }
@@ -148,29 +151,29 @@ function UsuariosTab() {
     try {
       await callAdminApi("create", { email: newEmail, password: newPassword, role: newRole });
       toast.success("Usuário criado!"); setCreateOpen(false); setNewEmail(""); setNewPassword(""); setNewRole("editor"); loadUsers();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetPassword = async () => {
     if (!selectedUser || !resetPassword) return;
     if (resetPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
     try { await callAdminApi("set_password", { user_id: selectedUser.id, password: resetPassword }); toast.success("Senha atualizada!"); setPasswordOpen(false); setResetPassword(""); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetRole = async (userId: string, role: string) => {
     try { await callAdminApi("set_role", { user_id: userId, role }); toast.success("Role atualizada!"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetStatus = async (userId: string, status: string) => {
     try { await callAdminApi("set_status", { user_id: userId, status }); toast.success(status === "approved" ? "Usuário aprovado!" : "Usuário rejeitado"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleToggleBan = async (u: UserRow) => {
     try { await callAdminApi("toggle_ban", { user_id: u.id, ban: !u.banned }); toast.success(u.banned ? "Usuário reativado" : "Usuário desativado"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const getRoleBadge = (role: string | null) => {
@@ -542,7 +545,7 @@ function CronJobsTab() {
 }
 
 // ── Segurança Tab ────────────────────────────────────────────────
-function SegurancaTab({ user }: { user: any }) {
+function SegurancaTab({ user }: { user: User | null }) {
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
   const changePassword = async () => {
@@ -604,7 +607,7 @@ function SegurancaTab({ user }: { user: any }) {
 // ── API & Webhooks Tab ───────────────────────────────────────────
 function WebhooksTab() {
   const { user } = useAuth();
-  const [keys, setKeys] = useState<any[]>([]);
+  const [keys, setKeys] = useState<Tables<"imphq_api_keys">[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const projectId = "tkbivipqiewkfnhktmqq";

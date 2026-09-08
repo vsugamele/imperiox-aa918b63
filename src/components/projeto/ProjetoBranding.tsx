@@ -1,15 +1,17 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { EditableTagList } from "./EditableTagList";
+import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { cn } from "@/lib/utils";
-import { AIGenerateButton } from "./AIGenerateButton";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 interface Props {
-  project: any;
-  onUpdateBrandKit: (brandKit: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateBrandKit: (brandKit: Json) => void;
 }
 
 const ARCHETYPES = [
@@ -25,23 +27,23 @@ const ARCHETYPES = [
 ];
 
 export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
-  const bk = project.brand_kit || {};
+  const bk = jsonFields(project.brand_kit);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const editColorRef = useRef<{ index: number; el: HTMLInputElement | null }>({ index: -1, el: null });
 
-  const update = (key: string, val: any) => onUpdateBrandKit({ ...bk, [key]: val });
+  const update = (key: string, val: Json) => onUpdateBrandKit({ ...bk, [key]: val });
 
-  const handleAIResult = (data: any) => {
-    if (data?.branding) {
-      const b = data.branding;
+  const handleAIResult = (data: Json) => {
+    if (jsonFields(data).branding) {
+      const b = jsonFields(jsonFields(data).branding);
       const newBk = { ...bk };
       if (!bk.arquetipo && b.arquetipo) newBk.arquetipo = b.arquetipo;
       if (!bk.inimigo_comum && b.inimigo_comum) newBk.inimigo_comum = b.inimigo_comum;
       if (!bk.mecanismo_chave && b.mecanismo_chave) newBk.mecanismo_chave = b.mecanismo_chave;
       if (!bk.personalidade && b.personalidade) newBk.personalidade = b.personalidade;
       if (!bk.manifesto && b.manifesto) newBk.manifesto = b.manifesto;
-      if ((!bk.palavras_usa || bk.palavras_usa.length === 0) && b.palavras_usa) newBk.palavras_usa = b.palavras_usa;
-      if ((!bk.palavras_evita || bk.palavras_evita.length === 0) && b.palavras_evita) newBk.palavras_evita = b.palavras_evita;
+      if ((!Array.isArray(bk.palavras_usa) || bk.palavras_usa.length === 0) && b.palavras_usa) newBk.palavras_usa = b.palavras_usa;
+      if ((!Array.isArray(bk.palavras_evita) || bk.palavras_evita.length === 0) && b.palavras_evita) newBk.palavras_evita = b.palavras_evita;
       onUpdateBrandKit(newBk);
     }
   };
@@ -50,14 +52,14 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
 
   const addColorFromPicker = (hex: string) => {
     const normalized = normHex(hex);
-    const cores = (bk.cores || []).map(normHex);
+    const cores = ((Array.isArray(bk.cores) ? bk.cores.filter((value): value is string => typeof value === "string") : [])).map(normHex);
     if (!cores.includes(normalized)) {
       update("cores", [...cores, normalized]);
     }
   };
 
   const editColorSwatch = (index: number, newColor: string) => {
-    const cores = [...(bk.cores || [])].map(normHex);
+    const cores = [...((Array.isArray(bk.cores) ? bk.cores.filter((value): value is string => typeof value === "string") : []))].map(normHex);
     cores[index] = normHex(newColor);
     update("cores", cores);
   };
@@ -85,7 +87,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
             <Label className="text-xs text-muted-foreground">Cores (hex)</Label>
             <div className="flex gap-2 items-start">
               <div className="flex-1">
-                <EditableTagList tags={bk.cores || []} onChange={(v) => update("cores", v)} placeholder="#000000" />
+                <EditableTagList tags={(Array.isArray(bk.cores) ? bk.cores.filter((value): value is string => typeof value === "string") : [])} onChange={(v) => update("cores", v)} placeholder="#000000" />
               </div>
               <div className="relative shrink-0">
                 <input
@@ -101,7 +103,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {(bk.cores || []).map((c: string, i: number) => (
+            {((Array.isArray(bk.cores) ? bk.cores.filter((value): value is string => typeof value === "string") : [])).map((c: string, i: number) => (
               <div key={i} className="relative group">
                 <div
                   className="h-10 w-10 rounded-md border border-border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
@@ -128,11 +130,11 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">Fonte Título</Label>
-            <Input value={bk.fonte_titulo || ""} onChange={(e) => update("fonte_titulo", e.target.value)} className="bg-secondary" />
+            <Input value={jsonText(bk.fonte_titulo) || ""} onChange={(e) => update("fonte_titulo", e.target.value)} className="bg-secondary" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Fonte Corpo</Label>
-            <Input value={bk.fonte_corpo || ""} onChange={(e) => update("fonte_corpo", e.target.value)} className="bg-secondary" />
+            <Input value={jsonText(bk.fonte_corpo) || ""} onChange={(e) => update("fonte_corpo", e.target.value)} className="bg-secondary" />
           </div>
         </CardContent>
       </Card>
@@ -169,15 +171,15 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Inimigo Comum</Label>
-            <Textarea value={bk.inimigo_comum || ""} onChange={(e) => update("inimigo_comum", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Contra o quê a marca luta? Ex: métodos ultrapassados, desinformação..." />
+            <Textarea value={jsonText(bk.inimigo_comum) || ""} onChange={(e) => update("inimigo_comum", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Contra o quê a marca luta? Ex: métodos ultrapassados, desinformação..." />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Mecanismo-Chave</Label>
-            <Textarea value={bk.mecanismo_chave || ""} onChange={(e) => update("mecanismo_chave", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Qual o diferencial ou método exclusivo que a marca oferece?" />
+            <Textarea value={jsonText(bk.mecanismo_chave) || ""} onChange={(e) => update("mecanismo_chave", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Qual o diferencial ou método exclusivo que a marca oferece?" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Personalidade da Marca</Label>
-            <Textarea value={bk.personalidade || ""} onChange={(e) => update("personalidade", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Se a marca fosse uma pessoa, como ela falaria, agiria, se vestiria?" />
+            <Textarea value={jsonText(bk.personalidade) || ""} onChange={(e) => update("personalidade", e.target.value)} className="bg-secondary min-h-[60px]" placeholder="Se a marca fosse uma pessoa, como ela falaria, agiria, se vestiria?" />
           </div>
         </CardContent>
       </Card>
@@ -186,7 +188,7 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📜 Manifesto da Marca</CardTitle></CardHeader>
         <CardContent>
-          <Textarea value={bk.manifesto || ""} onChange={(e) => update("manifesto", e.target.value)} className="bg-secondary min-h-[120px]" placeholder="O manifesto é o texto que resume a essência, a missão e os valores da marca em tom emocional..." />
+          <Textarea value={jsonText(bk.manifesto) || ""} onChange={(e) => update("manifesto", e.target.value)} className="bg-secondary min-h-[120px]" placeholder="O manifesto é o texto que resume a essência, a missão e os valores da marca em tom emocional..." />
         </CardContent>
       </Card>
 
@@ -196,11 +198,11 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground flex items-center gap-1">✅ Palavras que Usa</Label>
-            <EditableTagList tags={bk.palavras_usa || []} onChange={(v) => update("palavras_usa", v)} placeholder="Ex: transformação, método..." />
+            <EditableTagList tags={(Array.isArray(bk.palavras_usa) ? bk.palavras_usa.filter((value): value is string => typeof value === "string") : [])} onChange={(v) => update("palavras_usa", v)} placeholder="Ex: transformação, método..." />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground flex items-center gap-1">🚫 Palavras que Evita</Label>
-            <EditableTagList tags={bk.palavras_evita || []} onChange={(v) => update("palavras_evita", v)} placeholder="Ex: fácil, milagre..." />
+            <EditableTagList tags={(Array.isArray(bk.palavras_evita) ? bk.palavras_evita.filter((value): value is string => typeof value === "string") : [])} onChange={(v) => update("palavras_evita", v)} placeholder="Ex: fácil, milagre..." />
           </div>
         </CardContent>
       </Card>
@@ -211,11 +213,11 @@ export function ProjetoBranding({ project, onUpdateBrandKit }: Props) {
         <CardContent className="space-y-4">
           <div>
             <Label className="text-xs text-muted-foreground">Descrição do Tom</Label>
-            <Textarea value={bk.tom_visual || ""} onChange={(e) => update("tom_visual", e.target.value)} className="bg-secondary min-h-[60px]" />
+            <Textarea value={jsonText(bk.tom_visual) || ""} onChange={(e) => update("tom_visual", e.target.value)} className="bg-secondary min-h-[60px]" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Referências Visuais (URLs)</Label>
-            <EditableTagList tags={bk.referencias || []} onChange={(v) => update("referencias", v)} placeholder="https://..." />
+            <EditableTagList tags={(Array.isArray(bk.referencias) ? bk.referencias.filter((value): value is string => typeof value === "string") : [])} onChange={(v) => update("referencias", v)} placeholder="https://..." />
           </div>
         </CardContent>
       </Card>

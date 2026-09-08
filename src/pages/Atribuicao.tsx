@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,21 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Radio, ShoppingBag, Sparkles } from "lucide-react";
 
-type Row = {
-  venda_id: string;
-  project_id: string | null;
-  produto_nome: string | null;
-  valor: number | null;
-  valor_liquido: number | null;
-  tipo_venda: string | null;
-  data_venda: string | null;
-  canal_atribuido: "whatsapp" | "ads" | "organic";
-  wa_source: string | null;
-  wa_template: string | null;
-  utm_source: string | null;
-  utm_campaign: string | null;
-  utm_content: string | null;
-};
+type Channel = "whatsapp" | "ads" | "organic";
+type Row = Omit<Tables<"vw_attribution_unified">, "canal_atribuido"> & { canal_atribuido: Channel };
 
 const CHANNEL_LABEL: Record<Row["canal_atribuido"], { label: string; color: string }> = {
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
@@ -37,7 +25,7 @@ export default function Atribuicao() {
   const { data: projects = [] } = useQuery({
     queryKey: ["atrib-projects"],
     queryFn: async () => {
-      const { data } = await supabase.from("imphq_projects").select("id, nome").order("nome");
+      const { data } = await supabase.from("imphq_projects").select("id, name").order("name");
       return data ?? [];
     },
   });
@@ -47,7 +35,7 @@ export default function Atribuicao() {
     queryFn: async () => {
       const since = new Date(Date.now() - Number(days) * 86400000).toISOString();
       let q = supabase
-        .from("vw_attribution_unified" as any)
+        .from("vw_attribution_unified")
         .select("*")
         .gte("data_venda", since)
         .order("data_venda", { ascending: false })
@@ -55,7 +43,8 @@ export default function Atribuicao() {
       if (project !== "__all__") q = q.eq("project_id", project);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as Row[];
+      return (data ?? []).filter((row): row is Row =>
+        row.canal_atribuido === "whatsapp" || row.canal_atribuido === "ads" || row.canal_atribuido === "organic");
     },
   });
 
@@ -122,8 +111,8 @@ export default function Atribuicao() {
             <SelectTrigger className="w-56"><SelectValue placeholder="Projeto" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos os projetos</SelectItem>
-              {projects.map((p: any) => (
-                <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

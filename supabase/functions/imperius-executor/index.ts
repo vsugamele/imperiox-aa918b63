@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Imperius Executor — executa ações da fila imphq_ai_actions
 // Tools: pauseAd, sendWhatsApp, createTask, updateLead, adjustBudget, runStudio
 // SEGURANÇA: exige JWT válido (usuário autenticado) para evitar execução não autorizada.
@@ -26,10 +27,20 @@ type ActionKind =
   | "runHotLeadResponder"
   | "runZernioTool";
 
-async function execAction(supabase: any, action: any): Promise<{ ok: boolean; result?: any; revert_payload?: any; error?: string }> {
-  const kind: ActionKind = action.kind;
-  const p = action.payload || {};
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const actionPayloadSchema = z.object({
+  entity_id: z.string().nullish(), entity_type: z.string().nullish(), instance: z.string().nullish(), number: z.union([z.string(), z.number()]).nullish(), text: z.string().nullish(),
+  lead_id: z.string().nullish(), titulo: z.string().nullish(), descricao: z.string().nullish(), prioridade: z.string().nullish(), updates: z.record(z.unknown()).nullish(),
+  new_budget: z.union([z.string(), z.number()]).nullish(), old_budget: z.union([z.string(), z.number()]).nullish(),
+  flow_name: z.string().nullish(), trigger_tipo: z.string().nullish(), projeto_id: z.string().nullish(), produto: z.string().nullish(), acoes: z.array(z.unknown()).nullish(),
+  venda_id: z.string().nullish(), phone: z.string().nullish(), project_id: z.string().nullish(), conversation_id: z.string().nullish(), tool: z.string().nullish(), args: z.record(z.unknown()).nullish(),
+}).passthrough();
+interface QueuedAction { id: string; kind: ActionKind | string; payload?: unknown; projeto_id?: string | null; reason?: string | null }
+
+async function execAction(supabase: ReturnType<typeof makeClient>, action: QueuedAction): Promise<{ ok: boolean; result?: unknown; revert_payload?: unknown; error?: string }> {
+  const kind = action.kind;
   try {
+    const p = actionPayloadSchema.parse(action.payload || {});
     switch (kind) {
       case "pauseAd": {
         // Chama facebook-ads-toggle existente
@@ -151,8 +162,39 @@ async function execAction(supabase: any, action: any): Promise<{ ok: boolean; re
       default:
         throw new Error(`Tipo de ação desconhecido: ${kind}`);
     }
-  } catch (e: any) {
-    return { ok: false, error: String(e?.message || e) };
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return { ok: false, error: String(eMessage || e) };
+  }
+}
+
+async function revertAction(supabase: ReturnType<typeof makeClient>, action: QueuedAction & { revert_payload: unknown }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const payload = z.record(z.unknown()).parse(action.revert_payload);
+    if (action.kind === "pauseAd" || action.kind === "adjustBudget") {
+      const target = z.object({ entity_id: z.string().min(1), entity_type: z.string().nullish(), new_status: z.enum(["ACTIVE", "PAUSED"]).optional(), new_budget: z.union([z.string().min(1), z.number()]).optional() }).parse(payload);
+      if (action.kind === "pauseAd" && !target.new_status) throw new Error("Estado anterior ausente");
+      if (action.kind === "adjustBudget" && target.new_budget === undefined) throw new Error("Orçamento anterior ausente");
+      const result = await supabase.functions.invoke("facebook-ads-toggle", { body: { entity_id: target.entity_id, entity_type: target.entity_type || "adset", ...(action.kind === "pauseAd" ? { new_status: target.new_status } : { new_budget: target.new_budget }), projeto_id: action.projeto_id, reason: action.reason } });
+      if (result.error) throw result.error;
+      if (result.data?.success === false || result.data?.ok === false || result.data?.error) throw new Error("Provedor recusou a reversão");
+    } else if (action.kind === "resumeAi") {
+      const target = z.object({ conversation_id: z.string().min(1), restore_paused_until: z.string().nullable() }).parse(payload);
+      const { data, error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: target.restore_paused_until }).eq("id", target.conversation_id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Conversa não encontrada para reversão");
+    } else if (action.kind === "updateLead") {
+      const target = z.object({ lead_id: z.string().min(1), updates: z.record(z.unknown()) }).parse(payload);
+      if (!Object.keys(target.updates).length) throw new Error("Estado anterior vazio");
+      const { data, error } = await supabase.from("imphq_leads").update(target.updates).eq("id", target.lead_id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Lead não encontrado para reversão");
+    } else {
+      throw new Error(`Reversão automática não suportada para ${action.kind}`);
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -190,14 +232,12 @@ Deno.serve(async (req) => {
       if (action.status !== "executed" || !action.revert_payload) {
         return safeError(new Error("não revertível"), { code: "validation_error", context: "imperius-executor", cors: corsHeaders, expose: "Ação não pode ser revertida." });
       }
-      const revertAction = { ...action, payload: action.revert_payload, kind: action.kind };
-      const r = await execAction(supabase, revertAction);
-      await supabase.from("imphq_ai_actions").update({
-        status: r.ok ? "reverted" : "failed",
-        reverted_at: new Date().toISOString(),
-        error: r.error,
-      }).eq("id", action_id);
-      return new Response(JSON.stringify({ ok: r.ok }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const r = await revertAction(supabase, action);
+      if (r.ok) {
+        const { error } = await supabase.from("imphq_ai_actions").update({ status: "reverted", reverted_at: new Date().toISOString(), error: null }).eq("id", action_id);
+        if (error) throw error;
+      }
+      return new Response(JSON.stringify({ ok: r.ok, error: r.error }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action.status !== "proposed" && action.status !== "approved") {

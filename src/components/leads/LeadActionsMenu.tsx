@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, MessageSquare, ExternalLink, Zap, Loader2 } from "lucide-react";
@@ -25,7 +28,7 @@ interface Automation {
 }
 
 interface Props {
-  lead: any;
+  lead: { id: string; project_id?: string | null; nome?: string; email?: string | null; phone?: string | null; data?: Json };
   automations: Automation[];
 }
 
@@ -63,7 +66,7 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
             nome: lead.nome,
             email: lead.email,
             phone: lead.phone,
-            produto: (lead.data as any)?.ultimo_produto,
+            produto: jsonFields(lead.data).ultimo_produto,
           },
         },
       });
@@ -71,8 +74,8 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
       toast.success(`Automação "${auto.nome}" disparada.`, {
         description: data?.executed ? `${data.executed} step(s) executados.` : undefined,
       });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao disparar automação.");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao disparar automação.");
     } finally {
       setRunning(null);
     }

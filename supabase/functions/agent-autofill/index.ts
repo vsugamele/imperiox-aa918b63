@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Gera personalidade + instruções + restrições de um Agente IA a partir do contexto do projeto.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -20,8 +21,8 @@ Deno.serve(async (req) => {
         .eq("id", project_id)
         .maybeSingle();
       if (proj) {
-        const d: any = proj.data || {};
-        const produtos = (d.produtos || []).map((p: any) => `- ${p.nome}${p.preco ? ` (R$ ${p.preco})` : ""}`).join("\n");
+        const d = z.object({produtos:z.array(z.object({nome:z.string().nullish(),preco:z.union([z.string(),z.number()]).nullish()}).passthrough()).nullish()}).passthrough().parse(proj.data || {});
+        const produtos = (d.produtos || []).map((p) => `- ${p.nome}${p.preco ? ` (R$ ${p.preco})` : ""}`).join("\n");
         const avatar = d.avatar || d.avatars_por_produto || {};
         ctx = `PROJETO: ${proj.name}\nNICHO: ${d.nicho || "-"}\nPRODUTOS:\n${produtos}\nAVATAR: ${JSON.stringify(avatar).slice(0, 1200)}\nBRANDING: ${JSON.stringify(d.branding || {}).slice(0, 600)}`;
       }
@@ -51,17 +52,18 @@ Português brasileiro, direto, sem clichês genéricos. Use o contexto do projet
       tag: "agent-autofill",
     });
 
-    let parsed: any = {};
-    try { parsed = JSON.parse(content); } catch {
+    let parsed: Record<string,unknown> = {};
+    try { parsed = z.record(z.unknown()).parse(JSON.parse(content)); } catch {
       const m = content.match(/\{[\s\S]*\}/);
-      if (m) parsed = JSON.parse(m[0]);
+      if (m) parsed = z.record(z.unknown()).parse(JSON.parse(m[0]));
     }
 
     return new Response(JSON.stringify({ ok: true, ...parsed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ ok: false, error: eMessage || String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

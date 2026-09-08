@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    const results: any[] = [];
+    const results: Array<{project_id: string; name: string | null; ok: boolean} & ({count:number} | {error:string})> = [];
     for (const p of projetos || []) {
       try {
         const r = await fetch(`${SUPABASE_URL}/functions/v1/daily-stories-ideas`, {
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
         const ok = r.ok && Array.isArray(json.stories) && json.stories.length > 0;
 
         // Persistir as ideias geradas pra timeline do Expert / dashboard
-        await supabase.from("imphq_expert_logs" as any).insert({
+        await supabase.from("imphq_expert_logs").insert({
           project_id: p.id,
           action: "daily_stories_generated",
           metadata: {

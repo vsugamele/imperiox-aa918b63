@@ -1,3 +1,6 @@
+import { parseFunnelData } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -16,7 +19,7 @@ interface Template {
   nicho?: string;
   objetivo: string;
   descricao?: string;
-  canvas: any;
+  canvas: Json;
   uses_count: number;
 }
 
@@ -39,12 +42,12 @@ export function FunnelTemplatesDialog({ open, onOpenChange, projects, onCreated 
     if (!open) return;
     setLoading(true);
     supabase
-      .from("imphq_funnel_templates" as any)
+      .from("imphq_funnel_templates")
       .select("*")
       .order("uses_count", { ascending: false })
       .then(({ data, error }) => {
         if (error) toast.error("Erro carregando templates: " + error.message);
-        else setTemplates((data as any) || []);
+        else setTemplates(data || []);
         setLoading(false);
       });
   }, [open]);
@@ -61,11 +64,11 @@ export function FunnelTemplatesDialog({ open, onOpenChange, projects, onCreated 
         tipo: selected.objetivo,
         status: "Rascunho",
         project_id: projectId === "none" ? null : projectId,
-        data: selected.canvas as any,
+        data: selected.canvas,
       }]);
       if (error) throw error;
       await supabase
-        .from("imphq_funnel_templates" as any)
+        .from("imphq_funnel_templates")
         .update({ uses_count: selected.uses_count + 1 })
         .eq("id", selected.id);
       toast.success(`Funil "${nome}" criado a partir de ${selected.nome}`);
@@ -74,8 +77,8 @@ export function FunnelTemplatesDialog({ open, onOpenChange, projects, onCreated 
       setCustomName("");
       setProjectId("none");
       onCreated();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro: " + errorMessage(e));
     } finally {
       setCreating(false);
     }
@@ -101,7 +104,7 @@ export function FunnelTemplatesDialog({ open, onOpenChange, projects, onCreated 
         ) : !selected ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templates.map((t) => {
-              const etapas = (t.canvas?.etapas || []) as any[];
+              const etapas = parseFunnelData(t.canvas).etapas || [];
               return (
                 <button
                   key={t.id}
@@ -119,7 +122,7 @@ export function FunnelTemplatesDialog({ open, onOpenChange, projects, onCreated 
                   </div>
                   <p className="text-xs text-muted-foreground leading-6">{t.descricao}</p>
                   <div className="mt-3 flex gap-1 flex-wrap">
-                    {etapas.slice(0, 6).map((e: any, i: number) => (
+                    {etapas.slice(0, 6).map((e, i: number) => (
                       <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground">
                         {e.nome}
                       </span>

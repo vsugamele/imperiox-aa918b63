@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,7 @@ export function DashboardCreativeHub({ projectId }: { projectId: string }) {
     return HOURLY_ANGLES[day % HOURLY_ANGLES.length];
   }, []);
 
-  const fetchBatches = async () => {
+  const fetchBatches = useCallback(async () => {
     setLoading(true);
     try {
       let q = supabase
@@ -99,16 +99,16 @@ export function DashboardCreativeHub({ projectId }: { projectId: string }) {
       
       const { data } = await q;
       setBatches((data as Batch[]) || []);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     fetchBatches();
-  }, [projectId]);
+  }, [fetchBatches]);
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text);

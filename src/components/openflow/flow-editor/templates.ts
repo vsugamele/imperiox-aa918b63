@@ -1,3 +1,4 @@
+import { objectFields } from "@/lib/json-fields";
 import type { Acao } from "../FlowEditor";
 
 export interface FlowTemplate {
@@ -80,10 +81,10 @@ export function syncX1Media(acoes: Acao[]): { acoes: Acao[]; fixed: number; pend
   };
 
   const next = acoes.map((a) => {
-    const out: any = { ...a };
+    const out: Acao & Partial<Record<"mensagem" | "corpo" | "conteudo", string>> = { ...a };
     let changed = false;
     for (const field of ["template", "mensagem", "corpo", "conteudo"] as const) {
-      const val = (a as any)[field];
+      const val = objectFields(a)[field];
       if (typeof val === "string" && hasMediaPlaceholder(val)) {
         const fixedVal = fixText(val);
         if (fixedVal !== val) {
@@ -93,7 +94,7 @@ export function syncX1Media(acoes: Acao[]): { acoes: Acao[]; fixed: number; pend
       }
     }
     if (changed) fixed++;
-    return out as Acao;
+    return out;
   });
 
   return { acoes: next, fixed, pending: [...pending] };

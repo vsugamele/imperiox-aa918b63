@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,12 +44,12 @@ export function PushOptIn() {
         setStatus("subscribed");
         toast.success("Notificacoes push ativadas neste dispositivo");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Push opt-in error:", err);
       const next = await getPushStatus();
       setStatus(next);
       setSubscribed(next === "subscribed");
-      toast.error(err?.message || "Erro ao configurar push");
+      toast.error(errorMessage(err) || "Erro ao configurar push");
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { FLOW_TEMPLATES, type FlowTemplate } from "./flow-editor/templates";
+import { FLOW_TEMPLATES, type FlowTemplate } from "@/components/openflow/flow-editor/templates";
 
 function canalSugerido(t: FlowTemplate): string {
   if (t.id.includes("webchat") || t.id.includes("whatsapp")) {
@@ -44,7 +44,7 @@ export function X1TemplatesStrip({ existingNames, onCreated }: Props) {
       acoes: JSON.parse(JSON.stringify(t.acoes)),
       ativo: false,
       canal: canalSugerido(t),
-    } as any);
+    });
     setCreating(null);
     if (error) return toast.error(error.message);
     toast.success("Fluxo criado (desativado). Revise as mídias e os links antes de ligar.");

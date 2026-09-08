@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Zap, ExternalLink } from "lucide-react";
 
 interface Props {
-  projects: any[];
-  leads: any[];
-  allVendasRaw: any[];
+  projects: Array<{id:string;name:string;icon?:string}>;
+  leads: Array<{id:string;project_id?:string}>;
+  allVendasRaw: Array<{lead_id?:string;produto_nome?:string}>;
   projectFilter: string;
   productFilter: string;
   expandedProjects: Set<string>;
@@ -31,14 +31,14 @@ export default function LeadsSidebar({
   const projectProductMap = useMemo(() => {
     const map = new Map<string, { products: Map<string, number>; totalLeads: number }>();
     const productLeadMap = new Map<string, Set<string>>();
-    allVendasRaw.forEach((v: any) => {
+    allVendasRaw.forEach((v) => {
       if (!v.produto_nome || !v.lead_id) return;
       if (!productLeadMap.has(v.produto_nome)) productLeadMap.set(v.produto_nome, new Set());
       productLeadMap.get(v.produto_nome)!.add(v.lead_id);
     });
-    projects.forEach((p: any) => {
-      const projectLeads = leads.filter((l: any) => l.project_id === p.id);
-      const projectLeadIdsSet = new Set(projectLeads.map((l: any) => l.id));
+    projects.forEach((p) => {
+      const projectLeads = leads.filter((l) => l.project_id === p.id);
+      const projectLeadIdsSet = new Set(projectLeads.map((l) => l.id));
       const prodMap = new Map<string, number>();
       productLeadMap.forEach((leadIds, prodName) => {
         const count = [...leadIds].filter(id => projectLeadIdsSet.has(id)).length;
@@ -51,7 +51,7 @@ export default function LeadsSidebar({
   }, [projects, leads, allVendasRaw, projectCounts]);
 
 
-  const noLeadsInProject = projectCounts?.noProject ?? leads.filter((l: any) => !l.project_id).length;
+  const noLeadsInProject = projectCounts?.noProject ?? leads.filter((l) => !l.project_id).length;
   const totalAllLeads = projectCounts?.totalAll ?? leads.length;
 
   return (
@@ -96,7 +96,7 @@ export default function LeadsSidebar({
             Por projeto
           </p>
         )}
-        {projects.map((p: any) => {
+        {projects.map((p) => {
           const info = projectProductMap.get(p.id);
           if (!info || info.totalLeads === 0) return null;
           const isExpanded = expandedProjects.has(p.id);

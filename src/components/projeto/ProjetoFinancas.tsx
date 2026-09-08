@@ -1,7 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
-import ZernioAdsSync from "./ZernioAdsSync";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { campaignDraftsSchema, adsAnalysisSchema, parseCreatives, parseProducts, type AdsAnalysis, type CampaignDrafts, type FacebookCreative } from "@/components/projeto/financas-schema";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import ZernioAdsSync from "@/components/projeto/ZernioAdsSync";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,28 +30,10 @@ import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval,
 import { cn } from "@/lib/utils";
 import { toLocalDateStr } from "@/lib/periodUtils";
 
-interface Cost {
-  id: string; nome: string; categoria: string; valor: number; moeda: string; recorrente: boolean;
-  documento_url?: string | null; produto_nome?: string | null;
-  pix_info?: string | null; data_pagamento?: string | null;
-  beneficiario?: string | null; tipo_recorrencia?: string | null;
-}
-interface Revenue {
-  id: string; descricao: string; valor: number; fonte: string; data_ref: string;
-  produto_nome?: string | null; documento_url?: string | null;
-  pix_info?: string | null; data_pagamento?: string | null; plataforma?: string | null;
-}
-interface AdsSpend {
-  id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null;
-  anuncio?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number;
-  cliques: number; leads: number; compras?: number; custo_por_compra?: number;
-  hook_rate?: number; ctr?: number; frequencia?: number;
-  init_checkout?: number; add_to_cart?: number; landing_page_views?: number;
-  video_3s_views?: number; video_thruplay?: number; link_clicks?: number;
-}
-interface Venda {
-  id: string; produto_nome: string; valor: number; plataforma: string; status: string; data_venda: string;
-}
+type Cost = Tables<"imphq_project_costs">;
+type Revenue = Tables<"imphq_project_revenue">;
+type AdsSpend = Tables<"imphq_ads_spend">;
+type Venda = Tables<"imphq_vendas">;
 
 const COST_CATS = ["Ferramentas", "Ads", "Freelancer", "Infra", "Outro"];
 const REV_SOURCES = ["Manual", "Hotmart", "Stripe", "Kiwify", "Outro"];
@@ -62,7 +48,7 @@ const PERIOD_OPTIONS = [
   { key: "custom", label: "Personalizado" },
 ];
 
-export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: string; project?: any; onRefresh?: () => Promise<void> }) {
+export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: string; project?: Pick<Tables<"imphq_projects">, "data">; onRefresh?: () => Promise<void> }) {
   const { user } = useAuth();
   const [costs, setCosts] = useState<Cost[]>([]);
   const [revenues, setRevenues] = useState<Revenue[]>([]);
@@ -80,13 +66,13 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<Pick<Tables<"imphq_events">, "id" | "event_name" | "created_at" | "page_url">[]>([]);
   // AI Campaign & Analysis states
   const [showCampaignGen, setShowCampaignGen] = useState(false);
   const [campaignPrompt, setCampaignPrompt] = useState("");
   const [campaignModel, setCampaignModel] = useState("google/gemini-3-flash-preview");
   const [generatingCampaigns, setGeneratingCampaigns] = useState(false);
-  const [campaignDrafts, setCampaignDrafts] = useState<any>(null);
+  const [campaignDrafts, setCampaignDrafts] = useState<CampaignDrafts | null>(null);
   const [campaignObjective, setCampaignObjective] = useState("conversao");
   const [campaignCount, setCampaignCount] = useState("3");
   const [campaignBudget, setCampaignBudget] = useState("");
@@ -96,10 +82,10 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [refinePrompt, setRefinePrompt] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analyzingAds, setAnalyzingAds] = useState(false);
-  const [adsAnalysis, setAdsAnalysis] = useState<any>(null);
+  const [adsAnalysis, setAdsAnalysis] = useState<AdsAnalysis | null>(null);
   const [adsSubTab, setAdsSubTab] = useState("dados");
-  const [savedReports, setSavedReports] = useState<any[]>([]);
-  const [viewingReport, setViewingReport] = useState<any>(null);
+  const [savedReports, setSavedReports] = useState<Tables<"imphq_ads_reports">[]>([]);
+  const [viewingReport, setViewingReport] = useState<Tables<"imphq_ads_reports"> | null>(null);
   const [creativeSearch, setCreativeSearch] = useState("");
   const [creativeFilter, setCreativeFilter] = useState("all");
   const [adsSearchCampanha, setAdsSearchCampanha] = useState("");
@@ -109,14 +95,14 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const [creativeFilterConjunto, setCreativeFilterConjunto] = useState("all");
 
   // Get products from briefing
-  const briefingProdutos: any[] = project?.data?.produtos || [];
+  const projectData = jsonFields(project?.data);
+  const briefingProdutos = parseProducts(projectData.produtos);
 
-  useEffect(() => { loadData(); loadReports(); }, [projectId]);
 
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     const { data } = await supabase.from("imphq_ads_reports").select("*").eq("project_id", projectId).order("created_at", { ascending: false });
-    setSavedReports((data || []) as any[]);
-  };
+    setSavedReports(data || []);
+  }, [projectId]);
 
   const saveReport = async () => {
     if (!adsAnalysis) return;
@@ -128,13 +114,14 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       model_used: campaignModel,
       period_start: dateRange?.start ? format(dateRange.start, "yyyy-MM-dd") : null,
       period_end: dateRange?.end ? format(dateRange.end, "yyyy-MM-dd") : null,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Relatório salvo!");
     loadReports();
   };
 
-  const getFacebookSyncErrorMessage = (payload?: any, fallback?: unknown) => {
+  const getFacebookSyncErrorMessage = (value?: Json, fallback?: unknown) => {
+    const payload = jsonFields(value);
     const fallbackMessage = fallback instanceof Error
       ? fallback.message
       : typeof fallback === "string"
@@ -157,7 +144,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       .join(" · ") || "Erro ao sincronizar com Facebook.";
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const [c, r, a, v, p, ev] = await Promise.all([
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_project_revenue").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
@@ -166,23 +153,25 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_events").select("id, event_name, created_at, page_url").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1000),
     ]);
-    setCosts((c.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
-    setRevenues((r.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
-    setAds((a.data || []).map((x: any) => ({
-      ...x, valor: parseFloat(x.valor) || 0, impressoes: x.impressoes || 0,
+    setCosts((c.data || []).map((x) => ({ ...x, valor: Number(x.valor) || 0 })));
+    setRevenues((r.data || []).map((x) => ({ ...x, valor: Number(x.valor) || 0 })));
+    setAds((a.data || []).map((x) => ({
+      ...x, valor: Number(x.valor) || 0, impressoes: x.impressoes || 0,
       cliques: x.cliques || 0, leads: x.leads || 0, alcance: x.alcance || 0,
-      compras: x.compras || 0, custo_por_compra: parseFloat(x.custo_por_compra) || 0,
-      hook_rate: parseFloat(x.hook_rate) || 0, ctr: parseFloat(x.ctr) || 0,
-      frequencia: parseFloat(x.frequencia) || 0,
+      compras: x.compras || 0, custo_por_compra: Number(x.custo_por_compra) || 0,
+      hook_rate: Number(x.hook_rate) || 0, ctr: Number(x.ctr) || 0,
+      frequencia: Number(x.frequencia) || 0,
       init_checkout: x.init_checkout || 0, add_to_cart: x.add_to_cart || 0,
       landing_page_views: x.landing_page_views || 0,
       video_3s_views: x.video_3s_views || 0, video_thruplay: x.video_thruplay || 0,
       link_clicks: x.link_clicks || 0,
     })));
-    setVendas((v.data || []).map((x: any) => ({ ...x, valor: parseFloat(x.valor) || 0 })));
+    setVendas((v.data || []).map((x) => ({ ...x, valor: Number(x.valor) || 0 })));
     setProjects((p.data || []) as { id: string; name: string }[]);
     setEvents(ev.data || []);
-  };
+  }, [projectId]);
+
+  useEffect(() => { loadData(); loadReports(); }, [loadData, loadReports]);
 
   // Period filter
   const getDateRange = (): { start: Date; end: Date } | null => {
@@ -198,7 +187,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   };
 
   const dateRange = getDateRange();
-  const inRange = (dateStr: string | undefined | null) => {
+  const inRange = useCallback((dateStr: string | undefined | null) => {
     if (!dateRange || !dateStr) return !dateRange;
     try {
       // Parse date string explicitly to avoid timezone shifts
@@ -213,13 +202,13 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       }
       return isWithinInterval(d, { start: dateRange.start, end: dateRange.end });
     } catch { return true; }
-  };
+  }, [dateRange]);
 
-  const fCosts = useMemo(() => costs.filter(c => inRange(c.data_pagamento || null)), [costs, period, customFrom, customTo]);
-  const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, period, customFrom, customTo]);
-  const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, period, customFrom, customTo]);
-  const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, period, customFrom, customTo]);
-  const fEvents = useMemo(() => events.filter(e => inRange(e.created_at)), [events, period, customFrom, customTo]);
+  const fCosts = useMemo(() => costs.filter(c => inRange(c.data_pagamento || null)), [costs, inRange]);
+  const fRevenues = useMemo(() => revenues.filter(r => inRange(r.data_ref)), [revenues, inRange]);
+  const fAds = useMemo(() => ads.filter(a => inRange(a.data_ref)), [ads, inRange]);
+  const fVendas = useMemo(() => vendas.filter(v => inRange(v.data_venda)), [vendas, inRange]);
+  const fEvents = useMemo(() => events.filter(e => inRange(e.created_at)), [events, inRange]);
 
   // Event KPIs
   const eventKPIs = useMemo(() => {
@@ -325,9 +314,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       pix_info: rev.pix_info || "",
       data_pagamento: rev.data_pagamento || "",
       plataforma: rev.plataforma || "",
-      quantidade: String((rev as any).quantidade || 1),
-      custo_produto: String((rev as any).custo_produto || 0),
-      imposto_pct: String((rev as any).imposto_pct || ""),
+      quantidade: String(rev.quantidade || 1),
+      custo_produto: String(rev.custo_produto || 0),
+      imposto_pct: "",
     });
     setShowRevForm(true);
   };
@@ -346,7 +335,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       plataforma: revForm.plataforma || null,
       quantidade: parseInt(revForm.quantidade) || 1,
       custo_produto: parseFloat(revForm.custo_produto) || 0,
-    } as any;
+    };
 
     if (editingRevenue) {
       const { error } = await supabase.from("imphq_project_revenue").update(payload).eq("id", editingRevenue.id);
@@ -395,7 +384,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
   const handleGenerateCampaigns = async (refineIndex?: number, refineText?: string) => {
     setGeneratingCampaigns(true);
     try {
-      const payload: any = {
+      const payload: { [key: string]: Json | undefined } = {
         project_id: projectId,
         action: "generate_campaign_drafts",
         model: campaignModel,
@@ -411,17 +400,17 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       } else {
         payload.user_prompt = campaignPrompt || undefined;
       }
-      const { data, error } = await supabase.functions.invoke("openflow-ai", { body: payload });
+      const { data, error } = await supabase.functions.invoke<Json>("openflow-ai", { body: payload });
       if (error) throw error;
-      setCampaignDrafts(data.campaigns);
+      setCampaignDrafts(campaignDraftsSchema.parse(jsonFields(data).campaigns));
       setShowCampaignGen(false);
       setRefiningCampaign(null);
       setRefinePrompt("");
       toast.success(refineIndex !== undefined ? "Campanha refinada!" : "Campanhas geradas com sucesso!");
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit excedido. Tente novamente.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar campanhas");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit excedido. Tente novamente.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar campanhas");
     } finally { setGeneratingCampaigns(false); }
   };
 
@@ -429,22 +418,22 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
     setAnalyzingAds(true);
     setShowAnalysis(true);
     try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+      const { data, error } = await supabase.functions.invoke<Json>("openflow-ai", {
         body: { project_id: projectId, action: "analyze_ads_performance", model: campaignModel },
       });
       if (error) throw error;
-      setAdsAnalysis(data.analysis);
+      setAdsAnalysis(adsAnalysisSchema.parse(jsonFields(data).analysis));
       toast.success("Análise concluída!");
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit excedido.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao analisar");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit excedido.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao analisar");
       setShowAnalysis(false);
     } finally { setAnalyzingAds(false); }
   };
 
   // Creatives from project data
-  const creatives: any[] = (project?.data?.facebook_creatives || []);
+  const creatives = parseCreatives(projectData.facebook_creatives);
 
   const kpis = [
     { label: "Receita Total", value: fmt(totalReceita), icon: TrendingUp, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5" },
@@ -465,7 +454,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
           <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecione..." /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Nenhum</SelectItem>
-            {briefingProdutos.map((p: any, i: number) => (
+            {briefingProdutos.map((p, i: number) => (
               <SelectItem key={i} value={p.nome || `Produto ${i + 1}`}>{p.nome || `Produto ${i + 1}`}</SelectItem>
             ))}
           </SelectContent>
@@ -702,10 +691,10 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                         <TableCell>{r.produto_nome && <Badge variant="outline" className="text-[10px]">{r.produto_nome}</Badge>}</TableCell>
                         <TableCell>{r.plataforma && <Badge variant="secondary" className="text-[10px]">{r.plataforma}</Badge>}</TableCell>
                         <TableCell className="text-xs font-mono">{r.data_pagamento ? new Date(r.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{(r as any).quantidade || 1}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{r.quantidade || 1}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-emerald-400">{fmt(r.valor)}</TableCell>
-                        <TableCell className={`text-right font-mono text-xs ${(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                          {fmt(r.valor * ((r as any).quantidade || 1) - ((r as any).custo_produto || 0))}
+                        <TableCell className={`text-right font-mono text-xs ${(r.valor * (r.quantidade || 1) - (r.custo_produto || 0)) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {fmt(r.valor * (r.quantidade || 1) - (r.custo_produto || 0))}
                         </TableCell>
                         <TableCell>
                           {r.documento_url && (
@@ -734,13 +723,13 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
         {/* Ads Tab */}
         <TabsContent value="ads">
           {/* Info banner */}
-          <Card className={`mb-4 ${project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
+          <Card className={`mb-4 ${jsonText(projectData.facebook_ad_account_id) && (jsonText(projectData.facebook_marketing_token) || jsonText(projectData.facebook_access_token)) ? "border-emerald-500/30 bg-emerald-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
             <CardContent className="p-3 flex items-start gap-3">
-              <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? "text-emerald-400" : "text-blue-400"}`} />
+              <Megaphone className={`h-4 w-4 mt-0.5 shrink-0 ${jsonText(projectData.facebook_ad_account_id) && (jsonText(projectData.facebook_marketing_token) || jsonText(projectData.facebook_access_token)) ? "text-emerald-400" : "text-blue-400"}`} />
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">
-                  {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) ? (
-                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.{!project?.data?.facebook_marketing_token && <span className="text-amber-400 ml-1">⚠ Usando token CAPI — recomendado usar token Marketing API (Graph Explorer).</span>}</>
+                  {jsonText(projectData.facebook_ad_account_id) && (jsonText(projectData.facebook_marketing_token) || jsonText(projectData.facebook_access_token)) ? (
+                    <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.{!jsonText(projectData.facebook_marketing_token) && <span className="text-amber-400 ml-1">⚠ Usando token CAPI — recomendado usar token Marketing API (Graph Explorer).</span>}</>
                   ) : (
                     <><strong className="text-foreground">Como importar?</strong> Configure o Token Marketing API (Graph Explorer) e Ad Account ID nas integrações, ou importe CSV manualmente.</>
                   )}
@@ -779,13 +768,13 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {project?.data?.facebook_ad_account_id && (project?.data?.facebook_marketing_token || project?.data?.facebook_access_token) && (
+            {jsonText(projectData.facebook_ad_account_id) && (jsonText(projectData.facebook_marketing_token) || jsonText(projectData.facebook_access_token)) && (
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className="border-green-500/40 text-green-400 text-[10px] gap-1 py-0.5">
                   <Sparkles className="h-3 w-3" /> Auto ⚡
-                  {project?.data?.facebook_last_sync && (
+                  {jsonText(projectData.facebook_last_sync) && (
                     <span className="text-muted-foreground ml-1">
-                      {(() => { try { const d = new Date(project.data.facebook_last_sync); const now = new Date(); const diff = Math.floor((now.getTime() - d.getTime()) / 60000); return diff < 60 ? `${diff}min` : diff < 1440 ? `${Math.floor(diff/60)}h` : format(d, "dd/MM HH:mm"); } catch { return ""; } })()}
+                      {(() => { try { const d = new Date(jsonText(projectData.facebook_last_sync) || ""); const now = new Date(); const diff = Math.floor((now.getTime() - d.getTime()) / 60000); return diff < 60 ? `${diff}min` : diff < 1440 ? `${Math.floor(diff/60)}h` : format(d, "dd/MM HH:mm"); } catch { return ""; } })()}
                     </span>
                   )}
                 </Badge>
@@ -793,7 +782,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                   toast.info("Sincronizando com Facebook...");
                   try {
                     const now = new Date();
-                    const syncBody: any = { project_id: projectId };
+                    const syncBody: { project_id: string; date_from?: string; date_to?: string } = { project_id: projectId };
                     if (dateRange) {
                       syncBody.date_from = format(dateRange.start, "yyyy-MM-dd");
                       syncBody.date_to = format(dateRange.end, "yyyy-MM-dd");
@@ -801,18 +790,18 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                       syncBody.date_from = format(startOfMonth(now), "yyyy-MM-dd");
                       syncBody.date_to = format(now, "yyyy-MM-dd");
                     }
-                    const { data, error } = await supabase.functions.invoke("facebook-ads-sync", { body: syncBody });
+                    const { data, error } = await supabase.functions.invoke<Json>("facebook-ads-sync", { body: syncBody });
                     if (error) {
                       throw new Error(getFacebookSyncErrorMessage(undefined, error));
                     }
-                    if (data?.success === false || data?.error) {
+                    if (jsonFields(data).success === false || jsonFields(data).error) {
                       toast.error(getFacebookSyncErrorMessage(data));
                       return;
                     }
-                    toast.success(`✅ ${data.imported} registros importados, ${data.creatives} criativos sincronizados`);
+                    toast.success(`✅ ${jsonFields(data).imported} registros importados, ${jsonFields(data).creatives} criativos sincronizados`);
                     loadData();
                     if (onRefresh) await onRefresh();
-                  } catch (e: any) {
+                  } catch (e) {
                     toast.error(getFacebookSyncErrorMessage(undefined, e));
                   }
                 }}>
@@ -863,9 +852,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     const roasReal = totalAds > 0 ? receitaVendas / totalAds : 0;
                     // Métricas Yoshitani + Funil
                     const ctr = totalImpr > 0 ? (totalCliques / totalImpr) * 100 : 0;
-                    const totalCheckouts = fAds.reduce((s, a: any) => s + (a.init_checkout || a.checkouts || 0), 0);
-                    const totalLpViews = fAds.reduce((s, a: any) => s + (a.landing_page_views || 0), 0);
-                    const totalVideo3s = fAds.reduce((s, a: any) => s + (a.video_3s_views || 0), 0);
+                    const totalCheckouts = fAds.reduce((s, a) => s + (a.init_checkout || a.checkouts_iniciados || 0), 0);
+                    const totalLpViews = fAds.reduce((s, a) => s + (a.landing_page_views || 0), 0);
+                    const totalVideo3s = fAds.reduce((s, a) => s + (a.video_3s_views || 0), 0);
                     const custoPorCheckout = totalCheckouts > 0 ? totalAds / totalCheckouts : 0;
                     const hookRate = totalImpr > 0 ? (totalVideo3s / totalImpr) * 100 : 0;
                     const lpToCheckout = totalLpViews > 0 ? (totalCheckouts / totalLpViews) * 100 : 0;
@@ -1108,18 +1097,18 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     </div>
                   ) : (() => {
                     const searchLower = creativeSearch.toLowerCase();
-                    const filtered = creatives.filter((c: any) => {
+                    const filtered = creatives.filter((c) => {
                       const nameMatch = !creativeSearch || (c.name || c.ad_name || "").toLowerCase().includes(searchLower) || (c.body || "").toLowerCase().includes(searchLower);
                       const statusMatch = creativeFilter === "all" || (creativeFilter === "active" ? c.status === "ACTIVE" : c.status !== "ACTIVE");
                       const conjMatch = creativeFilterConjunto === "all" || fAds.some(a => a.conjunto_anuncios === creativeFilterConjunto && a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
                       return nameMatch && statusMatch && conjMatch;
                     });
-                    const activeCreatives = filtered.filter((c: any) => c.status === "ACTIVE");
-                    const inactiveCreatives = filtered.filter((c: any) => c.status !== "ACTIVE");
-                    const totalActive = creatives.filter((c: any) => c.status === "ACTIVE").length;
+                    const activeCreatives = filtered.filter((c) => c.status === "ACTIVE");
+                    const inactiveCreatives = filtered.filter((c) => c.status !== "ACTIVE");
+                    const totalActive = creatives.filter((c) => c.status === "ACTIVE").length;
                     const totalInactive = creatives.length - totalActive;
                     
-                    const renderCreativeCard = (c: any, i: number, isActive: boolean) => {
+                    const renderCreativeCard = (c: FacebookCreative, i: number, isActive: boolean) => {
                       const adMatch = fAds.filter(a => a.anuncio && (c.name || c.ad_name) && (a.anuncio.includes(c.name) || a.anuncio.includes(c.ad_name)));
                       const cImpr = adMatch.reduce((s, a) => s + a.impressoes, 0);
                       const cClicks = adMatch.reduce((s, a) => s + a.cliques, 0);
@@ -1150,9 +1139,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                               const campanha = adMatch.length > 0 ? adMatch[0].campanha : null;
                               const conjunto = adMatch.length > 0 ? adMatch[0].conjunto_anuncios : null;
                               const cLeads = adMatch.reduce((s, a) => s + (a.leads || 0), 0);
-                              const cCompras = adMatch.reduce((s, a) => s + ((a as any).compras || 0), 0);
-                              const cAlcance = adMatch.reduce((s, a) => s + ((a as any).alcance || 0), 0);
-                              const cFreq = adMatch.length > 0 ? adMatch.reduce((s, a) => s + ((a as any).frequencia || 0), 0) / adMatch.length : 0;
+                              const cCompras = adMatch.reduce((s, a) => s + (a.compras || 0), 0);
+                              const cAlcance = adMatch.reduce((s, a) => s + (a.alcance || 0), 0);
+                              const cFreq = adMatch.length > 0 ? adMatch.reduce((s, a) => s + (a.frequencia || 0), 0) / adMatch.length : 0;
                               const cCPM = cImpr > 0 ? (cSpend / cImpr) * 1000 : 0;
                               const cCPC = cClicks > 0 ? cSpend / cClicks : 0;
                               const cCPL = cLeads > 0 ? cSpend / cLeads : 0;
@@ -1260,7 +1249,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                           <div>
                             <p className="text-xs font-semibold text-emerald-400 mb-2">🟢 Ativos ({activeCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {activeCreatives.map((c: any, i: number) => renderCreativeCard(c, i, true))}
+                              {activeCreatives.map((c, i: number) => renderCreativeCard(c, i, true))}
                             </div>
                           </div>
                         )}
@@ -1268,7 +1257,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                           <div>
                             <p className="text-xs font-semibold text-muted-foreground mb-2">⏸ Inativos ({inactiveCreatives.length})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {inactiveCreatives.map((c: any, i: number) => renderCreativeCard(c, i, false))}
+                              {inactiveCreatives.map((c, i: number) => renderCreativeCard(c, i, false))}
                             </div>
                           </div>
                         )}
@@ -1291,7 +1280,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {savedReports.map((r: any) => (
+                      {savedReports.map((r) => (
                         <div key={r.id} className="rounded-lg border border-border p-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
                           <div>
                             <p className="text-sm font-medium">{r.titulo}</p>
@@ -1343,7 +1332,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                       </div>
                     )}
                     <Accordion type="multiple" className="space-y-2">
-                      {(campaignDrafts.campaigns || []).map((camp: any, i: number) => (
+                      {(campaignDrafts.campaigns || []).map((camp, i: number) => (
                         <AccordionItem key={i} value={`camp-${i}`} className="border border-border rounded-lg px-4">
                           <AccordionTrigger className="text-sm hover:no-underline">
                             <div className="flex items-center gap-2 text-left">
@@ -1379,7 +1368,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                             {camp.conjuntos?.length > 0 && (
                               <div className="space-y-2">
                                 <p className="text-[10px] font-semibold text-muted-foreground uppercase">Conjuntos de Anúncios ({camp.conjuntos.length})</p>
-                                {camp.conjuntos.map((conj: any, k: number) => (
+                                {camp.conjuntos.map((conj, k: number) => (
                                   <div key={k} className="rounded-lg border border-border/50 bg-secondary/20 p-2.5 space-y-1">
                                     <div className="flex items-center justify-between">
                                       <p className="text-xs font-medium">{conj.nome}</p>
@@ -1391,7 +1380,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                               </div>
                             )}
                             {/* Copies */}
-                            {camp.copies?.map((copy: any, j: number) => (
+                            {camp.copies?.map((copy, j: number) => (
                               <div key={j} className="rounded-lg border border-border p-3 space-y-1">
                                 <div className="flex items-center justify-between">
                                   <p className="text-[10px] font-semibold text-muted-foreground uppercase">Variação {j + 1}</p>
@@ -1420,7 +1409,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                             {/* Iteration buttons */}
                             <div className="flex gap-2 pt-2 border-t border-border/50">
                               <Button size="sm" variant="ghost" className="text-[10px] h-7 gap-1" onClick={() => {
-                                const full = `CAMPANHA: ${camp.nome}\nObjetivo: ${camp.objetivo}\nBudget: ${fmt(camp.budget_diario)}/dia\n\nPÚBLICO:\n${camp.publico ? `${camp.publico.genero} | ${camp.publico.idade_min}-${camp.publico.idade_max} anos\nInteresses: ${camp.publico.interesses?.join(", ")}` : ""}\n\n${camp.copies?.map((c: any, j: number) => `COPY ${j+1}:\n${c.headline}\n${c.texto_primario}\nCTA: ${c.cta}`).join("\n\n") || ""}\n\nCriativo: ${camp.sugestao_criativo || ""}`;
+                                const full = `CAMPANHA: ${camp.nome}\nObjetivo: ${camp.objetivo}\nBudget: ${fmt(camp.budget_diario)}/dia\n\nPÚBLICO:\n${camp.publico ? `${camp.publico.genero} | ${camp.publico.idade_min}-${camp.publico.idade_max} anos\nInteresses: ${camp.publico.interesses?.join(", ")}` : ""}\n\n${camp.copies?.map((c, j: number) => `COPY ${j+1}:\n${c.headline}\n${c.texto_primario}\nCTA: ${c.cta}`).join("\n\n") || ""}\n\nCriativo: ${camp.sugestao_criativo || ""}`;
                                 navigator.clipboard.writeText(full);
                                 toast.success("Campanha completa copiada!");
                               }}>
@@ -1618,7 +1607,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
               </div>
             </div>
             <ProductSelect value={revForm.produto_nome} onChange={v => {
-              const prod = briefingProdutos.find((p: any) => p.nome === v);
+              const prod = briefingProdutos.find((p) => p.nome === v);
               setRevForm({ ...revForm, produto_nome: v, imposto_pct: prod?.imposto_pct ? String(prod.imposto_pct) : revForm.imposto_pct });
             }} />
             <div className="grid grid-cols-3 gap-3">
@@ -1827,7 +1816,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                   <SelectTrigger className="bg-secondary"><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Todos os produtos</SelectItem>
-                    {briefingProdutos.map((p: any, i: number) => (
+                    {briefingProdutos.map((p, i: number) => (
                       <SelectItem key={i} value={p.nome || `Produto ${i + 1}`}>
                         {p.nome || `Produto ${i + 1}`}
                         {p.link ? ` — ${p.link.slice(0, 40)}...` : ""}
@@ -1903,7 +1892,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 <div>
                   <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Alertas</p>
                   <div className="space-y-2">
-                    {adsAnalysis.alertas.map((a: any, i: number) => (
+                    {adsAnalysis.alertas.map((a, i: number) => (
                       <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
                         <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
                         <p className="text-xs text-muted-foreground">{a.mensagem}</p>
@@ -1917,7 +1906,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 <div>
                   <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1"><Lightbulb className="h-3 w-3" /> Otimizações</p>
                   <div className="space-y-2">
-                    {adsAnalysis.otimizacoes.map((o: any, i: number) => (
+                    {adsAnalysis.otimizacoes.map((o, i: number) => (
                       <div key={i} className="rounded-lg border border-border p-2">
                         <p className="text-xs font-medium">{o.area}</p>
                         <p className="text-xs text-muted-foreground">{o.recomendacao}</p>
@@ -1960,7 +1949,9 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
             </DialogDescription>
           </DialogHeader>
           {viewingReport?.report_data && (() => {
-            const rd = viewingReport.report_data;
+            const parsedReport = adsAnalysisSchema.safeParse(viewingReport.report_data);
+            if (!parsedReport.success) return <p className="text-sm text-muted-foreground">Relatório salvo em formato incompatível.</p>;
+            const rd = parsedReport.data;
             return (
               <div className="space-y-4">
                 {rd.resumo_geral && (
@@ -1984,7 +1975,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 {rd.alertas?.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-amber-400 mb-2">⚠ Alertas</p>
-                    {rd.alertas.map((a: any, i: number) => (
+                    {rd.alertas.map((a, i: number) => (
                       <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 mb-2">
                         <Badge variant="outline" className="text-[9px] mb-1">{a.tipo}</Badge>
                         <p className="text-xs text-muted-foreground">{a.mensagem}</p>
@@ -1996,7 +1987,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
                 {rd.otimizacoes?.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-primary mb-2">💡 Otimizações</p>
-                    {rd.otimizacoes.map((o: any, i: number) => (
+                    {rd.otimizacoes.map((o, i: number) => (
                       <div key={i} className="rounded-lg border border-border p-2 mb-2">
                         <p className="text-xs font-medium">{o.area}</p>
                         <p className="text-xs text-muted-foreground">{o.recomendacao}</p>

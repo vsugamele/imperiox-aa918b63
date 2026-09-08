@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -39,8 +40,8 @@ export function ExpertRecorder({ open, onOpenChange, mode, onUpload, contentId }
         videoRef.current.muted = true;
         await videoRef.current.play().catch(() => {});
       }
-    } catch (e: any) {
-      toast.error("Permissão de câmera/microfone negada: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Permissão de câmera/microfone negada: " + (errorMessage(e) || ""));
       onOpenChange(false);
     }
   };
@@ -113,8 +114,8 @@ export function ExpertRecorder({ open, onOpenChange, mode, onUpload, contentId }
       await onUpload(file);
       toast.success(mode === "video" ? "Vídeo enviado!" : "Áudio enviado!");
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error("Erro no upload: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro no upload: " + (errorMessage(e) || ""));
     } finally {
       setUploading(false);
     }

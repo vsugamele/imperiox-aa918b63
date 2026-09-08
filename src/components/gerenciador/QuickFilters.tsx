@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Flame, Skull, Snowflake, Pause, Sparkles, X } from "lucide-react";
 
@@ -9,7 +10,7 @@ interface Props {
   onChange: (k: QuickFilterKey) => void;
 }
 
-const CHIPS: { key: Exclude<QuickFilterKey, null>; label: string; icon: any; tone: string }[] = [
+const CHIPS: { key: Exclude<QuickFilterKey, null>; label: string; icon: LucideIcon; tone: string }[] = [
   { key: "ESCALAR", label: "Escalar", icon: Sparkles, tone: "text-emerald-300 border-emerald-400/30 bg-emerald-500/10" },
   { key: "MATAR", label: "Matar", icon: Skull, tone: "text-red-300 border-red-400/30 bg-red-500/10" },
   { key: "SATURADO", label: "Saturado", icon: Flame, tone: "text-amber-300 border-amber-400/30 bg-amber-500/10" },

@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, TrendingUp } from "lucide-react";
@@ -12,9 +13,9 @@ interface RecoveryKpiBlockProps {
 
 export function RecoveryKpiBlock({ projectId }: RecoveryKpiBlockProps) {
   const [loading, setLoading] = useState(true);
-  const [sales, setSales] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [sales, setSales] = useState<Parameters<typeof buildRecoveryBuckets>[0]["vendas"]>([]);
+  const [leads, setLeads] = useState<Parameters<typeof buildRecoveryBuckets>[0]["leads"]>([]);
+  const [logs, setLogs] = useState<Tables<"imphq_recovery_logs">[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -31,7 +32,7 @@ export function RecoveryKpiBlock({ projectId }: RecoveryKpiBlockProps) {
 
       setSales(salesRes.data || []);
       setLeads(leadsRes.data || []);
-      setLogs((logsRes.data || []).filter((log: any) => !!log.created_at));
+      setLogs((logsRes.data || []).filter((log) => !!log.created_at));
       setLoading(false);
     })();
   }, [projectId]);
@@ -43,8 +44,8 @@ export function RecoveryKpiBlock({ projectId }: RecoveryKpiBlockProps) {
       .reduce((sum, bucket) => sum + bucket.totalValue, 0);
 
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    const recoveredLogs = logs.filter((log: any) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
-    const recoveredValue = recoveredLogs.reduce((sum: number, log: any) => sum + (Number(log.valor) || 0), 0);
+    const recoveredLogs = logs.filter((log) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
+    const recoveredValue = recoveredLogs.reduce((sum: number, log) => sum + (Number(log.valor) || 0), 0);
 
     return { currentRisk, recoveredValue, recoveredCount: recoveredLogs.length };
   }, [sales, leads, logs]);

@@ -35,11 +35,10 @@ export function GeneratedImagesPanel({ open, onClose, blueprintId, blueprint }: 
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Row | null>(null);
 
-  const nodeLabelByBlock = new Map<string, string>();
-  blueprint?.nodes.forEach(n => n.blocks.forEach(b => nodeLabelByBlock.set(b.id, n.title)));
-
   useEffect(() => {
     if (!open) return;
+    const nodeLabelByBlock = new Map<string, string>();
+    blueprint?.nodes.forEach(n => n.blocks.forEach(b => nodeLabelByBlock.set(b.id, n.title)));
     let active = true;
     const load = async () => {
       setLoading(true);

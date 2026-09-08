@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ export function FlowLiveControl({ blueprintId, onStatsChange }: Props) {
 
   const loadStatus = async () => {
     const { data } = await supabase.from("imphq_flow_blueprints").select("status").eq("id", blueprintId).maybeSingle();
-    if (data?.status) setStatus(data.status as any);
+    if (data?.status === "draft" || data?.status === "live" || data?.status === "paused") setStatus(data.status);
   };
 
   const loadStats = async () => {
@@ -34,7 +35,7 @@ export function FlowLiveControl({ blueprintId, onStatsChange }: Props) {
       .select("node_id, entered, completed, dropped, active")
       .eq("blueprint_id", blueprintId);
     const map: Record<string, NodeStat> = {};
-    (data || []).forEach((r: any) => { map[r.node_id] = r; });
+    (data || []).forEach((r) => { map[r.node_id] = r; });
     setStats(map);
     onStatsChange?.(map);
   };
@@ -54,7 +55,7 @@ export function FlowLiveControl({ blueprintId, onStatsChange }: Props) {
 
   const toggle = async (next: "live" | "paused" | "draft") => {
     setLoading(true);
-    const patch: any = { status: next };
+    const patch: TablesUpdate<"imphq_flow_blueprints"> = { status: next };
     if (next === "live") patch.activated_at = new Date().toISOString();
     const { error } = await supabase.from("imphq_flow_blueprints").update(patch).eq("id", blueprintId);
     setLoading(false);

@@ -67,7 +67,7 @@ export function IntegrationStatusTab() {
         .not("data", "is", null)
         .limit(20);
 
-      const fbProjects = (projects || []).filter((p: any) => p.data?.facebook_access_token && p.data?.facebook_pixel_id);
+      const fbProjects = (projects || []).filter((p) => { const config = jsonFields(p.data); return jsonText(config.facebook_access_token) && jsonText(config.facebook_pixel_id); });
       if (fbProjects.length === 0) {
         results.push({ name: "Facebook Ads / CAPI", icon: "🟦", status: "unconfigured", message: "Nenhum projeto com token configurado" });
       } else {
@@ -249,3 +249,4 @@ export function IntegrationStatusTab() {
     </div>
   );
 }
+import { jsonFields, jsonText } from "@/lib/json-fields";

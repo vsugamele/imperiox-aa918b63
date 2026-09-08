@@ -40,16 +40,17 @@ export interface ConvForColor {
   unread_count?: number | null;
   last_message?: string | null;
   color_override?: string | null;
-  metadata?: any;
+  metadata?: Json;
 }
 
 const INTEREST_KEYWORDS = /\b(quero comprar|pode mandar (o )?(pix|link|boleto)|como (eu )?compro|preço|pre[çc]o|valor|quanto (custa|é|fica)|fechar|garantir|adquirir|checkout|link de pagamento)\b/i;
 
 function isInterested(c: ConvForColor): boolean {
-  const meta = c.metadata || {};
+  const meta = jsonFields(c.metadata);
   if (meta.hot_lead === true || meta.intent === "buy" || meta.last_intent === "buy") return true;
-  if (meta.last_intent_at) {
-    const t = new Date(meta.last_intent_at).getTime();
+  const lastIntentAt = jsonText(meta.last_intent_at);
+  if (lastIntentAt) {
+    const t = new Date(lastIntentAt).getTime();
     if (Date.now() - t < 1000 * 60 * 60 * 24 * 2) return true; // últimas 48h
   }
   const msg = c.last_message || "";
@@ -117,3 +118,5 @@ export function resolveConvColor(c: ConvForColor): ConvColor {
 
   return { key: "default", hex: "transparent", bg: "", ring: "", label: "" };
 }
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";

@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { requireUser } from "../_shared/require-auth.ts";
 
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function descriptions(value: unknown): string[] { return Array.isArray(value) ? value.slice(0, 3).map(item => { const d = record(item); return typeof d.descricao === "string" && d.descricao || typeof d.text === "string" && d.text || ""; }).filter(Boolean) : []; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -43,15 +46,13 @@ serve(async (req) => {
       });
     }
 
-    const avatar: any = project.avatar || {};
-    const perfil = avatar.perfil_psicologico || {};
-    const brandKit: any = project.brand_kit || {};
-    const briefing: any = project.data?.briefing || {};
+    const avatar = record(project.avatar);
+    const perfil = record(avatar.perfil_psicologico);
+    const brandKit = record(project.brand_kit);
+    const briefing = record(record(project.data).briefing);
 
-    const dores: any[] = avatar.dores || [];
-    const desejos: any[] = avatar.desejos || [];
-    const top3Dores = dores.slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
-    const top3Desejos = desejos.slice(0, 3).map((d: any) => d.descricao || d.text || "").filter(Boolean);
+    const top3Dores = descriptions(avatar.dores);
+    const top3Desejos = descriptions(avatar.desejos);
 
     // 2. Last 24h sales
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -74,7 +75,7 @@ serve(async (req) => {
     // 4. Stories already done in last 7d (avoid repetition)
     const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: recentStories } = await supabase
-      .from("imphq_expert_logs" as any)
+      .from("imphq_expert_logs")
       .select("metadata, created_at")
       .eq("project_id", project_id)
       .eq("action", "story_idea_used")
@@ -82,12 +83,12 @@ serve(async (req) => {
       .limit(20);
 
     const recentHooks = (recentStories || [])
-      .map((r: any) => r.metadata?.hook)
+      .map((r) => record(r.metadata).hook)
       .filter(Boolean)
       .slice(0, 10);
 
     // 5. Build context for AI
-    const totalVendas24h = (vendas24h || []).reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+    const totalVendas24h = (vendas24h || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
     const qtdVendas24h = (vendas24h || []).length;
 
     const context = {
@@ -101,8 +102,8 @@ serve(async (req) => {
       top3_desejos: top3Desejos,
       arquetipo: brandKit.arquetipo || "",
       tom_voz: brandKit.tom_voz || brandKit.tom || "",
-      vendas_24h: { quantidade: qtdVendas24h, valor_total: totalVendas24h, produtos: (vendas24h || []).map((v: any) => v.produto_nome).filter(Boolean) },
-      leads_quentes_hoje: (leadsHoje || []).map((l: any) => ({ nome: l.name, score: l.score, ultima_objecao: l.last_objection })),
+      vendas_24h: { quantidade: qtdVendas24h, valor_total: totalVendas24h, produtos: (vendas24h || []).map((v) => v.produto_nome).filter(Boolean) },
+      leads_quentes_hoje: (leadsHoje || []).map((l) => ({ nome: l.name, score: l.score, ultima_objecao: l.last_objection })),
       stories_evitar: recentHooks,
       contexto_extra: custom_event,
       modo: mode, // "daily" | "bastidor"

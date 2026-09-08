@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       .limit(40);
 
     const ordered = (msgs || []).reverse();
-    const transcript = ordered.map((m: any) => {
+    const transcript = ordered.map((m: {from_me:boolean;body:string|null;message_type:string|null}) => {
       const who = m.from_me ? "ATENDENTE" : "LEAD";
       const body = (m.body || `[${m.message_type || "media"}]`).slice(0, 400);
       return `${who}: ${body}`;
@@ -104,12 +104,12 @@ Deno.serve(async (req) => {
     }
 
     const json = await resp.json();
-    let parsed: any = {};
-    try { parsed = JSON.parse(json.choices?.[0]?.message?.content || "{}"); } catch { parsed = {}; }
+    let parsed: Record<string,unknown> = {};
+    try { const value:unknown=JSON.parse(json.choices?.[0]?.message?.content || "{}"); if(value && typeof value === "object" && !Array.isArray(value)) parsed={...value}; } catch { parsed = {}; }
 
     const summary = (parsed.summary || "").toString().slice(0, 600);
     const intent_tags = Array.isArray(parsed.intent_tags)
-      ? parsed.intent_tags.filter((t: any) => typeof t === "string").slice(0, 6)
+      ? parsed.intent_tags.filter((t: unknown) => typeof t === "string").slice(0, 6)
       : [];
 
     await supabase
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String((e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined) || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

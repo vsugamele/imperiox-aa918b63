@@ -1,7 +1,9 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AIGenerateButton } from "./AIGenerateButton";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { toast } from "sonner";
 
 const KPI_FIELDS = [
@@ -16,22 +18,22 @@ const KPI_FIELDS = [
 ];
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Pick<Tables<"imphq_projects">, "id" | "data">;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoKPIs({ project, onUpdateData }: Props) {
-  const data = project.data || {};
-  const kpis = data.kpis || {};
+  const data = jsonFields(project.data);
+  const kpis = jsonFields(data.kpis);
 
   const update = (key: string, val: string) => {
     onUpdateData({ ...data, kpis: { ...kpis, [key]: val } });
   };
 
-  const handleAIResult = (result: any) => {
-    if (result?.kpis) {
+  const handleAIResult = (result: Json) => {
+    if (jsonFields(result).kpis) {
       const newKpis = { ...kpis };
-      for (const [key, val] of Object.entries(result.kpis)) {
+      for (const [key, val] of Object.entries(jsonFields(jsonFields(result).kpis))) {
         if (!newKpis[key] && val) newKpis[key] = String(val);
       }
       onUpdateData({ ...data, kpis: newKpis });
@@ -60,7 +62,7 @@ export function ProjetoKPIs({ project, onUpdateData }: Props) {
             <div className="relative">
               {f.prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{f.prefix}</span>}
               <Input
-                value={kpis[f.key] || ""}
+                value={jsonText(kpis[f.key]) ?? jsonNumber(kpis[f.key]) ?? ""}
                 onChange={(e) => update(f.key, e.target.value)}
                 className={`bg-secondary font-mono ${f.prefix ? "pl-8" : ""} ${f.suffix ? "pr-8" : ""}`}
               />

@@ -13,7 +13,7 @@ type Step = {
   provider: "openrouter" | "kie" | "luma" | "elevenlabs";
   model: string;
   prompt: string;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   voice_id?: string;
   image_url?: string;
   audio_url?: string;
@@ -33,7 +33,9 @@ function resolveStep(step: Step, outputs: Record<string, string>): Step {
   };
 }
 
-async function pollGeneration(admin: any, generationId: string, timeoutMs = 300_000): Promise<{ ok: boolean; output_url?: string; error?: string }> {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+
+async function pollGeneration(admin: ReturnType<typeof makeClient>, generationId: string, timeoutMs = 300_000): Promise<{ ok: boolean; output_url?: string; error?: string }> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const { data: g } = await admin.from("imphq_studio_generations").select("status,output_url,error").eq("id", generationId).single();
@@ -67,7 +69,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     let steps: Step[] = body.steps;
-    let workflowId: string | null = body.workflow_id || null;
+    const workflowId: string | null = body.workflow_id || null;
     const projetoId: string | null = body.projeto_id || null;
 
     if (!steps && workflowId) {
@@ -98,12 +100,12 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_studio_workflow_runs").update({ current_step: stepNum }).eq("id", run.id);
 
         const step = resolveStep(steps[i], outputs);
-        const stepParams: Record<string, any> = { ...(step.params || {}) };
+        const stepParams: Record<string, unknown> = { ...(step.params || {}) };
         if (step.audio_url) {
           stepParams.reference_audio_urls = [step.audio_url];
           if (stepParams.generate_audio === undefined) stepParams.generate_audio = false;
         }
-        const payload: any = {
+        const payload: Pick<Step, "kind" | "provider" | "model" | "prompt" | "params" | "image_url" | "voice_id"> & { projeto_id: string | null } = {
           kind: step.kind,
           provider: step.provider,
           model: step.model,
@@ -150,17 +152,19 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_studio_workflow_runs").update({ step_outputs: outputs }).eq("id", run.id);
       }
       await supabase.from("imphq_studio_workflow_runs").update({ status: "completed" }).eq("id", run.id);
-    })().catch(async (e) => {
+    })().catch(async (e: unknown) => {
+      const eMessage = e instanceof Error ? e.message : undefined;
       console.error("workflow run fatal:", e);
       await supabase.from("imphq_studio_workflow_runs").update({
         status: "failed",
-        error: String(e?.message || e),
+        error: String(eMessage || e),
       }).eq("id", run.id);
     });
 
     return new Response(JSON.stringify({ ok: true, run_id: run.id }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-workflow-run:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

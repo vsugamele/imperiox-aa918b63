@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // ig-sequence-tick: Cron edge function (every 5 min)
 // Processes pending sequence enrollments and sends the next step message
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
       try {
         const sequence = enrollment.sequence;
         const conversation = enrollment.conversation;
-        const steps: any[] = sequence?.steps || [];
+        const steps = z.array(z.object({message:z.string(),delay_hours:z.number().nullish()}).passthrough()).parse(sequence?.steps || []);
         const stepIndex = enrollment.current_step;
 
         if (stepIndex >= steps.length) {
@@ -137,8 +138,9 @@ Deno.serve(async (req) => {
         }
 
         processed++;
-      } catch (e: any) {
-        console.error(`[ig-seq-tick] Enrollment ${enrollment.id} error: ${e.message}`);
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        console.error(`[ig-seq-tick] Enrollment ${enrollment.id} error: ${eMessage}`);
         errors++;
       }
     }
@@ -147,9 +149,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
-    console.error("[ig-seq-tick] Fatal:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[ig-seq-tick] Fatal:", errMessage);
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

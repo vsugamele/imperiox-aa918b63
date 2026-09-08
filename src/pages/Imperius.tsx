@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, Zap, CheckCircle2, AlertCircle, Loader2, Play, MessageSquare } from "lucide-react";
@@ -15,10 +18,10 @@ function normalizePhone(v: string | null | undefined): string {
   return d.startsWith("55") ? d : "55" + d;
 }
 
-function getChatLink(action: any): string | null {
-  const p = action.payload || {};
-  const phone = p.phone || p.lead_phone || p.lead?.phone || "";
-  const project = p.project_id || action.projeto_id || "";
+function getChatLink(action: Tables<"imphq_ai_actions">): string | null {
+  const p = jsonFields(action.payload);
+  const phone = jsonText(p.phone) || jsonText(p.lead_phone) || jsonText(jsonFields(p.lead).phone) || "";
+  const project = jsonText(p.project_id) || action.projeto_id || "";
   const digits = normalizePhone(phone);
   if (!digits) return null;
   return `/inbox?tab=whatsapp&phone=${digits}${project ? `&project=${project}` : ""}`;
@@ -26,7 +29,7 @@ function getChatLink(action: any): string | null {
 
 export default function Imperius() {
   const navigate = useNavigate();
-  const [actions, setActions] = useState<any[]>([]);
+  const [actions, setActions] = useState<Tables<"imphq_ai_actions">[]>([]);
   const [loading, setLoading] = useState(true);
   const [scouting, setScouting] = useState(false);
 
@@ -49,8 +52,8 @@ export default function Imperius() {
       if (error) throw error;
       toast.success(`Scout: ${data.proposed} ações propostas, ${data.auto_executed} auto-executadas`);
       await load();
-    } catch (e: any) {
-      toast.error(`Erro: ${e?.message || e}`);
+    } catch (e: unknown) {
+      toast.error(`Erro: ${errorMessage(e)}`);
     } finally {
       setScouting(false);
     }
@@ -76,7 +79,7 @@ export default function Imperius() {
     recent.forEach((a) => {
       const k = a.kind || "outro";
       byKind.set(k, (byKind.get(k) || 0) + 1);
-      const i = parseFloat(a.impact_brl);
+      const i = Number(a.impact_brl);
       if (!isNaN(i)) impact += i;
     });
     const autoPct = recent.length > 0 ? Math.round((recent.filter((a) => a.auto_executed).length / recent.length) * 100) : 0;

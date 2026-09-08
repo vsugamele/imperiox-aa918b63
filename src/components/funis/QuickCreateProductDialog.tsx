@@ -1,3 +1,5 @@
+import { record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,21 +32,21 @@ export function QuickCreateProductDialog({ open, onOpenChange, projectId, onCrea
     setSaving(true);
     try {
       const { data: row } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
-      const d: any = (row?.data && typeof row.data === "object") ? row.data : {};
-      const briefing = (d.briefing && typeof d.briefing === "object") ? d.briefing : null;
+      const d = record(row?.data);
+      const briefing = (d.briefing && typeof d.briefing === "object") ? record(d.briefing) : null;
       const target = briefing || d;
       const list = Array.isArray(target.produtos) ? target.produtos : [];
       const novo = { nome: nome.trim(), preco: preco.trim(), tipo, status: "ativo", links: [], ofertas: [] };
       target.produtos = [...list, novo];
       const newData = briefing ? { ...d, briefing: target } : { ...d, produtos: target.produtos };
-      const { error } = await supabase.from("imphq_projects").update({ data: newData }).eq("id", projectId);
+      const { error } = await supabase.from("imphq_projects").update({ data: toJson(newData) }).eq("id", projectId);
       if (error) throw error;
       toast.success("Produto criado");
       reset();
       onOpenChange(false);
       await onCreated?.();
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao criar produto");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao criar produto");
     } finally {
       setSaving(false);
     }

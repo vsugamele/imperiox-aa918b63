@@ -1,3 +1,6 @@
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,16 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Sparkles, ShieldCheck, AlertTriangle, Video } from "lucide-react";
 
-type Job = {
-  id: string;
-  produto: string;
-  status: string;
-  current_step: string | null;
-  script_json: any;
-  casting_json: any;
-  gate_errors: any;
-  created_at: string;
-};
+type Job = Tables<"imphq_ugc_jobs">;
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+function gateErrors(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
 
 export default function UgcAdFactory() {
   const [produto, setProduto] = useState("");
@@ -38,14 +38,14 @@ export default function UgcAdFactory() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(20);
-    setJobs((data as any) ?? []);
+    setJobs(data ?? []);
   }
   useEffect(() => { load(); }, []);
 
-  async function createJob() {
-    if (!produto.trim()) return toast.error("Informe o produto");
+  async function createJob(): Promise<Job | undefined> {
+    if (!produto.trim()) { toast.error("Informe o produto"); return; }
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return toast.error("Faça login");
+    if (!u.user) { toast.error("Faça login"); return; }
     const { data, error } = await supabase.from("imphq_ugc_jobs").insert({
       project_id: "default",
       produto,
@@ -56,15 +56,15 @@ export default function UgcAdFactory() {
       research_leads: research || null,
       status: "gating",
     }).select().single();
-    if (error) return toast.error(error.message);
-    setCurrent(data as any);
+    if (error) { toast.error(error.message); return; }
+    setCurrent(data);
     await load();
-    return data as any;
+    return data;
   }
 
-  async function runStep(step: "script" | "casting", job: Job) {
+  async function runStep(step: "script" | "casting", job: Job): Promise<boolean> {
     setLoading(step);
-    const payload: any = {
+    const payload: Record<string, Json> = {
       job_id: job.id,
       produto: job.produto,
       age_bracket: age, tone, lane,
@@ -72,42 +72,45 @@ export default function UgcAdFactory() {
       actor_ref_url: refUrl,
     };
     if (step === "casting") payload.script = job.script_json;
-    const { data, error } = await supabase.functions.invoke("ugc-pipeline", {
-      body: payload,
-      // step goes as query param
-      // @ts-ignore
-      queryParams: { step },
-    } as any);
-    // fallback for SDKs that don't pass query params:
-    let result = data;
-    if (!result) {
-      const url = `${(supabase as any).functions.url}/ugc-pipeline?step=${step}`;
-      const { data: { session } } = await supabase.auth.getSession();
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify(payload),
-      });
-      result = await r.json();
+    try {
+      const { data, error } = await supabase.functions.invoke<unknown>(`ugc-pipeline?step=${step}`, { body: payload });
+      let result = record(data);
+      let gateFailure = !error && result.error === "gate_failed" && result.gate === step;
+      if (error instanceof FunctionsHttpError && error.context instanceof Response && error.context.status === 422) {
+        result = record(await error.context.json());
+        gateFailure = result.error === "gate_failed" && result.gate === step;
+      }
+      if (gateFailure) {
+        const errors = gateErrors(result.errors);
+        toast.error(`Gate falhou (${step})`, { description: errors.slice(0, 3).join(" · ") });
+        const { error: saveError } = await supabase.from("imphq_ugc_jobs").update({ gate_errors: errors, status: "gate_failed" }).eq("id", job.id);
+        if (saveError) throw saveError;
+      } else {
+        if (error) throw error;
+        if (result.ok !== true || !result[step] || typeof result[step] !== "object" || Array.isArray(result[step])) {
+          throw new Error(typeof result.error === "string" ? result.error : "Resposta inválida do pipeline");
+        }
+        toast.success(`${step} aprovado`);
+      }
+      await load();
+      const { data: fresh, error: refreshError } = await supabase.from("imphq_ugc_jobs").select("*").eq("id", job.id).single();
+      if (refreshError) throw refreshError;
+      setCurrent(fresh);
+      return !gateFailure;
+    } catch (error: unknown) {
+      toast.error(`Falha ao executar ${step}`, { description: errorMessage(error) });
+      return false;
+    } finally {
+      setLoading(null);
     }
-    setLoading(null);
-    if (result?.error) {
-      toast.error(`Gate falhou (${step})`, { description: (result.errors || []).slice(0, 3).join(" · ") });
-      await supabase.from("imphq_ugc_jobs").update({ gate_errors: result.errors ?? [], status: "gate_failed" }).eq("id", job.id);
-    } else {
-      toast.success(`${step} aprovado`);
-    }
-    await load();
-    const { data: fresh } = await supabase.from("imphq_ugc_jobs").select("*").eq("id", job.id).single();
-    setCurrent(fresh as any);
   }
 
   async function runAll() {
     const job = await createJob();
-    if (!job) return;
-    await runStep("script", job);
-    const { data: after1 } = await supabase.from("imphq_ugc_jobs").select("*").eq("id", job.id).single();
-    if ((after1 as any)?.script_json) await runStep("casting", after1 as any);
+    if (!job || !await runStep("script", job)) return;
+    const { data: afterScript, error } = await supabase.from("imphq_ugc_jobs").select("*").eq("id", job.id).single();
+    if (error) { toast.error(error.message); return; }
+    if (afterScript?.script_json) await runStep("casting", afterScript);
   }
 
   return (
@@ -184,7 +187,7 @@ export default function UgcAdFactory() {
                 {Array.isArray(current.gate_errors) && current.gate_errors.length > 0 && (
                   <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-xs">
                     <div className="flex items-center gap-1 mb-1"><AlertTriangle className="h-3 w-3" /> Gate errors</div>
-                    <ul className="list-disc pl-4">{current.gate_errors.map((e: string, i: number) => <li key={i}>{e}</li>)}</ul>
+                    <ul className="list-disc pl-4">{gateErrors(current.gate_errors).map((e, i) => <li key={i}>{e}</li>)}</ul>
                   </div>
                 )}
                 {current.script_json && (

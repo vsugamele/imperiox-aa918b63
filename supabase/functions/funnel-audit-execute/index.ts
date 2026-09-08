@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Executa ações aprovadas do Auditor do Funil
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
 
     // Tipos suportados
     if (action.action_type === 'add_funnel_asset') {
-      const payload = action.payload as any;
+      const payload = z.object({catId:z.string().nullish(),itemId:z.string().nullish(),projectId:z.string().nullish(),product_nome:z.string().nullish()}).passthrough().parse(action.payload || {});
       const { catId, itemId, projectId, product_nome } = payload || {};
       // Lê funil atual do projeto e adiciona uma etapa
       const { data: funil } = await sb
@@ -42,7 +43,8 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (funil) {
-        const etapas = (funil.data as any)?.etapas || [];
+        const data = z.object({etapas:z.array(z.unknown()).nullish()}).passthrough().parse(funil.data || {});
+        const etapas = data.etapas || [];
         etapas.push({
           nome: `${catId}:${itemId}`,
           tipo: 'caixa',
@@ -52,7 +54,7 @@ Deno.serve(async (req) => {
           pos_y: 80 + Math.floor(etapas.length / 6) * 200,
           descricao: `Sugerido pelo Auditor (${product_nome || ''})`,
         });
-        await sb.from('imphq_funis').update({ data: { ...(funil.data as any), etapas } }).eq('id', funil.id);
+        await sb.from('imphq_funis').update({ data: { ...data, etapas } }).eq('id', funil.id);
         result = { added_to_funnel: funil.id, etapas_total: etapas.length };
       } else {
         result = { skipped: true, reason: 'sem funil' };

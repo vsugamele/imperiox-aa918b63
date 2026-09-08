@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const { data: projetos, error: pErr } = await pq;
     if (pErr) throw pErr;
 
-    const proposed: any[] = [];
+    const proposed: Array<{kind:string;adset:string|null;cpa?:number;ctr?:number;roas?:number}> = [];
     const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
     for (const proj of projetos || []) {
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       if (!rows || rows.length === 0) continue;
 
       // Agrupa por adset_id
-      const agg: Record<string, any> = {};
+      const agg: Record<string,{adset_id:string;nome:string|null;spend:number;clicks:number;impressions:number;purchases:number;daily_budget:number;status:string|null}> = {};
       for (const r of rows) {
         const k = r.adset_id;
         if (!agg[k]) agg[k] = {
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
         agg[k].purchases += Number(r.compras) || 0;
       }
 
-      for (const a of Object.values(agg) as any[]) {
+      for (const a of Object.values(agg)) {
         if (a.status !== "ACTIVE") continue;
         const ctr = a.impressions > 0 ? a.clicks / a.impressions : 0;
         const cpa = a.purchases > 0 ? a.spend / a.purchases : Infinity;
@@ -174,9 +174,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, proposed: proposed.length, auto_executed: (lowAuto||[]).length, sample: proposed.slice(0,5) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("ads-rules-engine:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

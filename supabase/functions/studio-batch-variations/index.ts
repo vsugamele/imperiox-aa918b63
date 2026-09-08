@@ -3,6 +3,14 @@
 // Cada variante herda upstream do nó de origem e é agrupada por batch_group_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
+interface CanvasNode {
+  id:string;workflow_id:string;tipo:string;titulo:string|null;status:string;created_at:string;updated_at:string;
+  config:unknown;output:unknown;position:unknown;variant_score_data:unknown;
+  batch_group_id:string|null;cached_from_hash:string|null;config_hash:string|null;funnel_node_id:string|null;
+  variant_angulo:string|null;variant_label:string|null;variant_of:string|null;
+  cost_actual:number|null;duration_ms:number|null;variant_score:number|null;is_variant_winner:boolean;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -78,7 +86,7 @@ Deno.serve(async (req) => {
       batch_group_id: batchGroupId, variant_label: "A", variant_angulo: "original",
     }).eq("id", node_id);
 
-    const created: any[] = [];
+    const created: CanvasNode[] = [];
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i];
       const label = String.fromCharCode(66 + i); // B, C, D…
@@ -96,7 +104,7 @@ Deno.serve(async (req) => {
         variant_of: node_id,
         variant_label: label,
         variant_angulo: v.angulo || null,
-      }).select("*").single();
+      }).select("*").returns<CanvasNode[]>().single();
       if (error) { console.error("insert variant fail", error); continue; }
       created.push(newNode);
 
@@ -111,9 +119,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, batch_group_id: batchGroupId, created: created.length, variants: created }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("studio-batch-variations:", e);
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+    return new Response(JSON.stringify({ error: eMessage || "erro" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

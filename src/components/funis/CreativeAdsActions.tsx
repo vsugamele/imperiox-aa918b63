@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Image as ImageIcon, Loader2, Layers, FolderInput, Check } from "lucide-react";
@@ -57,12 +59,12 @@ export function CreativeAdsActions({
         },
       });
       if (error) throw error;
-      const url = (data as any)?.file_url;
-      if (!url) throw new Error("Sem URL retornada");
+      const url = record(data).file_url;
+      if (typeof url !== "string" || !url) throw new Error("Sem URL retornada");
       setSavedImg(url);
       toast.success("Imagem gerada e salva em Referências");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao gerar imagem");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar imagem");
     } finally {
       setGenImg(false);
     }
@@ -93,8 +95,8 @@ Saída: 1 copy completa em markdown, 4-7 linhas, pt-BR, pronta pra Meta Ads. Use
             body: { intent, input, context: { project_id: projectId } },
           });
           if (error) throw error;
-          const content = (data as any)?.content || "";
-          if (content) results.push({ fw: fw.label, content });
+          const content = record(data).content;
+          if (typeof content === "string" && content) results.push({ fw: fw.label, content });
         } catch (e) {
           console.error("framework fail", fw.key, e);
         }
@@ -104,8 +106,8 @@ Saída: 1 copy completa em markdown, 4-7 linhas, pt-BR, pronta pra Meta Ads. Use
       const batch = `\n\n---\n\n## 🧪 BATERIA A/B (${results.length} frameworks)\n\n${results.map(r => r.content).join("\n\n---\n\n")}`;
       onAppendOutput(batch);
       toast.success(`${results.length} variações geradas`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha na bateria A/B");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha na bateria A/B");
     } finally {
       setBatchAb(false);
     }

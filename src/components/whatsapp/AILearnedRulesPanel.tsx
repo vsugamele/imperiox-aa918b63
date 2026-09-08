@@ -5,21 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Trash2, Shield, Ban, BookOpen, RefreshCw, FlaskConical, Crown, Sparkles } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
-type Rule = {
-  id: string;
-  rule_text: string;
-  rule_type: "behavior" | "unavailable_product" | "qualification" | string;
-  active: boolean;
-  times_applied: number;
-  conversion_count: number;
-  ab_group_id: string | null;
-  ab_status: "control" | "variant" | "winner" | "loser" | null;
-  created_at: string;
-};
+type Rule = Pick<Tables<"imphq_wa_project_rules">, "id" | "rule_text" | "rule_type" | "active" | "times_applied" | "conversion_count" | "ab_group_id" | "ab_status" | "created_at">;
 
-const TYPE_META: Record<string, { label: string; icon: any; color: string }> = {
+const TYPE_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   behavior:            { label: "Regra",        icon: BookOpen, color: "text-primary" },
   qualification:       { label: "Qualificação", icon: Shield,   color: "text-blue-400" },
   unavailable_product: { label: "Indisponível", icon: Ban,      color: "text-destructive" },
@@ -48,7 +40,7 @@ export default function AILearnedRulesPanel({ projectId }: { projectId: string }
       .order("times_applied", { ascending: false })
       .order("created_at", { ascending: false });
     if (error) toast.error("Erro ao carregar regras");
-    setRules((data as Rule[]) || []);
+    setRules(data || []);
     setLoading(false);
   }, [projectId]);
 

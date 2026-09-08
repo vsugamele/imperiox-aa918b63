@@ -186,8 +186,9 @@ async function proxyImage(target: string): Promise<Response> {
         "Cache-Control": "public, max-age=86400, immutable",
       },
     });
-  } catch (e: any) {
-    return new Response(`proxy error: ${e?.message || "unknown"}`, { status: 500, headers: corsHeaders });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(`proxy error: ${eMessage || "unknown"}`, { status: 500, headers: corsHeaders });
   }
 }
 
@@ -218,8 +219,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" },
     });
-  } catch (e: any) {
-    console.error("link-preview error", e?.message);
-    return new Response(JSON.stringify({ error: e?.message || "failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    console.error("link-preview error", eMessage);
+    return new Response(JSON.stringify({ error: eMessage || "failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

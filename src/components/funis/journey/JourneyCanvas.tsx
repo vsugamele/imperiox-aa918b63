@@ -1,3 +1,6 @@
+import { parseProjectData } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,10 +9,11 @@ import { Loader2, Plus, Sparkles, Trash2, X, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { normalizeProductLinks } from "@/lib/produto-links";
-import { BlockLibrary, BLOCK_TYPES, BlockType } from "./BlockLibrary";
+import { BlockLibrary } from "./BlockLibrary";
+import { BLOCK_TYPES, BlockType } from "@/components/funis/journey/block-library-data";
 import { BlockDrawer } from "./BlockDrawer";
 
-interface Project { id: string; name: string; briefing?: any; }
+interface Project { id: string; name: string; briefing?: unknown; }
 interface Props { projects: Project[]; initialProjectId?: string | null; }
 
 const ETAPAS = [
@@ -21,10 +25,7 @@ const ETAPAS = [
   { id: "pos", label: "Pós-Compra", color: "border-violet-500/40 bg-violet-500/5" },
 ];
 
-interface Step {
-  id: string; journey_id: string; etapa: string; bloco_tipo: string;
-  titulo: string | null; config: any; output: any; status: string; order_idx: number;
-}
+type Step = Tables<"imphq_journey_steps">;
 
 export function JourneyCanvas({ projects, initialProjectId }: Props) {
   const [projectId, setProjectId] = useState<string>(initialProjectId || projects[0]?.id || "");
@@ -38,8 +39,7 @@ export function JourneyCanvas({ projects, initialProjectId }: Props) {
 
   const project = projects.find(p => p.id === projectId);
   const briefing = useMemo(() => {
-    const b = project?.briefing;
-    return typeof b === "string" ? (() => { try { return JSON.parse(b); } catch { return {}; } })() : (b || {});
+    return parseProjectData(project?.briefing);
   }, [project]);
   const produtos = briefing?.produtos || [];
   const produto = produtos[productIdx];
@@ -72,21 +72,21 @@ export function JourneyCanvas({ projects, initialProjectId }: Props) {
         .eq("journey_id", jid)
         .order("etapa")
         .order("order_idx");
-      setSteps((sList as any) || []);
+      setSteps(sList || []);
       setLoading(false);
     })();
-  }, [projectId, productIdx]);
+  }, [projectId, productIdx, produto?.nome, produto?.name]);
 
   // Realtime
   useEffect(() => {
     if (!journeyId) return;
     const ch = supabase
       .channel(`journey-${journeyId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "imphq_journey_steps", filter: `journey_id=eq.${journeyId}` }, (payload) => {
+      .on<Step>("postgres_changes", { event: "*", schema: "public", table: "imphq_journey_steps", filter: `journey_id=eq.${journeyId}` }, (payload) => {
         setSteps(prev => {
-          if (payload.eventType === "INSERT") return [...prev, payload.new as Step];
-          if (payload.eventType === "UPDATE") return prev.map(s => s.id === (payload.new as any).id ? payload.new as Step : s);
-          if (payload.eventType === "DELETE") return prev.filter(s => s.id !== (payload.old as any).id);
+          if (payload.eventType === "INSERT") return [...prev, payload.new];
+          if (payload.eventType === "UPDATE") return prev.map(s => s.id === payload.new.id ? payload.new : s);
+          if (payload.eventType === "DELETE") return prev.filter(s => s.id !== payload.old.id);
           return prev;
         });
       })
@@ -118,8 +118,8 @@ export function JourneyCanvas({ projects, initialProjectId }: Props) {
       });
       if (error) throw error;
       toast.success("Bloco gerado!");
-    } catch (e: any) {
-      toast.error("Erro ao gerar: " + (e?.message || "desconhecido"));
+    } catch (e: unknown) {
+      toast.error("Erro ao gerar: " + (errorMessage(e) || "desconhecido"));
       await supabase.from("imphq_journey_steps").update({ status: "erro" }).eq("id", step.id);
     }
   };
@@ -133,8 +133,8 @@ export function JourneyCanvas({ projects, initialProjectId }: Props) {
       });
       if (error) throw error;
       toast.success("Imperius plantou blocos em todas as etapas");
-    } catch (e: any) {
-      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
     } finally {
       setOrchestrating(false);
     }
@@ -159,7 +159,7 @@ export function JourneyCanvas({ projects, initialProjectId }: Props) {
             <Select value={String(productIdx)} onValueChange={(v) => setProductIdx(Number(v))}>
               <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {produtos.map((p: any, i: number) => (
+                {produtos.map((p, i) => (
                   <SelectItem key={i} value={String(i)}>{p.nome || p.name || `Produto ${i+1}`}</SelectItem>
                 ))}
               </SelectContent>

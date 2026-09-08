@@ -27,7 +27,6 @@ async function callLLM(prompt: string, systemMsg: string): Promise<string> {
 }
 
 async function sendWhatsApp(
-  supa: any,
   provider: { api_url: string; api_key: string; instance_name: string; provider: string },
   phone: string,
   message: string,
@@ -97,7 +96,7 @@ Deno.serve(async (req) => {
         .limit(5);
 
       const objectionsCtx = objections?.length
-        ? `\nObjecoes comuns e como contornar:\n${objections.map((o: any) => `- "${o.objecao}": ${o.resposta_padrao}`).join("\n")}`
+        ? `\nObjecoes comuns e como contornar:\n${objections.map((o: {objecao:string;resposta_padrao:string}) => `- "${o.objecao}": ${o.resposta_padrao}`).join("\n")}`
         : "";
 
       // 4. Busca provider para envio
@@ -136,7 +135,7 @@ Regras:
           }
 
           // 6. Envia a mensagem
-          const sent = await sendWhatsApp(supa, provider, conv.contact_phone, reactivationMsg);
+          const sent = await sendWhatsApp( provider, conv.contact_phone, reactivationMsg);
 
           if (sent) {
             // 7. Registra a reativacao e salva a mensagem
@@ -159,8 +158,9 @@ Regras:
             console.warn(`[cold-reactivator] Failed to send to conv ${conv.id}`);
             totalSkipped++;
           }
-        } catch (e: any) {
-          console.error(`[cold-reactivator] Conv ${conv.id} error: ${e.message}`);
+        } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+          console.error(`[cold-reactivator] Conv ${conv.id} error: ${eMessage}`);
           totalSkipped++;
         }
 
@@ -173,9 +173,10 @@ Regras:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
-    console.error("[cold-reactivator] Fatal:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
+    console.error("[cold-reactivator] Fatal:", errMessage);
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -143,7 +143,7 @@ function parseDossie(content: string): Partial<ParsedCompetitor> {
   // Hotmart → stack_tecnologico + oferta_principal
   const hotmartLine = extractListValue(idScope, "Hotmart");
   if (hotmartLine) {
-    const code = hotmartLine.split(/[\s—\-]/)[0].trim();
+    const code = hotmartLine.split(/[\s—-]/)[0].trim();
     result.stack_tecnologico = [`Hotmart: ${code}`];
     const productName = hotmartLine.replace(/^[\w\d]+\s*[-—]\s*/, "").trim();
     if (productName && productName !== code) result.oferta_principal = productName;
@@ -420,7 +420,7 @@ function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
     const stack: string[] = [];
     const hotmartLine = extractListValue(block, "Hotmart");
     if (hotmartLine) {
-      const code = hotmartLine.split(/[\s—\-]/)[0].trim();
+      const code = hotmartLine.split(/[\s—-]/)[0].trim();
       stack.push(`Hotmart: ${code}`);
     }
     const plataforma = extractListValue(block, "Plataforma");
@@ -430,7 +430,7 @@ function parseMapaConcorrentes(content: string): Partial<ParsedCompetitor>[] {
     // Ameaça → insights prefix
     const ameacaRaw = extractListValue(block, "Ameaça ao JP");
     if (ameacaRaw) {
-      const nivel = ameacaRaw.split(/[—\-]/)[0].trim().toUpperCase();
+      const nivel = ameacaRaw.split(/[—-]/)[0].trim().toUpperCase();
       currentComp.insights = `AMEAÇA: ${nivel}`;
     }
 
@@ -509,7 +509,7 @@ async function saveFileAsDoc(projectId: string, fileName: string, content: strin
       project_id: projectId,
       title: `Concorrentes — ${fileName}`,
       content,
-    } as any);
+    });
   } catch (e) {
     // Silent fail
   }

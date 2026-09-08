@@ -7,12 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Copy, Sparkles } from "lucide-react";
-import type { Site } from "./SiteCard";
+import type { Site } from "@/components/sites/SiteCard";
 
 export function UseAsBaseModal({
   site, onOpenChange,
 }: { site: Site | null; onOpenChange: (v: boolean) => void }) {
-  const [projects, setProjects] = useState<{ id: string; nome: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [projetoId, setProjetoId] = useState<string>("");
   const [modo, setModo] = useState("lp");
   const [loading, setLoading] = useState(false);
@@ -21,8 +21,8 @@ export function UseAsBaseModal({
   useEffect(() => {
     if (!site) return;
     setOutput("");
-    supabase.from("imphq_projects").select("id, nome").order("nome").then(({ data }) => {
-      setProjects((data || []) as any);
+    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
+      setProjects(data || []);
     });
   }, [site]);
 
@@ -56,7 +56,7 @@ export function UseAsBaseModal({
               <Select value={projetoId} onValueChange={setProjetoId}>
                 <SelectTrigger><SelectValue placeholder="Escolha" /></SelectTrigger>
                 <SelectContent>
-                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

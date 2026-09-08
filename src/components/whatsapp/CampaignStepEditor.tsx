@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,10 +25,10 @@ import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
-import CampaignAIGenerateDialog from "./CampaignAIGenerateDialog";
-import CampaignImportDialog from "./CampaignImportDialog";
-import CampaignShareDialog from "./CampaignShareDialog";
-import CampaignSequenceDiagram from "./CampaignSequenceDiagram";
+import CampaignAIGenerateDialog from "@/components/whatsapp/CampaignAIGenerateDialog";
+import CampaignImportDialog from "@/components/whatsapp/CampaignImportDialog";
+import CampaignShareDialog from "@/components/whatsapp/CampaignShareDialog";
+import CampaignSequenceDiagram from "@/components/whatsapp/CampaignSequenceDiagram";
 
 interface Step {
   id: string;
@@ -41,7 +44,7 @@ interface Step {
   is_active: boolean;
 }
 
-const MEDIA_ICONS: Record<string, any> = {
+const MEDIA_ICONS: Record<string, LucideIcon> = {
   text: Type,
   image: ImageIcon,
   audio: Mic,
@@ -171,7 +174,7 @@ interface CampaignStepCardProps {
   onTest: (step: Step) => void;
   onDuplicate: (step: Step) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onUpdate: (id: string, field: string, value: any) => Promise<void>;
+  onUpdate: (id: string, field: keyof Step, value: Step[keyof Step]) => Promise<void>;
   onMediaUpload: (stepId: string, file: File) => Promise<void>;
   steps: Step[];
   onReorder: (fromIdx: number, toIdx: number) => Promise<void>;
@@ -391,8 +394,9 @@ function CampaignStepCard({
                     total_steps: stepsCount,
                     media_type: step.media_type,
                   }}
-                  onResult={(data: any) => {
-                    const text = data?.text || data?.content || "";
+                  onResult={(data: unknown) => {
+                    const result = typeof data === "object" && data !== null ? data as Record<string, unknown> : {};
+                    const text = typeof result.text === "string" ? result.text : typeof result.content === "string" ? result.content : "";
                     if (text) {
                       onUpdate(step.id, "content", text);
                       setContent(text);
@@ -479,8 +483,8 @@ interface CampaignStepEditorProps {
 
 export default function CampaignStepEditor({ campaignId, projectId = "", produto = "", groups = [] }: CampaignStepEditorProps) {
   const [steps, setSteps] = useState<Step[]>([]);
-  const [campaign, setCampaign] = useState<any | null>(null);
-  const pendingUpdates = useRef<Record<string, any>>({});
+  const [campaign, setCampaign] = useState<Tables<"imphq_wa_campaigns"> | null>(null);
+  const pendingUpdates = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [loading, setLoading] = useState(true);
   const [previewStep, setPreviewStep] = useState<Step | null>(null);
   const [testStep, setTestStep] = useState<Step | null>(null);
@@ -504,7 +508,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       .select("*")
       .eq("campaign_id", campaignId)
       .order("step_order", { ascending: true });
-    setSteps((stepsData as any[]) || []);
+    setSteps(stepsData || []);
 
     const { data: campaignData } = await supabase
       .from("imphq_wa_campaigns")
@@ -565,7 +569,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
   useEffect(() => {
     const channel = supabase
       .channel(`campaign-${campaignId}`)
-      .on(
+      .on<Tables<"imphq_wa_campaigns">>(
         "postgres_changes",
         {
           event: "UPDATE",
@@ -594,7 +598,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       send_time: "09:00",
       days_offset: 0,
       is_active: true,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     load();
   };
@@ -606,7 +610,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     const shiftUpdates = steps
       .filter(s => s.step_order >= targetOrder)
       .map(s => 
-        supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order + 1 } as any).eq("id", s.id)
+        supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order + 1 }).eq("id", s.id)
       );
     await Promise.all(shiftUpdates);
 
@@ -619,14 +623,14 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       send_time: "09:00",
       days_offset: 0,
       is_active: true,
-    } as any);
+    });
 
     if (error) { toast.error(error.message); return; }
     toast.success("Passo em branco criado abaixo");
     load();
   };
 
-  const updateStep = async (id: string, field: string, value: any) => {
+  const updateStep = async (id: string, field: keyof Step, value: Step[keyof Step]) => {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
 
     if (field === "content" || field === "content_b") {
@@ -636,13 +640,13 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       }
       pendingUpdates.current[key] = setTimeout(async () => {
         delete pendingUpdates.current[key];
-        const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
+        const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value }).eq("id", id);
         if (error) {
           console.error("Erro no auto-save do passo:", error);
         }
       }, 800);
     } else {
-      const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value } as any).eq("id", id);
+      const { error } = await supabase.from("imphq_wa_campaign_steps").update({ [field]: value }).eq("id", id);
       if (error) { toast.error(error.message); return; }
     }
   };
@@ -665,7 +669,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
 
     // Update in database in parallel
     const updates = nextSteps.map((s) => 
-      supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order } as any).eq("id", s.id)
+      supabase.from("imphq_wa_campaign_steps").update({ step_order: s.step_order }).eq("id", s.id)
     );
     await Promise.all(updates);
     load();
@@ -684,7 +688,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
     setSteps(nextSteps);
     const updates = nextSteps.map((s) =>
       supabase.from("imphq_wa_campaign_steps")
-        .update({ step_order: s.step_order, ...(s.id === fromId && typeof newOffset === "number" ? { days_offset: newOffset } : {}) } as any)
+        .update({ step_order: s.step_order, ...(s.id === fromId && typeof newOffset === "number" ? { days_offset: newOffset } : {}) })
         .eq("id", s.id)
     );
     await Promise.all(updates);
@@ -707,7 +711,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       days_offset: step.days_offset,
       send_date: step.send_date,
       is_active: step.is_active,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Step duplicado");
     load();
@@ -746,8 +750,8 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
       }
       setTestStep(null);
       setTestGroupJid("");
-    } catch (err: any) {
-      toast.error("Falha no teste: " + (err.message || "desconhecido"));
+    } catch (err: unknown) {
+      toast.error("Falha no teste: " + (errorMessage(err) || "desconhecido"));
     } finally {
       setTesting(false);
     }
@@ -1019,7 +1023,7 @@ export default function CampaignStepEditor({ campaignId, projectId = "", produto
         <CampaignSequenceDiagram
           open={showDiagram}
           onClose={() => setShowDiagram(false)}
-          steps={steps as any}
+          steps={steps}
           baseDate={campaign?.start_date ? new Date(campaign.start_date + "T00:00:00") : campaign?.created_at ? new Date(campaign.created_at) : new Date()}
           onUpdateStep={updateStep}
           onReorder={reorderById}

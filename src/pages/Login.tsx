@@ -1,6 +1,7 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,8 +26,8 @@ export default function Login() {
     try {
       await signIn(email, password);
       navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      toast({ title: "Erro ao entrar", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro ao entrar", description: errorMessage(err), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

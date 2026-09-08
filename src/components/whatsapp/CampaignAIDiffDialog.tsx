@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,8 @@ export default function CampaignAIDiffDialog({ open, onClose, campaignId, diff, 
 
   const toggle = (id: string) => {
     const n = new Set(selected);
-    n.has(id) ? n.delete(id) : n.add(id);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
     setSelected(n);
   };
 
@@ -62,8 +64,8 @@ export default function CampaignAIDiffDialog({ open, onClose, campaignId, diff, 
       toast.success(`✓ ${data?.applied || 0} mensagens atualizadas`);
       onApplied();
       onClose();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao aplicar ajustes");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao aplicar ajustes");
     } finally {
       setApplying(false);
     }

@@ -38,11 +38,11 @@ Deno.serve(async (req) => {
     if (onlyUser) q = q.eq("user_id", onlyUser);
 
     const { data: prefs } = await q;
-    const targets = (prefs || []).filter((p: any) =>
+    const targets = (prefs || []).filter((p: {wa_briefing_hour:number|null}) =>
       force || onlyUser || Number(p.wa_briefing_hour ?? 8) === hour
     );
 
-    const results: any[] = [];
+    const results: Array<{user_id:string} & ({error:string}|{status:number;send:unknown})> = [];
 
     for (const pref of targets) {
       try {
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         if (Array.isArray(briefing.actions) && briefing.actions.length) {
           lines.push("");
           lines.push("*Próximas ações:*");
-          briefing.actions.forEach((a: any, i: number) => lines.push(`${i + 1}. ${a.label}`));
+          briefing.actions.forEach((a: unknown, i: number) => { if (a && typeof a === "object" && "label" in a) lines.push(`${i + 1}. ${a.label}`); });
         }
         const message = lines.join("\n");
 

@@ -1,4 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, FileText, Trash2, Save, Download, Upload, Eye, FileIcon, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { DocViewerDialog } from "./DocViewerDialog";
+import { DocViewerDialog } from "@/components/projeto/DocViewerDialog";
 
 interface Props {
   projectId: string;
@@ -23,25 +26,26 @@ function parseDocContent(content: string | null | undefined): { kind: "file" | "
 }
 
 export function ProjetoDocs({ projectId }: Props) {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [editing, setEditing] = useState<any>(null);
-  const [viewing, setViewing] = useState<any>(null);
+  const [docs, setDocs] = useState<Tables<"imphq_docs">[]>([]);
+  const [editing, setEditing] = useState<Tables<"imphq_docs"> | null>(null);
+  const [viewing, setViewing] = useState<Tables<"imphq_docs"> | null>(null);
   const [expertDocIds, setExpertDocIds] = useState<string[]>([]);
   const [trainingIds, setTrainingIds] = useState<string[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
 
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     const { data } = await supabase.from("imphq_docs").select("*").eq("project_id", projectId).order("created_at", { ascending: false });
     setDocs(data || []);
-  };
+  }, [projectId]);
 
-  const fetchExpertDocIds = async () => {
+  const fetchExpertDocIds = useCallback(async () => {
     const { data } = await supabase.from("imphq_projects").select("data").eq("id", projectId).single();
-    const d = typeof data?.data === "string" ? JSON.parse(data.data) : (data?.data || {});
-    setExpertDocIds(d.expert_doc_ids || []);
-  };
+    const raw: Json = typeof data?.data === "string" ? JSON.parse(data.data) : data?.data;
+    const ids = jsonFields(raw).expert_doc_ids;
+    setExpertDocIds(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []);
+  }, [projectId]);
 
-  useEffect(() => { fetchDocs(); fetchExpertDocIds(); }, [projectId]);
+  useEffect(() => { fetchDocs(); fetchExpertDocIds(); }, [fetchDocs, fetchExpertDocIds]);
 
   const toggleExpertDoc = async (docId: string) => {
     const newIds = expertDocIds.includes(docId)
@@ -53,18 +57,18 @@ export function ProjetoDocs({ projectId }: Props) {
     const currentData = typeof proj?.data === "string" ? JSON.parse(proj.data) : (proj?.data || {});
     const updatedData = { ...currentData, expert_doc_ids: newIds };
 
-    const { error } = await supabase.from("imphq_projects").update({ data: updatedData } as any).eq("id", projectId);
+    const { error } = await supabase.from("imphq_projects").update({ data: updatedData }).eq("id", projectId);
     if (error) { toast.error("Erro ao atualizar visibilidade"); return; }
 
     setExpertDocIds(newIds);
     toast.success(newIds.includes(docId) ? "Documento visível no Portal do Expert" : "Documento removido do Portal do Expert");
   };
 
-  const toggleAiDoc = async (doc: any) => {
-    const isTrained = doc.tags?.includes("ia_treinada") || false;
+  const toggleAiDoc = async (doc: Tables<"imphq_docs">) => {
+    const isTrained = (Array.isArray(doc.tags) && doc.tags.includes("ia_treinada")) || false;
     const newTags = isTrained
-      ? (doc.tags || []).filter((t: string) => t !== "ia_treinada")
-      : [...(doc.tags || []), "ia_treinada"];
+      ? (Array.isArray(doc.tags) ? doc.tags : []).filter(t => t !== "ia_treinada")
+      : [...(Array.isArray(doc.tags) ? doc.tags : []), "ia_treinada"];
 
     // Optimistic UI update
     setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, tags: newTags } : d));
@@ -93,9 +97,9 @@ export function ProjetoDocs({ projectId }: Props) {
         ? "Conhecimento removido da IA com sucesso!" 
         : `Treinamento concluído! Documento vetorizado em ${data.chunks || 0} blocos.`
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[toggleAiDoc] Error:", err);
-      toast.error(`Falha no treinamento: ${err.message || err}`);
+      toast.error(`Falha no treinamento: ${errorMessage(err)}`);
       // Rollback UI update
       setDocs(prev => prev.map(d => d.id === doc.id ? doc : d));
     } finally {
@@ -105,7 +109,7 @@ export function ProjetoDocs({ projectId }: Props) {
 
   const createDoc = async () => {
     const newId = crypto.randomUUID();
-    const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title: "Novo Documento", content: "" } as any).select().single();
+    const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title: "Novo Documento", content: "" }).select().single();
     if (error) { toast.error("Erro ao criar doc: " + error.message); return; }
     setDocs([data, ...docs]);
     setEditing(data);
@@ -129,12 +133,12 @@ export function ProjetoDocs({ projectId }: Props) {
       const newIds = expertDocIds.filter((i) => i !== id);
       const { data: proj } = await supabase.from("imphq_projects").select("data").eq("id", projectId).single();
       const currentData = typeof proj?.data === "string" ? JSON.parse(proj.data) : (proj?.data || {});
-      await supabase.from("imphq_projects").update({ data: { ...currentData, expert_doc_ids: newIds } } as any).eq("id", projectId);
+      await supabase.from("imphq_projects").update({ data: { ...currentData, expert_doc_ids: newIds } }).eq("id", projectId);
       setExpertDocIds(newIds);
     }
   };
 
-  const downloadDoc = async (doc: any) => {
+  const downloadDoc = async (doc: Tables<"imphq_docs">) => {
     const parsed = parseDocContent(doc.content);
     if (parsed.kind === "file" && parsed.url) {
       try {
@@ -181,7 +185,7 @@ export function ProjetoDocs({ projectId }: Props) {
         content = `[[file:${urlData.publicUrl}|${file.type || "application/octet-stream"}]]`;
       }
       const newId = crypto.randomUUID();
-      const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title, content } as any).select().single();
+      const { data, error } = await supabase.from("imphq_docs").insert({ id: newId, project_id: projectId, title, content }).select().single();
       if (!error && data) { setDocs(prev => [data, ...prev]); ok++; }
       else if (error) toast.error(`Erro: ${error.message}`);
     }
@@ -254,7 +258,7 @@ export function ProjetoDocs({ projectId }: Props) {
                     <Eye className="h-3 w-3" /> Expert
                   </span>
                 )}
-                {d.tags?.includes("ia_treinada") && (
+                {(Array.isArray(d.tags) && d.tags.includes("ia_treinada")) && (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                     <Brain className="h-3 w-3" /> IA Treinada
                   </span>
@@ -279,7 +283,7 @@ export function ProjetoDocs({ projectId }: Props) {
                   <TooltipTrigger asChild>
                     <div onClick={(e) => e.stopPropagation()} className="flex items-center">
                       <Switch
-                        checked={d.tags?.includes("ia_treinada") || false}
+                        checked={(Array.isArray(d.tags) && d.tags.includes("ia_treinada")) || false}
                         disabled={trainingIds.includes(d.id)}
                         onCheckedChange={() => toggleAiDoc(d)}
                         className="scale-75"
@@ -287,7 +291,7 @@ export function ProjetoDocs({ projectId }: Props) {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p className="text-xs">{d.tags?.includes("ia_treinada") ? "Remover do cérebro da IA" : "Treinar IA com este documento"}</p>
+                    <p className="text-xs">{(Array.isArray(d.tags) && d.tags.includes("ia_treinada")) ? "Remover do cérebro da IA" : "Treinar IA com este documento"}</p>
                   </TooltipContent>
                 </Tooltip>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setViewing(d); }} title="Visualizar">

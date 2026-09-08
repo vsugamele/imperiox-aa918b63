@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Lista dinâmica de modelos do OpenRouter com cache em memória (1h)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireUser } from "../_shared/require-auth.ts";
@@ -7,7 +8,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-let CACHE: { ts: number; data: any[] } | null = null;
+type CatalogModel = { id: string; name: string; context: number; tier: "free" | "cheap" | "mid" | "premium"; price_prompt: number; price_completion: number; description: string };
+function parseCatalog(value: unknown) {
+  return z.object({ data: z.array(z.object({
+    id: z.string(), name: z.string().nullish(), context_length: z.number().nullish(),
+    description: z.string().nullish(),
+    pricing: z.object({ prompt: z.union([z.number(), z.string()]).nullish(), completion: z.union([z.number(), z.string()]).nullish() }).nullish(),
+  }).passthrough()).nullish() }).parse(value).data || [];
+}
+let CACHE: { ts: number; data: CatalogModel[] } | null = null;
 const TTL_MS = 60 * 60 * 1000; // 1h
 
 serve(async (req) => {
@@ -22,7 +31,7 @@ serve(async (req) => {
       const res = await fetch("https://openrouter.ai/api/v1/models");
       if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
       const json = await res.json();
-      const models = (json.data || []).map((m: any) => {
+      const models = parseCatalog(json).map((m) => {
         const promptPrice = Number(m.pricing?.prompt || 0);
         const completionPrice = Number(m.pricing?.completion || 0);
         // tier baseado em preço ($/1M tokens)
@@ -41,15 +50,16 @@ serve(async (req) => {
           price_completion: completionPrice,
           description: (m.description || "").slice(0, 200),
         };
-      }).sort((a: any, b: any) => a.name.localeCompare(b.name));
+      }).sort((a, b) => a.name.localeCompare(b.name));
       CACHE = { ts: now, data: models };
     }
 
     return new Response(JSON.stringify({ models: CACHE.data, cached_at: CACHE.ts }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message || String(e), models: [] }), {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return new Response(JSON.stringify({ error: eMessage || String(e), models: [] }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

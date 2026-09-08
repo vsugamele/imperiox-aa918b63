@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { record, type Product } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,11 +10,18 @@ import { Loader2, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const resultSchema = z.object({
+ diagnostico:z.string().optional(), estrategia_central:z.string().optional(),
+ jornada_recomendada:z.array(z.object({etapa:z.string().optional(),ativo:z.string().optional(),porque:z.string().optional(),copy_chave:z.string().optional()}).passthrough()).optional(),
+ ativos_essenciais:z.array(z.string()).optional(),ativos_evitar:z.array(z.string()).optional(),gatilhos_principais:z.array(z.string()).optional(),objecoes_chave:z.array(z.string()).optional(),tom_voz:z.string().optional(),
+ metricas_alvo:z.object({ctr_estimado:z.union([z.string(),z.number()]).optional(),conversao_estimada:z.union([z.string(),z.number()]).optional(),ticket_recomendado:z.union([z.string(),z.number()]).optional()}).optional()
+}).passthrough();
+
 interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  product: any;
+  product: Product;
 }
 
 const CONSCIENCIA = [
@@ -28,7 +38,7 @@ export function FunnelByAvatarDialog({ open, onClose, projectId, product }: Prop
   const [temperatura, setTemperatura] = useState("morno");
   const [personaExtra, setPersonaExtra] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<z.infer<typeof resultSchema> | null>(null);
 
   const run = async () => {
     setLoading(true);
@@ -38,10 +48,10 @@ export function FunnelByAvatarDialog({ open, onClose, projectId, product }: Prop
         body: { project_id: projectId, product, consciencia, temperatura, persona_extra: personaExtra },
       });
       if (error) throw error;
-      setResult((data as any)?.result || {});
+      setResult(resultSchema.parse(record(data).result));
       toast.success("Funil adaptado");
-    } catch (e: any) {
-      toast.error(e?.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setLoading(false);
     }
@@ -99,7 +109,7 @@ export function FunnelByAvatarDialog({ open, onClose, projectId, product }: Prop
               {Array.isArray(result.jornada_recomendada) && result.jornada_recomendada.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="text-[10px] uppercase tracking-wider text-foreground font-semibold">Jornada recomendada</p>
-                  {result.jornada_recomendada.map((j: any, i: number) => (
+                  {result.jornada_recomendada.map((j, i) => (
                     <div key={i} className="rounded-lg border border-border/40 bg-secondary/20 p-2.5">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 text-[9px] uppercase font-bold">{j.etapa}</span>

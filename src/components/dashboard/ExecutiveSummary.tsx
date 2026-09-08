@@ -68,7 +68,7 @@ export default function ExecutiveSummary({ projectFilter }: Props) {
 
       const [vCur, vPrev, aCur, aPrev, hot] = await Promise.all([vendasCurQ, vendasPrevQ, adsCurQ, adsPrevQ, hotQ]);
 
-      const sum = (rows: any[], key: string) => (rows || []).reduce((a, r) => a + (parseFloat(r[key]) || 0), 0);
+      const sum = (rows: { valor: number | null }[], key: "valor") => (rows || []).reduce((a, r) => a + (parseFloat(String(r[key])) || 0), 0);
       const receitaMes = sum(vCur.data || [], "valor");
       const receitaMesPassado = sum(vPrev.data || [], "valor");
       const adsMes = sum(aCur.data || [], "valor");

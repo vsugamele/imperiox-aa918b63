@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -67,11 +68,12 @@ export function LeadMemoryEditor({ open, onOpenChange, leadId, projectId, phone 
           .order("updated_at", { ascending: false }),
         supabase.from("imphq_leads").select("lead_memory").eq("id", leadId).maybeSingle(),
       ]);
-      setRows(((mems as any[]) || []) as MemoryRow[]);
-      setFreeform((lead as any)?.lead_memory || "");
+      setRows(mems || []);
+      const memory = lead?.lead_memory;
+      setFreeform(typeof memory === "string" ? memory : memory == null ? "" : JSON.stringify(memory, null, 2));
       setFreeformDirty(false);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao carregar memória");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao carregar memória");
     } finally {
       setLoading(false);
     }
@@ -165,8 +167,8 @@ export function LeadMemoryEditor({ open, onOpenChange, leadId, projectId, phone 
 
       toast.success("Memória salva");
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao salvar");
     } finally {
       setSaving(false);
     }

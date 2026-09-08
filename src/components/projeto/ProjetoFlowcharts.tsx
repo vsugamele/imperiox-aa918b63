@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Plus, Trash2, ZoomIn, ZoomOut, Save, GripVertical, X, ArrowRight, ImageIcon, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { FlowMinimap } from "./flowchart/FlowMinimap";
-import { FlowImportDialog } from "./flowchart/FlowImportDialog";
+import { FlowMinimap } from "@/components/projeto/flowchart/FlowMinimap";
+import { FlowImportDialog } from "@/components/projeto/flowchart/FlowImportDialog";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
 
-interface FlowNode {
+type FlowNode = {
   id: string;
   title: string;
   subtitle?: string;
@@ -24,15 +27,26 @@ interface FlowNode {
   connects_to?: string[];
 }
 
-interface Flowchart {
+type Flowchart = {
   id: string;
   name: string;
   nodes: FlowNode[];
 }
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Pick<Tables<"imphq_projects">, "id" | "data">;
+  onUpdateData: (data: Json) => void;
+}
+
+function validFlowcharts(value: Json): value is Flowchart[] {
+  return Array.isArray(value) && value.every(chart => {
+    const c = jsonFields(chart);
+    return typeof c.id === "string" && typeof c.name === "string" && Array.isArray(c.nodes) && c.nodes.every(node => {
+      const n = jsonFields(node);
+      return typeof n.id === "string" && typeof n.title === "string" && typeof n.color === "string" && typeof n.pos_x === "number" && typeof n.pos_y === "number" && typeof n.type === "string" && ["etapa", "decisao", "resultado", "nota", "imagem"].includes(n.type)
+        && (n.subtitle === undefined || typeof n.subtitle === "string") && (n.image_url === undefined || typeof n.image_url === "string") && (n.connects_to === undefined || Array.isArray(n.connects_to) && n.connects_to.every(id => typeof id === "string"));
+    });
+  });
 }
 
 const NODE_W = 220;
@@ -51,8 +65,12 @@ const TYPE_STYLES: Record<string, { bg: string; border: string; label: string }>
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#64748b"];
 
 export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
-  const data = project.data || {};
-  const flowcharts: Flowchart[] = data.flowcharts || [];
+  const data = useMemo(() => jsonFields(project.data), [project.data]);
+  const invalidCharts = data.flowcharts !== undefined && !validFlowcharts(data.flowcharts);
+  const flowcharts = useMemo(() => {
+    const value = data.flowcharts ?? [];
+    return validFlowcharts(value) ? value : [];
+  }, [data.flowcharts]);
 
   const [activeIdx, setActiveIdx] = useState<number | null>(flowcharts.length > 0 ? 0 : null);
   const [zoom, setZoom] = useState(0.8);
@@ -139,9 +157,9 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
       toast.success(`${nodes.length} nós gerados com IA!`);
       setAiDialogOpen(false);
       setAiPrompt("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Erro ao gerar fluxograma: " + (err.message || "Erro desconhecido"));
+      toast.error("Erro ao gerar fluxograma: " + (errorMessage(err) || "Erro desconhecido"));
     } finally {
       setAiLoading(false);
     }
@@ -209,7 +227,7 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     if (isPanning) {
       setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
-  }, [connectingFrom, draggingId, active, zoom, dragOffset, isPanning, panStart, activeIdx, flowcharts, updateActive]);
+  }, [connectingFrom, draggingId, active, zoom, dragOffset, isPanning, panStart, pan.x, pan.y, activeIdx, flowcharts, updateActive]);
 
   const handleMouseUp = useCallback(() => {
     if (draggingId) setDraggingId(null);
@@ -289,6 +307,8 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
     return lines;
   };
 
+  if (invalidCharts) return <Card><CardContent className="p-4">O fluxograma salvo contém dados inválidos. A edição foi bloqueada para preservar o conteúdo.</CardContent></Card>;
+
   return (
     <div className="space-y-4">
       {/* Flowchart selector */}
@@ -334,7 +354,7 @@ export function ProjetoFlowcharts({ project, onUpdateData }: Props) {
                 <Plus className="h-3 w-3" /> {s.label}
               </Button>
             ))}
-            <FlowImportDialog onImportNodes={importNodes} projectSlug={project.slug} />
+            <FlowImportDialog onImportNodes={importNodes} projectSlug={typeof data.slug === "string" ? data.slug : project.id} />
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setAiDialogOpen(true)}>
               <Sparkles className="h-3 w-3" /> Gerar com IA
             </Button>

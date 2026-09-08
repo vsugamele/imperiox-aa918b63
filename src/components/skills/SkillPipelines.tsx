@@ -1,3 +1,7 @@
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { parseProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 // SkillPipelines.tsx — Pipelines pré-montadas que encadeiam skills em sequência
 // passando o output de uma como input da próxima
 import { useState, useEffect } from "react";
@@ -21,7 +25,7 @@ interface PipelineStep {
   skill_id: string;
   skill_nome: string;
   skill_color: string;
-  skill_icon: any;
+  skill_icon: LucideIcon;
   descricao: string;
   /** Se true, usa o output do passo anterior como contexto */
   usa_output_anterior?: boolean;
@@ -152,7 +156,7 @@ const PIPELINES: Pipeline[] = [
 ];
 
 interface Props {
-  projects: any[];
+  projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[];
 }
 
 interface StepResult {
@@ -177,10 +181,10 @@ export function SkillPipelines({ projects }: Props) {
   const onProjectChange = (pid: string) => {
     setProjectId(pid);
     setProduto("");
-    const proj = projects.find((p: any) => p.id === pid);
+    const proj = projects.find((p) => p.id === pid);
     if (proj) {
-      const d = typeof proj.data === "string" ? JSON.parse(proj.data || "{}") : (proj.data || {});
-      const prods = (d.produtos || []).map((p: any) => p.nome || p.name).filter(Boolean);
+      const d = parseProjectData(proj.data);
+      const prods = (d.produtos || []).map((p) => p.nome || p.name).filter(Boolean);
       setProdutos(prods);
     } else setProdutos([]);
   };
@@ -316,9 +320,9 @@ export function SkillPipelines({ projects }: Props) {
           setPipelineOutputIds(prev => ({ ...prev, [i]: outputData.id }));
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         results[i].status = "error";
-        results[i].result = `Erro: ${err.message}`;
+        results[i].result = `Erro: ${errorMessage(err)}`;
         setStepResults([...results]);
         toast.error(`Falha na etapa ${i + 1}: ${step.skill_nome}`);
         break;
@@ -452,7 +456,7 @@ export function SkillPipelines({ projects }: Props) {
               <Label>Projeto *</Label>
               <Select value={projectId} onValueChange={onProjectChange}>
                 <SelectTrigger><SelectValue placeholder="Selecione o projeto..." /></SelectTrigger>
-                <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {produtos.length > 0 && (

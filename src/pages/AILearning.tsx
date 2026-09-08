@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,7 +129,7 @@ export default function AILearning() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, accent }: { icon: any; label: string; value: number; accent?: boolean }) {
+function StatCard({ icon: Icon, label, value, accent }: { icon: LucideIcon; label: string; value: number; accent?: boolean }) {
   return (
     <Card className={`p-4 ${accent ? "border-primary/30 bg-primary/5" : "bg-secondary/20 border-border/40"}`}>
       <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -201,7 +203,7 @@ function KnowledgeTab({ projectId }: { projectId: string }) {
 }
 
 function BlocksTab({ projectId }: { projectId: string }) {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Pick<Tables<"imphq_wa_project_rules">, "id" | "rule_text" | "active" | "times_applied" | "last_applied_at" | "created_at">[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
@@ -329,12 +331,12 @@ function Empty({ msg }: { msg: string }) {
 }
 
 function PendingTab({ projectId }: { projectId: string }) {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Pick<Tables<"imphq_wa_project_rules">, "id" | "rule_text" | "rule_type" | "pending_reason" | "created_at" | "active">[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("imphq_wa_project_rules")
@@ -345,14 +347,14 @@ function PendingTab({ projectId }: { projectId: string }) {
     setRows(data || []);
     setSelected(new Set());
     setLoading(false);
-  };
+  }, [projectId]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   const toggle = (id: string) => {
     setSelected(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) { n.delete(id); } else { n.add(id); }
       return n;
     });
   };

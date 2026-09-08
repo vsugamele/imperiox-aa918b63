@@ -15,7 +15,7 @@ export function ProductLinksEditor({
   produto,
   onChange,
 }: {
-  produto: any;
+  produto: unknown;
   onChange: (links: ProductLink[]) => void;
 }) {
   const links = useMemo(() => normalizeProductLinks(produto), [produto]);
@@ -135,7 +135,7 @@ export function ProductLinksEditor({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Tipo</Label>
-                  <Select value={current.tipo} onValueChange={(v: any) => update(editing, { tipo: v })}>
+                  <Select value={current.tipo} onValueChange={(v) => { const option = LINK_TIPOS.find((t) => t.value === v); if (option) update(editing, { tipo: option.value }); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {LINK_TIPOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
@@ -144,7 +144,7 @@ export function ProductLinksEditor({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Prioridade pra IA</Label>
-                  <Select value={current.prioridade_ia} onValueChange={(v: any) => update(editing, { prioridade_ia: v })}>
+                  <Select value={current.prioridade_ia} onValueChange={(v) => { const option = PRIORIDADES.find((p) => p.value === v); if (option) update(editing, { prioridade_ia: option.value }); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PRIORIDADES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}

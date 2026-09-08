@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -18,6 +19,15 @@ import {
 } from "./_lib/db.ts";
 import { handleWebhook } from "./_lib/webhook-handler.ts";
 import { handleSendMessage } from "./_lib/send-message-handler.ts";
+
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(value: unknown): string | undefined { const message = record(value).message; return typeof message === "string" ? message : undefined; }
+const Text = z.string().nullish();
+const Group = z.object({ id: Text, jid: Text, subject: Text, name: Text, size: z.number().nullish(), participants: z.array(z.union([z.string(), z.object({ id: Text, jid: Text }).passthrough()])).nullish() }).passthrough();
+const EvolutionMessage = z.object({ id: Text, remoteJid: Text, pushName: Text, messageTimestamp: z.number().nullish(), timestamp: z.number().nullish(), key: z.object({ id: Text, remoteJid: Text, fromMe: z.boolean().nullish() }).passthrough().nullish(), message: z.object({ conversation: Text, extendedTextMessage: z.object({ text: Text }).passthrough().nullish(), imageMessage: z.object({ caption: Text }).passthrough().nullish(), videoMessage: z.object({ caption: Text }).passthrough().nullish(), audioMessage: z.object({ ptt: z.boolean().nullish() }).passthrough().nullish(), documentMessage: z.object({ fileName: Text }).passthrough().nullish(), stickerMessage: z.unknown(), locationMessage: z.unknown() }).passthrough().nullish() }).passthrough();
+interface ContextConfig { context_sources?: string[] | null; faq?: { pergunta?: string; resposta?: string }[] | null }
+interface KnowledgeMatch { pergunta: string; resposta: string; similarity: number }
+interface MemoryMatch { content: string; similarity: number }
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,7 +86,7 @@ Deno.serve(async (req) => {
     ) => updateConversationAfterMessageShared(supabase, conversationId, content, currentCount, incrementUnread, pauseAI);
 
     // ── Helper: build project context from selected sources ──
-    async function buildProjectContext(projectId: string, aiConfig: any) {
+    async function buildProjectContext(projectId: string, aiConfig: ContextConfig) {
       let context = "";
       const { data: project } = await supabase
         .from("imphq_projects")
@@ -102,7 +112,7 @@ Deno.serve(async (req) => {
         if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
           const faqStr = aiConfig.faq
             .slice(0, 20)
-            .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+            .map((f: { pergunta?: string; resposta?: string }) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
             .join("\n");
           context += `FAQ OFICIAL (use a resposta literalmente se a pergunta bater):\n${faqStr.slice(0, 1200)}\n`;
         }
@@ -158,7 +168,7 @@ Deno.serve(async (req) => {
           throw new Error(`Erro ElevenLabs: ${res.status} ${await res.text()}`);
         }
         const data = await res.json();
-        const voices = (data.voices || []).map((v: any) => ({
+        const voices = (data.voices || []).map((v: { voice_id?: string; name?: string; category?: string; preview_url?: string }) => ({
           id: v.voice_id,
           name: v.name,
           category: v.category,
@@ -167,8 +177,8 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: true, voices }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (err: any) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), {
+      } catch (err) {
+        return new Response(JSON.stringify({ success: false, error: errorMessage(err) }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -236,7 +246,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: false, error: `Evolution edit error [${res.status}]: ${JSON.stringify(data).slice(0, 300)}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
       }
-      const prevMeta = (msg.metadata as any) || {};
+      const prevMeta = record(msg.metadata);
       await supabase.from("imphq_wa_messages").update({
         content: new_text,
         metadata: { ...prevMeta, edited_at: new Date().toISOString(), original_content: prevMeta.original_content || msg.content },
@@ -250,7 +260,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { provider_id, contacts, message_template, project_id, delay_ms } = body;
       const provider = await getProvider(provider_id);
-      const results: any[] = [];
+      const results: { phone: string; status: string; error?: string }[] = [];
       const delayTime = delay_ms || 3000;
 
       for (const contact of contacts) {
@@ -298,7 +308,7 @@ Deno.serve(async (req) => {
             await new Promise((r) => setTimeout(r, delayTime));
           }
         } catch (err) {
-          results.push({ phone: contact.phone, status: "error", error: err.message });
+          results.push({ phone: contact.phone, status: "error", error: errorMessage(err) });
         }
       }
 
@@ -397,7 +407,7 @@ Deno.serve(async (req) => {
       try {
         await fetch(`${provider.api_url}/instance/logout/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
       } catch (e) { console.warn("[restart] logout fail:", e); }
-      let connectData: any = null;
+      let connectData: unknown = null;
       try {
         const res = await fetch(`${provider.api_url}/instance/connect/${encodeURIComponent(provider.instance_name)}`, { headers: { apikey: provider.api_key } });
         connectData = await res.json();
@@ -414,14 +424,14 @@ Deno.serve(async (req) => {
       if (provider.provider === "evolution") {
         try {
           await fetch(`${provider.api_url}/instance/logout/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
-        } catch {}
+        } catch { /* Logout is best effort before instance deletion. */ }
         try {
           await fetch(`${provider.api_url}/instance/delete/${encodeURIComponent(provider.instance_name)}`, { method: "DELETE", headers: { apikey: provider.api_key } });
         } catch (e) { console.warn("[delete_instance] remote fail:", e); }
       }
       // Cascade: remove dependentes antes do provider (FK restrict)
       const { data: convs } = await supabase.from("imphq_wa_conversations").select("id").eq("provider_id", providerId);
-      const convIds = (convs || []).map((c: any) => c.id);
+      const convIds = (convs || []).map((c) => c.id);
       if (convIds.length) {
         await supabase.from("imphq_wa_messages").delete().in("conversation_id", convIds);
       }
@@ -539,7 +549,7 @@ Deno.serve(async (req) => {
           .select("phone")
           .eq("project_id", provider.project_id)
           .in("phone", phones);
-        const existingPhones = new Set((existingRows || []).map((r: any) => r.phone));
+        const existingPhones = new Set((existingRows || []).map((r) => r.phone));
 
         // Build batch of new contacts
         const toInsert = validChats
@@ -650,15 +660,15 @@ Deno.serve(async (req) => {
                 provider_message_id: m.id || null,
                 project_id: projectId,
                 provider: "meta_cloud",
-              } as any);
+              });
               if (insErr) console.warn("[meta_cloud] insert msg error:", insErr.message);
             }
           }
         }
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
-        console.error("[meta_cloud] webhook error:", e.message);
-        return new Response(JSON.stringify({ success: false, error: e.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        console.error("[meta_cloud] webhook error:", errorMessage(e));
+        return new Response(JSON.stringify({ success: false, error: errorMessage(e) }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
@@ -784,7 +794,7 @@ Deno.serve(async (req) => {
         { headers: { apikey: provider.api_key } }
       );
       const data = await res.json();
-      const groups = (Array.isArray(data) ? data : []).map((g: any) => ({
+      const groups = z.array(Group).parse(Array.isArray(data) ? data : []).map((g) => ({
         id: g.id || g.jid,
         subject: g.subject || g.name || g.id,
       }));
@@ -816,16 +826,16 @@ Deno.serve(async (req) => {
       const data = await res.json();
       const cleanPhone = phone.replace(/\D/g, "");
 
-      const groups = (Array.isArray(data) ? data : [])
-        .filter((g: any) => {
+      const groups = z.array(Group).parse(Array.isArray(data) ? data : [])
+        .filter((g) => {
           if (!Array.isArray(g.participants)) return false;
-          return g.participants.some((p: any) => {
+          return g.participants.some((p) => {
             const pid = typeof p === "string" ? p : (p?.id || p?.jid || "");
             const pPhone = pid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
             return pPhone === cleanPhone;
           });
         })
-        .map((g: any) => ({
+        .map((g) => ({
           id: g.id || g.jid,
           subject: g.subject || g.name || g.id,
         }));
@@ -859,7 +869,7 @@ Deno.serve(async (req) => {
       const maxPages = 50; // ceiling 5000 msgs por chip
 
       while (page <= maxPages) {
-        let msgs: any[] = [];
+        let msgs: z.infer<typeof EvolutionMessage>[] = [];
         try {
           const res = await fetch(`${apiBase}/chat/findMessages/${inst}`, {
             method: "POST",
@@ -872,12 +882,12 @@ Deno.serve(async (req) => {
           }
           const data = await res.json();
           // Evolution pode retornar array direto OU { messages: { records: [...] } }
-          if (Array.isArray(data)) msgs = data;
-          else if (Array.isArray(data?.messages)) msgs = data.messages;
-          else if (Array.isArray(data?.messages?.records)) msgs = data.messages.records;
+          if (Array.isArray(data)) msgs = z.array(EvolutionMessage).parse(data);
+          else if (Array.isArray(data?.messages)) msgs = z.array(EvolutionMessage).parse(data.messages);
+          else if (Array.isArray(data?.messages?.records)) msgs = z.array(EvolutionMessage).parse(data.messages.records);
           else msgs = [];
         } catch (e) {
-          console.warn(`[sync_messages] fetch page ${page} error:`, e?.message);
+          console.warn(`[sync_messages] fetch page ${page} error:`, errorMessage(e));
           break;
         }
 
@@ -981,7 +991,7 @@ Deno.serve(async (req) => {
               imported++;
             }
           } catch (mErr) {
-            console.warn("[sync_messages] msg error:", mErr?.message);
+            console.warn("[sync_messages] msg error:", errorMessage(mErr));
             skipped++;
           }
         }
@@ -1034,7 +1044,7 @@ Deno.serve(async (req) => {
       // Try getting ElevenLabs API Key from Deno Env
       const ELEVEN_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
       const LOCAL_TTS_URL = Deno.env.get("LOCAL_TTS_URL");
-      let audioUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; // High quality fallback sound
+      let audioUrl = "";
       let synthesizedReal = false;
 
       // ── LOCAL TTS (edge-tts / XTTS clone) ──
@@ -1073,8 +1083,8 @@ Deno.serve(async (req) => {
           } else {
             console.warn(`[send_voice_synthesis] Local TTS erro ${ttsRes.status}:`, await ttsRes.text());
           }
-        } catch (err: any) {
-          console.error("[send_voice_synthesis] Local TTS crashed:", err.message);
+        } catch (err) {
+          console.error("[send_voice_synthesis] Local TTS crashed:", errorMessage(err));
         }
       }
 
@@ -1124,21 +1134,25 @@ Deno.serve(async (req) => {
               synthesizedReal = true;
               console.log(`[send_voice_synthesis] Áudio salvo no Supabase Storage: ${audioUrl}`);
             } else {
-              console.warn("[send_voice_synthesis] Erro ao salvar no bucket. Usando fallback de URL.", uploadError?.message);
+              console.warn("[send_voice_synthesis] Erro ao salvar no bucket. Áudio indisponível.", uploadError?.message);
             }
           } else {
             const errBody = await ttsRes.text();
             console.warn(`[send_voice_synthesis] ElevenLabs API respondeu com erro ${ttsRes.status}:`, errBody);
           }
         } catch (err) {
-          console.error("[send_voice_synthesis] ElevenLabs integration crashed:", err.message);
+          console.error("[send_voice_synthesis] ElevenLabs integration crashed:", errorMessage(err));
         }
       } else if (!synthesizedReal) {
-        console.log("[send_voice_synthesis] Sem TTS disponível para provider=" + voice_provider + ". Usando fallback de URL.");
+        console.log("[send_voice_synthesis] Sem TTS disponível para provider=" + voice_provider + ". Nenhum áudio será enviado.");
       }
 
+      if (!synthesizedReal || !audioUrl) throw new Error("Não foi possível sintetizar a voz. Nenhum áudio foi enviado.");
+      // Send only through the implemented provider.
+      if (provider.provider !== "evolution") throw new Error("Envio de voz sintetizada não implementado para este provider. Nenhum áudio foi enviado.");
+
       // Send Voice Note via Evolution API / Meta Cloud
-      let result: any = null;
+      let result: unknown = null;
       if (provider.provider === "evolution") {
         const apiBase = provider.api_url.replace(/\/+$/, "");
         const inst = encodeURIComponent(provider.instance_name);
@@ -1153,7 +1167,7 @@ Deno.serve(async (req) => {
           });
           await new Promise(r => setTimeout(r, 4500)); // wait recording delay
         } catch (e) {
-          console.warn("[send_voice_synthesis] Falha ao enviar presença:", e.message);
+          console.warn("[send_voice_synthesis] Falha ao enviar presença:", errorMessage(e));
         }
 
         // Send WhatsApp Audio using 'sendWhatsAppAudio' to mark it PTT: true
@@ -1175,12 +1189,10 @@ Deno.serve(async (req) => {
           })
         });
 
+        if (!res.ok) throw new Error(`Falha ao enviar áudio: HTTP ${res.status}`);
         result = await res.json();
-      } else {
-        // Fallback or Meta Cloud API
-        console.log("[send_voice_synthesis] Enviando áudio via API Oficial Meta...");
-        await new Promise(r => setTimeout(r, 2000));
-        result = { success: true, message: "Áudio enviado com sucesso via API Oficial" };
+        const sent = record(result);
+        if (sent.error || sent.success === false || sent.ok === false) throw new Error("Provider recusou envio do áudio");
       }
 
       // Save conversation and message details
@@ -1242,7 +1254,7 @@ Deno.serve(async (req) => {
           .eq("project_id", project_id)
           .eq("enabled", true);
         if (configs && configs.length > 0) {
-          aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+          aiConfig = configs.find((c) => !c.provider_id) || configs[0];
         }
       }
 
@@ -1273,7 +1285,7 @@ Deno.serve(async (req) => {
         if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
           const faqStr = aiConfig.faq
             .slice(0, 20)
-            .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+            .map((f: { pergunta?: string; resposta?: string }) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
             .join("\n");
           projectContext += `FAQ OFICIAL (use a resposta literalmente se a pergunta bater):\n${faqStr.slice(0, 1200)}\n`;
         }
@@ -1326,8 +1338,8 @@ Deno.serve(async (req) => {
       let lessonsBlock = "";
       let memoryBlock = "";
       let objectionsBlock = "";
-      const vectorMemories: any[] = [];
-      let matchedObjectionObj: any = null;
+      const vectorMemories: { type: string; title: string; content: string; similarity: number }[] = [];
+      let matchedObjectionObj: { id: string; objecao: string; resposta_padrao: string; similarity: number } | null = null;
 
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (LOVABLE_API_KEY && leadMessage) {
@@ -1350,9 +1362,9 @@ Deno.serve(async (req) => {
               });
               if (matches && matches.length > 0) {
                 lessonsBlock = `\nREGRAS E CONHECIMENTOS ADICIONAIS APRENDIDOS:\n` +
-                  matches.map((m: any) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
+                  matches.map((m: KnowledgeMatch) => `- Se a dúvida/situação for semelhante a "${m.pergunta}", a regra/resposta é: "${m.resposta}"`).join("\n") + "\n";
                 
-                matches.forEach((m: any) => {
+                matches.forEach((m: KnowledgeMatch) => {
                   vectorMemories.push({
                     type: "knowledge",
                     title: `Conhecimento: "${m.pergunta}"`,
@@ -1373,9 +1385,9 @@ Deno.serve(async (req) => {
               });
               if (memories && memories.length > 0) {
                 memoryBlock = `\nRELEMBRE O QUE O LEAD JÁ DISSE ANTERIORMENTE (MEMÓRIA VETORIAL):\n` +
-                  memories.map((m: any) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
+                  memories.map((m: MemoryMatch) => `- O lead já comentou/disse: "${m.content}"`).join("\n") + "\n";
 
-                memories.forEach((m: any) => {
+                memories.forEach((m: MemoryMatch) => {
                   vectorMemories.push({
                     type: "memory",
                     title: "Memória do Lead",
@@ -1405,8 +1417,8 @@ Deno.serve(async (req) => {
               }
             }
           }
-        } catch (e: any) {
-          console.warn("[whatsapp-api] Error generating simulated semantic context:", e.message);
+        } catch (e) {
+          console.warn("[whatsapp-api] Error generating simulated semantic context:", errorMessage(e));
         }
       }
 
@@ -1474,12 +1486,12 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
 - Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos). Mensagens longas são ignoradas.
 - Use formatação de WhatsApp (*negrito*, _itálico_).`;
 
-      const messages = [
+      const messages: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [
         { role: "system", content: systemPrompt },
       ];
 
       // Format history
-      history.forEach((h: any) => {
+      history.forEach((h: { direction: string; content?: string }) => {
         messages.push({
           role: h.direction === "incoming" ? "user" : "assistant",
           content: h.content || "",
@@ -1495,7 +1507,7 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
             { type: "text", text: leadMessage || "Analise esta imagem enviada pelo lead." },
             { type: "image_url", image_url: { url: media_url } }
           ]
-        } as any);
+        });
       } else {
         messages.push({ role: "user", content: leadMessage || "" });
       }
@@ -1576,8 +1588,8 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (parseErr: any) {
-        return new Response(JSON.stringify({ success: false, error: `Falha ao interpretar JSON da IA: ${parseErr.message}` }), {
+      } catch (parseErr) {
+        return new Response(JSON.stringify({ success: false, error: `Falha ao interpretar JSON da IA: ${errorMessage(parseErr)}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1589,7 +1601,7 @@ REGRAS GERAIS DE CONVERSAÇÃO DO WHATSAPP (APLIQUE RIGOROSAMENTE NA GERAÇÃO D
     });
   } catch (err) {
     console.error("whatsapp-api error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: errorMessage(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

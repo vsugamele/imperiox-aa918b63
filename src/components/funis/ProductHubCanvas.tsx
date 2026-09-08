@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { record, readRecord, parseProjectData, toJson, type Product } from "@/lib/funis-data";
+import type { LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,7 +35,8 @@ import { Download } from "lucide-react";
 import { SalesScriptAutopilotDialog } from "./SalesScriptAutopilotDialog";
 import { FlowBlueprintCanvas } from "./FlowBlueprintCanvas";
 import { useFunnelRevenue, getProductRevenue } from "@/hooks/useFunnelRevenue";
-import { RevenueOverlayBar, NodeRevenueBadge, LiveActivityFeed, useFunnelLiveActivity } from "./RevenueOverlay";
+import { RevenueOverlayBar, NodeRevenueBadge, LiveActivityFeed } from "./RevenueOverlay";
+import { useFunnelLiveActivity } from "@/hooks/use-funnel-live-activity";
 import { DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -51,7 +54,7 @@ export interface HubAsset extends BaseHubAsset {
 interface Project {
   id: string;
   name: string;
-  briefing?: any;
+  briefing?: unknown;
 }
 
 interface Props {
@@ -66,7 +69,7 @@ const ASSET_NODE_W = 220;
 const ASSET_NODE_H = 130;
 const GRID = 20;
 
-const STATUS_META: Record<AssetStatus, { label: string; color: string; icon: any; next: AssetStatus | null }> = {
+const STATUS_META: Record<AssetStatus, { label: string; color: string; icon: LucideIcon; next: AssetStatus | null }> = {
   pending:   { label: "Pendente",  color: "text-muted-foreground bg-muted/40 border-muted-foreground/40", icon: Circle, next: "generated" },
   generated: { label: "Gerado",    color: "text-amber-300 bg-amber-500/15 border-amber-500/50",            icon: CircleDot, next: "reviewed" },
   reviewed:  { label: "Revisado",  color: "text-sky-300 bg-sky-500/15 border-sky-500/50",                  icon: CircleDot, next: "approved" },
@@ -107,7 +110,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
     setProductPosMap(prev => {
       const next = { ...prev, [productKey]: pos };
       if (persistNow) {
-        try { localStorage.setItem("hub:productPos", JSON.stringify(next)); } catch {}
+        try { localStorage.setItem("hub:productPos", JSON.stringify(next)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
       }
       return next;
     });
@@ -162,11 +165,8 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
 
   const currentProject = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
   const products = useMemo(() => {
-    const b = currentProject?.briefing || {};
-    const prods = b?.produtos || b?.products || [];
-    return (Array.isArray(prods) ? prods : []).map((p: any) =>
-      typeof p === "string" ? { nome: p } : p
-    );
+    const b = parseProjectData(currentProject?.briefing);
+    return b.produtos || b.products || [];
   }, [currentProject]);
   const currentProduct = products[productIdx];
 
@@ -181,7 +181,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         .maybeSingle();
       if (data) {
         setFunilId(data.id);
-        const hub = (data.data as any)?.hub || {};
+        const hub = record(record(data.data).hub);
         const list = (hub[currentProduct?.nome || currentProduct?.name || "_"] || []) as HubAsset[];
         setAssets(list.map(a => ({ ...a, status: a.status || (a.output ? "generated" : "pending") })));
       } else {
@@ -191,16 +191,16 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
     })();
   }, [projectId, productIdx, currentProduct]);
 
-  const reloadBlueprints = async () => {
+  const reloadBlueprints = useCallback(async () => {
     if (!projectId) { setBlueprints([]); return; }
     const { data } = await supabase
       .from("imphq_flow_blueprints")
       .select("id, title, objetivo")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
-    setBlueprints((data as any) || []);
-  };
-  useEffect(() => { reloadBlueprints(); }, [projectId]);
+    setBlueprints(data || []);
+  }, [projectId]);
+  useEffect(() => { reloadBlueprints(); }, [reloadBlueprints]);
 
 
 
@@ -209,9 +209,9 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
     const key = currentProduct?.nome || currentProduct?.name || "_";
     if (funilId) {
       const { data: row } = await supabase.from("imphq_funis").select("data").eq("id", funilId).maybeSingle();
-      const hub = (row?.data as any)?.hub || {};
+      const hub = record(record(row?.data).hub);
       hub[key] = newAssets;
-      await supabase.from("imphq_funis").update({ data: { ...(row?.data as any || {}), hub } as any }).eq("id", funilId);
+      await supabase.from("imphq_funis").update({ data: toJson({ ...record(row?.data), hub }) }).eq("id", funilId);
     } else {
       const { data: created } = await supabase.from("imphq_funis").insert([{
         id: crypto.randomUUID(),
@@ -219,22 +219,22 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         nome: `Hub: ${currentProject?.name || ""}`.trim(),
         tipo: "hub",
         status: "Ativo",
-        data: { hub: { [key]: newAssets } } as any,
+        data: toJson({ hub: { [key]: newAssets } }),
       }]).select("id").single();
       if (created) setFunilId(created.id);
     }
   };
 
-  const handleImportedProduct = async (produto: any) => {
+  const handleImportedProduct = async (produto: Product) => {
     if (!projectId) return;
     const { data: row } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
-    const d: any = (row?.data && typeof row.data === "object") ? row.data : {};
-    const briefing = (d.briefing && typeof d.briefing === "object") ? d.briefing : null;
+    const d = readRecord(row?.data);
+    const briefing = d.briefing ? readRecord(d.briefing) : null;
     const target = briefing || d;
     const list = Array.isArray(target.produtos) ? target.produtos : [];
     target.produtos = [...list, produto];
     const newData = briefing ? { ...d, briefing: target } : { ...d, produtos: target.produtos };
-    await supabase.from("imphq_projects").update({ data: newData }).eq("id", projectId);
+    await supabase.from("imphq_projects").update({ data: toJson(newData) }).eq("id", projectId);
     await onProjectsReload?.();
     setProductIdx(list.length); // novo produto vira o atual
   };
@@ -373,8 +373,8 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           body: { intent: item.intent, input, context: { project_id: projectId } },
         });
         if (error) throw error;
-        const content = (data as any)?.content || "";
-        if (!content) throw new Error("vazio");
+        const content = record(data).content;
+        if (typeof content !== "string" || !content) throw new Error("vazio");
         working = working.map(a => a.id === asset.id
           ? { ...a, output: content, generated_at: new Date().toISOString(), status: (a.status === "approved" ? "approved" : "generated") as AssetStatus }
           : a
@@ -646,7 +646,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
           <Select value={String(productIdx)} onValueChange={(v) => setProductIdx(Number(v))}>
             <SelectTrigger className="w-[220px] h-8 text-xs bg-[#0a0608]/90 border-border/60"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {products.map((p: any, i) => (
+              {products.map((p, i) => (
                 <SelectItem key={i} value={String(i)}>{p.nome || p.name || `Produto ${i+1}`}</SelectItem>
               ))}
             </SelectContent>
@@ -977,7 +977,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
                 projectId={projectId}
                 productIdx={productIdx}
                 product={currentProduct}
-                imageUrl={imageOverrides[`${projectId}:${productIdx}`] || currentProduct.imagem || currentProduct.image}
+                imageUrl={imageOverrides[`${projectId}:${productIdx}`] || (typeof currentProduct.imagem === "string" ? currentProduct.imagem : typeof currentProduct.image === "string" ? currentProduct.image : undefined)}
                 onSaved={(url) => setImageOverrides(prev => ({ ...prev, [`${projectId}:${productIdx}`]: url }))}
               />
 
@@ -1290,7 +1290,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         asset={drawerAsset}
         product={
           drawerAsset?.linked_product_nome
-            ? products.find((p: any) => (p?.nome || p?.name) === drawerAsset.linked_product_nome) || currentProduct
+            ? products.find((p) => (p?.nome || p?.name) === drawerAsset.linked_product_nome) || currentProduct
             : currentProduct
         }
         products={products}
@@ -1369,7 +1369,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         onClose={() => setAutopilotOpen(false)}
         projectId={projectId}
         produtoNome={currentProduct?.nome || currentProduct?.name}
-        produtoId={currentProduct?.id}
+        produtoId={typeof currentProduct?.id === "string" ? currentProduct.id : undefined}
         onCreated={(id) => { reloadBlueprints(); setOpenBlueprintId(id); }}
       />
 
@@ -1393,7 +1393,7 @@ export function ProductHubCanvas({ projects, onProjectsReload, initialProjectId 
         projectId={projectId}
         projectName={currentProject?.name}
         produto={currentProduct}
-        briefing={currentProject?.briefing}
+        briefing={parseProjectData(currentProject?.briefing)}
         onProjectReload={onProjectsReload}
       />
 

@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     // Ângulo do dia (rotaciona pelo catálogo Filemon) — evita e-mails repetitivos
     const anguloDia = getAnglesForDay(1, new Date(Date.now() + dia_numero * 86400000))[0];
 
-    const projectData: any = project?.data || {};
+    const projectData: {avatar?:unknown;copy_arsenal?:unknown;briefing?:{avatar?:unknown;copy_arsenal?:unknown}} = project?.data || {};
     const avatar = projectData?.avatar || projectData?.briefing?.avatar || {};
     const copyArsenal = projectData?.copy_arsenal || projectData?.briefing?.copy_arsenal || {};
 
@@ -138,14 +138,15 @@ Retorne JSON: { "assunto": "...", "corpo_html": "...", "corpo_texto": "..." }`;
     // Append tracking pixel
     corpo_html += `<img src="${trackBase}?eid=${eid}&type=open" width="1" height="1" alt="" style="display:none" />`;
 
-    await supabase.from("imphq_nurture_emails").update({ corpo_html } as any).eq("id", eid);
+    await supabase.from("imphq_nurture_emails").update({ corpo_html }).eq("id", eid);
     newEmail.corpo_html = corpo_html;
 
     return new Response(JSON.stringify({ success: true, email: newEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[nurture-generator]", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: errMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

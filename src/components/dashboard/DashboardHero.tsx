@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, Flame, Target, AlertTriangle, TrendingUp, CheckCircle2 } from "lucide-react";
+import { type LucideIcon, RefreshCw, Flame, Target, AlertTriangle, TrendingUp, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface Action { label: string; route: string; icon: string }
-interface Briefing { briefing_text: string; actions: Action[] }
+import { briefingResponseSchema, type Briefing } from "@/components/dashboard/briefing-schema";
 
-const iconMap: Record<string, any> = { flame: Flame, target: Target, alert: AlertTriangle, trending: TrendingUp, check: CheckCircle2 };
+const iconMap: Record<string, LucideIcon> = { flame: Flame, target: Target, alert: AlertTriangle, trending: TrendingUp, check: CheckCircle2 };
 
 interface Props {
   projectFilter: string;
@@ -35,27 +35,27 @@ export function DashboardHero({ projectFilter, projectLabel, productLabel }: Pro
 
   const projectId = projectFilter !== "all" ? projectFilter : null;
 
-  const fetchBriefing = async (force = false) => {
+  const fetchBriefing = useCallback(async (force = false) => {
     if (force) setRefreshing(true); else setLoading(true);
     try {
       const params = new URLSearchParams();
       if (force) params.set("force", "true");
       if (projectId) params.set("project_id", projectId);
-      const { data, error } = await supabase.functions.invoke(`daily-briefing?${params.toString()}`, {
-        method: "GET" as any,
+      const { data, error } = await supabase.functions.invoke<unknown>(`daily-briefing?${params.toString()}`, {
+        method: "GET",
       });
       if (error) throw error;
-      setBriefing(data?.briefing || null);
-    } catch (e: any) {
+      setBriefing(briefingResponseSchema.parse(data).briefing || null);
+    } catch (e: unknown) {
       console.error("briefing error", e);
-      toast({ title: "Erro ao gerar briefing", description: e.message, variant: "destructive" });
+      toast({ title: "Erro ao gerar briefing", description: errorMessage(e), variant: "destructive" });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [projectId]);
 
-  useEffect(() => { fetchBriefing(false); /* eslint-disable-next-line */ }, [projectFilter]);
+  useEffect(() => { fetchBriefing(false);   }, [fetchBriefing]);
 
   const dateLabel = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
   const timeLabel = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });

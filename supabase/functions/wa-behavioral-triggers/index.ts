@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+interface LeadContext { lead_id?: string | null; nome?: string | null; name?: string | null; phone?: string | null; telefone?: string | null; email?: string | null; produto?: string | null; plataforma?: string | null; link?: string | null; fluxo?: string | null; valor?: string | number | null; lead_memory?: unknown }
+const stepResultSchema = z.object({ step: z.number().nullish(), started_at: z.string().nullish(), stalled_notified: z.boolean().nullish(), follow_up_sent: z.boolean().nullish() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -44,17 +47,17 @@ function getBrazilianPhoneVariants(raw: string): string[] {
   return Array.from(variants).filter(Boolean);
 }
 
-function replaceVariables(text: string, lead_data: any, leadDb: any): string {
+function replaceVariables(text: string, lead_data: LeadContext, leadDb: LeadContext | null): string {
   let result = text || "";
   
   if (leadDb?.lead_memory && typeof leadDb.lead_memory === "object") {
     const regex = /\{\{([^}]+)\}\}/g;
     result = result.replace(regex, (match, path) => {
       const parts = path.trim().split(".");
-      let current = leadDb.lead_memory;
+      let current: unknown = leadDb.lead_memory;
       for (const part of parts) {
         if (current && typeof current === "object" && part in current) {
-          current = current[part];
+          current = Object.getOwnPropertyDescriptor(current, part)?.value;
         } else {
           return match;
         }
@@ -123,7 +126,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fetch all automations to map them
-    const neededAutoIds = Array.from(new Set(executions.map((e: any) => e.automacao_id).filter(Boolean)));
+    const neededAutoIds = Array.from(new Set(executions.map((e) => e.automacao_id).filter(Boolean)));
     const { data: automacoes, error: autoErr } = await supabase
       .from("imphq_automacoes")
       .select("id, nome, stalled_hours, stalled_operator, follow_up_hours, follow_up_template, provider_id")
@@ -146,11 +149,11 @@ Deno.serve(async (req) => {
       const auto = autoMap.get(exec.automacao_id);
       if (!auto) continue;
 
-      const currentStepResults = Array.isArray(exec.step_results) ? exec.step_results : [];
-      const stepRes = currentStepResults.find((r: any) => r.step === exec.current_step);
+      const currentStepResults = z.array(stepResultSchema).parse(Array.isArray(exec.step_results) ? exec.step_results : []);
+      const stepRes = currentStepResults.find((r) => r.step === exec.current_step);
 
       // Load lead details if needed
-      let leadDb: any = null;
+      let leadDb: LeadContext | null = null;
       if (exec.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
@@ -172,7 +175,7 @@ Deno.serve(async (req) => {
           const leadName = leadDb?.nome || leadDb?.name || "Lead";
           const notificationMsg = `⚠️ ALERTA: O lead ${leadName} está parado na etapa ${exec.current_step} do fluxo "${auto.nome}" há mais de ${auto.stalled_hours} horas.`;
 
-          let targetUserIds: string[] = [];
+          const targetUserIds: string[] = [];
 
           if (opName.toLowerCase() !== "todos") {
             const { data: member } = await supabase
@@ -201,7 +204,7 @@ Deno.serve(async (req) => {
               .select("user_id")
               .eq("is_active", true);
             if (members) {
-              members.forEach((m: any) => {
+              members.forEach((m) => {
                 if (m.user_id && !targetUserIds.includes(m.user_id)) {
                   targetUserIds.push(m.user_id);
                 }
@@ -245,8 +248,8 @@ Deno.serve(async (req) => {
           if (notifiedAny) {
             alertsTriggered++;
             // Update execution step_results to reflect notification sent
-            let updatedResults = [...currentStepResults];
-            let stepIndex = updatedResults.findIndex((r: any) => r.step === exec.current_step);
+            const updatedResults = [...currentStepResults];
+            const stepIndex = updatedResults.findIndex((r) => r.step === exec.current_step);
             if (stepIndex >= 0) {
               updatedResults[stepIndex] = { ...updatedResults[stepIndex], stalled_notified: true };
             } else {
@@ -312,6 +315,7 @@ Deno.serve(async (req) => {
               if (activeProviders?.length) providerId = activeProviders[0].id;
             }
 
+            let followUpDelivered = false;
             if (providerId && phone) {
               const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                 method: "POST",
@@ -331,13 +335,16 @@ Deno.serve(async (req) => {
                 const waData = await waRes.json();
                 if (waData.success) {
                   followUpsSent++;
+                  followUpDelivered = true;
                 }
               }
             }
 
+            if (!followUpDelivered) continue;
+
             // Update execution step_results to reflect follow-up sent
-            let updatedResults = [...currentStepResults];
-            let stepIndex = updatedResults.findIndex((r: any) => r.step === exec.current_step);
+            const updatedResults = [...currentStepResults];
+            const stepIndex = updatedResults.findIndex((r) => r.step === exec.current_step);
             if (stepIndex >= 0) {
               updatedResults[stepIndex] = { ...updatedResults[stepIndex], follow_up_sent: true };
             } else {
@@ -356,9 +363,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, alerts_triggered: alertsTriggered, follow_ups_sent: followUpsSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[wa-behavioral-triggers] Fatal error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

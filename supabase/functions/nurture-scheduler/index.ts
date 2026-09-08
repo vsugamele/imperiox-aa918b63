@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     for (const enr of enrollments || []) {
       summary.processed++;
       try {
-        const seq: any = enr.sequence;
+        const seq: {id:string;ativa:boolean;duracao_dias:number;project_id:string;cadencia:string;total_emails_enviados:number|null} | null = enr.sequence;
         if (!seq || !seq.ativa) continue;
 
         // Verificar duração da sequência
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
             dias_sem_abertura: enr.dias_sem_abertura + 1,
           }).eq("id", enr.id);
 
-          await supabase.rpc("noop").catch(() => {});
+          await Promise.resolve(supabase.rpc("noop")).catch(() => { /* Optional RPC must not stop enrollment progress. */ });
           await supabase.from("imphq_nurture_sequences").update({ total_emails_enviados: (seq.total_emails_enviados || 0) + 1 }).eq("id", seq.id);
 
           summary.sent++;
@@ -133,16 +133,18 @@ Deno.serve(async (req) => {
           }).eq("id", pending.id);
           summary.errors.push(`Envio falhou enr=${enr.id}: ${JSON.stringify(sendData).slice(0, 200)}`);
         }
-      } catch (e: any) {
-        summary.errors.push(`enr=${enr.id}: ${e.message}`);
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        summary.errors.push(`enr=${enr.id}: ${eMessage}`);
       }
     }
 
     return new Response(JSON.stringify({ success: true, summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[nurture-scheduler]", err);
-    return new Response(JSON.stringify({ error: err.message, summary }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: errMessage, summary }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

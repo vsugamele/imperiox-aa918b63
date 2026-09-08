@@ -1,3 +1,7 @@
+import { copyArsenalFields, mergeProductIntelligence } from "@/components/projeto/briefing-data";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,12 +17,12 @@ import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, B
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CopyArsenalSection } from "./CopyArsenalSection";
-import { AIGenerateButton } from "./AIGenerateButton";
+import { CopyArsenalSection } from "@/components/projeto/CopyArsenalSection";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
-import { ProductLinksEditor } from "./ProductLinksEditor";
-import type { ProductLink } from "@/lib/produto-links";
+import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
+import { ProductLinksEditor } from "@/components/projeto/ProductLinksEditor";
+import { normalizeProductLinks, type ProductLink } from "@/lib/produto-links";
 
 const PIPELINE_KEYS = [
   { key: "avatar", label: "Avatar", emoji: "👤" },
@@ -96,20 +100,20 @@ function CopyButton({ text }: { text: string }) {
 }
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
-  onUpdatePipeline: (pipeline: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
+  onUpdatePipeline: (pipeline: Json) => void;
 }
 
 export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Props) {
-  const data = project.data || {};
-  const pipeline = project.pipeline || {};
-  const links = data.links || {};
-  const produtos = data.produtos || [];
-  const pipelineNotes = data.pipeline_notes || {};
-  const checklist = data.integrations_checklist || {};
+  const data = jsonFields(project.data);
+  const pipeline = jsonFields(project.pipeline);
+  const links = jsonFields(data.links);
+  const produtos = Array.isArray(data.produtos) ? data.produtos.map(jsonFields) : [];
+  const pipelineNotes = jsonFields(data.pipeline_notes);
+  const checklist = jsonFields(data.integrations_checklist);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
-  const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: any[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
+  const [behaviorDialog, setBehaviorDialog] = useState<{ open: boolean; prodIndex: number; loading: boolean; results: { event_type: string; count: number }[] }>({ open: false, prodIndex: -1, loading: false, results: [] });
   const [capiGuideOpen, setCapiGuideOpen] = useState(false);
   const [drawerProduto, setDrawerProduto] = useState<string | null>(null);
 
@@ -129,29 +133,29 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
       });
       const { data: events } = await supabase
         .from("imphq_events")
-        .select("event_type, page_url, created_at")
+        .select("event_name, page_url, created_at")
         .eq("project_id", project.id)
         .order("created_at", { ascending: false })
         .limit(500);
-      const filtered = (events || []).filter((e: any) =>
+      const filtered = (events || []).filter((e) =>
         urlFilters.some((path: string) => e.page_url?.includes(path))
       );
       const grouped: Record<string, number> = {};
-      filtered.forEach((e: any) => { grouped[e.event_type] = (grouped[e.event_type] || 0) + 1; });
+      filtered.forEach((e) => { grouped[e.event_name] = (grouped[e.event_name] || 0) + 1; });
       const results = Object.entries(grouped).map(([event_type, count]) => ({ event_type, count })).sort((a, b) => b.count - a.count);
       setBehaviorDialog(prev => ({ ...prev, loading: false, results }));
       if (results.length === 0) toast.info("Nenhum evento encontrado para as URLs deste produto");
-    } catch (err: any) {
-      toast.error("Erro ao buscar eventos: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao buscar eventos: " + errorMessage(err));
       setBehaviorDialog(prev => ({ ...prev, loading: false }));
     }
   };
 
-  const updateField = (key: string, val: any) => onUpdateData({ ...data, [key]: val });
+  const updateField = (key: string, val: Json) => onUpdateData({ ...data, [key]: val });
   const updateLink = (key: string, val: string) => onUpdateData({ ...data, links: { ...links, [key]: val } });
 
   // Project links (social/custom)
-  const projectLinks: Array<{ label: string; url: string }> = Array.isArray(data.project_links) ? data.project_links : [];
+  const projectLinks: Array<{ label: string; url: string }> = Array.isArray(data.project_links) ? data.project_links.flatMap(value => { const link = jsonFields(value); return typeof link.label === "string" && typeof link.url === "string" ? [{ ...link, label: link.label, url: link.url }] : []; }) : [];
   const updateProjectLinks = (newLinks: Array<{ label: string; url: string }>) => onUpdateData({ ...data, project_links: newLinks });
   const addSocialLink = (network: typeof SOCIAL_NETWORKS[0]) => {
     const exists = projectLinks.some(l => l.label === network.label);
@@ -164,7 +168,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   const [customLabel, setCustomLabel] = useState("");
   const [customUrl, setCustomUrl] = useState("");
 
-  const updateProduto = (index: number, field: string, val: any) => {
+  const updateProduto = (index: number, field: string, val: Json) => {
     const updated = [...produtos];
     updated[index] = { ...updated[index], [field]: val };
     onUpdateData({ ...data, produtos: updated });
@@ -175,14 +179,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
   };
 
   const removeProduto = (i: number) => {
-    onUpdateData({ ...data, produtos: produtos.filter((_: any, j: number) => j !== i) });
+    onUpdateData({ ...data, produtos: produtos.filter((_, j: number) => j !== i) });
   };
 
-  const getProductLinks = (p: any): string[] => {
-    if (p.links && Array.isArray(p.links)) return p.links;
-    if (p.link) return [p.link];
-    return [];
-  };
+  const getProductLinks = (product: Json): string[] => normalizeProductLinks(product).map(link => link.url);
 
   const updateProductLinks = (index: number, newLinks: string[]) => {
     const updated = [...produtos];
@@ -207,7 +207,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     updateProductLinks(prodIndex, updated);
   };
 
-  const getOffers = (p: any) => p.ofertas || [];
+  const getOffers = (product: Json) => { const offers = jsonFields(product).ofertas; return Array.isArray(offers) ? offers.map(jsonFields) : []; };
 
   const addOffer = (prodIndex: number) => {
     const updated = [...produtos];
@@ -216,7 +216,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, produtos: updated });
   };
 
-  const updateOffer = (prodIndex: number, offerIndex: number, field: string, val: any) => {
+  const updateOffer = (prodIndex: number, offerIndex: number, field: string, val: Json) => {
     const updated = [...produtos];
     const ofertas = [...getOffers(updated[prodIndex])];
     ofertas[offerIndex] = { ...ofertas[offerIndex], [field]: val };
@@ -226,7 +226,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
 
   const removeOffer = (prodIndex: number, offerIndex: number) => {
     const updated = [...produtos];
-    const ofertas = getOffers(updated[prodIndex]).filter((_: any, i: number) => i !== offerIndex);
+    const ofertas = getOffers(updated[prodIndex]).filter((_, i: number) => i !== offerIndex);
     updated[prodIndex] = { ...updated[prodIndex], ofertas };
     onUpdateData({ ...data, produtos: updated });
   };
@@ -239,8 +239,8 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, pipeline_notes: { ...pipelineNotes, [key]: val } });
   };
 
-  const updateChecklist = (key: string, field: string, val: any) => {
-    const item = checklist[key] || { status: "pendente", nota: "" };
+  const updateChecklist = (key: string, field: string, val: Json) => {
+    const item = jsonFields(checklist[key]);
     onUpdateData({ ...data, integrations_checklist: { ...checklist, [key]: { ...item, [field]: val } } });
   };
 
@@ -258,19 +258,19 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">Nome</Label>
-            <Input value={data.nome || project.name || ""} onChange={(e) => updateField("nome", e.target.value)} className="bg-secondary" />
+            <Input value={jsonText(data.nome) || project.name || ""} onChange={(e) => updateField("nome", e.target.value)} className="bg-secondary" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Categoria</Label>
-            <Input value={data.categoria || project.category || ""} onChange={(e) => updateField("categoria", e.target.value)} className="bg-secondary" />
+            <Input value={jsonText(data.categoria) || project.category || ""} onChange={(e) => updateField("categoria", e.target.value)} className="bg-secondary" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Orçamento Tráfego</Label>
-            <Input value={data.orcamento || ""} onChange={(e) => updateField("orcamento", e.target.value)} className="bg-secondary" placeholder="R$ 0,00" />
+            <Input value={jsonText(data.orcamento) || jsonNumber(data.orcamento) || ""} onChange={(e) => updateField("orcamento", e.target.value)} className="bg-secondary" placeholder="R$ 0,00" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Status Geral</Label>
-            <Select value={data.status || "planejamento"} onValueChange={(v) => updateField("status", v)}>
+            <Select value={jsonText(data.status) || "planejamento"} onValueChange={(v) => updateField("status", v)}>
               <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
@@ -285,7 +285,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Pipeline Rápido</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {PIPELINE_KEYS.map((p) => {
-            const val = pipeline[p.key] ?? 0;
+            const val = jsonNumber(pipeline[p.key]) ?? 0;
             return (
               <Collapsible key={p.key}>
                 <div className="flex items-center gap-3">
@@ -305,7 +305,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 </div>
                 <CollapsibleContent className="pl-9 pt-2">
                   <Textarea
-                    value={pipelineNotes[p.key] || ""}
+                    value={jsonText(pipelineNotes[p.key]) || ""}
                     onChange={(e) => updatePipelineNote(p.key, e.target.value)}
                     className="bg-secondary text-sm min-h-[40px]"
                     placeholder="Notas desta etapa..."
@@ -364,10 +364,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 <div className="flex items-center gap-2 pl-[80px]">
                   <span className="text-xs text-muted-foreground">@</span>
                   <Input
-                    value={(data.social_links?.instagram_handle) || ""}
+                    value={(jsonText(jsonFields(data.social_links).instagram_handle)) || ""}
                     onChange={(e) => {
                       const handle = e.target.value.replace(/^@/, "");
-                      onUpdateData({ ...data, social_links: { ...(data.social_links || {}), instagram_handle: handle } });
+                      onUpdateData({ ...data, social_links: { ...jsonFields(data.social_links), instagram_handle: handle } });
                     }}
                     className="bg-secondary h-7 text-xs flex-1"
                     placeholder="usuario (sem @)"
@@ -406,7 +406,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           <Button size="sm" variant="outline" onClick={addProduto}><Plus className="h-3 w-3 mr-1" /> Produto</Button>
         </CardHeader>
         <CardContent className="space-y-6">
-          {produtos.map((p: any, i: number) => {
+          {produtos.map((p, i: number) => {
             const prodLinks = getProductLinks(p);
             const ofertas = getOffers(p);
             return (
@@ -414,38 +414,29 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Nome</Label>
-                    <Input value={p.nome || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
+                    <Input value={jsonText(p.nome) || ""} onChange={(e) => updateProduto(i, "nome", e.target.value)} className="bg-secondary h-8 text-sm" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Tipo</Label>
-                    <Input value={p.tipo || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
+                    <Input value={jsonText(p.tipo) || ""} onChange={(e) => updateProduto(i, "tipo", e.target.value)} className="bg-secondary h-8 text-sm" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Preço</Label>
-                    <Input value={p.preco || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
+                    <Input value={jsonText(p.preco) || jsonNumber(p.preco) || ""} onChange={(e) => updateProduto(i, "preco", e.target.value)} className="bg-secondary h-8 text-sm" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">% Imposto</Label>
-                    <Input type="number" step="0.01" value={p.imposto_pct || ""} onChange={(e) => updateProduto(i, "imposto_pct", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="Ex: 6.49" />
+                    <Input type="number" step="0.01" value={jsonText(p.imposto_pct) || jsonNumber(p.imposto_pct) || ""} onChange={(e) => updateProduto(i, "imposto_pct", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="Ex: 6.49" />
                   </div>
                   <div className="flex items-end gap-1">
                     <AIGenerateButton
                       projectId={project.id}
                       action="generate_product_intel"
-                      onResult={(data: any) => {
-                        if (data?.product_intel) {
-                          const intel = data.product_intel;
-                          if (intel.mecanismo && !(p.mecanismo || "").trim()) updateProduto(i, "mecanismo", intel.mecanismo);
-                          if (intel.contexto && !(p.contexto || "").trim()) updateProduto(i, "contexto", intel.contexto);
-                          if (intel.ofertas_sugeridas?.length > 0) {
-                            const currentOffers = getOffers(p);
-                            if (currentOffers.length === 0) {
-                              const newOffers = intel.ofertas_sugeridas.map((o: any) => ({
-                                nome: o.nome, tipo_oferta: o.tipo_oferta, preco_por: o.preco_sugerido, ativo: true
-                              }));
-                              updateProduto(i, "ofertas", newOffers);
-                            }
-                          }
+                      onResult={(data: Json) => {
+                        if (jsonFields(data).product_intel) {
+                          const updated = [...produtos];
+                          updated[i] = jsonFields(mergeProductIntelligence(p, data));
+                          onUpdateData({ ...jsonFields(project.data), produtos: updated });
                           toast.success("Inteligência do produto gerada com IA!");
                         }
                       }}
@@ -475,10 +466,10 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <Label className="text-xs text-muted-foreground">🔍 Clarity ID (produto)</Label>
-                    <Input value={p.clarity_id || ""} onChange={(e) => updateProduto(i, "clarity_id", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="ID do Clarity para este produto" />
+                    <Input value={jsonText(p.clarity_id) || ""} onChange={(e) => updateProduto(i, "clarity_id", e.target.value)} className="bg-secondary h-8 text-sm" placeholder="ID do Clarity para este produto" />
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-amber-500/20 hover:border-amber-500/50" onClick={() => setDrawerProduto(p.nome)}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-amber-500/20 hover:border-amber-500/50" onClick={() => setDrawerProduto(jsonText(p.nome) || null)}>
                       <Zap className="h-3.5 w-3.5 text-amber-500" /> Métricas (Drilldown)
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => analyzeBehavior(i)}>
@@ -495,24 +486,24 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     </Button>
                   </div>
                   {ofertas.length === 0 && <p className="text-xs text-muted-foreground/60">Nenhuma oferta cadastrada</p>}
-                  {ofertas.map((of: any, oi: number) => (
+                  {ofertas.map((of, oi: number) => (
                     <div key={oi} className="space-y-2 p-3 rounded-md bg-background/50 border border-border/50">
                       <div className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Nome</Label>
-                          <Input value={of.nome || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
+                          <Input value={jsonText(of.nome) || ""} onChange={(e) => updateOffer(i, oi, "nome", e.target.value)} className="bg-secondary h-7 text-xs" />
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">De R$</Label>
-                          <Input value={of.preco_de || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
+                          <Input value={jsonText(of.preco_de) || jsonNumber(of.preco_de) || ""} onChange={(e) => updateOffer(i, oi, "preco_de", e.target.value)} className="bg-secondary h-7 text-xs" />
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Por R$</Label>
-                          <Input value={of.preco_por || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
+                          <Input value={jsonText(of.preco_por) || jsonNumber(of.preco_por) || ""} onChange={(e) => updateOffer(i, oi, "preco_por", e.target.value)} className="bg-secondary h-7 text-xs" />
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Tipo</Label>
-                          <Select value={of.tipo_oferta || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
+                          <Select value={jsonText(of.tipo_oferta) || "principal"} onValueChange={(v) => updateOffer(i, oi, "tipo_oferta", v)}>
                             <SelectTrigger className="bg-secondary h-7 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {OFFER_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace("_", " ")}</SelectItem>)}
@@ -521,7 +512,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Link Checkout</Label>
-                          <Input value={of.link_checkout || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
+                          <Input value={jsonText(of.link_checkout) || ""} onChange={(e) => updateOffer(i, oi, "link_checkout", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="https://..." />
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={of.ativo !== false ? "default" : "secondary"} className="text-[10px] cursor-pointer" onClick={() => updateOffer(i, oi, "ativo", !of.ativo)}>
@@ -535,11 +526,11 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Validade (opcional)</Label>
-                          <Input type="datetime-local" value={of.validade || ""} onChange={(e) => updateOffer(i, oi, "validade", e.target.value)} className="bg-secondary h-7 text-xs" />
+                          <Input type="datetime-local" value={jsonText(of.validade) || ""} onChange={(e) => updateOffer(i, oi, "validade", e.target.value)} className="bg-secondary h-7 text-xs" />
                         </div>
                         <div className="md:col-span-2">
                           <Label className="text-[10px] text-muted-foreground">Motivo / gatilho (a IA usa isso na copy)</Label>
-                          <Input value={of.motivo || ""} onChange={(e) => updateOffer(i, oi, "motivo", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="Ex: aniversário, black friday, queima de estoque..." />
+                          <Input value={jsonText(of.motivo) || ""} onChange={(e) => updateOffer(i, oi, "motivo", e.target.value)} className="bg-secondary h-7 text-xs" placeholder="Ex: aniversário, black friday, queima de estoque..." />
                         </div>
                       </div>
                     </div>
@@ -549,24 +540,24 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Mecanismo Único</Label>
-                    <Textarea value={p.mecanismo || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                    <Textarea value={jsonText(p.mecanismo) || ""} onChange={(e) => updateProduto(i, "mecanismo", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Contexto / Objetivo</Label>
-                    <Textarea value={p.contexto || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
+                    <Textarea value={jsonText(p.contexto) || ""} onChange={(e) => updateProduto(i, "contexto", e.target.value)} className="bg-secondary text-sm min-h-[60px]" />
                   </div>
                 </div>
 
                 <CopyArsenalSection
-                  arsenal={p.copy_arsenal || {}}
-                  onChange={(updated) => updateProduto(i, "copy_arsenal", updated)}
+                  arsenal={copyArsenalFields(p.copy_arsenal)}
+                  onChange={(updated) => updateProduto(i, "copy_arsenal", { ...jsonFields(p.copy_arsenal), ...updated })}
                   projectId={project.id}
                   produtos={produtos}
                   onMecanismoGenerated={(mecanismo) => {
-                    if (!(p.mecanismo || "").trim()) updateProduto(i, "mecanismo", mecanismo);
+                    if (!(jsonText(p.mecanismo) || "").trim()) updateProduto(i, "mecanismo", mecanismo);
                   }}
                   onContextoGenerated={(contexto) => {
-                    if (!(p.contexto || "").trim()) updateProduto(i, "contexto", contexto);
+                    if (!(jsonText(p.contexto) || "").trim()) updateProduto(i, "contexto", contexto);
                   }}
                 />
               </div>
@@ -582,27 +573,27 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {INTEGRATION_ITEMS.map((item) => {
-              const itemData = checklist[item.key] || { status: "pendente", nota: "" };
+              const itemData = jsonFields(checklist[item.key]);
               const fbFallback = item.key === "facebook_pixel" ? {
-                pixel_id: itemData.pixel_id || data.facebook_pixel_id || "",
-                access_token: itemData.access_token || data.facebook_access_token || "",
-                test_event_code: itemData.test_event_code || data.facebook_test_event_code || "",
+                pixel_id: jsonText(itemData.pixel_id) || jsonText(data.facebook_pixel_id) || "",
+                access_token: jsonText(itemData.access_token) || jsonText(data.facebook_access_token) || "",
+                test_event_code: jsonText(itemData.test_event_code) || jsonText(data.facebook_test_event_code) || "",
               } : {};
 
               const fields = INTEGRATION_FIELDS[item.key] || [];
               
-              const filledCount = fields.filter((f: any) => {
+              const filledCount = fields.filter((f) => {
                 if (f.readOnly) return true;
                 const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
                   ? fbFallback[f.field as keyof typeof fbFallback]
-                  : itemData[f.field] || "";
+                  : jsonText(itemData[f.field]) || "";
                 return val.toString().trim().length > 0;
               }).length;
-              const requiredFields = fields.filter((f: any) => f.required);
-              const requiredFilled = requiredFields.filter((f: any) => {
+              const requiredFields = fields.filter((f) => f.required);
+              const requiredFilled = requiredFields.filter((f) => {
                 const val = item.key === "facebook_pixel" && fbFallback[f.field as keyof typeof fbFallback]
                   ? fbFallback[f.field as keyof typeof fbFallback]
-                  : itemData[f.field] || "";
+                  : jsonText(itemData[f.field]) || "";
                 return val.toString().trim().length > 0;
               }).length;
               const autoStatus = requiredFields.length > 0 && requiredFilled === requiredFields.length
@@ -644,11 +635,11 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
 
                   <div className="space-y-2">
-                    {fields.map((f: any) => {
+                    {fields.map((f) => {
                       // facebook_pixel: rendered as multi-pixel block below, skip default fields
                       if (item.key === "facebook_pixel") return null;
 
-                      const val = itemData[f.field] || "";
+                      const val = jsonText(itemData[f.field]) || "";
                       const secretKey = `${item.key}_${f.field}`;
                       const isVisible = visibleSecrets[secretKey];
 
@@ -693,14 +684,14 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                       const legacySeed = (data.facebook_pixel_id || itemData.pixel_id)
                         ? [{
                             label: "Pixel principal",
-                            pixel_id: data.facebook_pixel_id || itemData.pixel_id || "",
-                            access_token: data.facebook_access_token || itemData.access_token || "",
-                            test_event_code: data.facebook_test_event_code || itemData.test_event_code || "",
+                            pixel_id: jsonText(data.facebook_pixel_id) || jsonText(itemData.pixel_id) || "",
+                            access_token: jsonText(data.facebook_access_token) || jsonText(itemData.access_token) || "",
+                            test_event_code: jsonText(data.facebook_test_event_code) || jsonText(itemData.test_event_code) || "",
                           }]
                         : [];
                       const pixels: Array<{ label?: string; pixel_id: string; access_token: string; test_event_code?: string }> =
                         (Array.isArray(data.facebook_pixels) && data.facebook_pixels.length > 0)
-                          ? data.facebook_pixels
+                          ? data.facebook_pixels.map(jsonFields).map(pixel => ({ ...pixel, label: jsonText(pixel.label), pixel_id: jsonText(pixel.pixel_id) || "", access_token: jsonText(pixel.access_token) || "", test_event_code: jsonText(pixel.test_event_code) }))
                           : legacySeed;
 
                       const savePixels = (updated: typeof pixels) => {
@@ -799,7 +790,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                     )}
                     {/* Multiple webhooks for webhook_pagamento */}
                     {item.key === "webhook_pagamento" && (() => {
-                      const webhooks: Array<{ nome: string; token: string }> = data.webhooks || [];
+                      const webhooks: Array<{ nome: string; token: string }> = Array.isArray(data.webhooks) ? data.webhooks.map(jsonFields).map(item => ({ ...item, nome: jsonText(item.nome) || "", token: jsonText(item.token) || "" })) : [];
                       const addWebhook = () => {
                         const updated = [...webhooks, { nome: "", token: "" }];
                         onUpdateData({ ...data, webhooks: updated });
@@ -822,7 +813,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                           </div>
                           {webhooks.map((wh, wi) => {
                             const PLATAFORMAS_PADRAO = ["Hotmart", "Kiwify", "Ticto", "Eduzz", "Hubla"];
-                            const customPlatforms: string[] = (data.custom_platforms || []).filter((p: string) => p);
+                            const customPlatforms: string[] = (Array.isArray(data.custom_platforms) ? data.custom_platforms : []).filter((value): value is string => typeof value === "string" && !!value);
                             const allPlatforms = [...PLATAFORMAS_PADRAO, ...customPlatforms];
                             const isCustom = wh.nome && !allPlatforms.includes(wh.nome) && wh.nome !== "__custom__";
                             const whUrl = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project=${project.id}${wh.nome && wh.nome !== "__custom__" ? `&source=${encodeURIComponent(wh.nome)}` : ""}`;
@@ -896,7 +887,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
                   </div>
 
                   <Input
-                    value={itemData.nota || ""}
+                    value={jsonText(itemData.nota) || ""}
                     onChange={(e) => updateChecklist(item.key, "nota", e.target.value)}
                     className="bg-secondary h-7 text-xs"
                     placeholder="Observação..."
@@ -919,7 +910,7 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
           ) : behaviorDialog.results.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Eventos coletados via imptrack.js para as URLs deste produto:</p>
-              {behaviorDialog.results.map((r: any, idx: number) => (
+              {behaviorDialog.results.map((r, idx: number) => (
                 <div key={idx} className="flex items-center justify-between p-2 rounded bg-secondary/50 border border-border">
                   <span className="text-xs font-medium">{r.event_type}</span>
                   <Badge variant="secondary" className="text-xs">{r.count}x</Badge>

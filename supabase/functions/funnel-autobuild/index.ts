@@ -1,4 +1,9 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const Product = z.object({ nome: z.string().nullish(), name: z.string().nullish(), tipo: z.string().nullish(), tipo_oferta: z.string().nullish(), link: z.string().nullish(), url: z.string().nullish(), preco_por: z.union([z.number(), z.string()]).nullish(), preco: z.union([z.number(), z.string()]).nullish(), ofertas: z.array(z.object({ link: z.string().nullish() }).passthrough()).nullish() }).passthrough();
+const Briefing = z.object({ produtos: z.array(Product).nullish() }).passthrough();
+interface FunnelSite { id: string; titulo: string | null; url: string | null; tipo: string | null }
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +26,7 @@ type Etapa = {
   tipo?: string;
   visitantes: number;
   conversoes: number;
-  url?: string;
+  url?: string | null;
   pos_x?: number;
   pos_y?: number;
   descricao?: string;
@@ -52,7 +57,7 @@ Deno.serve(async (req) => {
     const project = projRes.data;
     const briefing =
       typeof project?.briefing === "string" ? JSON.parse(project.briefing) : (project?.briefing || {});
-    const produtos: any[] = briefing?.produtos || [];
+    const produtos = Briefing.parse(briefing).produtos || [];
 
     const flows = flowsRes.data || [];
     const waCamp = waCampRes.data || [];
@@ -60,8 +65,8 @@ Deno.serve(async (req) => {
     const projSites = projSitesRes.data || [];
 
     // Hidratar sites a partir dos site_ids
-    const siteIds = projSites.map((p: any) => p.site_id).filter(Boolean);
-    let sites: any[] = [];
+    const siteIds = projSites.map((p) => p.site_id).filter(Boolean);
+    let sites: FunnelSite[] = [];
     if (siteIds.length > 0) {
       const { data } = await sb
         .from("imphq_sites")
@@ -70,7 +75,7 @@ Deno.serve(async (req) => {
       sites = data || [];
     }
     const adsCampaigns = Array.from(
-      new Set((adsRes.data || []).map((a: any) => a.campaign_name).filter(Boolean))
+      new Set((adsRes.data || []).map((a) => a.campaign_name).filter(Boolean))
     ).slice(0, 5);
     const capForms = capFormsRes.data || [];
 
@@ -116,7 +121,7 @@ Deno.serve(async (req) => {
     let lpX = 80;
     const lpStartIdx = etapas.length;
     const lpSites = sites.slice(0, 4);
-    lpSites.forEach((s: any) => {
+    lpSites.forEach((s) => {
       const tipo = String(s.tipo || "").toLowerCase();
       const mappedTipo = tipo.includes("vsl") ? "vsl" : tipo.includes("check") ? "checkout" : "pagina";
       etapas.push({
@@ -131,7 +136,7 @@ Deno.serve(async (req) => {
       });
       lpX += COL_W;
     });
-    capForms.slice(0, 2).forEach((c: any) => {
+    capForms.slice(0, 2).forEach((c) => {
       etapas.push({
         nome: c.nome || "Captura",
         tipo: "pagina",
@@ -157,7 +162,7 @@ Deno.serve(async (req) => {
     // === CONVERSÃO (y=400) — produtos ===
     let cvX = 80;
     const cvStartIdx = etapas.length;
-    const sortTipo = (t: string) => {
+    const sortTipo = (t: string | null | undefined) => {
       const x = (t || "").toLowerCase();
       if (x.includes("principal") || x === "front") return 0;
       if (x.includes("order")) return 1;
@@ -168,7 +173,7 @@ Deno.serve(async (req) => {
     const prodSorted = [...produtos].sort(
       (a, b) => sortTipo(a.tipo_oferta || a.tipo) - sortTipo(b.tipo_oferta || b.tipo)
     );
-    prodSorted.forEach((p: any) => {
+    prodSorted.forEach((p) => {
       const t = String(p.tipo_oferta || p.tipo || "").toLowerCase();
       const mapped = t.includes("order")
         ? "upsell"
@@ -206,7 +211,7 @@ Deno.serve(async (req) => {
     // === MAXIMIZAÇÃO (y=720) — automações pós-venda ===
     let mxX = 80;
     const mxStartIdx = etapas.length;
-    flows.slice(0, 4).forEach((f: any) => {
+    flows.slice(0, 4).forEach((f) => {
       etapas.push({
         nome: f.nome || "Fluxo",
         tipo: "whatsapp",
@@ -218,7 +223,7 @@ Deno.serve(async (req) => {
       });
       mxX += COL_W;
     });
-    waCamp.slice(0, 2).forEach((c: any) => {
+    waCamp.slice(0, 2).forEach((c) => {
       etapas.push({
         nome: c.name || "Campanha WA",
         tipo: "whatsapp",
@@ -230,7 +235,7 @@ Deno.serve(async (req) => {
       });
       mxX += COL_W;
     });
-    emailSeq.slice(0, 3).forEach((s: any) => {
+    emailSeq.slice(0, 3).forEach((s) => {
       etapas.push({
         nome: s.nome || "Sequência email",
         tipo: "email",
@@ -272,23 +277,23 @@ Deno.serve(async (req) => {
       if (cur?.data) {
         await sb.from("imphq_funnel_snapshots").insert([
           {
-            projeto_id: (cur as any).project_id || project_id,
+            projeto_id: cur.project_id || project_id,
             funil_id,
             label: `Auto-backup antes de Montar Automático ${new Date().toLocaleString("pt-BR")}`,
             motivo: "auto_before_autobuild",
-            canvas: (cur as any).data,
+            canvas: cur.data,
           },
         ]);
       }
-      await sb.from("imphq_funis").update({ data: { etapas } as any }).eq("id", funil_id);
+      await sb.from("imphq_funis").update({ data: { etapas } }).eq("id", funil_id);
     }
 
     return new Response(
       JSON.stringify({ etapas, detected, project_name: project?.name || "" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message || String(e) }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: (e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined) || String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

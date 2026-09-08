@@ -80,7 +80,7 @@ Retorne EXATAMENTE este JSON:
       score: Number(parsed.score) || 0,
       drift_observed: String(parsed.drift_observed || "").slice(0, 300),
       recommended_reinforcement: String(parsed.recommended_reinforcement || "").slice(0, 250),
-      examples: Array.isArray(parsed.examples) ? parsed.examples.slice(0, 3).map((s: any) => String(s).slice(0, 200)) : [],
+      examples: Array.isArray(parsed.examples) ? parsed.examples.slice(0, 3).map((s: unknown) => String(s).slice(0, 200)) : [],
     };
   } catch (_) { return null; }
 }
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const report: any[] = [];
+    const report: { project_id: string; skipped?: string; sample?: number; score?: number; drift?: string; applied?: boolean | "" }[] = [];
     const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
 
     for (const cfg of configs) {
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         .limit(SAMPLE_SIZE * 3);
 
       const responses = (aiMsgs || [])
-        .map((m: any) => String(m.content || "").trim())
+        .map((m) => String(m.content || "").trim())
         .filter((c: string) => c.length >= 30 && c.length < 800)
         .slice(0, SAMPLE_SIZE);
 
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         && judgment.recommended_reinforcement.length > 5;
 
       const history = Array.isArray(cfg.drift_history) ? cfg.drift_history : [];
-      const updates: any = {
+      const updates: { last_drift_at: string; drift_score: number; drift_history: unknown[]; custom_instructions?: string } = {
         last_drift_at: new Date().toISOString(),
         drift_score: judgment.score,
         drift_history: [driftLog, ...history].slice(0, 20),
@@ -199,9 +199,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, configs_processed: configs.length, report }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-ai-persona-drift] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

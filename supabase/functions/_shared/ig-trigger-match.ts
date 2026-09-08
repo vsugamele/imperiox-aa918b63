@@ -1,7 +1,16 @@
 // Shared matcher para automações IG (comentários + DM/story).
 // Usado por instagram-webhook, zernio-webhook e ig-comments-poller.
 
-type Supa = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText } from "./value.ts";
+type Supa = SupabaseClient;
+interface Trigger {
+  id: string;
+  match_count?: number | null;
+  dm_sent_count?: number | null;
+  negative_keywords?: string[] | null;
+  regex_pattern?: string | null;
+}
 
 const RETRY_BACKOFF_MS = [30_000, 2 * 60_000, 10 * 60_000, 60 * 60_000, 4 * 60 * 60_000];
 
@@ -10,16 +19,20 @@ function isMetaBlock(err: string | null | undefined) {
   return /window|24.?hour|7.?day|not allowed|permission|blocked|deleted|expired|closed|forbidden/.test(s);
 }
 
-async function incMatch(supa: Supa, t: any) {
-  await supa.rpc("increment_trigger_matches", { trigger_id: t.id }).catch(async () => {
-    try { await supa.from("imphq_ig_comment_triggers").update({ match_count: (t.match_count || 0) + 1 }).eq("id", t.id); } catch (_) {}
-  });
+async function incMatch(supa: Supa, t: Trigger) {
+  const { error } = await supa.rpc("increment_trigger_matches", { trigger_id: t.id });
+  if (error) {
+    const fallback = await supa.from("imphq_ig_comment_triggers").update({ match_count: (t.match_count || 0) + 1 }).eq("id", t.id);
+    if (fallback.error) console.warn("[ig-trigger] match counter:", fallback.error.message);
+  }
 }
 
-async function incDmSent(supa: Supa, t: any) {
-  await supa.rpc("increment_trigger_dms", { trigger_id: t.id }).catch(async () => {
-    try { await supa.from("imphq_ig_comment_triggers").update({ dm_sent_count: (t.dm_sent_count || 0) + 1 }).eq("id", t.id); } catch (_) {}
-  });
+async function incDmSent(supa: Supa, t: Trigger) {
+  const { error } = await supa.rpc("increment_trigger_dms", { trigger_id: t.id });
+  if (error) {
+    const fallback = await supa.from("imphq_ig_comment_triggers").update({ dm_sent_count: (t.dm_sent_count || 0) + 1 }).eq("id", t.id);
+    if (fallback.error) console.warn("[ig-trigger] DM counter:", fallback.error.message);
+  }
 }
 
 async function respectsCooldown(supa: Supa, triggerId: string, authorKey: string | null, cooldownHours: number): Promise<boolean> {
@@ -52,7 +65,7 @@ async function respectsCrossCooldown(supa: Supa, projectId: string, authorKey: s
       .limit(5);
     if (!data || data.length === 0) return true;
     // permite se todas execuções recentes forem do MESMO gatilho (já filtrado pelo cooldown normal)
-    const others = data.filter((r: any) => r.trigger_id !== currentTriggerId);
+    const others = data.filter((r) => r.trigger_id !== currentTriggerId);
     return others.length === 0;
   } catch {
     return true; // falha segura: não bloqueia
@@ -70,14 +83,14 @@ async function underDailyCap(supa: Supa, triggerId: string, dailyCap: number | n
   return (count || 0) < dailyCap;
 }
 
-function matchesFilters(t: any, content: string): boolean {
+function matchesFilters(t: Trigger, content: string): boolean {
   const lc = content.toLowerCase().trim();
   // Negative keywords → bloqueia
   const negs: string[] = Array.isArray(t.negative_keywords) ? t.negative_keywords : [];
   if (negs.some((n) => n && lc.includes(String(n).toLowerCase()))) return false;
   // Regex opcional
   if (t.regex_pattern) {
-    try { if (!new RegExp(t.regex_pattern, "i").test(content)) return false; } catch (_) { /* regex inválido → ignora filtro */ }
+    try { if (!new RegExp(t.regex_pattern, "i").test(content)) return false; } catch { /* regex inválido → ignora filtro */ }
   }
   return true;
 }
@@ -85,7 +98,7 @@ function matchesFilters(t: any, content: string): boolean {
 async function upsertExecution(supa: Supa, row: {
   dedup_key: string; trigger_id: string; event_type: string; project_id?: string;
   status: string; last_error?: string | null; attempts?: number; next_retry_at?: string | null;
-  payload?: any; author_key?: string | null;
+  payload?: Record<string, unknown>; author_key?: string | null;
 }) {
   try {
     await supa.from("imphq_ig_trigger_executions").upsert({
@@ -101,10 +114,10 @@ async function upsertExecution(supa: Supa, row: {
     }, { onConflict: "comment_id" });
     // author_key só existe se coluna estiver aplicada; ignora se falhar
     if (row.author_key) {
-      try { await supa.from("imphq_ig_trigger_executions").update({ author_key: row.author_key }).eq("comment_id", row.dedup_key); } catch (_) {}
+      try { await supa.from("imphq_ig_trigger_executions").update({ author_key: row.author_key }).eq("comment_id", row.dedup_key); } catch { /* Best-effort compatibility update. */ }
     }
-  } catch (e: any) {
-    console.warn(`[ig-trigger] upsert exec err: ${e?.message || e}`);
+  } catch (e: unknown) {
+    console.warn(`[ig-trigger] upsert exec err: ${errorText(e)}`);
   }
 }
 
@@ -173,7 +186,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
     console.log(`[ig-trigger] match comment="${commentText.slice(0, 60)}" trigger="${t.trigger_keyword}" post=${mediaId}`);
     await incMatch(supa, t);
 
-    const payload: any = {
+    const payload = {
       kind: "comment",
       project_id: projectId,
       comment_id: commentId,
@@ -200,7 +213,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
         } else {
           payload.like_done = true;
         }
-      } catch (e: any) { console.warn(`[ig-trigger] like exception: ${e?.message || e}`); }
+      } catch (e: unknown) { console.warn(`[ig-trigger] like exception: ${errorText(e)}`); }
     } else {
       payload.like_done = true;
     }
@@ -214,7 +227,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
         });
         if (r.error || (r.data && r.data.error)) { anyFailed = true; lastErr = r.data?.error || r.error?.message || "reply_comment failed"; }
         else payload.reply_done = true;
-      } catch (e: any) { anyFailed = true; lastErr = e?.message || String(e); }
+      } catch (e: unknown) { anyFailed = true; lastErr = errorText(e); }
     }
 
     // 3) DM privada
@@ -226,7 +239,7 @@ export async function runCommentTrigger(input: CommentTriggerInput): Promise<{ m
         });
         if (res.error || (res.data && res.data.error)) { anyFailed = true; lastErr = res.data?.error || res.error?.message || "private_reply failed"; }
         else { payload.dm_done = true; await incDmSent(supa, t); }
-      } catch (e: any) { anyFailed = true; lastErr = e?.message || String(e); }
+      } catch (e: unknown) { anyFailed = true; lastErr = errorText(e); }
     }
 
     const status = anyFailed ? (isMetaBlock(lastErr) ? "dead" : "retrying") : "sent";
@@ -296,7 +309,7 @@ export async function runDmTrigger(input: DmTriggerInput): Promise<{ matched: bo
         });
         if (res.error || (res.data && res.data.error)) { anyFailed = true; lastErr = res.data?.error || res.error?.message || "send_text failed"; }
         else if (res.data?.success) await incDmSent(supa, t);
-      } catch (e: any) { anyFailed = true; lastErr = e?.message || String(e); }
+      } catch (e: unknown) { anyFailed = true; lastErr = errorText(e); }
     }
 
     const status = anyFailed ? (isMetaBlock(lastErr) ? "dead" : "retrying") : "sent";
@@ -365,7 +378,7 @@ export async function retryPendingExecutions(supa: Supa, batchSize = 25): Promis
       } else {
         lastErr = "payload sem kind";
       }
-    } catch (e: any) { lastErr = e?.message || String(e); }
+    } catch (e: unknown) { lastErr = errorText(e); }
 
     if (ok) {
       await supa.from("imphq_ig_trigger_executions").update({ status: "sent", attempts: attempt, last_error: null, next_retry_at: null, payload: p }).eq("comment_id", row.comment_id);

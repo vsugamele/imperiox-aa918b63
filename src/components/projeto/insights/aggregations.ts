@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 // Pure aggregation helpers for Insights (audience + ads).
 // Keep ZERO React deps so they can be reused inside hooks/components.
 
@@ -80,7 +82,7 @@ export const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export interface AudienceRow {
   ts: string;
   valor?: number;
-  lead?: any;
+  lead?: { nome?: string | null; phone?: string | null; genero?: string | null; sexo?: string | null; data?: Json };
   produto?: string | null;
 }
 
@@ -123,7 +125,8 @@ export function aggregateAudience(rows: AudienceRow[]) {
       productCount[r.produto] = p;
     }
     const lead = r.lead;
-    const rawG = (lead?.genero || lead?.sexo || lead?.data?.genero || lead?.data?.sexo || lead?.data?.gender || "").toString().trim().toLowerCase();
+    const leadData = jsonFields(lead?.data);
+    const rawG = (lead?.genero || lead?.sexo || jsonText(leadData.genero) || jsonText(leadData.sexo) || jsonText(leadData.gender) || "").trim().toLowerCase();
     let g: "M" | "F" | null = null;
     if (rawG) {
       if (["m","masculino","male","homem","h"].includes(rawG)) g = "M";
@@ -139,7 +142,8 @@ export function aggregateAudience(rows: AudienceRow[]) {
     const uf = DDD_UF[ddd];
     if (uf) ufCount[uf] = (ufCount[uf] || 0) + 1;
 
-    const idade = lead?.data?.idade || calcAge(lead?.data?.aniversario || lead?.data?.nascimento);
+    const rawAge = leadData.idade;
+    const idade = (typeof rawAge === "number" || typeof rawAge === "string" ? Number(rawAge) : 0) || calcAge(jsonText(leadData.aniversario) || jsonText(leadData.nascimento));
     if (idade) {
       if (idade < 25) ageBuckets["18-24"]++;
       else if (idade < 35) ageBuckets["25-34"]++;
