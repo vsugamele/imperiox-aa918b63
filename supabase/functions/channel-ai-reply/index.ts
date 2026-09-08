@@ -1,10 +1,11 @@
+import { isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply } from "../_shared/cinna-openflow.ts";
 import { z } from "https://esm.sh/zod@3.25.76";
 const stepSchema = z.object({ tipo: z.string().nullish(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), url: z.string().nullish() }).passthrough();
 // channel-ai-reply — agente de resposta para canais não-WhatsApp (Messenger via Zernio, Webchat do site).
 // Responde perguntas fora do script, manda o link de checkout quando há intenção de compra
 // e retoma o fluxo do OpenFlow no passo correto (wait_reply / input_capture).
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callAiChat } from "../_shared/ai-call.ts";
 import { sendToChannel } from "../_shared/channel-out.ts";
 
@@ -72,6 +73,80 @@ Deno.serve(async (req) => {
         automacaoNome = auto.nome || "";
         steps = z.array(stepSchema).parse(auto.acoes || []);
         activeStep = steps[exec.current_step] || null;
+      }
+    }
+
+    // Cinna uses the pinned native script and intent-only policy, never the generic closer.
+    const cinnaRuntime = readCinnaRuntime(exec?.step_results);
+    if (cinnaRuntime || isNativeCinna(steps)) {
+      if (req.headers.get("Authorization") !== `Bearer ${SERVICE_KEY}`) return Response.json({ error: "Unauthorized Cinna caller" }, { status: 401, headers: corsHeaders });
+      if (!exec || !cinnaRuntime) throw new Error("Cinna execution snapshot missing; restart from native executor");
+      if (session.project_id !== projectId || !["messenger", "webchat"].includes(session.canal)) throw new Error("Unsupported Cinna channel/project");
+      if (cinnaRuntime.state.status !== "active") return Response.json({ ok: true, ignored: true, status: cinnaRuntime.state.status }, { headers: corsHeaders });
+      if (exec.status !== "waiting" || cinnaRuntime.pending) throw new Error("Cinna turn already claimed or delivery uncertain; review execution");
+      let eventQuery = supabase.from("imphq_channel_messages").select("id, texto").eq("session_id", session.id).eq("direction", "in");
+      if (typeof body.event_id === "string") eventQuery = eventQuery.eq("id", body.event_id);
+      const { data: event, error: eventError } = await eventQuery.order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (eventError || !event || typeof event.id !== "string" || String(event.texto || "").trim() !== incoming) throw new Error("Persisted incoming event required");
+      if (cinnaRuntime.state.processedEventIds.includes(event.id)) return Response.json({ ok: true, ignored: true }, { headers: corsHeaders });
+      const { data: claimed, error: claimError } = await supabase.from("imphq_flow_executions")
+        .update({ status: "running", next_run_at: null }).eq("id", exec.id).eq("status", "waiting")
+        .eq("current_step", exec.current_step).eq("step_results", JSON.stringify(exec.step_results)).select("id").maybeSingle();
+      if (claimError || !claimed) throw new Error("Cinna turn concurrently claimed");
+      const save = async (status: string, errorMessage: string | null = null) => {
+        const { error } = await supabase.from("imphq_flow_executions").update({ status, next_run_at: null,
+          step_results: writeCinnaRuntime(exec.step_results, cinnaRuntime), error_message: errorMessage }).eq("id", exec.id);
+        if (error) throw new Error("Unable to persist Cinna turn; delivery requires review");
+      };
+      let dispatched = false;
+      try {
+        const plan = await planCinnaReply(cinnaRuntime, exec.current_step, event.id, incoming, async request => {
+          const response = await callAiChat({ model: cinnaRuntime.snapshot.model, temperature: 0,
+            messages: [{ role: "system", content: `Classify intent only. Return JSON {"intent":"..."}. Allowed: ${request.allowedIntents.join(",")}. Question: ${request.question}` },
+              { role: "user", content: request.message }], tag: "cinna-native-intent", timeoutMs: 25000 });
+          return JSON.parse(response.content);
+        });
+        cinnaRuntime.pending = { eventId: event.id, decision: plan.decision, messages: plan.messages, confirmed: 0, uncertain: false };
+        await save("running");
+        for (const message of plan.messages) {
+          // Persist uncertainty before network I/O; a crash must never trigger a blind resend.
+          cinnaRuntime.pending.uncertain = true;
+          await save("running");
+          const sent = await sendToChannel(supabase, session, message);
+          if (!sent.success) {
+            await save("running", "Cinna delivery unconfirmed; manual reconciliation required");
+            return Response.json({ ok: false, sent: false, partial: cinnaRuntime.pending.confirmed > 0, resumed: false }, { status: 502, headers: corsHeaders });
+          }
+          cinnaRuntime.pending.confirmed++;
+          cinnaRuntime.pending.uncertain = false;
+          await save("running");
+        }
+        cinnaRuntime.state = plan.decision.state;
+        delete cinnaRuntime.pending;
+        if (plan.resumeStep !== null) {
+          cinnaRuntime.resumeToken = crypto.randomUUID();
+          await save("running");
+          dispatched = true;
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/openflow-executor`, {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+            body: JSON.stringify({ trigger_tipo: exec.trigger_tipo || `${session.canal}_mensagem_recebida`, project_id: projectId,
+              automacao_id: exec.automacao_id, execution_id: exec.id, cinna_resume_token: cinnaRuntime.resumeToken,
+              resume_from_step: plan.resumeStep, lead_data: { canal: session.canal, channel_session_id: session.id } }),
+          });
+          const resumedBody: unknown = await response.json();
+          const { data: resumedExecution, error: resumedError } = await supabase.from("imphq_flow_executions").select("current_step, status, error_message")
+            .eq("id", exec.id).maybeSingle();
+          if (!response.ok || !resumedBody || resumedError || !resumedExecution || resumedExecution.current_step <= exec.current_step ||
+              !["waiting", "completed"].includes(resumedExecution.status) || resumedExecution.error_message) throw new Error("Cinna resume unconfirmed; review execution before retry");
+          return Response.json({ ok: true, sent: true, resumed: true, action: plan.decision.action }, { headers: corsHeaders });
+        }
+        // Terminal states stay waiting without a timer, preventing new automated conversations.
+        await save("waiting");
+        return Response.json({ ok: true, sent: true, resumed: false, action: plan.decision.action }, { headers: corsHeaders });
+      } catch (error) {
+        if (!dispatched) await save("running", "Cinna turn interrupted; manual reconciliation required");
+        // Once dispatched the executor owns checkpoints; never overwrite its delivery evidence.
+        throw error;
       }
     }
 

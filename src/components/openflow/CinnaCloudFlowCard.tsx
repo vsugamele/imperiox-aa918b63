@@ -5,6 +5,7 @@ import { parseConfig } from "@/lib/cinna-shield-x1/engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CINNA_NATIVE_FLOW_URL } from "@/lib/cinna-shield-x1/openflow";
 
 interface FlowSummary { stages: number; revision: number }
 
@@ -29,7 +30,7 @@ export function CinnaCloudFlowCard() {
       <div><h3 className="font-bold text-slate-100">Cinna Shield X1 — Script + IA</h3><p className="text-[10px] text-muted-foreground uppercase">Cinna Shield</p></div>
       <Badge variant="outline">Em revisão · envio desativado</Badge>
       <p className="text-sm text-muted-foreground">{summary ? `${summary.stages} etapas · revisão ${summary.revision} salva no Supabase.` : failed ? "Abra o fluxo com uma conta administradora para conferir a configuração." : "Carregando configuração do Supabase…"}</p>
-      <Button asChild variant="outline"><Link to="/openflow/cinna-shield">Conferir e testar fluxo</Link></Button>
+      <Button asChild variant="outline"><Link to={CINNA_NATIVE_FLOW_URL}>Abrir editor de fluxo</Link></Button>
     </CardContent>
   </Card>;
 }

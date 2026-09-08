@@ -29,7 +29,7 @@ const Financas = lazyWithRetry(() => import("./pages/Financas"));
 const MarketIntel = lazyWithRetry(() => import("./pages/MarketIntel"));
 const Mentes = lazyWithRetry(() => import("./pages/Mentes"));
 const Funis = lazyWithRetry(() => import("./pages/Funis"));
-const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldX1"));
+const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldNative"));
 const OpenFlow = lazyWithRetry(() => import("./pages/OpenFlow"));
 const AgentesIA = lazyWithRetry(() => import("./pages/AgentesIA"));
 const AgenteEditor = lazyWithRetry(() => import("./pages/AgenteEditor"));

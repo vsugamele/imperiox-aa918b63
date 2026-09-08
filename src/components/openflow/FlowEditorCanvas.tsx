@@ -121,7 +121,7 @@ function ActionNode({ data, selected }: { data: ActionNodeData; selected: boolea
       >
         <span className="text-base leading-none drop-shadow-sm">{meta.emoji}</span>
         <p className="text-[11px] font-bold uppercase tracking-wider text-white flex-1 truncate drop-shadow-sm">
-          {meta.label}
+          {acao.cinna_stage ? "Resposta + IA" : meta.label}
         </p>
         {data.index !== undefined && data.index >= 0 && (
           <span className="text-[9px] font-mono text-white/90 font-bold bg-black/25 px-1.5 py-0.5 rounded">
@@ -403,7 +403,7 @@ function acoesToNodesEdges(
     } else if (acao.tipo === "wait_event") {
       label = `Aguardar: ${acao.event_name}`;
     } else if (acao.tipo === "wait_reply") {
-      label = `Esperar lead responder (timeout ${acao.timeout_min ?? 1440}min)`;
+      label = acao.cinna_stage ? acao.cinna_stage.title : `Esperar lead responder (timeout ${acao.timeout_min ?? 1440}min)`;
     } else if (acao.tipo === "loop_steps") {
       label = `Loop: Repetir ${acao.loop_count ?? 3}x`;
     } else if (acao.tipo === "stop_on_event") {

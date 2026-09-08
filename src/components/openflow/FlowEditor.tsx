@@ -1,3 +1,4 @@
+import type { Config as CinnaConfig, Stage as CinnaStage } from "@/lib/cinna-shield-x1/engine";
 import { record } from "@/lib/funis-data";
 import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -119,7 +120,33 @@ const DYNAMIC_VARS = [
   { var: "{{link}}", label: "Link" },
 ];
 
+function CinnaReplyFields({ stage, policy, onStage, onPolicy }: { stage: NonNullable<Acao["cinna_stage"]>; policy?: Acao["cinna_policy"]; onStage: (value: NonNullable<Acao["cinna_stage"]>) => void; onPolicy: (value: NonNullable<Acao["cinna_policy"]>) => void }) {
+  return <div className="space-y-3 rounded-lg border border-lime-500/30 p-3">
+    <p className="text-xs font-semibold">Resposta + IA · Cinna Shield</p>
+    <p className="text-xs text-muted-foreground">A IA identifica a intenção. Dúvidas usam respostas aprovadas sem avançar a etapa; pedidos de parada ou atendimento humano interrompem o roteiro. Edite a pergunta na última mensagem antes deste bloco.</p>
+    <Label>Título da etapa<Input value={stage.title} onChange={e => onStage({ ...stage, title: e.target.value })} /></Label>
+    <Label>Tipo de resposta<Select value={stage.input} onValueChange={value => { if (value === "name" || value === "free" || value === "confirm") onStage({ ...stage, input: value }); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="name">Nome</SelectItem><SelectItem value="free">Resposta livre</SelectItem><SelectItem value="confirm">Confirmação</SelectItem></SelectContent></Select></Label>
+    {(stage.choices || []).map((choice, index) => <div key={index} className="space-y-2 border rounded p-2">
+      <Label>Opção {index + 1}<Input value={choice.label} onChange={e => onStage({ ...stage, choices: stage.choices?.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} /></Label>
+      <Label>Confirmação aprovada<Textarea value={choice.acknowledgement} onChange={e => onStage({ ...stage, choices: stage.choices?.map((item, i) => i === index ? { ...item, acknowledgement: e.target.value } : item) })} /></Label>
+      <Button type="button" variant="ghost" onClick={() => onStage({ ...stage, choices: stage.choices?.filter((_, i) => i !== index) })}>Remover opção</Button>
+    </div>)}
+    {(stage.choices?.length || 0) < 4 && <Button type="button" variant="outline" onClick={() => onStage({ ...stage, choices: [...(stage.choices || []), { label: "", acknowledgement: "" }] })}>Adicionar opção</Button>}
+    {policy && <div className="space-y-3 border-t pt-3">
+      <p className="text-xs font-semibold">Política compartilhada pelas 9 etapas</p>
+      <Label>Modelo de IA<Input value={policy.model} onChange={e => onPolicy({ ...policy, model: e.target.value })} /></Label>
+      <p className="text-xs text-muted-foreground">As credenciais permanecem na configuração do servidor.</p>
+      <Label>Checkout HTTPS<Input value={policy.offer.checkoutUrl || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, checkoutUrl: e.target.value || null } })} /></Label>
+      <Label>Preço aprovado<Input value={policy.offer.priceLabel || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, priceLabel: e.target.value || null } })} /></Label>
+      <Label className="flex items-center gap-2"><Switch checked={policy.offer.approved} onCheckedChange={approved => onPolicy({ ...policy, offer: { ...policy.offer, approved } })} />Oferta aprovada</Label>
+      {(Object.keys(policy.replies) as Array<keyof CinnaConfig["replies"]>).map(intent => <Label key={intent} className="block">Resposta aprovada · {intent}<Textarea value={policy.replies[intent]} onChange={e => onPolicy({ ...policy, replies: { ...policy.replies, [intent]: e.target.value } })} /></Label>)}
+    </div>}
+  </div>;
+}
+
 export interface Acao {
+  cinna_stage?: Omit<CinnaStage, "messages" | "question">;
+  cinna_policy?: Omit<CinnaConfig, "stages"> & { model: string };
   id?: string;
   tipo: string;
   template: string;
@@ -1123,10 +1150,11 @@ export function FlowEditor({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-foreground">{meta.label}</span>
+                          <span className="text-xs font-bold text-foreground">{acao.cinna_stage ? "Resposta + IA" : meta.label}</span>
                           <span className="text-[8px] text-muted-foreground/80 font-mono">#{idx + 1}</span>
                         </div>
                         
+                        {acao.cinna_stage && <p className="text-xs text-lime-300 mt-1">{acao.cinna_stage.title}</p>}
                         {/* Node details summary */}
                         <div className="mt-1">
                           {isCondicao && acao.condicao_tipo && (
@@ -1528,7 +1556,7 @@ export function FlowEditor({
                             }`}>
                               <div className="flex items-center justify-between text-[8px] font-bold opacity-80 select-none pb-0.5 border-b border-white/10">
                                 <span className="flex items-center gap-1">
-                                  {meta.emoji} {meta.label}
+                                  {meta.emoji} {acao.cinna_stage ? "Resposta + IA" : meta.label}
                                 </span>
                                 <span>#{idx + 1}</span>
                               </div>
@@ -1995,7 +2023,8 @@ export function FlowEditor({
                 )}
 
                 {/* wait_reply Fields */}
-                {acao.tipo === "wait_reply" && (
+                {acao.tipo === "wait_reply" && acao.cinna_stage && <CinnaReplyFields stage={acao.cinna_stage} policy={acao.cinna_policy} onStage={value => updateAcao(selectedIdx, "cinna_stage", value)} onPolicy={value => updateAcao(selectedIdx, "cinna_policy", value)} />}
+                {acao.tipo === "wait_reply" && !acao.cinna_stage && (
                   <div className="space-y-3">
                     <div className="rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">
                       <p className="text-[10px] text-lime-300/90 leading-relaxed">

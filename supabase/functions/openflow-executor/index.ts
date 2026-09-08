@@ -1,3 +1,4 @@
+import { createCinnaRuntime, readCinnaRuntime, writeCinnaRuntime, isNativeCinna } from "../_shared/cinna-openflow.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendToChannel, type ChannelSession } from "../_shared/channel-out.ts";
 
@@ -258,7 +259,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { trigger_tipo, project_id, lead_data, automacao_id, resume_from_step } = await req.json();
+    const { trigger_tipo, project_id, lead_data, automacao_id, resume_from_step, execution_id, cinna_resume_token } = await req.json();
     if (!trigger_tipo || !project_id) {
       return new Response(JSON.stringify({ error: "trigger_tipo e project_id obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -312,6 +313,9 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if ((execution_id || (automacoes || []).some(auto => isNativeCinna(auto.acoes || auto.etapas))) &&
+        req.headers.get("Authorization") !== `Bearer ${supabaseKey}`) return Response.json({ error: "Unauthorized Cinna caller" }, { status: 401, headers: corsHeaders });
 
     // ── Exit Conditions: cancel running/waiting executions when the incoming
     // trigger matches an automation's exit_trigger_tipo. If exit_cascade=true,
@@ -521,12 +525,49 @@ Deno.serve(async (req) => {
         lead_data.link = lead_data?.link || auto.link_checkout;
         lead_data.link_checkout = lead_data?.link_checkout || auto.link_checkout;
       }
-      const rawSteps: unknown[] = auto.acoes || auto.etapas || [];
+      let rawSteps: unknown[] = auto.acoes || auto.etapas || [];
+      if ((execution_id || isNativeCinna(rawSteps)) && req.headers.get("Authorization") !== `Bearer ${supabaseKey}`) throw new Error("Unauthorized Cinna caller");
+      let cinnaRuntime = !execution_id && isNativeCinna(rawSteps) ? createCinnaRuntime(rawSteps) : null;
+      let cinnaExecution: { id: string } | null = null;
+      let cinnaStartId: string | undefined;
+      let cinnaPreviousResults: unknown = [];
+      if (execution_id) {
+        const { data: existing, error } = await supabase.from("imphq_flow_executions").select("id, step_results, current_step, status")
+          .eq("id", execution_id).eq("automacao_id", auto.id).eq("project_id", project_id)
+          .eq("channel_session_id", lead_data?.channel_session_id).maybeSingle();
+        if (error || !existing) throw new Error("Cinna execution not found");
+        cinnaRuntime = readCinnaRuntime(existing.step_results);
+        if (!cinnaRuntime || existing.status !== "running" || !cinna_resume_token || cinnaRuntime.resumeToken !== cinna_resume_token ||
+            Number(resume_from_step) !== existing.current_step + 1 || cinnaRuntime.pending || cinnaRuntime.state.status !== "active" ||
+            cinnaRuntime.snapshot.waitSteps[cinnaRuntime.state.stageIndex - 1] !== existing.current_step) throw new Error("Invalid Cinna resume claim");
+        rawSteps = cinnaRuntime.snapshot.actions;
+        delete cinnaRuntime.resumeToken;
+        cinnaPreviousResults = writeCinnaRuntime(existing.step_results, cinnaRuntime);
+        const { data: claimed, error: claimError } = await supabase.from("imphq_flow_executions")
+          .update({ current_step: Number(resume_from_step), step_results: cinnaPreviousResults, next_run_at: null })
+          .eq("id", existing.id).eq("status", "running").eq("current_step", existing.current_step)
+          .eq("step_results", JSON.stringify(existing.step_results)).select("id").maybeSingle();
+        if (claimError || !claimed) throw new Error("Cinna resume already claimed");
+        cinnaExecution = claimed;
+      } else if (cinnaRuntime && resume_from_step !== undefined) throw new Error("Cinna requires a linked reply, never a timer resume");
+      if (cinnaRuntime && (!lead_data?.channel_session_id || !["messenger", "webchat"].includes(lead_data?.canal))) throw new Error("Cinna channel is not supported or connected");
+      if (cinnaRuntime && auto.quiet_start != null && auto.quiet_end != null && auto.quiet_start !== auto.quiet_end) throw new Error("Cinna quiet hours require a supported scheduler; execution paused before sending");
+      if (cinnaRuntime && !execution_id) {
+        const { data: session, error } = await supabase.from("imphq_channel_sessions").select("id, project_id, canal, meta")
+          .eq("id", lead_data.channel_session_id).eq("project_id", project_id).maybeSingle();
+        if (error || !session || session.canal !== lead_data.canal) throw new Error("Invalid Cinna session");
+        if (session.meta?.cinna_execution_id) throw new Error("Cinna session already started or paused; explicit reconciliation required");
+        cinnaStartId = crypto.randomUUID();
+        let claim = supabase.from("imphq_channel_sessions").update({ meta: { ...session.meta, cinna_execution_id: cinnaStartId } }).eq("id", session.id);
+        claim = session.meta === null ? claim.is("meta", null) : claim.eq("meta", JSON.stringify(session.meta));
+        const { data: claimed, error: claimError } = await claim.select("id").maybeSingle();
+        if (claimError || !claimed) throw new Error("Cinna session concurrently claimed");
+      }
       const steps = rawSteps.map(normalizeStep);
 
       const startStep = resume_from_step !== undefined ? Number(resume_from_step) : 0;
-      let prevStepResults: StepResult[] = [];
-      if (resume_from_step !== undefined && lead_data?.lead_id) {
+      let prevStepResults: StepResult[] = cinnaRuntime ? z.array(stepResultSchema).parse(writeCinnaRuntime(cinnaPreviousResults, cinnaRuntime)) : [];
+      if (!cinnaRuntime && resume_from_step !== undefined && lead_data?.lead_id) {
         const { data: lastExec } = await supabase
           .from("imphq_flow_executions")
           .select("step_results")
@@ -555,7 +596,7 @@ Deno.serve(async (req) => {
 
       // ── Quiet hours: reschedule if current time falls inside the configured window (local timezone by DDD)
       const qs = auto.quiet_start, qe = auto.quiet_end;
-      if (qs != null && qe != null && qs !== qe) {
+      if (!cinnaRuntime && qs != null && qe != null && qs !== qe) {
         const phone = lead_data?.phone || lead_data?.telefone || "";
         const offset = phone ? getLeadTimezoneOffset(phone) : -3;
         const utcHour = new Date().getUTCHours();
@@ -620,9 +661,10 @@ Deno.serve(async (req) => {
       }
 
       // Create execution record
-      const { data: execution, error: execErr } = await supabase
+      const { data: execution, error: execErr } = cinnaExecution ? { data: cinnaExecution, error: null } : await supabase
         .from("imphq_flow_executions")
         .insert({
+          ...(cinnaStartId ? { id: cinnaStartId } : {}),
           automacao_id: auto.id,
           project_id,
           lead_id: lead_data?.lead_id || null,
@@ -635,7 +677,7 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
 
-      if (execErr) {
+      if (execErr || !execution) {
         console.error("[openflow-executor] Failed to create execution:", execErr);
         continue;
       }
@@ -683,6 +725,7 @@ Deno.serve(async (req) => {
           .eq("id", lead_data.channel_session_id)
           .maybeSingle();
         channelSession = cs || null;
+        if (cinnaRuntime && (!channelSession || channelSession.project_id !== project_id)) throw new Error("Cinna delivery session unavailable");
       }
 
       // Load lead details once for the execution of this automation
@@ -987,22 +1030,23 @@ Deno.serve(async (req) => {
             } else {
               // Primeira vez neste nó: coloca em espera aguardando resposta
               const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
-              await supabase.from("imphq_flow_executions")
+              const { error: waitError } = await supabase.from("imphq_flow_executions")
                 .update({
                   status: "waiting",
                   current_step: i,
-                  next_run_at: timeoutAt.toISOString(), // timeout fallback via openflow-resume
+                  next_run_at: cinnaRuntime ? null : timeoutAt.toISOString(), // Cinna advances only through its reply policy
                   step_results: [...stepResults, {
                     ...stepResult,
                     status: "waiting_reply",
                     waiting_for: "reply",
                     conversation_id: convId || null,
-                    timeout_at: timeoutAt.toISOString(),
-                    notes: `Aguardando resposta do lead. Timeout em ${timeoutAt.toISOString()}.`,
+                    timeout_at: cinnaRuntime ? null : timeoutAt.toISOString(),
+                    notes: cinnaRuntime ? "Aguardando resposta validada pela política Cinna, sem avanço por tempo." : `Aguardando resposta do lead. Timeout em ${timeoutAt.toISOString()}.`,
                   }],
                 })
                 .eq("id", executionId);
-              console.log(`[openflow-executor] wait_reply: execução ${executionId} pausada aguardando resposta (conv=${convId}, timeout=${timeoutMin}min)`);
+              if (cinnaRuntime && waitError) throw new Error("Cinna wait checkpoint failed");
+              console.log(`[openflow-executor] wait_reply: execução ${executionId} pausada aguardando resposta (conv=${convId}, timeout=${cinnaRuntime ? "disabled" : `${timeoutMin}min`})`);
               status = "waiting";
               break;
             }
@@ -1351,8 +1395,12 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Fluxo de canal sem sessão (channel_session_id ausente)";
             } else {
-              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const msgText = cinnaRuntime ? String(step.template ?? step.mensagem ?? step.texto ?? "") : replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
               const stepMedia = step.media;
+              if (cinnaRuntime) {
+                const { error } = await supabase.from("imphq_flow_executions").update({ step_results: [...stepResults, { ...stepResult, status: "delivery_pending" }] }).eq("id", executionId);
+                if (error) throw new Error("Cinna delivery checkpoint failed");
+              }
               const chRes = await sendToChannel(
                 supabase,
                 channelSession,
@@ -1363,10 +1411,19 @@ Deno.serve(async (req) => {
               stepResult.message_preview = msgText.substring(0, 100);
               stepResult.status = chRes.success ? "sent" : "error";
               stepResult.response = chRes;
-              if (chRes.success) messagesSent++;
+              if (chRes.success) {
+                messagesSent++;
+                if (cinnaRuntime) {
+                  const { error } = await supabase.from("imphq_flow_executions").update({ step_results: [...stepResults, stepResult] }).eq("id", executionId);
+                  if (error) throw new Error("Cinna confirmed delivery could not be checkpointed");
+                }
+              }
               else {
                 stepsFailed++;
                 failureMessages.push(`Step ${i} (${channelSession.canal}): ${chRes.error || "Falha no envio"}`);
+                if (cinnaRuntime) { status = "waiting"; await supabase.from("imphq_flow_executions").update({ status: "running", next_run_at: null,
+                  step_results: [...stepResults, stepResult], error_message: "Cinna delivery unconfirmed; manual reconciliation required" }).eq("id", executionId); }
+
               }
             }
           }
@@ -1546,7 +1603,7 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem telefone do lead";
             } else {
               const linkUrl = lead_data?.link || auto.link_checkout || "";
-              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const msgText = cinnaRuntime ? String(step.template ?? step.mensagem ?? step.texto ?? "") : replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
 
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
               if (!providerId && project_id) {
@@ -3349,8 +3406,14 @@ Instruções Adicionais:
           stepResult.error = describeError(stepErr);
           stepsFailed++;
           failureMessages.push(`Step ${i} (${step.tipo}): ${describeError(stepErr)}`);
+          // Cinna uncertain delivery must not continue or enter generic automatic retries.
+          if (cinnaRuntime) {
+            status = "waiting";
+            await supabase.from("imphq_flow_executions").update({ status: "running", next_run_at: null,
+              step_results: [...stepResults, stepResult], error_message: "Cinna execution interrupted; manual reconciliation required" }).eq("id", executionId);
+          }
           // Só interrompe o fluxo se o step for crítico
-          if (isCriticalStep(step.tipo)) {
+          else if (isCriticalStep(step.tipo)) {
             status = "failed";
             errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${describeError(stepErr)}`;
             stepResult._failed_step_index = i;

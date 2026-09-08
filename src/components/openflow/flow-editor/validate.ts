@@ -1,4 +1,5 @@
-import type { Acao } from "../FlowEditor";
+import type { Acao } from "@/components/openflow/FlowEditor";
+import { compileNativeCinna } from "@/lib/cinna-shield-x1/native-contract";
 
 export type IssueSeverity = "error" | "warn";
 
@@ -32,6 +33,13 @@ function isValidUrl(u?: string): boolean {
  */
 export function validateFlow(acoes: Acao[]): FlowIssue[] {
   const out: FlowIssue[] = [];
+  if (acoes.some(a => a.cinna_stage || a.cinna_policy)) {
+    try { compileNativeCinna(acoes); }
+    catch (error) {
+      out.push({ stepIndex: Math.max(0, acoes.findIndex(action => action.cinna_stage)), severity: "error", message: error instanceof Error ? error.message : "Configuração Cinna inválida.", field: "cinna_stage" });
+    }
+  }
+
 
   acoes.forEach((a, i) => {
     // Mensagem obrigatória (WhatsApp aceita só mídia, sem texto)

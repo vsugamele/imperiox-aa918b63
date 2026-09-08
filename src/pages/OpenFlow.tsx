@@ -44,6 +44,8 @@ import { InboundWebhooks } from "@/components/openflow/InboundWebhooks";
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
 import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
 import { CinnaCloudFlowCard } from "@/components/openflow/CinnaCloudFlowCard";
+import { CINNA_NATIVE_FLOW_ID } from "@/lib/cinna-shield-x1/openflow";
+import { compileNativeCinna, isNativeCinna } from "@/lib/cinna-shield-x1/native-contract";
 
 
 
@@ -285,6 +287,17 @@ export default function OpenFlow() {
   };
 
   const saveAutomacao = async (a: Automacao, opts?: { silent?: boolean }) => {
+    if (a.ativo && (a.id === CINNA_NATIVE_FLOW_ID || isNativeCinna(a.acoes))) {
+      try {
+        compileNativeCinna(a.acoes);
+        if (a.canal !== "messenger" && a.canal !== "webchat") throw new Error("Este fluxo exige Messenger ou chat do site compatível. Confira a integração antes de ativar.");
+        if (a.quiet_start != null && a.quiet_end != null && a.quiet_start !== a.quiet_end) throw new Error("O Cinna aguarda a resposta do contato. Remova a janela de silêncio deste fluxo antes de ativar; retomadas por horário ainda não são suportadas.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Fluxo Cinna inválido.";
+        if (!opts?.silent) toast.error(message);
+        throw new Error(message);
+      }
+    }
     const { error } = await supabase.from("imphq_automacoes").update({
       nome: a.nome, trigger_tipo: a.trigger_tipo, acoes: actionJson(a.acoes), ativo: a.ativo,
       canal: a.canal || "whatsapp",
@@ -410,7 +423,7 @@ export default function OpenFlow() {
 
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(filterProject === "__all__" || filterProject === "cinna-shield") && <CinnaCloudFlowCard />}
+            {!automacoes.some(a => a.id === CINNA_NATIVE_FLOW_ID) && (filterProject === "__all__" || filterProject === "cinna-shield") && <CinnaCloudFlowCard />}
             {filtered.map(a => {
               const meta = triggerMeta(a.trigger_tipo);
               const stats = health.get(a.id);
