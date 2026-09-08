@@ -133,7 +133,9 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   if (config.consultative && detectIntent(input.message, stage) !== "stop") {
     const emergency = /\b(emergency|emergencia|ketoacidosis|cetoacidose|cannot breathe|can'?t breathe|trouble breathing|chest pain|passed out|unconscious|falta de ar|dor no peito|desmai\w*)\b/i.test(normalized) ||
       (/\b(vomit\w*)\b/i.test(normalized) && /\b(fruity|breath|confus\w*|halito|respir\w*)\b/i.test(normalized));
-    const personalMedical = /\b(can i|should i|is it safe|safe for me|suitable for me|posso|devo).{0,100}(take|use|mix|stop|change|insulin|metformin|medicat\w*|supplement|product|tomar|usar|misturar|parar|insulina|medicamento|suplemento)\b/i.test(normalized) ||
+    const personalMedical = /\b(safe for me|suitable for me)\b/i.test(normalized) ||
+      /\b(can i|should i|is it safe|posso|devo).{0,100}\b(insulin|metformin|medicat\w*|insulina|medicamento)\b/i.test(normalized) ||
+      /\b(can i|should i|posso|devo).{0,60}\b(take|use|mix|stop|change|tomar|usar|misturar|parar)\s+(?:(?:this|the|a|este|esse|o)\s+)?(supplement|product|suplemento|produto)\b/i.test(normalized) ||
       /\b(what dose|how much.{0,20}(take|insulin)|diagnose me|do i have diabetes|am i diabetic|qual dose|tenho diabetes\?)\b/i.test(normalized) ||
       (/\b(insulin|metformin|medicat\w*|pregnan\w*|prescription)\b/i.test(normalized) && /\b(compatible|compatibility|interact\w*|safe|stop|replace|adjust|increase|decrease)\b/i.test(normalized));
     if (emergency || personalMedical) {

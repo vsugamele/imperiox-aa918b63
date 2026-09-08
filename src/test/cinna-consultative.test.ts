@@ -13,12 +13,18 @@ describe("Ana consultative policy", () => {
     expect(result.action).toBe("hold"); expect(result.state.status).toBe("active");
     expect(result.state.stageIndex).toBe(0);
   });
-  it.each(["Can I take this with insulin?", "What dose should I take?", "Do I have diabetes?", "Posso tomar com insulina?", "fruity breath and vomiting", "vomiting and fruity breath", "Estou com falta de ar"])("blocks automated sale for personal advice or emergency: %s", async message => {
+  it.each(["Can I take this with insulin?", "Is it safe for me?", "Can I take the supplement?", "What dose should I take?", "Do I have diabetes?", "Posso tomar com insulina?", "fruity breath and vomiting", "vomiting and fruity breath", "Estou com falta de ar"])("blocks automated sale for personal advice or emergency: %s", async message => {
     const c = config(); const classify = vi.fn();
     const result = await decide(c, { eventId: "medical", message }, classify);
     expect(result.action).toBe("human"); expect(classify).not.toHaveBeenCalled();
     const followup = await decide(c, { eventId: "buy", message: "send me the link", state: result.state }, classify);
     expect(followup.action).toBe("ignored"); expect(followup.state.checkoutSent).toBe(false);
+  });
+  it.each(["Can I use PayPal?", "Can I take a look at the ingredients?", "Can I take a look at the product?"])("does not mistake a commercial question for personal medical advice: %s", async message => {
+    const result = await decide(config(), { eventId: "commercial", message });
+    expect(result.action).not.toBe("human");
+    expect(result.intent).not.toBe("medical");
+    expect(result.state.status).toBe("active");
   });
   it("distinguishes truthful identity questions from requests for a real person", async () => {
     const c = config();

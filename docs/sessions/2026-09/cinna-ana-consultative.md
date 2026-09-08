@@ -43,4 +43,10 @@ Rollback de conteúdo: comparar a automação atual antes de restaurar `cinna-na
 
 ## Publicação
 
-Pendente de gates finais, commit, publicação e comparação otimista da automação.
+Commit inicial 225f6086 publicado na Vercel (READY dpl_28xkZwRDFpqxWfd6MaXznXoZXtyg) e funções channel-ai-reply v14, openflow-executor v464, cinna-shield-x1 v4, com JWT false/false/true preservados.
+
+Comparação otimista da automação confirmou exatamente uma atualização em 2026-09-08 18:11:21.967674 UTC. Releitura:35 ações, Ana,6 textos aprovados, posição x150 preservada,ativo=false e oferta não aprovada.
+
+Diagnóstico com modelo real: preocupação geral retornou contextual=true e acolhimento com informação geral; permissão avançou à etapa2; medicamento e emergência retornaram human. Todos sent=false,sem criação de sessão ou envio a canal.
+
+Revisão final encontrou falso positivo em perguntas sobre usar PayPal/consultar ingredientes. Patch restrito ao regex, espelho e regressões:77 testes focados passaram, incluindo manutenção da proteção para insulina e adequação pessoal. Aguardando publicação do patch e conferência final Lovable.
