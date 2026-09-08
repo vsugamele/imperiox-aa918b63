@@ -1,4 +1,5 @@
 import type { Config as CinnaConfig, Stage as CinnaStage } from "@/lib/cinna-shield-x1/engine";
+import { answerFields } from "@/lib/cinna-shield-x1/engine";
 import { record } from "@/lib/funis-data";
 import { errorMessage } from "@/lib/error-message";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -125,6 +126,8 @@ function CinnaReplyFields({ stage, policy, consultative, onStage, onPolicy }: { 
     <p className="text-xs font-semibold">Resposta + IA · Cinna Shield</p>
     <p className="text-xs text-muted-foreground">{consultative ? "A Ana acolhe a resposta e seleciona informações dos textos aprovados. Dúvidas mantêm a etapa; a apresentação do produto exige permissão explícita. A próxima etapa é enviada pelo roteiro, sem repetir sua pergunta na resposta contextual." : "A IA identifica a intenção. Dúvidas usam respostas aprovadas sem avançar a etapa."} Pedidos de parada ou atendimento humano interrompem o roteiro. Edite a pergunta na última mensagem antes deste bloco.</p>
     <Label>Título da etapa<Input value={stage.title} onChange={e => onStage({ ...stage, title: e.target.value })} /></Label>
+    <Label>Guardar resposta nesta conversa<Select value={stage.capture || "none"} onValueChange={value => onStage({ ...stage, capture: answerFields.find(field => field === value) })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Não capturar</SelectItem>{answerFields.map(field => <SelectItem key={field} value={field}>{{ name: "Nome", concern: "Motivo do contato", goal: "Objetivo", previousExperience: "Experiência anterior", idealRoutine: "Rotina desejada", objection: "Objeção" }[field]}</SelectItem>)}</SelectContent></Select></Label>
+    {stage.capture && <p className="text-xs text-muted-foreground">Apenas a resposta fornecida é guardada na execução, com até 240 caracteres. Perguntas e recusas não são respostas ao roteiro. Não cria diagnóstico ou perfil clínico no lead.</p>}
     <Label>Tipo de resposta<Select value={stage.input} onValueChange={value => { if (value === "name" || value === "free" || value === "confirm") onStage({ ...stage, input: value }); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="name">Nome</SelectItem><SelectItem value="free">Resposta livre</SelectItem><SelectItem value="confirm">Confirmação</SelectItem></SelectContent></Select></Label>
     {(stage.choices || []).map((choice, index) => <div key={index} className="space-y-2 border rounded p-2">
       <Label>Opção {index + 1}<Input value={choice.label} onChange={e => onStage({ ...stage, choices: stage.choices?.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} /></Label>

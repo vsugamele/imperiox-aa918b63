@@ -1,5 +1,7 @@
 /** CSX1.1: pure, channel-independent conversation policy. No network or storage. */
 export type Intent = "answer" | "question" | "price" | "budget" | "timing" | "buy" | "trust" | "shipping" | "ingredients" | "medical" | "stop" | "human";
+export const answerFields = ["name", "concern", "goal", "previousExperience", "idealRoutine", "objection"] as const;
+export type AnswerField = typeof answerFields[number];
 export interface Stage {
   id: string;
   title: string;
@@ -8,6 +10,7 @@ export interface Stage {
   question: string;
   input: "name" | "free" | "confirm";
   choices?: { label: string; acknowledgement: string }[];
+  capture?: AnswerField;
 }
 export interface Config {
   product: "cinna-shield";
@@ -26,6 +29,8 @@ export interface State {
   status: "active" | "stopped" | "human" | "complete";
   checkoutSent: boolean;
   awaitingProductConsent?: boolean;
+  awaitingPurchaseLink?: boolean;
+  answers?: Partial<Record<AnswerField, string>>;
   processedEventIds: string[];
 }
 export interface Input { eventId: string; message: string; state?: State; }
@@ -66,6 +71,7 @@ export function parseConfig(value: unknown): Config {
         new Set(consultative.approvedSnippets.map(snippet => snippet.id)).size !== consultative.approvedSnippets.length) throw new Error("Invalid consultative policy");
   }
   for (const stage of value.stages) {
+    if (record(stage) && stage.capture !== undefined && !answerFields.includes(stage.capture as AnswerField)) throw new Error("Invalid answer capture field");
     if (!record(stage) || !text(stage.id) || !text(stage.title) || !text(stage.question) ||
         !["name", "free", "confirm"].includes(String(stage.input)) ||
         !Array.isArray(stage.messages) || !stage.messages.length || !stage.messages.every(text) ||
@@ -87,10 +93,12 @@ export function initialState(config: Config): State {
   return { product: "cinna-shield", version: config.version, stageIndex: 0, revision: 0, status: "active", checkoutSent: false, processedEventIds: [] };
 }
 export function validateState(value: unknown, config: Config): asserts value is State {
+  if (record(value) && value.answers !== undefined && (!record(value.answers) || Object.entries(value.answers).some(([key, answer]) => !answerFields.includes(key as AnswerField) || !text(answer) || answer.length > 240))) throw new Error("Invalid conversation answers");
   if (!record(value) || value.product !== config.product || value.version !== config.version ||
       !Number.isInteger(value.stageIndex) || Number(value.stageIndex) < 0 || Number(value.stageIndex) >= config.stages.length ||
       !Number.isInteger(value.revision) || Number(value.revision) < 0 || typeof value.checkoutSent !== "boolean" ||
       (value.awaitingProductConsent !== undefined && typeof value.awaitingProductConsent !== "boolean") ||
+      (value.awaitingPurchaseLink !== undefined && typeof value.awaitingPurchaseLink !== "boolean") ||
       !["active", "stopped", "human", "complete"].includes(String(value.status)) ||
       !Array.isArray(value.processedEventIds) || value.processedEventIds.length > 1000 || !value.processedEventIds.every(text)) throw new Error("Invalid or incompatible state");
 }
@@ -102,12 +110,17 @@ export function detectIntent(message: string, stage: Stage): Intent | null {
   if (/\b(medication|medicine|insulin|metformin|diagnos\w*|cure|treat\w*|pregnan\w*|diabet\w*|medicamento|remedio|gravida|insulina|metformina|blood sugar|glicemia)\b/.test(m)) return "medical";
   if (/\b(too expensive|expensive|can't afford|cannot afford|budget|caro|sem dinheiro)\b/.test(m)) return "budget";
   if (/\b(think about it|sleep on it|maybe later|not ready|not now|pensar|depois)\b/.test(m)) return "timing";
+  if (stage.capture === "previousExperience" && /^(?:no|nope|never|no,? (?:i haven't|i have not|never)|i (?:haven't|have not|have never|never) tried (?:a |any )?supplements?)(?: before)?[.! ]*$/i.test(m)) return "answer";
+  if (stage.capture === "previousExperience" && !m.includes("?") && !/\b(don'?t|do not|no thanks|not interested|buy|purchase|checkout|order|link)\b/.test(m) && /^(?:i |i've |i have )(?:tried|used)\b/.test(m)) return "answer";
+  if (stage.capture === "goal" && /^(?:understanding (?:the )?ingredients|the ingredients|ingredients|keeping things simple|a simple routine)[.! ]*$/.test(m)) return "answer";
+  if (stage.capture === "objection" && /^(?:i (?:don't|do not) trust (?:it|this|the seller)|trust)[.! ]*$/.test(m)) return "trust";
   if (/\b(don'?t|do not|not ready|not now|no thanks|nao quero|nao vou|not interested|maybe later)\b/.test(m) || /^(no|nope|nah|nao)[.! ]*$/.test(m)) return "question";
   if (/\b(price|cost|how much|preco|quanto custa|expensive|caro)\b/.test(m)) return "price";
   if (/\b(buy|purchase|checkout|order now|send.{0,10}link|comprar|manda.{0,10}link|quero o link)\b/.test(m)) return "buy";
   if (/\b(scam|trust|proof|reviews?|legit|golpe|prova|confiar|depoimento)\b/.test(m)) return "trust";
   if (/\b(shipping|delivery|frete|entrega|ship)\b/.test(m)) return "shipping";
   if (/\b(ingredients?|formula|cinnamon|composition|ingredientes|composicao)\b/.test(m)) return "ingredients";
+  if (stage.capture && stage.input === "free" && /^(skip|prefer not to say|pular|prefiro nao responder)[.! ]*$/.test(m)) return "answer";
   if (/\?|^(how|what|where|why|can|is|does|do|when|qual|como|quando|posso)\b/.test(m)) return "question";
   if (/^(yes|ok|okay|sure|continue|go on|sim|pode|seguir|vamos)[.! ]*$/.test(m)) return "answer";
   if (stage.id === "close" && /^(finish here|finish|all done|terminar|encerrar)[.! ]*$/.test(m)) return "answer";
@@ -120,18 +133,19 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   if (!text(input.eventId) || input.eventId.length > 180 || typeof input.message !== "string" || input.message.length > 2000) throw new Error("Invalid message/event");
   const previous = input.state ?? initialState(config);
   validateState(previous, config);
-  const state: State = { ...previous, processedEventIds: [...previous.processedEventIds] };
+  const state: State = { ...previous, ...(previous.answers ? { answers: { ...previous.answers } } : {}), processedEventIds: [...previous.processedEventIds] };
   const stage = config.stages[state.stageIndex];
   const base = { state, stageId: stage.id };
   if (state.processedEventIds.includes(input.eventId) || state.status !== "active") return { ...base, messages: [], action: "ignored", intent: "question", source: "rules" };
   if (state.processedEventIds.length >= 1000) throw new Error("Session event limit reached");
   state.processedEventIds.push(input.eventId);
   state.revision++;
-  if (config.consultative) state.awaitingProductConsent = false;
+  if (config.consultative) { state.awaitingProductConsent = false; state.awaitingPurchaseLink = false; }
   const emitStage = (s: Stage) => [...s.messages, s.question];
   if (!input.message.trim()) {
     if (previous.revision !== 0) throw new Error("Empty message");
     if (config.consultative && stage.id === "awareness" && stage.input === "confirm") state.awaitingProductConsent = true;
+    if (config.consultative && stage.id === "close") state.awaitingPurchaseLink = true;
     return { ...base, messages: emitStage(stage), action: "start", intent: "start", source: "script", choices: stage.choices?.map(c => c.label) };
   }
   const normalized = input.message.trim().toLowerCase();
@@ -158,6 +172,14 @@ export async function decide(config: Config, input: Input, classify?: Classifier
   const explicitPermission = /^(?:yes[,! ]*)?(?:(?:can|could|would) you )?(?:please )?(?:tell me about|explain|show me|i want to (?:know|learn) about) (?:the |this |your )?(?:product|supplement)[.!? ]*$/i.test(normalized);
   if (config.consultative && stage.id === "connection" && explicitPermission) intent = "answer";
   const affirmative = /^(yes|yes please|sure|ok|okay|please do|go ahead|continue|sim|pode|pode sim)[.! ]*$/i.test(normalized);
+  if (config.consultative && stage.id === "close" && /^(yes|yes please|sure|sim|pode sim)[.! ]*$/i.test(normalized)) {
+    if (!previous.awaitingPurchaseLink) {
+      state.awaitingPurchaseLink = true;
+      return { ...base, messages: [stage.question], action: "hold", intent: "question", source: "rules", permissionPrompt: true };
+    }
+    intent = "buy";
+  }
+  if (config.consultative && stage.id === "decision" && /^(no|none|nothing else|no more questions|nao|não)[.! ]*$/i.test(normalized)) intent = "answer";
   if (permissionStep && affirmative && !previous.awaitingProductConsent) {
     state.awaitingProductConsent = true;
     return { ...base, messages: [stage.question], action: "hold", intent: "question", source: "rules", permissionPrompt: true, choices: stage.choices?.map(c => c.label) };
@@ -184,6 +206,15 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     state.status = intent === "stop" ? "stopped" : "human";
     return { ...base, messages: [config.replies[intent]], action: intent, intent, source, warning };
   }
+  // A volunteered concern is the user's own account, not a clinical finding. A hold still answers it first.
+  if (stage.capture === "concern" && intent === "question" && !/[?]/.test(input.message) &&
+      /^(?:i (?:feel|have|struggle|am worried)|i'm (?:worried|scared|struggling)|my (?:main|biggest) (?:concern|problem))\b/i.test(input.message.trim())) {
+    state.answers = { ...state.answers, concern: input.message.replace(/[\p{Cc}\p{Cf}<>]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 240) };
+  }
+  // A declared objection can be remembered even while its FAQ keeps the cursor on this stage.
+  if (stage.capture === "objection" && ["budget", "price", "trust", "timing", "ingredients", "shipping"].includes(intent) && !input.message.includes("?")) {
+    state.answers = { ...state.answers, objection: input.message.replace(/[\p{Cc}\p{Cf}<>]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 240) };
+  }
   if (intent === "buy") {
     if (!config.offer.approved || !validCheckout(config.offer.checkoutUrl)) {
       state.status = "human";
@@ -194,6 +225,13 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     return { ...base, messages: [`Here is the approved offer: ${config.offer.priceLabel}.`, config.offer.checkoutUrl], action: "checkout", intent, source, warning };
   }
   if (intent === "answer") {
+    // Only answers to an explicitly configured question are retained. Never infer a diagnosis.
+    if (stage.capture && (!/^(yes|no|ok|okay|sure|continue|go on|skip|prefer not to say|pular|prefiro n[aã]o responder|sim|n[aã]o|pode|seguir)[.! ]*$/i.test(normalized) || (stage.capture === "previousExperience" && /^no[.! ]*$/i.test(normalized)))) {
+      const answer = input.message.replace(/[\p{Cc}\p{Cf}<>]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 240);
+      if (answer) state.answers = { ...state.answers, [stage.capture]: answer };
+      const name = input.message.match(/\b(?:my name is|me chamo|I'm called)\s+([\p{L}][\p{L}'-]{0,39})\b/iu)?.[1];
+      if (name) state.answers = { ...state.answers, name };
+    }
     if (state.stageIndex === config.stages.length - 1) {
       state.status = "complete";
       return { ...base, messages: ["Thanks for taking a look. If you want to order later, our team can help confirm the current offer."], action: "complete", intent, source, warning };
@@ -201,6 +239,7 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     state.stageIndex++;
     const next = config.stages[state.stageIndex];
     if (config.consultative && next.id === "awareness" && next.input === "confirm") state.awaitingProductConsent = true;
+    if (config.consultative && next.id === "close") state.awaitingPurchaseLink = true;
     return { state, stageId: next.id, messages: [...(choice ? [choice.acknowledgement] : []), ...emitStage(next)], action: "advance", intent, source, warning, choices: next.choices?.map(c => c.label) };
   }
   const reply = intent === "price" && config.offer.approved ? `The approved offer is ${config.offer.priceLabel}.` : config.replies[intent];

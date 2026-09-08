@@ -11,10 +11,17 @@ interface Props {
 }
 
 // Extrai o texto/preview visível de cada tipo de ação (o que o lead "veria")
-function bubbleFromAcao(value: unknown): { role: "bot" | "system"; kind: string; text: string; icon?: LucideIcon } | null {
+function bubbleFromAcao(value: unknown): { role: "bot" | "system"; kind: string; text: string; url?: string; icon?: LucideIcon } | null {
   const a = objectFields(value);
   const t = a.tipo;
   const cfg = a.config ? objectFields(a.config) : a;
+  const media = objectFields(cfg.media);
+  if ((t === "whatsapp" || t === "audio") && (media.kind === "image" || media.kind === "audio")) {
+    try {
+      const url = new URL(jsonText(media.url));
+      if (url.protocol === "https:" && !url.username && !url.password) return { role: "bot", kind: media.kind, text: jsonText(cfg.template) || jsonText(media.label), url: url.href };
+    } catch { /* Invalid media remains visible as its text, never as a resource URL. */ }
+  }
   if (t === "whatsapp") {
     const txt = jsonText(cfg.template) || jsonText(cfg.mensagem) || jsonText(cfg.text) || jsonText(cfg.content) || "";
     return { role: "bot", kind: "text", text: txt || "(mensagem vazia)" };
@@ -91,6 +98,8 @@ export function FlowLivePreview({ acoes, triggerTipo, onClose }: Props) {
           return (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] rounded-xl rounded-tl-sm bg-[#202c33] text-slate-100 px-3 py-2 text-xs leading-snug shadow whitespace-pre-wrap break-words">
+                {b.url && b.kind === "image" && <img src={b.url} alt={b.text || "Imagem do fluxo"} loading="lazy" className="mb-2 max-w-full rounded-lg" />}
+                {b.url && b.kind === "audio" && <audio src={b.url} controls preload="none" aria-label="Áudio do fluxo" className="mb-2 max-w-full" />}
                 {b.text}
                 <div className="text-[9px] text-slate-400 text-right mt-1">passo {i + 1}</div>
               </div>

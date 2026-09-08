@@ -158,7 +158,11 @@
     showTyping(isAud ? "audio" : "text");
     setTimeout(function () {
       hideTyping();
-      if (url) media(url, false); else bubble(texto, false);
+      if (url) {
+        // Preserve the supplied caption/transcript, including prerecorded-voice disclosure.
+        if (m.texto && m.texto.trim() !== url) bubble(m.texto, false);
+        media(url, false);
+      } else bubble(texto, false);
       ping();
       draining = false;
       drain();

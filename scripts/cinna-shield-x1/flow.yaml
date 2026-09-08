@@ -1,6 +1,6 @@
 {
   "product": "cinna-shield",
-  "version": "csx1.6-ana-consultative",
+  "version": "csx1.7-conversation-media",
   "language": "en-US",
   "offer": {
     "approved": false,
@@ -30,10 +30,11 @@
       ],
       "messages": [
         "Hi, I'm Ana, from the support team.",
-        "We can take this one question at a time."
+        "Tell me what's on your mind. You can share your first name if you'd like, and skip any question. I'll use your answers to keep this conversation relevant."
       ],
       "question": "How can I help you today?",
-      "input": "free"
+      "input": "free",
+      "capture": "concern"
     },
     {
       "id": "awareness",
@@ -42,7 +43,7 @@
         "GRUPO 2. CONSCIENTIZACAO"
       ],
       "messages": [
-        "You don't have to decide on anything now. We can look at the information that matters to you first."
+        "Let's start with the part that matters to you, instead of giving you a long sales pitch. You don't need to make a decision now."
       ],
       "question": "Would you like me to explain what the supplement is?",
       "input": "confirm",
@@ -62,11 +63,12 @@
         "GRUPO 3. CURIOSIDADE (3)"
       ],
       "messages": [
-        "The supplement is called Cinna Shield. The product brief describes Ceylon cinnamon extract and MCT in capsules.",
-        "I can help you understand the formula and the details to check before buying."
+        "The supplement is called Cinna Shield. The product information describes Ceylon cinnamon extract and MCT in capsules.",
+        "Let's look at the formula, how the capsule format would fit into your routine, and what you would want to check before spending money."
       ],
-      "question": "What would you like to know about it first?",
-      "input": "free"
+      "question": "What matters most to you when considering a supplement: understanding the ingredients, keeping things simple, or something else?",
+      "input": "free",
+      "capture": "goal"
     },
     {
       "id": "mechanism",
@@ -77,11 +79,12 @@
         "GRUPO 4. MECANISMO (3)"
       ],
       "messages": [
-        "The cinnamon listed in the brief is Ceylon cinnamon, also called Cinnamomum verum.",
-        "The current label is where we'll need to check the full ingredient list, amounts and directions."
+        "There are two details to separate: what's inside the capsule and what the finished product has actually been shown to do.",
+        "The listed cinnamon is Ceylon cinnamon, also called Cinnamomum verum. MCT is also listed. The full label is where we need to check quantities and directions. Ingredient names alone don't establish results."
       ],
-      "question": "Is there an ingredient you'd like to understand better?",
-      "input": "free"
+      "question": "Have you tried a supplement before, and was there anything about the experience you didn't like? No need to share medicines or medical records.",
+      "input": "free",
+      "capture": "previousExperience"
     },
     {
       "id": "benefits",
@@ -90,11 +93,12 @@
         "GRUPO 5. BENEFICIOS"
       ],
       "messages": [
-        "It's a capsule supplement, so the practical questions are the serving directions and whether that format suits your routine.",
-        "It isn't a replacement for prescribed care. Whether it's suitable for you needs to be checked with your clinician or pharmacist."
+        "Think about the practical side for a moment: a format you can manage, clear directions and a cost you're comfortable with.",
+        "Whether this supplement is suitable for you needs to be checked with your clinician or pharmacist. It doesn't replace prescribed care, and I can't promise how you'll feel after taking it."
       ],
-      "question": "Would you like to look at the purchase details?",
-      "input": "confirm"
+      "question": "What would make a routine easier for you to stick with?",
+      "input": "free",
+      "capture": "idealRoutine"
     },
     {
       "id": "proof",
@@ -105,11 +109,12 @@
         "GRUPO 6. PROVA SOCIAL (3)"
       ],
       "messages": [
-        "It's reasonable to want clear information before spending money.",
-        "We can go through the label and the written purchase terms, and flag anything that still needs confirming."
+        "Before you decide, let's make sure you can check what you're getting. A review or a striking image isn't enough on its own.",
+        "We can check the label, who sells it, the full cost and the written delivery and return terms. If something is missing, I'll say so."
       ],
-      "question": "What would help you feel more comfortable deciding?",
-      "input": "free"
+      "question": "What's your biggest hesitation right now: cost, trust, the formula, or something else?",
+      "input": "free",
+      "capture": "objection"
     },
     {
       "id": "opportunity",
@@ -118,10 +123,10 @@
         "GRUPO 7. OPORTUNIDADE"
       ],
       "messages": [
-        "Let's put the purchase details together: the package, the total cost and delivery.",
-        "I'll use the confirmed offer. If a detail is missing, the team needs to check it before you pay."
+        "If you're interested in going further, the next step is a clear offer: exactly what you receive and the total you'll pay.",
+        "The current package, price and checkout haven't been confirmed here yet. The team needs to verify those details, including shipping and return terms, before you pay."
       ],
-      "question": "Is the price the first detail you'd like to check?",
+      "question": "Would you like to continue to the purchase details once they're confirmed?",
       "input": "confirm"
     },
     {
@@ -133,10 +138,10 @@
         "GRUPO 8. RISCOS E PERDAS (3)"
       ],
       "messages": [
-        "Take your time.",
-        "If something is still unclear, we can talk about that before you decide."
+        "You don't need to rush or stretch your budget. The decision should make sense for you.",
+        "If there's one detail still holding you back, let's focus on it. You can also leave it here or ask for someone from the team."
       ],
-      "question": "What would you like to clear up?",
+      "question": "Is there one last question you'd like answered before deciding?",
       "input": "free"
     },
     {
@@ -148,8 +153,8 @@
         "GRUPO 9. FECHAMENTO (3)"
       ],
       "messages": [
-        "If you've decided to order, I can help with the next step once the offer is confirmed.",
-        "You can also ask for someone from the team or leave it here."
+        "If you'd like to order, I'll help you reach the verified checkout when the offer is confirmed.",
+        "If you'd prefer someone from the team to check the details with you, just ask. There's no need to repeat the whole conversation."
       ],
       "question": "Would you like the purchase link?",
       "input": "free"

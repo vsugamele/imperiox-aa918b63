@@ -113,8 +113,9 @@ describe("Ana consultative policy", () => {
     expect(await composeConsultativeReply(c, decision, message, [], compose)).toBeNull();
     expect(compose).not.toHaveBeenCalled();
   });
-  it("bounds contextual history without storing a profile", async () => {
-    const c = config(); const decision = await decide(c, { eventId: "q", message: "I am worried" });
+  it("bounds contextual history without storing a profile when capture is not configured", async () => {
+    const c = config(); c.stages.forEach(stage => { delete stage.capture; });
+    const decision = await decide(c, { eventId: "q", message: "I am worried" });
     const compose = vi.fn(async (_request: ConsultativeRequest) => ({ acknowledgementId: "concern", snippetIds: [], questionId: "none" }));
     await composeConsultativeReply(c, decision, "I am worried", Array.from({ length: 20 }, () => ({ role: "user" as const, content: "x".repeat(1200) })), compose);
     expect(compose.mock.calls[0][0].messages).toHaveLength(9);
