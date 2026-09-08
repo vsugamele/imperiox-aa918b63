@@ -120,10 +120,10 @@ const DYNAMIC_VARS = [
   { var: "{{link}}", label: "Link" },
 ];
 
-function CinnaReplyFields({ stage, policy, onStage, onPolicy }: { stage: NonNullable<Acao["cinna_stage"]>; policy?: Acao["cinna_policy"]; onStage: (value: NonNullable<Acao["cinna_stage"]>) => void; onPolicy: (value: NonNullable<Acao["cinna_policy"]>) => void }) {
+function CinnaReplyFields({ stage, policy, consultative, onStage, onPolicy }: { consultative: boolean; stage: NonNullable<Acao["cinna_stage"]>; policy?: Acao["cinna_policy"]; onStage: (value: NonNullable<Acao["cinna_stage"]>) => void; onPolicy: (value: NonNullable<Acao["cinna_policy"]>) => void }) {
   return <div className="space-y-3 rounded-lg border border-lime-500/30 p-3">
     <p className="text-xs font-semibold">Resposta + IA · Cinna Shield</p>
-    <p className="text-xs text-muted-foreground">A IA identifica a intenção. Dúvidas usam respostas aprovadas sem avançar a etapa; pedidos de parada ou atendimento humano interrompem o roteiro. Edite a pergunta na última mensagem antes deste bloco.</p>
+    <p className="text-xs text-muted-foreground">{consultative ? "A Ana acolhe a resposta e seleciona informações dos textos aprovados. Dúvidas mantêm a etapa; a apresentação do produto exige permissão explícita. A próxima etapa é enviada pelo roteiro, sem repetir sua pergunta na resposta contextual." : "A IA identifica a intenção. Dúvidas usam respostas aprovadas sem avançar a etapa."} Pedidos de parada ou atendimento humano interrompem o roteiro. Edite a pergunta na última mensagem antes deste bloco.</p>
     <Label>Título da etapa<Input value={stage.title} onChange={e => onStage({ ...stage, title: e.target.value })} /></Label>
     <Label>Tipo de resposta<Select value={stage.input} onValueChange={value => { if (value === "name" || value === "free" || value === "confirm") onStage({ ...stage, input: value }); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="name">Nome</SelectItem><SelectItem value="free">Resposta livre</SelectItem><SelectItem value="confirm">Confirmação</SelectItem></SelectContent></Select></Label>
     {(stage.choices || []).map((choice, index) => <div key={index} className="space-y-2 border rounded p-2">
@@ -139,6 +139,14 @@ function CinnaReplyFields({ stage, policy, onStage, onPolicy }: { stage: NonNull
       <Label>Checkout HTTPS<Input value={policy.offer.checkoutUrl || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, checkoutUrl: e.target.value || null } })} /></Label>
       <Label>Preço aprovado<Input value={policy.offer.priceLabel || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, priceLabel: e.target.value || null } })} /></Label>
       <Label className="flex items-center gap-2"><Switch checked={policy.offer.approved} onCheckedChange={approved => onPolicy({ ...policy, offer: { ...policy.offer, approved } })} />Oferta aprovada</Label>
+      {policy.consultative && <div className="space-y-3 border-t pt-3">
+        <p className="text-xs font-semibold">Atendimento consultivo · {policy.consultative.personaName}</p>
+        <p className="text-xs text-muted-foreground">A Ana usa os textos aprovados abaixo para responder com contexto. O roteiro continua controlando consentimento, etapas e oferta. Alterações valem para novas conversas; conversas em andamento preservam sua configuração.</p>
+        {policy.consultative.approvedSnippets.map((snippet, index) => <div key={index} className="space-y-2 rounded border p-2">
+          <Label>Identificador do texto<Input value={snippet.id} onChange={e => onPolicy({ ...policy, consultative: { ...policy.consultative!, approvedSnippets: policy.consultative!.approvedSnippets.map((item, i) => i === index ? { ...item, id: e.target.value } : item) } })} /></Label>
+          <Label>Texto aprovado<Textarea value={snippet.text} onChange={e => onPolicy({ ...policy, consultative: { ...policy.consultative!, approvedSnippets: policy.consultative!.approvedSnippets.map((item, i) => i === index ? { ...item, text: e.target.value } : item) } })} /></Label>
+        </div>)}
+      </div>}
       {(Object.keys(policy.replies) as Array<keyof CinnaConfig["replies"]>).map(intent => <Label key={intent} className="block">Resposta aprovada · {intent}<Textarea value={policy.replies[intent]} onChange={e => onPolicy({ ...policy, replies: { ...policy.replies, [intent]: e.target.value } })} /></Label>)}
     </div>}
   </div>;
@@ -2023,7 +2031,7 @@ export function FlowEditor({
                 )}
 
                 {/* wait_reply Fields */}
-                {acao.tipo === "wait_reply" && acao.cinna_stage && <CinnaReplyFields stage={acao.cinna_stage} policy={acao.cinna_policy} onStage={value => updateAcao(selectedIdx, "cinna_stage", value)} onPolicy={value => updateAcao(selectedIdx, "cinna_policy", value)} />}
+                {acao.tipo === "wait_reply" && acao.cinna_stage && <CinnaReplyFields consultative={acoes.some(action => Boolean(action.cinna_policy?.consultative))} stage={acao.cinna_stage} policy={acao.cinna_policy} onStage={value => updateAcao(selectedIdx, "cinna_stage", value)} onPolicy={value => updateAcao(selectedIdx, "cinna_policy", value)} />}
                 {acao.tipo === "wait_reply" && !acao.cinna_stage && (
                   <div className="space-y-3">
                     <div className="rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">

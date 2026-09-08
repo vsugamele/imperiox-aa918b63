@@ -11,6 +11,7 @@ export interface Stage {
 }
 export interface Config {
   product: "cinna-shield";
+  consultative?: { personaName: "Ana"; approvedSnippets: { id: string; text: string }[] };
   version: string;
   language: "en-US";
   stages: Stage[];
@@ -55,6 +56,13 @@ export function validCheckout(value: unknown): value is string {
 export function parseConfig(value: unknown): Config {
   if (!record(value) || value.product !== "cinna-shield" || !text(value.version) || value.language !== "en-US" ||
       !Array.isArray(value.stages) || value.stages.length !== 9 || !record(value.offer) || !record(value.replies)) throw new Error("Invalid Cinna Shield configuration");
+  if (value.consultative !== undefined) {
+    const consultative = value.consultative;
+    if (!record(consultative) || Object.keys(consultative).some(key => !["personaName", "approvedSnippets"].includes(key)) || consultative.personaName !== "Ana" || !Array.isArray(consultative.approvedSnippets) ||
+        consultative.approvedSnippets.length < 1 || consultative.approvedSnippets.length > 12 ||
+        !consultative.approvedSnippets.every(snippet => record(snippet) && Object.keys(snippet).some(key => !["id", "text"].includes(key)) === false && typeof snippet.id === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(snippet.id) && text(snippet.text) && snippet.text.length <= 1200) ||
+        new Set(consultative.approvedSnippets.map(snippet => snippet.id)).size !== consultative.approvedSnippets.length) throw new Error("Invalid consultative policy");
+  }
   for (const stage of value.stages) {
     if (!record(stage) || !text(stage.id) || !text(stage.title) || !text(stage.question) ||
         !["name", "free", "confirm"].includes(String(stage.input)) ||
@@ -121,15 +129,36 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     if (previous.revision !== 0) throw new Error("Empty message");
     return { ...base, messages: emitStage(stage), action: "start", intent: "start", source: "script", choices: stage.choices?.map(c => c.label) };
   }
+  const normalized = input.message.trim().toLowerCase();
+  if (config.consultative && detectIntent(input.message, stage) !== "stop") {
+    const emergency = /\b(emergency|emergencia|ketoacidosis|cetoacidose|cannot breathe|can'?t breathe|trouble breathing|chest pain|passed out|unconscious|falta de ar|dor no peito|desmai\w*)\b/i.test(normalized) ||
+      (/\b(vomit\w*)\b/i.test(normalized) && /\b(fruity|breath|confus\w*|halito|respir\w*)\b/i.test(normalized));
+    const personalMedical = /\b(can i|should i|is it safe|safe for me|suitable for me|posso|devo).{0,100}(take|use|mix|stop|change|insulin|metformin|medicat\w*|supplement|product|tomar|usar|misturar|parar|insulina|medicamento|suplemento)\b/i.test(normalized) ||
+      /\b(what dose|how much.{0,20}(take|insulin)|diagnose me|do i have diabetes|am i diabetic|qual dose|tenho diabetes\?)\b/i.test(normalized) ||
+      (/\b(insulin|metformin|medicat\w*|pregnan\w*|prescription)\b/i.test(normalized) && /\b(compatible|compatibility|interact\w*|safe|stop|replace|adjust|increase|decrease)\b/i.test(normalized));
+    if (emergency || personalMedical) {
+      state.status = "human";
+      return { ...base, messages: [emergency ? "I'm sorry you're dealing with this. I can't assess an emergency here. Please contact local emergency services or seek urgent medical care now. I've paused this automated conversation." : config.replies.medical], action: "human", intent: "medical", source: "rules" };
+    }
+    if (/\b(are you (an? )?(ai|bot|human|doctor|nurse|real person)|who are you|are you artificial intelligence)\b/i.test(normalized)) {
+      return { ...base, messages: ["I'm Ana, a virtual support assistant, not a doctor or nurse. I can listen and share general information, and I can pause this chat if you'd prefer a person."], action: "hold", intent: "question", source: "rules" };
+    }
+  }
   const choice = stage.choices?.find(c => c.label.toLowerCase() === input.message.trim().toLowerCase());
   let intent = detectIntent(input.message, stage);
   if (choice && (intent === null || intent === "question")) intent = "answer";
+  const permissionStep = Boolean(config.consultative && stage.id === "awareness" && stage.input === "confirm");
+  const explicitPermission = /^(?:yes[,! ]*)?(?:please )?(?:tell me about|explain|show me|i want to (?:know|learn) about) (?:the |this |your )?(?:product|supplement)[.! ]*$/i.test(normalized);
+  if (permissionStep) intent = explicitPermission ? "answer" : (intent === "answer" || intent === "buy" || intent === null ? "question" : intent);
+  if (config.consultative && intent === "buy" && state.stageIndex <= config.stages.findIndex(s => s.id === "awareness")) intent = "question";
+  if (config.consultative && intent === "medical") intent = "question";
+  if (config.consultative && /\b(worried|scared|anxious|diabet\w*|blood sugar|glucose)\b/i.test(normalized) && intent !== "stop" && intent !== "human") intent = "question";
   let source: Decision["source"] = "rules";
   let warning: string | undefined;
   if ((intent === null || intent === "question") && classify) {
     try {
       // Once recognized as a question/refusal, AI cannot turn it into an answer or a sale.
-      const allowedIntents = intent === "question" ? intents.filter(i => i !== "answer" && i !== "buy") : intents;
+      const allowedIntents = intent === "question" || (config.consultative && stage.input === "confirm") ? intents.filter(i => i !== "answer" && i !== "buy") : intents;
       const result = await classify({ message: input.message, question: stage.question, allowedIntents });
       if (!record(result) || Object.keys(result).some(k => k !== "intent") || !allowedIntents.includes(result.intent as Intent)) throw new Error("Invalid AI classification");
       intent = result.intent as Intent;
@@ -137,6 +166,7 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     } catch { warning = "AI unavailable or invalid output; question preserved."; source = "fallback"; }
   }
   if (intent === null) { intent = "question"; source = "fallback"; warning ??= "No AI classification; use an explicit answer or continue."; }
+  if (config.consultative && intent === "buy" && state.stageIndex <= config.stages.findIndex(s => s.id === "awareness")) intent = "question";
   if (intent === "stop" || intent === "human") {
     state.status = intent === "stop" ? "stopped" : "human";
     return { ...base, messages: [config.replies[intent]], action: intent, intent, source, warning };
@@ -160,6 +190,6 @@ export async function decide(config: Config, input: Input, classify?: Classifier
     return { state, stageId: next.id, messages: [...(choice ? [choice.acknowledgement] : []), ...emitStage(next)], action: "advance", intent, source, warning, choices: next.choices?.map(c => c.label) };
   }
   const reply = intent === "price" && config.offer.approved ? `The approved offer is ${config.offer.priceLabel}.` : config.replies[intent];
-  const pauseWithoutPrompt = intent === "budget" || intent === "timing" || intent === "medical";
+  const pauseWithoutPrompt = Boolean(config.consultative) || intent === "budget" || intent === "timing" || intent === "medical";
   return { ...base, messages: pauseWithoutPrompt ? [reply] : [reply, stage.question], action: "hold", intent, source, warning, choices: pauseWithoutPrompt ? [] : stage.choices?.map(c => c.label) };
 }

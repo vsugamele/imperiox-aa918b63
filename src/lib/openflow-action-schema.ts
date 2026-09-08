@@ -2,7 +2,14 @@
 import { z } from "zod";
 
 const cinnaStageSchema = z.object({ id: z.string().min(1), title: z.string().min(1), input: z.enum(["name", "free", "confirm"]), sourceGroups: z.array(z.string().min(1)), choices: z.array(z.object({ label: z.string().min(1), acknowledgement: z.string().min(1) }).passthrough()).max(4).optional() }).passthrough();
-const cinnaPolicySchema = z.object({ product: z.literal("cinna-shield"), version: z.string().min(1), language: z.literal("en-US"), model: z.string().min(1), offer: z.object({ approved: z.boolean(), checkoutUrl: z.string().nullable(), priceLabel: z.string().nullable() }).passthrough(), replies: z.object({ question: z.string().min(1), price: z.string().min(1), budget: z.string().min(1), timing: z.string().min(1), trust: z.string().min(1), shipping: z.string().min(1), ingredients: z.string().min(1), medical: z.string().min(1), stop: z.string().min(1), human: z.string().min(1) }).passthrough() }).passthrough();
+const cinnaConsultativeSchema = z.object({
+  personaName: z.literal("Ana"),
+  approvedSnippets: z.array(z.object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
+    text: z.string().max(1200).refine(value => value.trim().length > 0, "Informe o texto aprovado"),
+  }).strict()).min(1).max(12).refine(items => new Set(items.map(item => item.id)).size === items.length, "Identificadores dos textos devem ser únicos"),
+}).strict();
+const cinnaPolicySchema = z.object({ product: z.literal("cinna-shield"), version: z.string().min(1), language: z.literal("en-US"), model: z.string().min(1), consultative: cinnaConsultativeSchema.optional(), offer: z.object({ approved: z.boolean(), checkoutUrl: z.string().nullable(), priceLabel: z.string().nullable() }).passthrough(), replies: z.object({ question: z.string().min(1), price: z.string().min(1), budget: z.string().min(1), timing: z.string().min(1), trust: z.string().min(1), shipping: z.string().min(1), ingredients: z.string().min(1), medical: z.string().min(1), stop: z.string().min(1), human: z.string().min(1) }).passthrough() }).passthrough();
 export const openFlowActionSchema = z.object({
   cinna_stage: cinnaStageSchema.optional(),
   cinna_policy: cinnaPolicySchema.optional(),

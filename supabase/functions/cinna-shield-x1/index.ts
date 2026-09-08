@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { decide, parseConfig, type Classifier } from "@cinna/engine";
+import { createCinnaRuntime, planCinnaReply } from "../_shared/cinna-openflow.ts";
+import { callAiChat } from "../_shared/ai-call.ts";
 
 const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json", "Cache-Control": "no-store" };
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
@@ -44,6 +46,34 @@ Deno.serve(async req => {
       const probe = createClient(url, authorization.slice(7), { auth: { persistSession: false, autoRefreshToken: false } });
       const verified = await probe.auth.admin.listUsers({ page: 1, perPage: 1 });
       if (verified.error) return response({ error: "Service authentication required" }, 403);
+      if (body.native === true) {
+        const { data: native, error: nativeError } = await admin.from("imphq_automacoes").select("acoes,ativo")
+          .eq("id", "cinna-shield-x1-native").single();
+        if (nativeError || !native) return response({ error: "Native flow unavailable" }, 503);
+        const runtime = createCinnaRuntime(native.acoes);
+        const samples = {
+          concern: { stage: 0, text: "I was diagnosed with diabetes and feel overwhelmed. I want to understand what I can do." },
+          permission: { stage: 1, text: "Tell me about the product" },
+          medication: { stage: 2, text: "Can I take this with insulin?" },
+          emergency: { stage: 2, text: "I have chest pain and trouble breathing" },
+        } as const;
+        const sampleKey = typeof body.sample === "string" && Object.hasOwn(samples, body.sample) ? body.sample as keyof typeof samples : "concern";
+        const sample = samples[sampleKey];
+        runtime.state.stageIndex = sample.stage;
+        const plan = await planCinnaReply(runtime, runtime.snapshot.waitSteps[sample.stage], crypto.randomUUID(), sample.text, async request => {
+          const result = await callAiChat({ model: runtime.snapshot.model, temperature: 0, json: true, maxAttempts: 1, timeoutMs: 25000,
+            messages: [{ role: "system", content: `Classify intent only. Return JSON {"intent":"..."}. Allowed: ${request.allowedIntents.join(",")}. Question: ${request.question}` }, { role: "user", content: request.message }], tag: "cinna-native-probe-intent" });
+          return JSON.parse(result.content);
+        }, { history: [], compose: async request => {
+          const result = await callAiChat({ model: runtime.snapshot.model, temperature: 0.2, json: true, maxAttempts: 1, timeoutMs: 25000,
+            messages: [{ role: "system", content: request.system }, ...request.messages], tag: "cinna-native-probe-consultative" });
+          return JSON.parse(result.content);
+        } });
+        // Fixed diagnostic samples only: no session creation, database write or channel send.
+        return response({ native: true, sample: sampleKey, active: native.ativo, version: runtime.snapshot.config.version,
+          action: plan.decision.action, intent: plan.decision.intent, classifierSource: plan.decision.source,
+          contextual: plan.contextual, messages: plan.messages, stageIndex: plan.decision.state.stageIndex, sent: false });
+      }
       const { data, error } = await admin.from("imphq_cinna_x1_configs").select("config,revision,model").eq("project_id",projectId).single();
       if (error || !data) return response({ error: "Configuração indisponível." }, 503);
       const config = parseConfig(data.config);

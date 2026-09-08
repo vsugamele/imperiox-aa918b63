@@ -24,7 +24,8 @@ export function toNativeCinnaFlow(value: unknown, model: string): CinnaNativeAct
     };
     if (stageIndex === 0) {
       wait.cinna_policy = { product: config.product, version: config.version, language: config.language,
-        offer: structuredClone(config.offer), replies: structuredClone(config.replies), model };
+        offer: structuredClone(config.offer), replies: structuredClone(config.replies), model,
+        ...(config.consultative ? { consultative: structuredClone(config.consultative) } : {}) };
     }
     actions.push(wait);
   });

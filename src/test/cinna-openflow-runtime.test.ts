@@ -7,10 +7,11 @@ import { toNativeCinnaFlow } from "@/lib/cinna-shield-x1/openflow";
 import { compileNativeCinna, isNativeCinna } from "@/lib/cinna-shield-x1/native-contract";
 import { createCinnaRuntime, readCinnaRuntime, writeCinnaRuntime, planCinnaReply } from "../../supabase/functions/_shared/cinna-openflow";
 
-const actions = () => toNativeCinnaFlow(JSON.parse(readFileSync(resolve("scripts/cinna-shield-x1/flow.yaml"), "utf8")), "model");
+const actions = () => toNativeCinnaFlow(JSON.parse(readFileSync(resolve("src/test/fixtures/cinna-legacy.json"), "utf8")), "model");
 type Handler = (req: Request) => Promise<Response>;
-function app(message: string, failAt = -1) {
-  const runtime = createCinnaRuntime(actions());
+function app(message: string, failAt = -1, ana = false) {
+  const flow = ana ? toNativeCinnaFlow(JSON.parse(readFileSync(resolve("scripts/cinna-shield-x1/flow.yaml"), "utf8")), "model") : actions();
+  const runtime = createCinnaRuntime(flow);
   const execution: Record<string, unknown> = { id: "execution", automacao_id: "flow", current_step: runtime.snapshot.waitSteps[0],
     trigger_tipo: "webchat_mensagem_recebida", status: "waiting", step_results: writeCinnaRuntime([], runtime), error_message: null };
   const session = { id: "session", project_id: "cinna-shield", canal: "webchat", external_id: "visitor", meta: {} };
@@ -21,7 +22,7 @@ function app(message: string, failAt = -1) {
     let patch: Record<string, unknown> | undefined;
     const result = () => {
       if (table === "imphq_channel_sessions") return { data: session, error: null };
-      if (table === "imphq_automacoes") return { data: { id: "flow", nome: "Cinna", acoes: actions() }, error: null };
+      if (table === "imphq_automacoes") return { data: { id: "flow", nome: "Cinna", acoes: flow }, error: null };
       if (table === "imphq_channel_messages") return { data: event, error: null };
       const matches = filters.every(([key, value]) => key === "step_results" ? JSON.stringify(execution[key]) === value :
         key === "channel_session_id" || execution[key] === value);
@@ -42,16 +43,18 @@ function app(message: string, failAt = -1) {
     execution.current_step = runtime.snapshot.waitSteps[1]; execution.status = "waiting";
     return Response.json({ ok: true });
   });
+  const ai = vi.fn(async (request: { tag?: string }) => ({ content: JSON.stringify(request.tag === "cinna-native-consultative"
+    ? { acknowledgementId: "concern", snippetIds: [], questionId: "clarify" } : { intent: "question" }) }));
   const source = readFileSync(resolve("supabase/functions/channel-ai-reply/index.ts"), "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
   new Function("Deno", "z", "createClient", "corsHeaders", "callAiChat", "sendToChannel", "isNativeCinna", "readCinnaRuntime", "writeCinnaRuntime", "planCinnaReply", "fetch", output)(
     { env: { get: (name: string) => name === "SUPABASE_SERVICE_ROLE_KEY" ? "test-service" : "https://local.test" }, serve: (value: Handler) => { handler = value; } },
-    z, () => ({ from }), {}, vi.fn(async () => ({ content: '{"intent":"question"}' })), send,
+    z, () => ({ from }), {}, ai, send,
     isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply, fetchMock);
   if (!handler) throw new Error("Missing handler");
   const invoke = (authorized = true, incoming = message) => handler!(new Request("https://local.test", { method: "POST",
     headers: authorized ? { Authorization: "Bearer test-service" } : {}, body: JSON.stringify({ session_id: "session", message: incoming }) }));
-  return { invoke, execution, updates, send, fetchMock, event };
+  return { invoke, execution, updates, send, fetchMock, event, ai };
 }
 
 describe("Cinna native runtime", () => {
@@ -193,3 +196,19 @@ describe("Cinna real native executor", () => {
   });
 });
 
+
+
+describe("Ana contextual native channel handler", () => {
+  it("composes a contextual hold once and does not regenerate a duplicate event", async () => {
+    const test = app("I have diabetes and feel overwhelmed", -1, true);
+    expect((await test.invoke()).status).toBe(200); expect((await test.invoke()).status).toBe(200);
+    expect(test.ai.mock.calls.filter(([request]) => request.tag === "cinna-native-consultative")).toHaveLength(1);
+    expect(test.send).toHaveBeenCalledTimes(1); expect(test.fetchMock).not.toHaveBeenCalled();
+  });
+  it("never invokes AI for a personal suitability request", async () => {
+    const test = app("Can I take this with insulin?", -1, true);
+    expect((await test.invoke()).status).toBe(200); expect(test.ai).not.toHaveBeenCalled();
+    expect(readCinnaRuntime(test.execution.step_results)?.state.status).toBe("human");
+    expect(test.fetchMock).not.toHaveBeenCalled();
+  });
+});

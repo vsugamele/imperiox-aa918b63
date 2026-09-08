@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { decide, initialState, parseConfig, validCheckout, type Config } from "@/lib/cinna-shield-x1/engine";
 
-const config = (): Config => parseConfig(JSON.parse(readFileSync(resolve(process.cwd(), "scripts/cinna-shield-x1/flow.yaml"), "utf8")));
+const config = (): Config => parseConfig(JSON.parse(readFileSync(resolve(process.cwd(), "src/test/fixtures/cinna-legacy.json"), "utf8")));
 describe("Cinna Shield script and AI", () => {
   it("starts and completes the nine stages in order without offering a placeholder", async () => {
     const c = config();

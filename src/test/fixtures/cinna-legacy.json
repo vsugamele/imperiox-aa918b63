@@ -1,0 +1,166 @@
+{
+  "product": "cinna-shield",
+  "version": "csx1.2-conversation-review",
+  "language": "en-US",
+  "offer": {
+    "approved": false,
+    "checkoutUrl": null,
+    "priceLabel": null
+  },
+  "replies": {
+    "question": "Let me make sure I answer the right thing. Is your question about the formula, the price, or delivery? You can also ask for a person.",
+    "price": "You want the number before the long explanation — fair. The current package and total aren't confirmed here yet, so I won't quote the old price. Say 'human' if you'd like help checking the offer.",
+    "trust": "Fair question. An ad alone isn't enough to judge a product. Check the label, who's taking the payment, and the written purchase terms. If any of those are unclear, ask for them before ordering.",
+    "shipping": "Delivery can make a difference to the decision. I don't have confirmed shipping costs or dates for this offer yet. Say 'human' if that's the detail you need before going further.",
+    "ingredients": "The product brief describes Ceylon cinnamon extract with MCT in a capsule formula. For the exact amounts and full ingredient list, the current label is the reference. Is there a particular ingredient you're checking?",
+    "medical": "I can't tell you whether this supplement is suitable for a medical condition or compatible with medication. Please check the product label with your clinician or pharmacist before deciding.",
+    "stop": "Understood. This automated conversation is stopped.",
+    "human": "I've paused the automated conversation. A member of the team will need to take over.",
+    "budget": "If it doesn't fit your budget, there's no reason to stretch it. The useful comparison is the full package and total cost, including shipping. Want a person to help check those details?",
+    "timing": "Of course. Is there a detail you still want answered, or would you rather leave it here? You can say 'stop' and end the conversation."
+  },
+  "stages": [
+    {
+      "id": "connection",
+      "title": "Conexão",
+      "sourceGroups": [
+        "GRUPO 1. CONEXAO",
+        "GRUPO 1. CONEXAO (2)",
+        "GRUPO 1. CONEXAO (3)"
+      ],
+      "messages": [
+        "Hi — I'm Cinna Shield's virtual assistant.",
+        "Wondering what's in it, what makes it different, or what it costs? We can start with the part that matters to you."
+      ],
+      "question": "What should I call you? Or say 'continue' and we'll get straight to it.",
+      "input": "name"
+    },
+    {
+      "id": "awareness",
+      "title": "Conscientização",
+      "sourceGroups": [
+        "GRUPO 2. CONSCIENTIZACAO"
+      ],
+      "messages": [
+        "Before I send you a whole explanation, what brought you here?"
+      ],
+      "question": "Are you just exploring, comparing options, or looking for a simpler routine?",
+      "input": "free",
+      "choices": [
+        {
+          "label": "Just exploring",
+          "acknowledgement": "Then let's start with the short version. You can decide whether you want more detail."
+        },
+        {
+          "label": "Comparing options",
+          "acknowledgement": "Then let's focus on what you can actually compare: the ingredients, the format and the purchase terms."
+        },
+        {
+          "label": "A simpler routine",
+          "acknowledgement": "Then the practical details matter: what the product is, how it's presented and whether it fits the routine you want."
+        }
+      ]
+    },
+    {
+      "id": "curiosity",
+      "title": "Curiosidade",
+      "sourceGroups": [
+        "GRUPO 3. CURIOSIDADE",
+        "GRUPO 3. CURIOSIDADE (2)",
+        "GRUPO 3. CURIOSIDADE (3)"
+      ],
+      "messages": [
+        "Cinna Shield is presented as a capsule formula built around Ceylon cinnamon extract and MCT.",
+        "That is the starting point. The next useful question is what those ingredients mean for the product you're considering."
+      ],
+      "question": "Want the quick ingredient breakdown?",
+      "input": "confirm"
+    },
+    {
+      "id": "mechanism",
+      "title": "Mecanismo",
+      "sourceGroups": [
+        "GRUPO 4. MECANISMO",
+        "GRUPO 4. MECANISMO (2)",
+        "GRUPO 4. MECANISMO (3)"
+      ],
+      "messages": [
+        "The brief identifies the cinnamon as Ceylon cinnamon — Cinnamomum verum — and lists MCT alongside it.",
+        "For quantities and directions, use the full product label. I won't turn an ingredient list into a promise about your results."
+      ],
+      "question": "Anything you want to ask about the formula, or shall we keep going?",
+      "input": "free"
+    },
+    {
+      "id": "benefits",
+      "title": "Benefícios",
+      "sourceGroups": [
+        "GRUPO 5. BENEFICIOS"
+      ],
+      "messages": [
+        "Now for the everyday part: it comes in a capsule format.",
+        "If a simpler routine is what you're after, the directions and serving size are worth checking before deciding. Easy to understand matters as much as easy to buy."
+      ],
+      "question": "Shall we look at what would help you feel comfortable with the purchase?",
+      "input": "confirm"
+    },
+    {
+      "id": "proof",
+      "title": "Prova",
+      "sourceGroups": [
+        "GRUPO 6. PROVA SOCIAL",
+        "GRUPO 6. PROVA SOCIAL (2)",
+        "GRUPO 6. PROVA SOCIAL (3)"
+      ],
+      "messages": [
+        "Before spending money, you should be able to see exactly what you're getting.",
+        "A clear label and written purchase terms give you something concrete to check. A polished testimonial isn't a substitute for that."
+      ],
+      "question": "What's the main thing holding you back: trust, the cost, or wanting more time?",
+      "input": "free"
+    },
+    {
+      "id": "opportunity",
+      "title": "Oportunidade",
+      "sourceGroups": [
+        "GRUPO 7. OPORTUNIDADE"
+      ],
+      "messages": [
+        "If the product interests you, let's put the offer in one place: the package, total price, delivery and return terms.",
+        "Those are the details to settle before payment. You can ask for the price now without finishing the rest of this chat."
+      ],
+      "question": "Would you like to keep going, or ask about the offer first?",
+      "input": "confirm"
+    },
+    {
+      "id": "decision",
+      "title": "Decisão sem pressão",
+      "sourceGroups": [
+        "GRUPO 8. RISCOS E PERDAS",
+        "GRUPO 8. RISCOS E PERDAS (2)",
+        "GRUPO 8. RISCOS E PERDAS (3)"
+      ],
+      "messages": [
+        "You don't need to make the decision while a question is still hanging over it.",
+        "Ask it here. If you'd rather think it over, that's fine too."
+      ],
+      "question": "Ready for the next step, or is there something else you want to clear up?",
+      "input": "confirm"
+    },
+    {
+      "id": "close",
+      "title": "Fechamento",
+      "sourceGroups": [
+        "GRUPO 9. FECHAMENTO",
+        "GRUPO 9. FECHAMENTO (2)",
+        "GRUPO 9. FECHAMENTO (3)"
+      ],
+      "messages": [
+        "If you want to go ahead, ask for the purchase link.",
+        "I'll share it only when the current offer is confirmed. If you need a person first, just say so."
+      ],
+      "question": "Purchase link, a person, or finish here?",
+      "input": "free"
+    }
+  ]
+}

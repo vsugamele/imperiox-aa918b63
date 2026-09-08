@@ -100,12 +100,21 @@ Deno.serve(async (req) => {
       };
       let dispatched = false;
       try {
+        const { data: recent, error: historyError } = cinnaRuntime.snapshot.config.consultative
+          ? await supabase.from("imphq_channel_messages").select("id, direction, texto").eq("session_id", session.id).order("created_at", { ascending: false }).limit(9)
+          : { data: [], error: null };
+        const contextualHistory = !historyError && Array.isArray(recent) ? recent.filter(item => item.id !== event.id && typeof item.texto === "string")
+          .slice(0, 8).reverse().map(item => ({ role: item.direction === "in" ? "user" as const : "assistant" as const, content: String(item.texto).slice(0, 800) })) : [];
         const plan = await planCinnaReply(cinnaRuntime, exec.current_step, event.id, incoming, async request => {
-          const response = await callAiChat({ model: cinnaRuntime.snapshot.model, temperature: 0,
+          const response = await callAiChat({ model: cinnaRuntime.snapshot.model, temperature: 0, json: true, maxAttempts: 1,
             messages: [{ role: "system", content: `Classify intent only. Return JSON {"intent":"..."}. Allowed: ${request.allowedIntents.join(",")}. Question: ${request.question}` },
               { role: "user", content: request.message }], tag: "cinna-native-intent", timeoutMs: 25000 });
           return JSON.parse(response.content);
-        });
+        }, { history: contextualHistory, compose: async request => {
+          const response = await callAiChat({ model: cinnaRuntime.snapshot.model, temperature: 0.2, json: true, maxAttempts: 1,
+            messages: [{ role: "system", content: request.system }, ...request.messages], tag: "cinna-native-consultative", timeoutMs: 25000 });
+          return JSON.parse(response.content);
+        } });
         cinnaRuntime.pending = { eventId: event.id, decision: plan.decision, messages: plan.messages, confirmed: 0, uncertain: false };
         await save("running");
         for (const message of plan.messages) {

@@ -1,0 +1,342 @@
+{
+  "id": "cinna-shield-x1-native",
+  "nome": "Cinna Shield X1 — Script + IA [EN-US]",
+  "ativo": false,
+  "canal": "messenger",
+  "acoes": [
+    {
+      "id": "cinna-connection-message-0",
+      "tipo": "whatsapp",
+      "template": "Hi — I'm Cinna Shield's virtual assistant.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-connection-message-1",
+      "tipo": "whatsapp",
+      "template": "Wondering what's in it, what makes it different, or what it costs? We can start with the part that matters to you.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-connection-message-2",
+      "tipo": "whatsapp",
+      "template": "What should I call you? Or say 'continue' and we'll get straight to it.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-connection-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "connection",
+        "input": "name",
+        "title": "Conexão",
+        "sourceGroups": [
+          "GRUPO 1. CONEXAO",
+          "GRUPO 1. CONEXAO (2)",
+          "GRUPO 1. CONEXAO (3)"
+        ]
+      },
+      "cinna_policy": {
+        "model": "google/gemini-2.5-flash",
+        "offer": {
+          "approved": false,
+          "priceLabel": null,
+          "checkoutUrl": null
+        },
+        "product": "cinna-shield",
+        "replies": {
+          "stop": "Understood. This automated conversation is stopped.",
+          "human": "I've paused the automated conversation. A member of the team will need to take over.",
+          "price": "You want the number before the long explanation — fair. The current package and total aren't confirmed here yet, so I won't quote the old price. Say 'human' if you'd like help checking the offer.",
+          "trust": "Fair question. An ad alone isn't enough to judge a product. Check the label, who's taking the payment, and the written purchase terms. If any of those are unclear, ask for them before ordering.",
+          "budget": "If it doesn't fit your budget, there's no reason to stretch it. The useful comparison is the full package and total cost, including shipping. Want a person to help check those details?",
+          "timing": "Of course. Is there a detail you still want answered, or would you rather leave it here? You can say 'stop' and end the conversation.",
+          "medical": "I can't tell you whether this supplement is suitable for a medical condition or compatible with medication. Please check the product label with your clinician or pharmacist before deciding.",
+          "question": "Let me make sure I answer the right thing. Is your question about the formula, the price, or delivery? You can also ask for a person.",
+          "shipping": "Delivery can make a difference to the decision. I don't have confirmed shipping costs or dates for this offer yet. Say 'human' if that's the detail you need before going further.",
+          "ingredients": "The product brief describes Ceylon cinnamon extract with MCT in a capsule formula. For the exact amounts and full ingredient list, the current label is the reference. Is there a particular ingredient you're checking?"
+        },
+        "version": "csx1.2-conversation-review",
+        "language": "en-US"
+      }
+    },
+    {
+      "id": "cinna-awareness-message-0",
+      "tipo": "whatsapp",
+      "template": "Before I send you a whole explanation, what brought you here?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-awareness-message-1",
+      "tipo": "whatsapp",
+      "template": "Are you just exploring, comparing options, or looking for a simpler routine?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-awareness-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "awareness",
+        "input": "free",
+        "title": "Conscientização",
+        "choices": [
+          {
+            "label": "Just exploring",
+            "acknowledgement": "Then let's start with the short version. You can decide whether you want more detail."
+          },
+          {
+            "label": "Comparing options",
+            "acknowledgement": "Then let's focus on what you can actually compare: the ingredients, the format and the purchase terms."
+          },
+          {
+            "label": "A simpler routine",
+            "acknowledgement": "Then the practical details matter: what the product is, how it's presented and whether it fits the routine you want."
+          }
+        ],
+        "sourceGroups": [
+          "GRUPO 2. CONSCIENTIZACAO"
+        ]
+      }
+    },
+    {
+      "id": "cinna-curiosity-message-0",
+      "tipo": "whatsapp",
+      "template": "Cinna Shield is presented as a capsule formula built around Ceylon cinnamon extract and MCT.",
+      "delay_min": 0,
+      "position_x": 150,
+      "position_y": 1320
+    },
+    {
+      "id": "cinna-curiosity-message-1",
+      "tipo": "whatsapp",
+      "template": "That is the starting point. The next useful question is what those ingredients mean for the product you're considering.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-curiosity-message-2",
+      "tipo": "whatsapp",
+      "template": "Want the quick ingredient breakdown?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-curiosity-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "curiosity",
+        "input": "confirm",
+        "title": "Curiosidade",
+        "sourceGroups": [
+          "GRUPO 3. CURIOSIDADE",
+          "GRUPO 3. CURIOSIDADE (2)",
+          "GRUPO 3. CURIOSIDADE (3)"
+        ]
+      }
+    },
+    {
+      "id": "cinna-mechanism-message-0",
+      "tipo": "whatsapp",
+      "template": "The brief identifies the cinnamon as Ceylon cinnamon — Cinnamomum verum — and lists MCT alongside it.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-mechanism-message-1",
+      "tipo": "whatsapp",
+      "template": "For quantities and directions, use the full product label. I won't turn an ingredient list into a promise about your results.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-mechanism-message-2",
+      "tipo": "whatsapp",
+      "template": "Anything you want to ask about the formula, or shall we keep going?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-mechanism-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "mechanism",
+        "input": "free",
+        "title": "Mecanismo",
+        "sourceGroups": [
+          "GRUPO 4. MECANISMO",
+          "GRUPO 4. MECANISMO (2)",
+          "GRUPO 4. MECANISMO (3)"
+        ]
+      }
+    },
+    {
+      "id": "cinna-benefits-message-0",
+      "tipo": "whatsapp",
+      "template": "Now for the everyday part: it comes in a capsule format.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-benefits-message-1",
+      "tipo": "whatsapp",
+      "template": "If a simpler routine is what you're after, the directions and serving size are worth checking before deciding. Easy to understand matters as much as easy to buy.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-benefits-message-2",
+      "tipo": "whatsapp",
+      "template": "Shall we look at what would help you feel comfortable with the purchase?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-benefits-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "benefits",
+        "input": "confirm",
+        "title": "Benefícios",
+        "sourceGroups": [
+          "GRUPO 5. BENEFICIOS"
+        ]
+      }
+    },
+    {
+      "id": "cinna-proof-message-0",
+      "tipo": "whatsapp",
+      "template": "Before spending money, you should be able to see exactly what you're getting.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-proof-message-1",
+      "tipo": "whatsapp",
+      "template": "A clear label and written purchase terms give you something concrete to check. A polished testimonial isn't a substitute for that.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-proof-message-2",
+      "tipo": "whatsapp",
+      "template": "What's the main thing holding you back: trust, the cost, or wanting more time?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-proof-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "proof",
+        "input": "free",
+        "title": "Prova",
+        "sourceGroups": [
+          "GRUPO 6. PROVA SOCIAL",
+          "GRUPO 6. PROVA SOCIAL (2)",
+          "GRUPO 6. PROVA SOCIAL (3)"
+        ]
+      }
+    },
+    {
+      "id": "cinna-opportunity-message-0",
+      "tipo": "whatsapp",
+      "template": "If the product interests you, let's put the offer in one place: the package, total price, delivery and return terms.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-opportunity-message-1",
+      "tipo": "whatsapp",
+      "template": "Those are the details to settle before payment. You can ask for the price now without finishing the rest of this chat.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-opportunity-message-2",
+      "tipo": "whatsapp",
+      "template": "Would you like to keep going, or ask about the offer first?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-opportunity-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "opportunity",
+        "input": "confirm",
+        "title": "Oportunidade",
+        "sourceGroups": [
+          "GRUPO 7. OPORTUNIDADE"
+        ]
+      }
+    },
+    {
+      "id": "cinna-decision-message-0",
+      "tipo": "whatsapp",
+      "template": "You don't need to make the decision while a question is still hanging over it.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-decision-message-1",
+      "tipo": "whatsapp",
+      "template": "Ask it here. If you'd rather think it over, that's fine too.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-decision-message-2",
+      "tipo": "whatsapp",
+      "template": "Ready for the next step, or is there something else you want to clear up?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-decision-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "decision",
+        "input": "confirm",
+        "title": "Decisão sem pressão",
+        "sourceGroups": [
+          "GRUPO 8. RISCOS E PERDAS",
+          "GRUPO 8. RISCOS E PERDAS (2)",
+          "GRUPO 8. RISCOS E PERDAS (3)"
+        ]
+      }
+    },
+    {
+      "id": "cinna-close-message-0",
+      "tipo": "whatsapp",
+      "template": "If you want to go ahead, ask for the purchase link.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-close-message-1",
+      "tipo": "whatsapp",
+      "template": "I'll share it only when the current offer is confirmed. If you need a person first, just say so.",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-close-message-2",
+      "tipo": "whatsapp",
+      "template": "Purchase link, a person, or finish here?",
+      "delay_min": 0
+    },
+    {
+      "id": "cinna-close-reply",
+      "tipo": "wait_reply",
+      "template": "",
+      "delay_min": 0,
+      "cinna_stage": {
+        "id": "close",
+        "input": "free",
+        "title": "Fechamento",
+        "sourceGroups": [
+          "GRUPO 9. FECHAMENTO",
+          "GRUPO 9. FECHAMENTO (2)",
+          "GRUPO 9. FECHAMENTO (3)"
+        ]
+      }
+    }
+  ],
+  "updated_at": "2026-09-08 17:50:53.05761+00"
+}

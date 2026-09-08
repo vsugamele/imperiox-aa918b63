@@ -1,3 +1,4 @@
+import { composeConsultativeReply, type ConsultativeComposer, type ConsultativeMessage } from "../../../src/lib/cinna-shield-x1/consultative.ts";
 import { compileNativeCinna, cinnaRecord, isNativeCinna } from "../../../src/lib/cinna-shield-x1/native-contract.ts";
 import { decide, initialState, validateState, type State, type Decision, type Classifier } from "../cinna-shield-x1/engine.ts";
 export { compileNativeCinna, isNativeCinna };
@@ -29,12 +30,17 @@ export function writeCinnaRuntime(results: unknown, runtime: CinnaRuntime): Reco
   return [...previous, { step: -1, tipo: "cinna_runtime", runtime }];
 }
 /** Next-stage messages belong exclusively to the native executor. */
-export async function planCinnaReply(runtime: CinnaRuntime, currentStep: number, eventId: string, message: string, classify?: Classifier) {
+export async function planCinnaReply(runtime: CinnaRuntime, currentStep: number, eventId: string, message: string, classify?: Classifier, consultative?: { compose: ConsultativeComposer; history: ConsultativeMessage[] }) {
   if (runtime.pending) throw new Error("Cinna delivery pending; manual reconciliation required");
   if (runtime.snapshot.waitSteps[runtime.state.stageIndex] !== currentStep) throw new Error("Cinna cursor mismatch");
   if (!message.trim()) throw new Error("Empty Cinna reply");
   const decision = await decide(runtime.snapshot.config, { state: runtime.state, eventId, message }, classify);
   const choice = runtime.snapshot.config.stages[runtime.state.stageIndex].choices?.find(item => item.label.toLowerCase() === message.trim().toLowerCase());
-  const messages = decision.action === "advance" ? (choice ? [choice.acknowledgement] : []) : decision.messages;
-  return { decision, messages, resumeStep: decision.action === "advance" ? currentStep + 1 : null };
+  let messages = decision.action === "advance" ? (choice ? [choice.acknowledgement] : []) : decision.messages;
+  let contextual = false;
+  if (consultative) {
+    const composed = await composeConsultativeReply(runtime.snapshot.config, decision, message, consultative.history, consultative.compose);
+    if (composed) { messages = composed; contextual = true; }
+  }
+  return { decision, messages, contextual, resumeStep: decision.action === "advance" ? currentStep + 1 : null };
 }
