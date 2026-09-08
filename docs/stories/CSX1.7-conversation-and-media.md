@@ -18,8 +18,8 @@ Revisar copy para acolhimento, objetivo, experiência, rotina, objeção e ofert
 - [x] Preparar mídias finais, registrar geração e validação ou bloqueador concreto.
 - [x] Configurar pausas nativas e conferir sequência.
 - [x] Testar casos comuns, recusa, urgência, deduplicação, captura e mídia; lint/typecheck/test/build.
-- [ ] Atualizar uma automação com CAS, preservando oferta/ativo/layout.
-- [ ] Publicar e conferir; registrar handoff e pendências reais.
+- [x] Atualizar uma automação com CAS, preservando oferta/ativo/layout.
+- [x] Publicar e conferir; registrar handoff e pendências reais.
 
 ## Fontes
 
@@ -27,4 +27,4 @@ Export fornecido; brief do produto; revisão local de mídias CSX1.2. Educação
 
 ## File List
 
-A completar no handoff de CSX1.7.
+Relação completa e evidências de publicação em `docs/sessions/2026-09/cinna-conversation-media.md`.

@@ -20,9 +20,17 @@ Preview nativo passa a renderizar imagem/áudio com controles e sem autoplay. We
 
 ## Validação e publicação
 
-QA independente PASS após quatro correções de respostas naturais e consentimento no fechamento. Gates finais: 389 testes em 54 arquivos passaram; lint global, typecheck app/node, build de produção, node --check do widget e Deno check das três funções passaram. Primeiro Deno check sem o import map falhou; nova execução com deno.json existente passou, sem alterar imports para contornar a configuração. Publicação ainda será registrada após conclusão. Backup CAS: `cinna-native-before-CSX1.7.json`. Ações preparadas: `cinna-native-CSX1.7-actions.json`.
+QA independente PASS após quatro correções de respostas naturais e consentimento no fechamento. Gates finais: 389 testes em 54 arquivos passaram; lint global, typecheck app/node, build de produção, node --check do widget e Deno check das três funções passaram. Primeiro Deno check sem o import map falhou; nova execução com deno.json existente passou, sem alterar imports para contornar a configuração. Publicação concluída, com evidências abaixo. Backup CAS: `cinna-native-before-CSX1.7.json`. Ações preparadas: `cinna-native-CSX1.7-actions.json`.
 
-## Limites operacionais
+## Publicação confirmada em 08/09/2026
+
+Commit de implementação `d645e72ce433e142dedef59b8fd4e435f5eec3bc`, push por @devops. Vercel READY `dpl_BQ3XvCXrpBGnF2hJGAezKmtk48jH`; Lovable confirmou “Your website was updated” no projeto `ccdd4ec8-7dd5-462a-ac41-f99ba5b00a59`. Rotas e widget responderam HTTP 200 nos dois hosts, segundo verificação de publicação do @devops.
+
+Supabase: channel-ai-reply v17, openflow-executor v467 e cinna-shield-x1 v7 ACTIVE, JWT false/false/true preservado e conferido por listagem. CAS alterou exclusivamente acoes da mesma automação, comparando o conteúdo anterior completo e ativo=false. Uma linha retornada, updated_at `2026-09-08 19:13:06.23442+00`; nova leitura confirmou 43 ações e ativo=false.
+
+Quatro diagnósticos internos sobre a configuração nativa retornaram versão csx1.7-conversation-media: preocupação acolhida com hold contextual e classificador IA; permissão para produto avançou à etapa 2; dúvida sobre insulina encaminhou ao profissional; urgência pausou e orientou atendimento urgente. Todos sent=false, sem criar sessão ou enviar mensagem a canal. Isso confirma execução interna, não entrega ponta a ponta Meta.
+
+## Pendências de ativação
 
 Oferta não aprovada: preço de 97 no export não é confirmação comercial; checkout do export era example.com. Pacote, total, frete, termos e checkout reais precisam ser fornecidos/confirmados antes da ativação. Meta ainda não conectado; não houve mensagens para clientes nem teste de entrega Messenger/Instagram. Não foi implementado adaptador Instagram nesta revisão de conteúdo/mídias.
 
