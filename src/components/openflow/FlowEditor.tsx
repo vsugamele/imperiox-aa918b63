@@ -32,6 +32,7 @@ import { MediaPicker } from "@/components/openflow/MediaPicker";
 import { ABVariantStats } from "@/components/openflow/flow-editor/ABVariantStats";
 import { useFlowNodeStats } from "@/components/openflow/flow-editor/useFlowNodeStats";
 import { LivePanel } from "@/components/openflow/flow-editor/LivePanel";
+import { CinnaJourneyPanel } from "@/components/openflow/CinnaJourneyPanel";
 import { Undo2, Redo2, Radio, Shield } from "lucide-react";
 
 
@@ -391,6 +392,7 @@ export function FlowEditor({
     enabled: !!automacaoId,
   });
   const [livePanelOpen, setLivePanelOpen] = useState(false);
+  const [journeyOpen, setJourneyOpen] = useState(false);
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
@@ -974,6 +976,7 @@ export function FlowEditor({
             )}
           </Button>
         )}
+        {automacaoId === "cinna-shield-x1-native" && <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1" onClick={() => setJourneyOpen(true)}><BarChart3 className="h-3.5 w-3.5" /> Etapas e histórico</Button>}
         {automacaoId && (
           <Button
             variant="ghost"
@@ -1699,6 +1702,7 @@ export function FlowEditor({
         />
       )}
 
+      {automacaoId === "cinna-shield-x1-native" && <CinnaJourneyPanel open={journeyOpen} onOpenChange={setJourneyOpen} />}
       <GuardrailsPanel automacaoId={guardrailsOpen ? (automacaoId || null) : null} onClose={() => setGuardrailsOpen(false)} />
 
 

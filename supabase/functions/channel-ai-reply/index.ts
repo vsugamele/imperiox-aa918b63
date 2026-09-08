@@ -1,4 +1,4 @@
-import { isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply } from "../_shared/cinna-openflow.ts";
+import { isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply, recordCinnaTurn } from "../_shared/cinna-openflow.ts";
 import { z } from "https://esm.sh/zod@3.25.76";
 const stepSchema = z.object({ tipo: z.string().nullish(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), url: z.string().nullish() }).passthrough();
 // channel-ai-reply — agente de resposta para canais não-WhatsApp (Messenger via Zernio, Webchat do site).
@@ -93,9 +93,10 @@ Deno.serve(async (req) => {
         .update({ status: "running", next_run_at: null }).eq("id", exec.id).eq("status", "waiting")
         .eq("current_step", exec.current_step).eq("step_results", JSON.stringify(exec.step_results)).select("id").maybeSingle();
       if (claimError || !claimed) throw new Error("Cinna turn concurrently claimed");
+      let turnResults: unknown = exec.step_results;
       const save = async (status: string, errorMessage: string | null = null) => {
         const { error } = await supabase.from("imphq_flow_executions").update({ status, next_run_at: null,
-          step_results: writeCinnaRuntime(exec.step_results, cinnaRuntime), error_message: errorMessage }).eq("id", exec.id);
+          step_results: writeCinnaRuntime(turnResults, cinnaRuntime), error_message: errorMessage }).eq("id", exec.id);
         if (error) throw new Error("Unable to persist Cinna turn; delivery requires review");
       };
       let dispatched = false;
@@ -130,6 +131,7 @@ Deno.serve(async (req) => {
           cinnaRuntime.pending.uncertain = false;
           await save("running");
         }
+        turnResults = recordCinnaTurn(turnResults, cinnaRuntime, plan.decision, event.id, new Date().toISOString());
         cinnaRuntime.state = plan.decision.state;
         delete cinnaRuntime.pending;
         if (plan.resumeStep !== null) {

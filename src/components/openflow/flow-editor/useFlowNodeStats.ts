@@ -51,6 +51,7 @@ export function useFlowNodeStats({ automacaoId, totalSteps, enabled = true }: Op
       const steps = Array.isArray(exec.step_results) ? exec.step_results : [];
       for (const value of steps) {
         const sr = jsonFields(value);
+        if (sr.tipo === "cinna_turn" || sr.tipo === "cinna_runtime") continue;
         const idx = typeof sr?.step === "number" ? sr.step : parseInt(jsonText(sr.step));
         if (isNaN(idx) || idx < 0 || idx >= totalSteps) continue;
         acc[idx] = acc[idx] || { reached: 0, completed: 0, waiting: 0, failed: 0 };

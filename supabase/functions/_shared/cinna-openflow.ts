@@ -29,6 +29,16 @@ export function writeCinnaRuntime(results: unknown, runtime: CinnaRuntime): Reco
   const previous = Array.isArray(results) ? results.filter(cinnaRecord).filter(row => row.tipo !== "cinna_runtime") : [];
   return [...previous, { step: -1, tipo: "cinna_runtime", runtime }];
 }
+/** Append only after every reply delivery was confirmed. No message text or captured answers in telemetry. */
+export function recordCinnaTurn(results: unknown, runtime: CinnaRuntime, decision: Decision, eventId: string, at: string) {
+  const rows = Array.isArray(results) ? results.filter(cinnaRecord) : [];
+  if (decision.action === "ignored" || rows.some(row => row.tipo === "cinna_turn" && row.event_id === eventId)) return rows;
+  const index = runtime.state.stageIndex;
+  return [...rows, { step: runtime.snapshot.waitSteps[index], tipo: "cinna_turn", status: "confirmed",
+    event_id: eventId, timestamp: at, stage_id: runtime.snapshot.config.stages[index].id,
+    from_stage: index, to_stage: decision.state.stageIndex, action: decision.action,
+    intent: decision.intent, source: decision.source, version: runtime.snapshot.config.version }];
+}
 /** Next-stage messages belong exclusively to the native executor. */
 export async function planCinnaReply(runtime: CinnaRuntime, currentStep: number, eventId: string, message: string, classify?: Classifier, consultative?: { compose: ConsultativeComposer; history: ConsultativeMessage[] }) {
   if (runtime.pending) throw new Error("Cinna delivery pending; manual reconciliation required");

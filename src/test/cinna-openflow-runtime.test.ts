@@ -5,7 +5,7 @@ import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { toNativeCinnaFlow } from "@/lib/cinna-shield-x1/openflow";
 import { compileNativeCinna, isNativeCinna } from "@/lib/cinna-shield-x1/native-contract";
-import { createCinnaRuntime, readCinnaRuntime, writeCinnaRuntime, planCinnaReply } from "../../supabase/functions/_shared/cinna-openflow";
+import { createCinnaRuntime, readCinnaRuntime, writeCinnaRuntime, planCinnaReply, recordCinnaTurn } from "../../supabase/functions/_shared/cinna-openflow";
 
 const actions = () => toNativeCinnaFlow(JSON.parse(readFileSync(resolve("src/test/fixtures/cinna-legacy.json"), "utf8")), "model");
 type Handler = (req: Request) => Promise<Response>;
@@ -47,10 +47,10 @@ function app(message: string, failAt = -1, ana = false) {
     ? { acknowledgementId: "concern", snippetIds: [], questionId: "clarify" } : { intent: "question" }) }));
   const source = readFileSync(resolve("supabase/functions/channel-ai-reply/index.ts"), "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  new Function("Deno", "z", "createClient", "corsHeaders", "callAiChat", "sendToChannel", "isNativeCinna", "readCinnaRuntime", "writeCinnaRuntime", "planCinnaReply", "fetch", output)(
+  new Function("Deno", "z", "createClient", "corsHeaders", "callAiChat", "sendToChannel", "isNativeCinna", "readCinnaRuntime", "writeCinnaRuntime", "planCinnaReply", "recordCinnaTurn", "fetch", output)(
     { env: { get: (name: string) => name === "SUPABASE_SERVICE_ROLE_KEY" ? "test-service" : "https://local.test" }, serve: (value: Handler) => { handler = value; } },
     z, () => ({ from }), {}, ai, send,
-    isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply, fetchMock);
+    isNativeCinna, readCinnaRuntime, writeCinnaRuntime, planCinnaReply, recordCinnaTurn, fetchMock);
   if (!handler) throw new Error("Missing handler");
   const invoke = (authorized = true, incoming = message) => handler!(new Request("https://local.test", { method: "POST",
     headers: authorized ? { Authorization: "Bearer test-service" } : {}, body: JSON.stringify({ session_id: "session", message: incoming }) }));
@@ -103,6 +103,9 @@ describe("Cinna real channel handler with mocked storage and sends", () => {
     const test = app("yes"); const response = await test.invoke();
     expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ resumed: true });
     expect(test.send).not.toHaveBeenCalled(); expect(test.fetchMock).toHaveBeenCalledTimes(1);
+    const turns = (test.execution.step_results as Record<string, unknown>[]).filter(row => row.tipo === "cinna_turn");
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toMatchObject({ event_id: "persisted-event", from_stage: 0, to_stage: 1, action: "advance", status: "confirmed" });
   });
   it("serializes concurrent replies using the persisted JSON snapshot", async () => {
     const test = app("yes"); await Promise.all([test.invoke(), test.invoke()]);
@@ -113,6 +116,10 @@ describe("Cinna real channel handler with mocked storage and sends", () => {
     expect((await test.invoke()).status).toBe(200); expect((await test.invoke()).status).toBe(200);
     expect(test.send).toHaveBeenCalledTimes(1); expect(test.fetchMock).not.toHaveBeenCalled();
     expect(test.execution.status).toBe("waiting");
+    const turns = (test.execution.step_results as Record<string, unknown>[]).filter(row => row.tipo === "cinna_turn");
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toMatchObject({ action: "hold", from_stage: 0 });
+    expect(JSON.stringify(turns)).not.toContain("insulin");
   });
   it("persists stop and ignores later messages without resuming", async () => {
     const test = app("stop"); await test.invoke(); test.event.id = "later";
@@ -124,6 +131,7 @@ describe("Cinna real channel handler with mocked storage and sends", () => {
     expect(test.send).toHaveBeenCalledTimes(2); expect(test.fetchMock).not.toHaveBeenCalled();
     expect(test.execution.status).toBe("running");
     expect(JSON.stringify(test.execution.step_results)).toContain('"confirmed":1');
+    expect((test.execution.step_results as Record<string, unknown>[]).filter(row => row.tipo === "cinna_turn")).toEqual([]);
     expect((await test.invoke()).status).toBe(500); expect(test.send).toHaveBeenCalledTimes(2);
   });
 });
