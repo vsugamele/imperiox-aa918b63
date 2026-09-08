@@ -27,7 +27,15 @@ Produção consultada antes da implantação: zero execuções para Cinna. Não 
 
 407 testes em 57 arquivos passaram, incluindo 18 novos testes de jornada, paginação e UI. Testes do handler real com storage/transporte isolados verificam emissão única de evento, ausência após envio parcial e etapa anterior correta. QA independente PASS após corrigir checkpoint delivery_pending: última situação por step define pendência; confirmação posterior resolve. Ajuste de descrição acessível do diálogo incluído.
 
-Lint global passou; typecheck, build e Deno check das três funções foram executados. Evidência final e publicação serão registradas ao concluir. Changelog Supabase e documentação de range consultados; nenhuma mudança de SDK necessária.
+Lint global e do escopo final, typecheck, build final e Deno check das três funções passaram (exit 0). Painel testado novamente após descrição acessível: três testes passaram sem o aviso anterior. Changelog Supabase e documentação de range consultados; nenhuma mudança de SDK necessária.
+
+## Publicação e conferência
+
+Commit de implementação `359f851b3c11f4121248a7a7e33b9668aedc0c85`, 13 arquivos, commit/push por @devops. Vercel READY `dpl_C4ggP4wQhry7LotpVtv2fVgkBLGP`; Lovable confirmou publicação. Root verificou HTTP 200 para a rota nos dois hosts, com bundles Ccu4Chf- (Vercel) e CKZ6JFxZ (Lovable). Funções listadas por root: channel-ai-reply v18, openflow-executor v468, cinna-shield-x1 v8 ACTIVE, JWT false/false/true preservado.
+
+@devops abriu o painel no navegador autenticado; root conferiu independentemente a árvore de acessibilidade da aba 1049996333 em imperiox.lovable.app/openflow. Observados título Etapas e histórico, período Últimos 30 dias, quatro métricas 0, aviso de nenhuma conversa e nenhum lead encontrado, Atualizar habilitado e navegação sem resultados desabilitada. Sem erro visível; console/rede não inspecionados. Conversas com dados foram verificadas nos testes isolados, sem povoar produção com fixtures.
+
+Nova leitura confirmou automação com 43 ações e ativo=false. Trigger de updated_at das execuções confirmado. Sem alterações da oferta ou dos canais. Próximos atendimentos reais alimentarão os eventos; histórico detalhado anterior à instrumentação não é inventado.
 
 ## File List
 

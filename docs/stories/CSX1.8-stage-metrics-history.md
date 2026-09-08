@@ -9,6 +9,6 @@ Reutilizar imphq_flow_executions, snapshots nativos e imphq_channel_messages. Se
 - [x] Métricas de alcance, resposta, avanço, espera e encaminhamento por etapa; definição e cobertura explícitas.
 - [x] Lista de conversas, etapa/status/datas e mensagens históricas paginadas com mídia.
 - [x] Testar duplicação, versões, falha de envio, terminal, paginação/erros; lint/typecheck/test/build/Deno.
-- [ ] Publicar, verificar ambos hosts e função; handoff.
+- [x] Publicar, verificar ambos hosts e função; handoff.
 
 File List: docs/sessions/2026-09/cinna-stage-metrics-history.md.
