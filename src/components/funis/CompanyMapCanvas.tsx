@@ -540,7 +540,16 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list: MapNode[] = (nds || []).map(n => ({ ...n, position: parsePosition(n.position), checklist: parseChecklist(n.checklist) }));
     setRawNodes(list);
-    setAnnotations((anns || []).map(a => clampAnnotationLayout({ ...a, kind: parseAnnotationKind(a.kind), style: parseAnnotationStyle(a.style) })));
+    // tolerante: uma anotação corrompida não pode impedir o mapa inteiro de abrir
+    const parsedAnns: MapAnnotation[] = [];
+    for (const a of anns || []) {
+      try {
+        parsedAnns.push(clampAnnotationLayout({ ...a, kind: parseAnnotationKind(a.kind), style: parseAnnotationStyle(a.style) }));
+      } catch (err) {
+        console.warn("[mapa] anotação ignorada por dados inválidos", a.id, err);
+      }
+    }
+    setAnnotations(parsedAnns);
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
     setNodes(nds2 => {
