@@ -622,7 +622,12 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
     }));
   }, [liveStats]);
 
-  useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
+  useEffect(() => {
+    if (!mapId) return;
+    // limpa o mapa anterior para não parecer que a troca não aconteceu
+    setNodes([]); setEdges([]); setRawNodes([]); setAnnotations([]); setSelected(null); setSelectedIds([]);
+    loadMap(mapId);
+  }, [mapId, loadMap, setAnnotations]);
 
   // Posição no centro da viewport atual (com jitter pra não empilhar)
   const nextDropPosition = useCallback(() => {
