@@ -540,7 +540,16 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
     if (nErr || eErr) { toast.error("Erro ao carregar mapa"); return; }
     const list: MapNode[] = (nds || []).map(n => ({ ...n, position: parsePosition(n.position), checklist: parseChecklist(n.checklist) }));
     setRawNodes(list);
-    setAnnotations((anns || []).map(a => clampAnnotationLayout({ ...a, kind: parseAnnotationKind(a.kind), style: parseAnnotationStyle(a.style) })));
+    // tolerante: uma anotação corrompida não pode impedir o mapa inteiro de abrir
+    const parsedAnns: MapAnnotation[] = [];
+    for (const a of anns || []) {
+      try {
+        parsedAnns.push(clampAnnotationLayout({ ...a, kind: parseAnnotationKind(a.kind), style: parseAnnotationStyle(a.style) }));
+      } catch (err) {
+        console.warn("[mapa] anotação ignorada por dados inválidos", a.id, err);
+      }
+    }
+    setAnnotations(parsedAnns);
     const providers = waProvidersRef.current;
     const counts = waConvCountsRef.current;
     setNodes(nds2 => {
@@ -613,7 +622,12 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
     }));
   }, [liveStats]);
 
-  useEffect(() => { if (mapId) loadMap(mapId); }, [mapId, loadMap]);
+  useEffect(() => {
+    if (!mapId) return;
+    // limpa o mapa anterior para não parecer que a troca não aconteceu
+    setNodes([]); setEdges([]); setRawNodes([]); setAnnotations([]); setSelected(null); setSelectedIds([]);
+    loadMap(mapId);
+  }, [mapId, loadMap, setAnnotations]);
 
   // Posição no centro da viewport atual (com jitter pra não empilhar)
   const nextDropPosition = useCallback(() => {

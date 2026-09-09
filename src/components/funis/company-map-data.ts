@@ -19,15 +19,19 @@ export function parseAnnotationKind(value: unknown): AnnotationKind {
   throw new Error("Tipo de anotação desconhecido");
 }
 const styleSchema = z.object({
- borderColor: z.string().optional(), bgColor: z.string().optional(), fontSize: z.number().optional(),
- orientation: z.enum(["diag-down", "diag-up", "horizontal", "vertical"]).optional(), showHead: z.boolean().optional(),
- url: z.string().optional(), platform: z.enum(["instagram", "tiktok", "youtube", "other"]).optional(),
- thumb: z.string().optional(), thumb_proxy: z.string().optional(), author: z.string().optional(), title: z.string().optional(), description: z.string().optional(),
- heading: z.string().optional(), subheading: z.string().optional(), link: z.string().optional(), generating: z.boolean().optional(),
- recurrence: z.enum(["daily", "weekly"]).optional(), items: z.array(z.object({time: z.string(), kind: z.enum(["post", "story", "reel", "email", "wa", "other"]), label: z.string()}).passthrough()).optional(),
- accountId: z.string().optional(), viewMode: z.enum(["compact", "expanded"]).optional(),
+ borderColor: z.string().nullish(), bgColor: z.string().nullish(), fontSize: z.number().nullish(),
+ orientation: z.enum(["diag-down", "diag-up", "horizontal", "vertical"]).nullish(), showHead: z.boolean().nullish(),
+ url: z.string().nullish(), platform: z.enum(["instagram", "tiktok", "youtube", "other"]).nullish(),
+ thumb: z.string().nullish(), thumb_proxy: z.string().nullish(), author: z.string().nullish(), title: z.string().nullish(), description: z.string().nullish(),
+ heading: z.string().nullish(), subheading: z.string().nullish(), link: z.string().nullish(), generating: z.boolean().nullish(),
+ recurrence: z.enum(["daily", "weekly"]).nullish(), items: z.array(z.object({time: z.string(), kind: z.enum(["post", "story", "reel", "email", "wa", "other"]), label: z.string()}).passthrough()).nullish(),
+ accountId: z.string().nullish(), viewMode: z.enum(["compact", "expanded"]).nullish(),
 }).passthrough();
 export function parseAnnotationStyle(value: unknown): AnnotationData["style"] {
  const parsed = styleSchema.parse(value || {});
- return { ...parsed, items: parsed.items?.map(item => ({ ...item, time: item.time, kind: item.kind, label: item.label })) };
+ // normaliza null -> undefined (dados legados podem gravar null em campos de texto)
+ const clean: Record<string, unknown> = {};
+ for (const [k, v] of Object.entries(parsed)) if (v !== null) clean[k] = v;
+ const items = Array.isArray(parsed.items) ? parsed.items.map(item => ({ ...item, time: item.time, kind: item.kind, label: item.label })) : undefined;
+ return { ...(clean as AnnotationData["style"]), ...(items ? { items } : {}) };
 }
