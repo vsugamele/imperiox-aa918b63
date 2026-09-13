@@ -55,9 +55,15 @@ Deno.serve(async (req) => {
 
   for (const row of rows) {
     if (!row.payload) {
-      failed++;
+      // Sem payload não há o que recuperar — marca para não travar a fila.
+      await supabase
+        .from("imphq_webhook_errors")
+        .update({ reprocessado: true, reprocessado_at: new Date().toISOString() })
+        .eq("id", row.id);
+      skipped++;
       continue;
     }
+
     const url = `${SUPABASE_URL}/functions/v1/webhook-pagamento${row.project_id ? `?project=${encodeURIComponent(row.project_id)}` : ""}`;
     try {
       const res = await fetch(url, {
