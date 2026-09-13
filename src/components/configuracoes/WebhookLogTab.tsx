@@ -31,6 +31,7 @@ export function WebhookLogTab() {
   const [filter, setFilter] = useState<string>("all");
   const [viewPayload, setViewPayload] = useState<Json>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const extractProduct = useCallback((payload: Json): string => {
     if (!payload) return "";
