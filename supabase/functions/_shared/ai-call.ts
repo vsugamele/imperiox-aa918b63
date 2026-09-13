@@ -25,6 +25,10 @@ export interface AiCallOptions {
   timeoutMs?: number;
   maxAttempts?: number;
   tag?: string;
+  /** Projeto ao qual o gasto pertence (imphq_projects.id). */
+  projectId?: string | null;
+  /** Nome da edge function que originou a chamada. */
+  functionName?: string;
 }
 
 export interface AiCallResult {
@@ -56,11 +60,60 @@ export class AiCallError extends Error {
   }
 }
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+/** Registra consumo de IA em imphq_ai_usage. Nunca lança. */
+async function logUsage(
+  opts: AiCallOptions,
+  provider: string,
+  raw: unknown,
+): Promise<void> {
+  try {
+    if (!SUPABASE_URL || !SERVICE_KEY) return;
+    const usage = record(record(raw).usage);
+    const num = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : 0);
+    const prompt = num(usage.prompt_tokens);
+    const completion = num(usage.completion_tokens);
+    const total = num(usage.total_tokens) || prompt + completion;
+    const cost = num(usage.cost) || num(record(usage.cost_details).upstream_inference_cost);
+    await fetch(`${SUPABASE_URL}/rest/v1/imphq_ai_usage`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        project_id: opts.projectId || null,
+        function_name: opts.functionName || opts.tag || "desconhecida",
+        provider,
+        model: text(record(raw).model) || opts.model,
+        prompt_tokens: prompt,
+        completion_tokens: completion,
+        total_tokens: total,
+        cost_usd: cost,
+        tag: opts.tag || null,
+      }),
+    });
+  } catch {
+    // custo é observabilidade — nunca quebra o fluxo
+  }
+}
+
 export async function callAiChat(opts: AiCallOptions): Promise<AiCallResult> {
   const timeoutMs = opts.timeoutMs ?? 60_000;
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 3);
   const tag = opts.tag || "ai-call";
   const { url, key } = resolveProvider(opts.model);
+  const provider = url.includes("openrouter") ? "openrouter" : "lovable";
+  const attribution: Record<string, string> = provider === "openrouter"
+    ? {
+        "HTTP-Referer": "https://imperiox.lovable.app",
+        "X-Title": `imperiohq/${opts.projectId || "geral"}/${opts.functionName || tag}`,
+      }
+    : {};
 
   const body: Record<string, unknown> = {
     model: opts.model,
@@ -68,6 +121,7 @@ export async function callAiChat(opts: AiCallOptions): Promise<AiCallResult> {
     stream: opts.stream === true,
   };
   if (opts.temperature != null) body.temperature = opts.temperature;
+  if (provider === "openrouter") body.usage = { include: true };
   if (opts.jsonSchema) {
     body.response_format = { type: "json_schema", json_schema: { name: "out", strict: true, schema: opts.jsonSchema } };
   } else if (opts.json) {
@@ -81,7 +135,7 @@ export async function callAiChat(opts: AiCallOptions): Promise<AiCallResult> {
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...attribution },
         body: JSON.stringify(body),
         signal: ctrl.signal,
       });
@@ -99,6 +153,7 @@ export async function callAiChat(opts: AiCallOptions): Promise<AiCallResult> {
       const data: unknown = JSON.parse(txt);
       const choices = record(data).choices;
       const content = text(record(record(Array.isArray(choices) ? choices[0] : null).message).content);
+      if (opts.stream !== true) await logUsage(opts, provider, data);
       return { content, model: opts.model, raw: data, attempts: attempt };
     } catch (e: unknown) {
       clearTimeout(t);
