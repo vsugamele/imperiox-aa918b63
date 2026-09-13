@@ -31,6 +31,7 @@ export function WebhookLogTab() {
   const [filter, setFilter] = useState<string>("all");
   const [viewPayload, setViewPayload] = useState<Json>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const extractProduct = useCallback((payload: Json): string => {
     if (!payload) return "";
@@ -131,6 +132,26 @@ export function WebhookLogTab() {
     setReprocessing(null);
   };
 
+  const reprocessAll = async () => {
+    setBulkRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("webhook-error-reprocess", {
+        body: { limit: 20 },
+      });
+      if (error) throw error;
+      const r = data as { reprocessed?: number; failed?: number; skipped?: number } | null;
+      toast.success(
+        `${r?.reprocessed ?? 0} recuperados · ${r?.failed ?? 0} falhas · ${r?.skipped ?? 0} sem dados`,
+      );
+      load();
+    } catch {
+      toast.error("Não foi possível reprocessar a fila agora");
+    }
+    setBulkRunning(false);
+  };
+
+  const pendingErrors = webhooks.filter((w) => w.error && !w.error.reprocessado).length;
+
   const platforms = [...new Set(webhooks.map(w => w.plataforma))];
 
   const statusBadge = (wh: WebhookRow) => {
@@ -156,7 +177,12 @@ export function WebhookLogTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">Log de Webhooks</h2>
-          <p className="text-xs text-muted-foreground">{webhooks.length} webhooks recentes</p>
+          <p className="text-xs text-muted-foreground">
+            {webhooks.length} webhooks recentes
+            {pendingErrors > 0 && (
+              <span className="text-destructive"> · {pendingErrors} com erro</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={filter} onValueChange={setFilter}>
@@ -168,10 +194,15 @@ export function WebhookLogTab() {
               {platforms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={reprocessAll} disabled={bulkRunning}>
+            <RotateCcw className={`h-3.5 w-3.5 mr-1 ${bulkRunning ? "animate-spin" : ""}`} />
+            Reprocessar tudo
+          </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
+
         </div>
       </div>
 

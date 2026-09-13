@@ -51,7 +51,8 @@ const capitalItems = [
   { title: "Tracker",          url: "/tracker",           icon: Link2 },
   { title: "Atribuição",       url: "/atribuicao",        icon: Radio },
   { title: "Finanças",         url: "/financas",          icon: DollarSign },
-  { title: "Custos IA",        url: "/openrouter-custos", icon: Coins },
+  { title: "Custos IA",        url: "/custos-ia",         icon: Coins },
+  { title: "Custos IA · Chat", url: "/openrouter-custos", icon: Coins },
 ];
 
 const acervoItems = [
