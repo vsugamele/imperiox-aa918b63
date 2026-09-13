@@ -55,6 +55,7 @@ const CriativoDetalhe = lazyWithRetry(() => import("./pages/CriativoDetalhe"));
 const Metas = lazyWithRetry(() => import("./pages/Metas"));
 const Recuperacao = lazyWithRetry(() => import("./pages/Recuperacao"));
 const Cohort = lazyWithRetry(() => import("./pages/Cohort"));
+const CustosIA = lazyWithRetry(() => import("./pages/CustosIA"));
 const Gerenciador = lazyWithRetry(() => import("./pages/Gerenciador"));
 const Studio = lazyWithRetry(() => import("./pages/Studio"));
 const StudioCanvas = lazyWithRetry(() => import("./pages/StudioCanvas"));
@@ -204,6 +205,7 @@ const App = () => (
                 <Route path="metas" element={<Metas />} />
                 <Route path="recuperacao" element={<Recuperacao />} />
                 <Route path="cohort" element={<Cohort />} />
+                <Route path="custos-ia" element={<CustosIA />} />
                 <Route path="gerenciador" element={<Gerenciador />} />
                 <Route path="studio" element={<StudioCanvas />} />
                 <Route path="studio/legado" element={<Studio />} />

@@ -54,12 +54,12 @@ export default function CustosIA() {
     queryKey: ["projects", "names"],
     staleTime: 10 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase.from("imphq_projects").select("id, nome");
+      const { data } = await supabase.from("imphq_projects").select("id, name");
       return data || [];
     },
   });
   const projectName = (id: string) =>
-    projects.find((p) => p.id === id)?.nome || (id === "—" ? "Sem projeto" : id);
+    projects.find((p) => p.id === id)?.name || (id === "—" ? "Sem projeto" : id);
 
   const totalCost = rows.reduce((s, r) => s + Number(r.cost_usd || 0), 0);
   const totalTokens = rows.reduce((s, r) => s + Number(r.total_tokens || 0), 0);
