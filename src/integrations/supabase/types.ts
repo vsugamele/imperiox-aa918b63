@@ -18593,6 +18593,48 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ai_usage: {
+        Row: {
+          completion_tokens: number
+          cost_usd: number
+          created_at: string
+          function_name: string
+          id: string
+          model: string
+          project_id: string | null
+          prompt_tokens: number
+          provider: string
+          tag: string | null
+          total_tokens: number
+        }
+        Insert: {
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          function_name: string
+          id?: string
+          model: string
+          project_id?: string | null
+          prompt_tokens?: number
+          provider?: string
+          tag?: string | null
+          total_tokens?: number
+        }
+        Update: {
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          function_name?: string
+          id?: string
+          model?: string
+          project_id?: string | null
+          prompt_tokens?: number
+          provider?: string
+          tag?: string | null
+          total_tokens?: number
+        }
+        Relationships: []
+      }
       imphq_alert_dismissals: {
         Row: {
           alert_key: string
@@ -29862,6 +29904,8 @@ export type Database = {
           phone_number_id: string | null
           project_id: string
           provider: string
+          status: string | null
+          status_updated_at: string | null
           twilio_from: string | null
           waba_id: string | null
           webhook_verify_token: string | null
@@ -29882,6 +29926,8 @@ export type Database = {
           phone_number_id?: string | null
           project_id: string
           provider: string
+          status?: string | null
+          status_updated_at?: string | null
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
@@ -29902,6 +29948,8 @@ export type Database = {
           phone_number_id?: string | null
           project_id?: string
           provider?: string
+          status?: string | null
+          status_updated_at?: string | null
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
