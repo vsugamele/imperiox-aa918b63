@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
   const rows = (data || []) as ErrorRow[];
   let ok = 0;
   let failed = 0;
+  let skipped = 0;
   const failures: Array<{ id: string; status: number; detail: string }> = [];
 
   for (const row of rows) {
@@ -88,10 +89,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`[webhook-error-reprocess] total=${rows.length} ok=${ok} failed=${failed}`);
+  console.log(`[webhook-error-reprocess] total=${rows.length} ok=${ok} failed=${failed} skipped=${skipped}`);
   if (failures.length) console.warn(`[webhook-error-reprocess] falhas: ${JSON.stringify(failures).slice(0, 1500)}`);
 
-  return new Response(JSON.stringify({ total: rows.length, reprocessed: ok, failed, failures }), {
+  return new Response(JSON.stringify({ total: rows.length, reprocessed: ok, failed, skipped, failures }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
