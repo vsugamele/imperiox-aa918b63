@@ -131,6 +131,26 @@ export function WebhookLogTab() {
     setReprocessing(null);
   };
 
+  const reprocessAll = async () => {
+    setBulkRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("webhook-error-reprocess", {
+        body: { limit: 20 },
+      });
+      if (error) throw error;
+      const r = data as { reprocessed?: number; failed?: number; skipped?: number } | null;
+      toast.success(
+        `${r?.reprocessed ?? 0} recuperados · ${r?.failed ?? 0} falhas · ${r?.skipped ?? 0} sem dados`,
+      );
+      load();
+    } catch {
+      toast.error("Não foi possível reprocessar a fila agora");
+    }
+    setBulkRunning(false);
+  };
+
+  const pendingErrors = webhooks.filter((w) => w.error && !w.error.reprocessado).length;
+
   const platforms = [...new Set(webhooks.map(w => w.plataforma))];
 
   const statusBadge = (wh: WebhookRow) => {
