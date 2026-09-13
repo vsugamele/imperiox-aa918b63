@@ -177,7 +177,12 @@ export function WebhookLogTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">Log de Webhooks</h2>
-          <p className="text-xs text-muted-foreground">{webhooks.length} webhooks recentes</p>
+          <p className="text-xs text-muted-foreground">
+            {webhooks.length} webhooks recentes
+            {pendingErrors > 0 && (
+              <span className="text-destructive"> · {pendingErrors} com erro</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={filter} onValueChange={setFilter}>
@@ -189,10 +194,15 @@ export function WebhookLogTab() {
               {platforms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={reprocessAll} disabled={bulkRunning}>
+            <RotateCcw className={`h-3.5 w-3.5 mr-1 ${bulkRunning ? "animate-spin" : ""}`} />
+            Reprocessar tudo
+          </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
+
         </div>
       </div>
 
