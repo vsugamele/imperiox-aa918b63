@@ -10,18 +10,24 @@ const corsHeaders = {
 
 declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void };
 const numericValue = z.union([z.number(), z.string()]);
+// Plataformas (Ticto/Kiwify/Hotmart) alternam tipos no mesmo campo: order.id vem
+// como number, is_bump como "true", etc. looseText/looseBool aceitam qualquer
+// primitivo e normalizam, para nunca rejeitar um webhook de venda por formato.
+const looseText = z.union([z.string(), z.number(), z.boolean()]).transform((v) => String(v));
+const looseBool = z.union([z.boolean(), z.string(), z.number()]).transform((v) => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true");
+
 const paymentPayloadSchema = z.object({
-    version: z.string().nullish(), token: z.string().nullish(), status: z.string().nullish(), tipo_evento: z.string().nullish(), event: z.string().nullish(), webhook_event_type: z.string().nullish(), order_status: z.string().nullish(), customer_email: z.string().nullish(), product_name: z.string().nullish(), sale_date: z.string().nullish(), approved_date: z.string().nullish(), created_at: z.string().nullish(), email_customer: z.string().nullish(), name_customer: z.string().nullish(), phone_number_customer: z.string().nullish(), name_prod: z.string().nullish(), name_offer: z.string().nullish(), code: z.string().nullish(), sale_status_detail: z.string().nullish(), date_approved: z.string().nullish(), date_created: z.string().nullish(), plataforma: z.string().nullish(), evento: z.string().nullish(), event_type: z.string().nullish(), email: z.string().nullish(), nome: z.string().nullish(), phone: z.string().nullish(), produto: z.string().nullish(), data_compra: z.string().nullish(), payment_method: z.string().nullish(), order_id: z.string().nullish(), order_ref: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish(), sale_amount: numericValue.nullish(), order_value: numericValue.nullish(), producer_value: numericValue.nullish(), platform_fee: numericValue.nullish(), affiliate_value: numericValue.nullish(), platform_tax_value: numericValue.nullish(), payment_method_enum: numericValue.nullish(), quantity: numericValue.nullish(), installments: numericValue.nullish(), sale_id: numericValue.nullish(), sale_status_enum: numericValue.nullish(), original_price: numericValue.nullish(), valor: numericValue.nullish(), amount: numericValue.nullish(), customer: z.object({
-        email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
-            country_iso: z.string().nullish(), country: z.string().nullish()
+    version: looseText.nullish(), token: looseText.nullish(), status: looseText.nullish(), tipo_evento: looseText.nullish(), event: looseText.nullish(), webhook_event_type: looseText.nullish(), order_status: looseText.nullish(), customer_email: looseText.nullish(), product_name: looseText.nullish(), sale_date: looseText.nullish(), approved_date: looseText.nullish(), created_at: looseText.nullish(), email_customer: looseText.nullish(), name_customer: looseText.nullish(), phone_number_customer: looseText.nullish(), name_prod: looseText.nullish(), name_offer: looseText.nullish(), code: looseText.nullish(), sale_status_detail: looseText.nullish(), date_approved: looseText.nullish(), date_created: looseText.nullish(), plataforma: looseText.nullish(), evento: looseText.nullish(), event_type: looseText.nullish(), email: looseText.nullish(), nome: looseText.nullish(), phone: looseText.nullish(), produto: looseText.nullish(), data_compra: looseText.nullish(), payment_method: looseText.nullish(), order_id: looseText.nullish(), order_ref: looseText.nullish(), utm_source: looseText.nullish(), utm_medium: looseText.nullish(), utm_campaign: looseText.nullish(), utm_content: looseText.nullish(), utm_term: looseText.nullish(), src: looseText.nullish(), sck: looseText.nullish(), xcod: looseText.nullish(), sale_amount: numericValue.nullish(), order_value: numericValue.nullish(), producer_value: numericValue.nullish(), platform_fee: numericValue.nullish(), affiliate_value: numericValue.nullish(), platform_tax_value: numericValue.nullish(), payment_method_enum: numericValue.nullish(), quantity: numericValue.nullish(), installments: numericValue.nullish(), sale_id: numericValue.nullish(), sale_status_enum: numericValue.nullish(), original_price: numericValue.nullish(), valor: numericValue.nullish(), amount: numericValue.nullish(), customer: z.object({
+        email: looseText.nullish(), name: looseText.nullish(), full_name: looseText.nullish(), checkout_phone: looseText.nullish(), country_iso: looseText.nullish(), country: looseText.nullish(), mobile: looseText.nullish(), phone_formated: looseText.nullish(), cell_phone: looseText.nullish(), address: z.object({
+            country_iso: looseText.nullish(), country: looseText.nullish()
         }).passthrough().nullish(), phone: z.union([
             z.string(), z.object({
                 ddd: numericValue.nullish(), number: numericValue.nullish()
             }).passthrough()
         ]).nullish()
     }).passthrough().nullish(), Customer: z.object({
-        email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
-            country_iso: z.string().nullish(), country: z.string().nullish()
+        email: looseText.nullish(), name: looseText.nullish(), full_name: looseText.nullish(), checkout_phone: looseText.nullish(), country_iso: looseText.nullish(), country: looseText.nullish(), mobile: looseText.nullish(), phone_formated: looseText.nullish(), cell_phone: looseText.nullish(), address: z.object({
+            country_iso: looseText.nullish(), country: looseText.nullish()
         }).passthrough().nullish(), phone: z.union([
             z.string(), z.object({
                 ddd: numericValue.nullish(), number: numericValue.nullish()
@@ -29,24 +35,24 @@ const paymentPayloadSchema = z.object({
         ]).nullish()
     }).passthrough().nullish(), product: z.union([
         z.string(), z.object({
-            name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+            name: looseText.nullish(), has_co_production: looseBool.nullish(), is_upsell: looseBool.nullish(), is_bump: looseBool.nullish()
         }).passthrough()
     ]).nullish(), Product: z.object({
-        name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+        name: looseText.nullish(), has_co_production: looseBool.nullish(), is_upsell: looseBool.nullish(), is_bump: looseBool.nullish()
     }).passthrough().nullish(), plan: z.object({
-        name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+        name: looseText.nullish(), has_co_production: looseBool.nullish(), is_upsell: looseBool.nullish(), is_bump: looseBool.nullish()
     }).passthrough().nullish(), item: z.object({
-        product_name: z.string().nullish(), name: z.string().nullish(), hash: z.string().nullish(), id: z.string().nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: z.boolean().nullish(), is_upsell: z.boolean().nullish()
+        product_name: looseText.nullish(), name: looseText.nullish(), hash: looseText.nullish(), id: looseText.nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: looseBool.nullish(), is_upsell: looseBool.nullish()
     }).passthrough().nullish(), order: z.object({
-        payment_method: z.string().nullish(), code: z.string().nullish(), id: z.string().nullish(), approved_at: z.string().nullish(), created_at: z.string().nullish(), paid_amount: numericValue.nullish(), net_amount: numericValue.nullish(), platform_fee: numericValue.nullish(), transaction_fee: numericValue.nullish(), installments: numericValue.nullish(), bumps: z.array(z.object({
-            product_name: z.string().nullish(), name: z.string().nullish(), hash: z.string().nullish(), id: z.string().nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: z.boolean().nullish(), is_upsell: z.boolean().nullish()
+        payment_method: looseText.nullish(), code: looseText.nullish(), id: looseText.nullish(), approved_at: looseText.nullish(), created_at: looseText.nullish(), paid_amount: numericValue.nullish(), net_amount: numericValue.nullish(), platform_fee: numericValue.nullish(), transaction_fee: numericValue.nullish(), installments: numericValue.nullish(), bumps: z.array(z.object({
+            product_name: looseText.nullish(), name: looseText.nullish(), hash: looseText.nullish(), id: looseText.nullish(), price: numericValue.nullish(), amount: numericValue.nullish(), is_bump: looseBool.nullish(), is_upsell: looseBool.nullish()
         }).passthrough()).nullish()
     }).passthrough().nullish(), payment: z.object({
-        method: z.string().nullish(), card_brand: z.string().nullish(), installments: numericValue.nullish()
+        method: looseText.nullish(), card_brand: looseText.nullish(), installments: numericValue.nullish()
     }).passthrough().nullish(), commissions: z.union([
         z.array(z.object({
-            role: z.string().nullish(), source: z.string().nullish(), value: numericValue.nullish(), currency_conversion: z.object({
-                converted_to_currency: z.string().nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
+            role: looseText.nullish(), source: looseText.nullish(), value: numericValue.nullish(), currency_conversion: z.object({
+                converted_to_currency: looseText.nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
             }).passthrough().nullish()
         }).passthrough()), z.object({
             charge_amount: numericValue.nullish(), kiwify_fee: numericValue.nullish(), producer_amount: numericValue.nullish(), my_commission: numericValue.nullish(), affiliate_amount: numericValue.nullish(), receive_amount: numericValue.nullish(), net_amount: numericValue.nullish()
@@ -57,57 +63,56 @@ const paymentPayloadSchema = z.object({
         producer_value: numericValue.nullish(), platform_fee: numericValue.nullish(), affiliate_value: numericValue.nullish()
     }).passthrough().nullish(), data: z.object({
         buyer: z.object({
-            email: z.string().nullish(), name: z.string().nullish(), full_name: z.string().nullish(), checkout_phone: z.string().nullish(), country_iso: z.string().nullish(), country: z.string().nullish(), mobile: z.string().nullish(), phone_formated: z.string().nullish(), cell_phone: z.string().nullish(), address: z.object({
-                country_iso: z.string().nullish(), country: z.string().nullish()
+            email: looseText.nullish(), name: looseText.nullish(), full_name: looseText.nullish(), checkout_phone: looseText.nullish(), country_iso: looseText.nullish(), country: looseText.nullish(), mobile: looseText.nullish(), phone_formated: looseText.nullish(), cell_phone: looseText.nullish(), address: z.object({
+                country_iso: looseText.nullish(), country: looseText.nullish()
             }).passthrough().nullish(), phone: z.union([
                 z.string(), z.object({
                     ddd: numericValue.nullish(), number: numericValue.nullish()
                 }).passthrough()
             ]).nullish()
         }).passthrough().nullish(), product: z.object({
-            name: z.string().nullish(), has_co_production: z.boolean().nullish(), is_upsell: z.boolean().nullish(), is_bump: z.boolean().nullish()
+            name: looseText.nullish(), has_co_production: looseBool.nullish(), is_upsell: looseBool.nullish(), is_bump: looseBool.nullish()
         }).passthrough().nullish(), purchase: z.object({
-            payment_method: z.string().nullish(), transaction: z.string().nullish(), business_model_country: z.string().nullish(), hotmart_fee: numericValue.nullish(), price: z.object({
-                currency_value: z.string().nullish(), value: numericValue.nullish()
+            payment_method: looseText.nullish(), transaction: looseText.nullish(), business_model_country: looseText.nullish(), hotmart_fee: numericValue.nullish(), price: z.object({
+                currency_value: looseText.nullish(), value: numericValue.nullish()
             }).passthrough().nullish(), full_price: z.object({
-                currency_value: z.string().nullish(), value: numericValue.nullish()
+                currency_value: looseText.nullish(), value: numericValue.nullish()
             }).passthrough().nullish(), original_offer_price: z.object({
-                currency_value: z.string().nullish(), value: numericValue.nullish()
+                currency_value: looseText.nullish(), value: numericValue.nullish()
             }).passthrough().nullish(), commission_as: z.union([
                 z.number(), z.object({
-                    currency_value: z.string().nullish(), value: numericValue.nullish()
+                    currency_value: looseText.nullish(), value: numericValue.nullish()
                 }).passthrough()
             ]).nullish(), commission: z.union([
                 z.number(), z.object({
-                    currency_value: z.string().nullish(), value: numericValue.nullish()
+                    currency_value: looseText.nullish(), value: numericValue.nullish()
                 }).passthrough()
             ]).nullish(), affiliate_commission: z.object({
-                currency_value: z.string().nullish(), value: numericValue.nullish()
+                currency_value: looseText.nullish(), value: numericValue.nullish()
             }).passthrough().nullish(), payment: z.object({
-                type: z.string().nullish(), installments_number: numericValue.nullish()
+                type: looseText.nullish(), installments_number: numericValue.nullish()
             }).passthrough().nullish(), order_bump: z.object({
-                id: z.string().nullish()
+                id: looseText.nullish()
             }).passthrough().nullish(), offer: z.object({
-                code: z.string().nullish()
+                code: looseText.nullish()
             }).passthrough().nullish(), tracking: z.object({
-                source: z.string().nullish(), medium: z.string().nullish(), campaign: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), source_sck: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish()
+                source: looseText.nullish(), medium: looseText.nullish(), campaign: looseText.nullish(), utm_source: looseText.nullish(), utm_medium: looseText.nullish(), utm_campaign: looseText.nullish(), utm_content: looseText.nullish(), utm_term: looseText.nullish(), source_sck: looseText.nullish(), src: looseText.nullish(), sck: looseText.nullish(), xcod: looseText.nullish()
             }).passthrough().nullish(), checkout_country: z.union([
                 z.string(), z.object({
-                    iso: z.string().nullish()
+                    iso: looseText.nullish()
                 }).passthrough()
-            ]).nullish(), approved_date: numericValue.nullish(), order_date: numericValue.nullish(), date: numericValue.nullish(), is_order_bump: z.boolean().nullish()
+            ]).nullish(), approved_date: numericValue.nullish(), order_date: numericValue.nullish(), date: numericValue.nullish(), is_order_bump: looseBool.nullish()
         }).passthrough().nullish(), commissions: z.array(z.object({
-            role: z.string().nullish(), source: z.string().nullish(), value: numericValue.nullish(), currency_conversion: z.object({
-                converted_to_currency: z.string().nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
+            role: looseText.nullish(), source: looseText.nullish(), value: numericValue.nullish(), currency_conversion: z.object({
+                converted_to_currency: looseText.nullish(), conversion_rate: numericValue.nullish(), converted_value: numericValue.nullish()
             }).passthrough().nullish()
         }).passthrough()).nullish()
     }).passthrough().nullish(), dados: z.object({
-        email_comprador: z.string().nullish(), nome_comprador: z.string().nullish(), telefone_comprador: z.string().nullish(), nome_produto: z.string().nullish(), data_compra: z.string().nullish(), criado_em: z.string().nullish(), valor: numericValue.nullish()
+        email_comprador: looseText.nullish(), nome_comprador: looseText.nullish(), telefone_comprador: looseText.nullish(), nome_produto: looseText.nullish(), data_compra: looseText.nullish(), criado_em: looseText.nullish(), valor: numericValue.nullish()
     }).passthrough().nullish(), tracking: z.object({
-        source: z.string().nullish(), medium: z.string().nullish(), campaign: z.string().nullish(), utm_source: z.string().nullish(), utm_medium: z.string().nullish(), utm_campaign: z.string().nullish(), utm_content: z.string().nullish(), utm_term: z.string().nullish(), source_sck: z.string().nullish(), src: z.string().nullish(), sck: z.string().nullish(), xcod: z.string().nullish()
-    }).passthrough().nullish(), is_bump: z.boolean().nullish(), bump_id: numericValue.nullish()
-}).passthrough();
-const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        source: looseText.nullish(), medium: looseText.nullish(), campaign: looseText.nullish(), utm_source: looseText.nullish(), utm_medium: looseText.nullish(), utm_campaign: looseText.nullish(), utm_content: looseText.nullish(), utm_term: looseText.nullish(), source_sck: looseText.nullish(), src: looseText.nullish(), sck: looseText.nullish(), xcod: looseText.nullish()
+    }).passthrough().nullish(), is_bump: looseBool.nullish(), bump_id: numericValue.nullish()
+}).passthrough();const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
