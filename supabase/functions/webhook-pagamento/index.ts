@@ -505,7 +505,7 @@ export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
     valor = Number(item.price || item.amount || order.paid_amount || 0) / 100;
 
     produto = item.product_name || "";
-    data_compra = order.approved_at || order.created_at || body.created_at || null;
+    data_compra = parseTictoDate(order.approved_at || order.created_at || body.created_at);
 
     // Detect bump/upsell for Ticto
     if (item.is_bump === true) tipo_venda = "orderbump";
@@ -521,7 +521,7 @@ export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
     phone = dados.telefone_comprador || "";
     valor = parseFloat(String(dados.valor || "0"));
     produto = dados.nome_produto || "";
-    data_compra = dados.data_compra || dados.criado_em || null;
+    data_compra = parseTictoDate(dados.data_compra || dados.criado_em);
   }
   // ── Hotmart ──
   else if (hotmartToken || body?.event?.includes?.("PURCHASE") || body?.event?.includes?.("SUBSCRIPTION") || body?.event?.includes?.("CLUB") || body?.event?.includes?.("SWITCH") || body?.event?.includes?.("TRIAL")) {
@@ -618,7 +618,7 @@ export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
     phone = customer.mobile || "";
     valor = parseFloat(String(body.sale_amount || body.order_value || "0"));
     produto = body.product_name || body.Product?.name || "";
-    data_compra = body.sale_date || body.approved_date || body.created_at || null;
+    data_compra = parseTictoDate(body.sale_date || body.approved_date || body.created_at);
 
     // Detect bump for Kiwify
     if (body.is_bump === true || body.bump_id) tipo_venda = "orderbump";
@@ -686,7 +686,7 @@ export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
     const product = typeof body.product === "object" ? body.product || {} : {};
     produto = product.name || body.plan?.name || "";
     valor = parseFloat(String(body.sale_amount ?? body.original_price ?? "0")) || 0;
-    data_compra = body.date_approved || body.date_created || body.created_at || null;
+    data_compra = parseTictoDate(body.date_approved || body.date_created || body.created_at);
 
     // Bump/upsell: Perfect Pay marca via product.type ou plan.is_upsell
     if (product?.is_upsell === true || body.plan?.is_upsell === true) tipo_venda = "upsell";
@@ -701,7 +701,7 @@ export function parseWebhookBody(input: unknown, hotmartToken: string | null) {
     phone = body.phone || (typeof body.customer?.phone === "string" ? body.customer.phone : "") || "";
     valor = parseFloat(String(body.valor || body.amount || "0"));
     produto = body.produto || (typeof body.product === "string" ? body.product : body.product?.name) || "";
-    data_compra = body.data_compra || body.created_at || null;
+    data_compra = parseTictoDate(body.data_compra || body.created_at);
   }
 
   // Extract financial breakdown and UTMs
