@@ -112,7 +112,8 @@ const paymentPayloadSchema = z.object({
     }).passthrough().nullish(), tracking: z.object({
         source: looseText.nullish(), medium: looseText.nullish(), campaign: looseText.nullish(), utm_source: looseText.nullish(), utm_medium: looseText.nullish(), utm_campaign: looseText.nullish(), utm_content: looseText.nullish(), utm_term: looseText.nullish(), source_sck: looseText.nullish(), src: looseText.nullish(), sck: looseText.nullish(), xcod: looseText.nullish()
     }).passthrough().nullish(), is_bump: looseBool.nullish(), bump_id: numericValue.nullish()
-}).passthrough();const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+}).passthrough();
+const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
