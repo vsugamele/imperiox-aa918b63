@@ -685,20 +685,13 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                             project_id: account.project_id,
                             recipient_id: participantId,
                             text: aiReply,
+                            ai_generated: true,
                           },
                         });
                         const replyData = await replyRes.data;
                         if (replyData?.success) {
+                          // instagram-api já grava a mensagem (com ai_generated=true) — não inserir de novo.
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
-                          // Save AI reply to DB with ai_generated=true for feedback UI
-                          await Promise.resolve(supa.from("imphq_ig_messages").insert({
-                            conversation_id: conv.id,
-                            direction: "out",
-                            type: "text",
-                            content: aiReply,
-                            ai_generated: true,
-                            status: "sent",
-                          })).catch(() => {});
                         } else {
                           console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
                         }
