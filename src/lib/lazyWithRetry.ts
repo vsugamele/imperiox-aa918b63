@@ -20,7 +20,9 @@ export function lazyWithRetry<T extends ComponentType>(
         return await factory();
       } catch (err2) {
         const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-        if (Date.now() - last > 15_000) {
+        const tries = Number(sessionStorage.getItem(RELOAD_KEY + "_n") || 0);
+        if (Date.now() - last > 15_000 && tries < 2) {
+          sessionStorage.setItem(RELOAD_KEY + "_n", String(tries + 1));
           sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
           try {
             if (typeof caches !== "undefined" && caches?.keys) {
