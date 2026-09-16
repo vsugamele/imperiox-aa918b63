@@ -271,15 +271,48 @@ Deno.serve(async (req) => {
           const persistedMedia = remoteMedia
             ? await persistIgMedia(supa, remoteMedia, account.project_id, `dm/${conv.id}/${messaging.message.mid || Date.now()}`)
             : null;
-          await supa.from("imphq_ig_messages").insert({
-            conversation_id: conv.id,
-            direction: isInbound ? "in" : "out",
-            type: messaging.message.attachments?.[0]?.type || "text",
-            content,
-            media_url: persistedMedia || remoteMedia,
-            mid: messaging.message.mid,
-            status: "received",
-          });
+          // Dedupe: eco de mensagem enviada por nós — atualiza o registro existente
+          // em vez de criar uma cópia. Também evita reinserir o mesmo mid.
+          let alreadyStored = false;
+          if (messaging.message.mid) {
+            const { data: sameMid } = await supa
+              .from("imphq_ig_messages")
+              .select("id")
+              .eq("mid", messaging.message.mid)
+              .maybeSingle();
+            if (sameMid) alreadyStored = true;
+          }
+          if (!alreadyStored && !isInbound && content) {
+            const since = new Date(Date.now() - 120_000).toISOString();
+            const { data: pending } = await supa
+              .from("imphq_ig_messages")
+              .select("id, mid")
+              .eq("conversation_id", conv.id)
+              .eq("direction", "out")
+              .eq("content", content)
+              .gte("created_at", since)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (pending) {
+              alreadyStored = true;
+              await supa
+                .from("imphq_ig_messages")
+                .update({ mid: messaging.message.mid || pending.mid, status: "sent" })
+                .eq("id", pending.id);
+            }
+          }
+          if (!alreadyStored) {
+            await supa.from("imphq_ig_messages").insert({
+              conversation_id: conv.id,
+              direction: isInbound ? "in" : "out",
+              type: messaging.message.attachments?.[0]?.type || "text",
+              content,
+              media_url: persistedMedia || remoteMedia,
+              mid: messaging.message.mid,
+              status: isInbound ? "received" : "sent",
+            });
+          }
 
           // AI Direct Message Autoresponder!
           const isStoryMentionMsg = messaging.message?.attachments?.[0]?.type === "story_mention";
@@ -685,20 +718,13 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                             project_id: account.project_id,
                             recipient_id: participantId,
                             text: aiReply,
+                            ai_generated: true,
                           },
                         });
                         const replyData = await replyRes.data;
                         if (replyData?.success) {
+                          // instagram-api já grava a mensagem (com ai_generated=true) — não inserir de novo.
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
-                          // Save AI reply to DB with ai_generated=true for feedback UI
-                          await Promise.resolve(supa.from("imphq_ig_messages").insert({
-                            conversation_id: conv.id,
-                            direction: "out",
-                            type: "text",
-                            content: aiReply,
-                            ai_generated: true,
-                            status: "sent",
-                          })).catch(() => {});
                         } else {
                           console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
                         }
