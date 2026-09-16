@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
 
     // ============ SEND_TEXT (com fallback Zernio→Meta) ============
     if (action === "send_text") {
-      const { project_id, recipient_id, text, metadata } = body;
+      const { project_id, recipient_id, text, metadata, ai_generated } = body;
       if (!project_id || !recipient_id || !text) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
       if (!creds) return json({ error: "Conta IG não conectada", not_connected: true }, 200);
@@ -419,6 +419,7 @@ Deno.serve(async (req) => {
           content: text,
           mid: messageId,
           status: "sent",
+          ai_generated: !!ai_generated,
           metadata: { ...(metadata || {}), provider, zernio_error: zernioErr || undefined },
         });
       }
