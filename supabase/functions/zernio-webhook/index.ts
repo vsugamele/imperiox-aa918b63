@@ -1,4 +1,4 @@
-// Webhook do Zernio — recebe DMs/comentários do Zernio, traduz para Meta e encaminha para instagram-webhook
+// Webhook do Zernio — recebe DMs e comentários (Instagram e Facebook), aplica moderação e encaminha para instagram-webhook
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const TOXIC_KEYWORDS = [
+  "golpe", "fraude", "reclame aqui", "mentira", "ladrão", "ladrao",
+  "roubo", "não comprem", "nao comprem", "propaganda enganosa",
+  "falso", "furada", "estelionato", "picareta", "processo", "enganado"
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -21,18 +27,21 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
-    console.log(`[zernio-webhook] Received event: ${payload.event} for project: ${projectId}`);
-    
+    const eventType = String(payload.event || "").toLowerCase();
+    console.log(`[zernio-webhook] Received event: ${eventType} for project: ${projectId}`);
+
     // Log do evento recebido para auditoria
     const { data: logEntry } = await supa.from("imphq_ig_webhook_logs").insert({
-      event_type: `zernio_${payload.event || "unknown"}`,
+      event_type: `zernio_${eventType || "unknown"}`,
       payload,
       processed: false,
     }).select("id").maybeSingle();
 
-    // Nós só processamos mensagens recebidas do cliente (inbound)
-    if (payload.event !== "message.received") {
-      console.log(`[zernio-webhook] Ignoring event type: ${payload.event}`);
+    const isMessage = eventType === "message.received" || eventType === "message.created";
+    const isComment = eventType === "comment.received" || eventType === "comment.created";
+
+    if (!isMessage && !isComment) {
+      console.log(`[zernio-webhook] Ignoring unsupported event type: ${eventType}`);
       if (logEntry) {
         await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
       }
@@ -40,20 +49,151 @@ Deno.serve(async (req) => {
     }
 
     const data = payload.data || payload;
+    const account = data.account || {};
+    const zernioAccountId = account.id || data.accountId || data.account_id;
+    const rawPlatform = String(data.platform || payload.platform || account.platform || "instagram").toLowerCase();
+    const platform = rawPlatform.includes("facebook") ? "facebook" : "instagram";
+
+    // 1. Localiza conta comercial no banco
+    let dbAcc: any = null;
+    if (zernioAccountId) {
+      const { data: acc } = await supa
+        .from("imphq_ig_accounts")
+        .select("id, ig_user_id, project_id, page_id")
+        .eq("page_id", zernioAccountId)
+        .maybeSingle();
+      dbAcc = acc;
+    }
+    if (!dbAcc) {
+      const { data: acc } = await supa
+        .from("imphq_ig_accounts")
+        .select("id, ig_user_id, project_id, page_id")
+        .eq("project_id", projectId)
+        .maybeSingle();
+      dbAcc = acc;
+    }
+
+    const igUserId = dbAcc?.ig_user_id || account?.platformUserId || account?.instagramScopedId || data.igUserId || zernioAccountId;
+
+    // ==========================================
+    // FLUXO DE COMENTÁRIOS (Facebook e Instagram)
+    // ==========================================
+    if (isComment) {
+      const commentObj = data.comment || data;
+      const commentId = String(commentObj.id || commentObj.commentId || data.commentId || data.id || `cmt_${Date.now()}`);
+      const postId = String(data.post?.id || data.postId || data.mediaId || commentObj.postId || commentObj.mediaId || "post");
+      const commentText = commentObj.text || commentObj.content || commentObj.body || data.text || "";
+      const parentId = commentObj.parentId || commentObj.parent_id || data.parentId || null;
+
+      const sender = commentObj.sender || commentObj.author || commentObj.user || data.sender || data.author || {};
+      const senderId = String(sender.id || sender.contactId || sender.platformId || data.senderId || data.authorId || `usr_${Date.now()}`);
+      const senderUsername = sender.username || sender.name || "usuario";
+      const senderName = sender.name || sender.displayName || senderUsername || "Lead";
+      const senderAvatar = sender.avatar || sender.profilePicture || null;
+
+      console.log(`[zernio-webhook] Processing comment on ${platform} (${postId}): "${commentText.slice(0, 50)}..." by @${senderUsername}`);
+
+      // Escudo Anti-Hater / Moderação de Comentários em Anúncios de Vídeo
+      const textLc = commentText.toLowerCase();
+      const isToxic = TOXIC_KEYWORDS.some((kw) => textLc.includes(kw));
+
+      if (isToxic && dbAcc) {
+        console.warn(`[zernio-webhook] 🚨 Toxic comment detected on ${platform} video ${postId}: "${commentText}"`);
+        // Tenta ocultar na Zernio API imediatamente
+        try {
+          const { data: credsData } = await supa
+            .from("imphq_integration_credentials")
+            .select("credentials")
+            .eq("project_id", dbAcc.project_id || projectId)
+            .eq("provider", "instagram")
+            .maybeSingle();
+
+          const zKey = credsData?.credentials?.zernio_api_key;
+          const zAcc = credsData?.credentials?.zernio_account_id || zernioAccountId;
+
+          if (zKey && zAcc) {
+            const hideRes = await fetch(`https://zernio.com/api/v1/inbox/comments/${postId}/${commentId}/hide`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${zKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ accountId: zAcc }),
+            });
+            console.log(`[zernio-webhook] Auto-hide via Zernio response: ${hideRes.status}`);
+          }
+        } catch (hErr: any) {
+          console.warn(`[zernio-webhook] Auto-hide failed:`, hErr.message);
+        }
+      }
+
+      // Upsert no imphq_ig_comments com metadados
+      if (dbAcc?.id) {
+        await supa.from("imphq_ig_comments").upsert({
+          account_id: dbAcc.id,
+          media_id: postId,
+          post_id: postId,
+          comment_id: commentId,
+          parent_comment_id: parentId ? String(parentId) : null,
+          from_user_id: senderId,
+          from_username: senderUsername,
+          text: commentText,
+          platform,
+          is_hidden: isToxic,
+          sentiment: isToxic ? "negative" : "neutral",
+          ad_context: {
+            platform,
+            post_id: postId,
+            sender_name: senderName,
+            sender_avatar: senderAvatar,
+          },
+        }, { onConflict: "comment_id" });
+      }
+
+      // Encaminha para instagram-webhook no envelope padrão Meta
+      const metaEnvelope = {
+        object: platform === "facebook" ? "page" : "instagram",
+        entry: [{
+          id: igUserId,
+          changes: [{
+            field: "comments",
+            value: {
+              id: commentId,
+              text: commentText,
+              media: { id: postId },
+              from: { id: senderId, username: senderUsername, name: senderName },
+              parent_id: parentId ? String(parentId) : null,
+            },
+          }],
+        }],
+      };
+
+      const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
+      await fetch(forwardUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") || "" },
+        body: JSON.stringify(metaEnvelope),
+      });
+
+      if (logEntry) {
+        await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
+      }
+      return new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+
+    // ==========================================
+    // FLUXO DE MENSAGENS / DMs (Direct e Messenger)
+    // ==========================================
     const message = data.message;
     const conversation = data.conversation;
-    const account = data.account;
 
-    // Extração robusta — cobre múltiplas estruturas de payload do Zernio
-    const messageId      = message?.id || message?.messageId || data.messageId;
+    const messageId = message?.id || message?.messageId || data.messageId;
     const conversationId = conversation?.id || conversation?.conversationId || data.conversationId;
-    const text           = message?.text || message?.content || message?.body || data.text || "";
+    const text = message?.text || message?.content || message?.body || data.text || "";
 
-    // sender pode estar em vários lugares dependendo da versão do Zernio
-    const sender       = message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {};
-    const senderId     = sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId;
+    const sender = message?.sender || data.sender || conversation?.participants?.find((p: any) => p.role === "customer" || p.type === "customer") || {};
+    const senderId = sender.id || sender.contactId || sender.platformId || data.contactId || data.senderId;
 
-    // Nome e foto — cascata de fallbacks para pegar o máximo possível
     const senderUsername = sender.username
       || sender.instagramProfile?.username
       || conversation?.participantUsername
@@ -65,7 +205,7 @@ Deno.serve(async (req) => {
       || conversation?.participantName
       || data.participantName
       || senderUsername
-      || "Lead Instagram";
+      || (platform === "facebook" ? "Lead Facebook" : "Lead Instagram");
 
     const senderAvatar = sender.avatar
       || sender.profilePicture
@@ -74,43 +214,14 @@ Deno.serve(async (req) => {
       || data.participantPicture
       || null;
 
-    // Instagram-specific extras (follower info etc)
-    const igProfile = sender.instagramProfile || {};
-    const isFollower   = igProfile.isFollower   ?? null;
-    const isFollowing  = igProfile.isFollowing  ?? null;
-    const followerCount= igProfile.followerCount ?? null;
-    const isVerified   = igProfile.isVerified   ?? null;
-
-    // igUserId = ID da nossa conta comercial Instagram
-    const zernioAccountId = account?.id || data.accountId || data.account_id;
-    let igUserId = account?.platformUserId || account?.instagramScopedId || data.igUserId;
-    let dbAccId = null;
-
-    if (zernioAccountId) {
-      const { data: dbAcc } = await supa
-        .from("imphq_ig_accounts")
-        .select("id, ig_user_id")
-        .eq("page_id", zernioAccountId)
-        .eq("auth_method", "zernio")
-        .maybeSingle();
-      if (dbAcc) {
-        igUserId = dbAcc.ig_user_id;
-        dbAccId = dbAcc.id;
-      }
-    }
-
-    if (!igUserId) {
-      igUserId = message?.recipient?.id || data.recipientId;
-    }
-
     if (!messageId || !conversationId || !senderId || !igUserId) {
       console.error("[zernio-webhook] Campos obrigatórios ausentes:", { messageId, conversationId, senderId, igUserId, zernioAccountId });
       return new Response("Invalid payload structure", { status: 400 });
     }
 
-    // Reconstrói envelope no formato Meta para reaproveitarmos o instagram-webhook
+    // Envelope Meta para encaminhamento
     const metaEnvelope = {
-      object: "instagram",
+      object: platform === "facebook" ? "page" : "instagram",
       entry: [{
         id: igUserId,
         messaging: [{
@@ -122,7 +233,7 @@ Deno.serve(async (req) => {
       }],
     };
 
-    console.log(`[zernio-webhook] Forwarding to instagram-webhook (sender: ${senderId}, name: ${senderName})`);
+    console.log(`[zernio-webhook] Forwarding ${platform} DM to instagram-webhook (sender: ${senderId}, name: ${senderName})`);
     const forwardUrl = `${url.origin}/functions/v1/instagram-webhook?project=${projectId}`;
     const forwardRes = await fetch(forwardUrl, {
       method: "POST",
@@ -132,31 +243,27 @@ Deno.serve(async (req) => {
 
     if (!forwardRes.ok) {
       const errText = await forwardRes.text();
-      console.error(`[zernio-webhook] Falha ao encaminhar: ${errText}`);
+      console.error(`[zernio-webhook] Falha ao encaminhar DM: ${errText}`);
       return new Response(`Error forwarding: ${errText}`, { status: 500 });
     }
 
-    // Atualiza a conversa com o ig_thread_id do Zernio + enriquece perfil do lead
+    // Salva/Atualiza perfil diretamente no imphq_ig_conversations para evitar perda de avatar e nome
     let convQuery = supa
       .from("imphq_ig_conversations")
-      .select("id, ig_thread_id, participant_username, participant_name");
-    
-    if (dbAccId) {
-      convQuery = convQuery.eq("account_id", dbAccId);
+      .select("id, ig_thread_id, participant_username, participant_name, participant_avatar");
+
+    if (dbAcc?.id) {
+      convQuery = convQuery.eq("account_id", dbAcc.id);
     }
-    
+
     const { data: conv } = await convQuery
       .eq("participant_id", senderId)
       .maybeSingle();
 
     if (conv) {
-      const updates: any = {};
-
-      // Sempre atualiza ig_thread_id se mudou
+      const updates: any = { platform };
       if (conv.ig_thread_id !== conversationId) updates.ig_thread_id = conversationId;
-
-      // Atualiza perfil apenas se veio dado melhor que o atual
-      if (senderName && senderName !== "Lead Instagram" && (!conv.participant_name || conv.participant_name.startsWith("Lead #"))) {
+      if (senderName && senderName !== "Lead Instagram" && senderName !== "Lead Facebook" && (!conv.participant_name || conv.participant_name.startsWith("Lead #"))) {
         updates.participant_name = senderName;
       }
       if (senderUsername && (!conv.participant_username || conv.participant_username.startsWith("user_"))) {
@@ -164,18 +271,9 @@ Deno.serve(async (req) => {
       }
       if (senderAvatar) updates.participant_avatar = senderAvatar;
 
-      // Salva dados do Instagram profile se disponíveis
-      if (isFollower !== null || followerCount !== null) {
-        updates.ig_profile_data = { isFollower, isFollowing, followerCount, isVerified, updatedAt: new Date().toISOString() };
-      }
-
-      if (Object.keys(updates).length > 0) {
-        updates.updated_at = new Date().toISOString();
-        await supa.from("imphq_ig_conversations").update(updates).eq("id", conv.id);
-        console.log(`[zernio-webhook] Perfil atualizado para ${senderId}:`, Object.keys(updates));
-      }
-    } else {
-      console.warn(`[zernio-webhook] Conversa nao encontrada para: ${senderId}`);
+      updates.updated_at = new Date().toISOString();
+      await supa.from("imphq_ig_conversations").update(updates).eq("id", conv.id);
+      console.log(`[zernio-webhook] Perfil atualizado para ${senderId} (${platform}):`, Object.keys(updates));
     }
 
     if (logEntry) {
@@ -185,13 +283,6 @@ Deno.serve(async (req) => {
     return new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } });
   } catch (err: any) {
     console.error("[zernio-webhook] Error processing webhook:", err);
-    // Write error to log row if it exists
-    try {
-      const supaForErr = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      await supaForErr.from("imphq_ig_webhook_logs").update({ error: err.message || "Internal Error" }).filter("payload->>id", "eq", payload?.id || "");
-    } catch (dbErr: any) {
-      console.error("[zernio-webhook] Error updating error log in DB:", dbErr.message);
-    }
     return new Response(err.message || "Internal Error", { status: 500 });
   }
 });

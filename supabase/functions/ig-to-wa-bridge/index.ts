@@ -1,4 +1,4 @@
-// ig-to-wa-bridge — When an IG lead reaches "quente" stage, create a WA lead + trigger OpenFlow
+// ig-to-wa-bridge — Bridges hot leads from Instagram & Facebook to WA CRM + triggers OpenFlow
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
 const corsHeaders = {
@@ -22,25 +22,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Load IG conversation
+    // Load social conversation
     const { data: igConv } = await supabase
       .from("imphq_ig_conversations")
-      .select("participant_id, participant_username, participant_name, participant_phone, triage_fit_score")
+      .select("id, participant_id, participant_username, participant_name, participant_phone, triage_fit_score, platform")
       .eq("id", ig_conversation_id)
       .maybeSingle();
 
     if (!igConv) {
-      return new Response(JSON.stringify({ error: "Conversa IG não encontrada" }), {
+      return new Response(JSON.stringify({ error: "Conversa social não encontrada" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const nome = igConv.participant_name || igConv.participant_username || "Lead Instagram";
+    const isFacebook = igConv.platform === "facebook";
+    const defaultName = isFacebook ? "Lead Facebook" : "Lead Instagram";
+    const nome = igConv.participant_name || igConv.participant_username || defaultName;
     const phone = igConv.participant_phone || null;
     const igUsername = igConv.participant_username || igConv.participant_id;
+    const channelTag = isFacebook ? "📘 Facebook" : "📸 Instagram";
+
+    // Fetch recent messages for omnichannel conversation context
+    const { data: recentMsgs } = await supabase
+      .from("imphq_ig_messages")
+      .select("direction, content, created_at")
+      .eq("conversation_id", ig_conversation_id)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    const contextSummary = (recentMsgs || [])
+      .reverse()
+      .filter((m: any) => m.content)
+      .map((m: any) => `${m.direction === "in" ? "Lead" : "Atendente"}: ${m.content}`)
+      .join("\n");
 
     // Upsert lead into imphq_leads
-    const leadId = `ig_${igConv.participant_id}`;
+    const leadId = `${isFacebook ? "fb" : "ig"}_${igConv.participant_id}`;
     const { data: existingLead } = await supabase
       .from("imphq_leads")
       .select("id, tags")
@@ -48,7 +65,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const baseTags = existingLead?.tags || [];
-    const newTags = [...new Set([...baseTags, "📸 Instagram", "🔥 Hot Lead"])];
+    const newTags = [...new Set([...baseTags, channelTag, "🔥 Hot Lead"])];
 
     await supabase.from("imphq_leads").upsert({
       id: leadId,
@@ -58,15 +75,20 @@ Deno.serve(async (req) => {
       score: Math.max(igConv.triage_fit_score || 70, 70),
       status: "quente",
       tags: newTags,
-      data: { origem: "instagram", ig_username: igUsername, ig_conversation_id },
+      data: {
+        origem: igConv.platform || "instagram",
+        ig_username: igUsername,
+        ig_conversation_id,
+        contexto_origem: contextSummary,
+      },
       updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
 
-    console.log(`[ig-to-wa-bridge] Upserted lead ${leadId} (${nome}) from IG conversation ${ig_conversation_id}`);
+    console.log(`[ig-to-wa-bridge] Upserted lead ${leadId} (${nome}) from ${igConv.platform || "instagram"} conv ${ig_conversation_id}`);
 
     // Tag history
     await supabase.from("imphq_lead_tag_history").insert([
-      { lead_id: leadId, project_id, tag: "📸 Instagram", action: "added", source: "ig_to_wa_bridge" },
+      { lead_id: leadId, project_id, tag: channelTag, action: "added", source: "ig_to_wa_bridge" },
       { lead_id: leadId, project_id, tag: "🔥 Hot Lead", action: "added", source: "ig_to_wa_bridge" },
     ]).catch(() => {});
 
@@ -90,6 +112,8 @@ Deno.serve(async (req) => {
               phone,
               email: "",
               tags: newTags,
+              origem: igConv.platform || "instagram",
+              contexto_origem: contextSummary,
             },
           }),
         });

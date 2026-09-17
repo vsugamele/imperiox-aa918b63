@@ -58,6 +58,25 @@ async function getEmbedding(text: string): Promise<number[]> {
   throw new Error("No embedding provider available");
 }
 
+function extractBrazilianPhone(text: string): string | null {
+  if (!text) return null;
+  const match = text.match(/(?:(?:\+|00)?55\s?)?(?:\(?([1-9]{2})\)?\s?)(?:(9\s?)?([0-9]{4})[\s.-]?([0-9]{4}))/);
+  if (match) {
+    const ddd = match[1];
+    const hasNine = !!match[2];
+    const part1 = match[3];
+    const part2 = match[4];
+    if (ddd && part1 && part2) {
+      let num = `${part1}${part2}`;
+      if (num.length === 8 && (hasNine || ["6", "7", "8", "9"].includes(num[0]))) {
+        num = `9${num}`;
+      }
+      return `55${ddd}${num}`;
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -190,6 +209,42 @@ Deno.serve(async (req) => {
             mid: messaging.message.mid,
             status: "received",
           });
+
+          // Auto-detect Brazilian phone number and auto-bridge to WhatsApp CRM & OpenFlow!
+          if (isInbound && content) {
+            const detectedPhone = extractBrazilianPhone(content);
+            if (detectedPhone) {
+              console.log(`[ig-webhook] Brazilian phone detected from ${conv.participant_username || conv.id}: ${detectedPhone}`);
+              await supa
+                .from("imphq_ig_conversations")
+                .update({ participant_phone: detectedPhone, updated_at: new Date().toISOString() })
+                .eq("id", conv.id);
+
+              // Auto-trigger ig-to-wa-bridge in background
+              (async () => {
+                try {
+                  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+                  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+                  const bridgeRes = await fetch(`${supabaseUrl}/functions/v1/ig-to-wa-bridge`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${serviceRoleKey}`,
+                    },
+                    body: JSON.stringify({
+                      ig_conversation_id: conv.id,
+                      project_id: account.project_id,
+                      trigger_tipo: "lead_novo",
+                    }),
+                  });
+                  const bridgeData = await bridgeRes.json().catch(() => null);
+                  console.log(`[ig-webhook] ig-to-wa-bridge auto-trigger result:`, bridgeData);
+                } catch (bErr: any) {
+                  console.warn(`[ig-webhook] Error auto-triggering ig-to-wa-bridge:`, bErr?.message);
+                }
+              })();
+            }
+          }
 
           // AI Direct Message Autoresponder!
           const isStoryMentionMsg = messaging.message?.attachments?.[0]?.type === "story_mention";
@@ -679,6 +734,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                           action: "reply_comment",
                           project_id: account.project_id,
                           comment_id: commentId,
+                          post_id: v.media?.id,
                           message: replyText
                         }
                       });
@@ -692,6 +748,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                           action: "private_reply",
                           project_id: account.project_id,
                           comment_id: commentId,
+                          post_id: v.media?.id,
                           message: dmText
                         }
                       });
@@ -926,6 +983,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                               action: "reply_comment",
                               project_id: account.project_id,
                               comment_id: commentId,
+                              post_id: v.media?.id,
                               message: aiReply,
                             },
                           });
@@ -946,6 +1004,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                               action: "private_reply",
                               project_id: account.project_id,
                               comment_id: commentId,
+                              post_id: v.media?.id,
                               message: customDmText,
                             },
                           });
@@ -959,6 +1018,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                                 action: "private_reply",
                                 project_id: account.project_id,
                                 comment_id: commentId,
+                                post_id: v.media?.id,
                                 message: customDmText,
                               },
                             });

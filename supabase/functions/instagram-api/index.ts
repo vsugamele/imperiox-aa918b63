@@ -352,9 +352,49 @@ Deno.serve(async (req) => {
 
     // ============ REPLY_COMMENT ============
     if (action === "reply_comment") {
-      const { project_id, comment_id, message } = body;
+      const { project_id, comment_id, message, post_id } = body;
       if (!project_id || !comment_id || !message) return json({ error: "Faltam campos" }, 400);
       const creds = await getCreds(supa, project_id);
+      if (!creds) return json({ error: "Credenciais não encontradas" }, 404);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) {
+          return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        }
+        const targetPostId = post_id || "post";
+        let zRes = await fetch(`https://zernio.com/api/v1/inbox/comments/${targetPostId}/${comment_id}/reply`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${creds.zernio_api_key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            accountId: creds.zernio_account_id,
+            message,
+          }),
+        });
+        if (!zRes.ok) {
+          zRes = await fetch(`https://zernio.com/api/v1/inbox/comments`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${creds.zernio_api_key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              accountId: creds.zernio_account_id,
+              commentId: comment_id,
+              message,
+            }),
+          });
+        }
+        if (!zRes.ok) {
+          const errBody = await zRes.text();
+          return json({ error: `Zernio reply error (${zRes.status}): ${errBody}` }, 400);
+        }
+        await supa.from("imphq_ig_comments").update({ replied: true, reply_text: message }).eq("comment_id", comment_id);
+        return json({ success: true });
+      }
+
       if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
       const r = await fetch(`${GRAPH}/${comment_id}/replies`, {
         method: "POST",
@@ -369,9 +409,31 @@ Deno.serve(async (req) => {
 
     // ============ HIDE/UNHIDE_COMMENT ============
     if (action === "hide_comment" || action === "unhide_comment") {
-      const { project_id, comment_id } = body;
+      const { project_id, comment_id, post_id } = body;
       const hide = action === "hide_comment";
       const creds = await getCreds(supa, project_id);
+      if (!creds) return json({ error: "Credenciais não encontradas" }, 404);
+
+      if (creds.auth_method === "zernio") {
+        if (!creds.zernio_api_key || !creds.zernio_account_id) {
+          return json({ error: "Credenciais do Zernio incompletas" }, 400);
+        }
+        const targetPostId = post_id || "post";
+        const endpoint = hide
+          ? `https://zernio.com/api/v1/inbox/comments/${targetPostId}/${comment_id}/hide`
+          : `https://zernio.com/api/v1/inbox/comments/${targetPostId}/${comment_id}/unhide`;
+        await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${creds.zernio_api_key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ accountId: creds.zernio_account_id }),
+        });
+        await supa.from("imphq_ig_comments").update({ is_hidden: hide }).eq("comment_id", comment_id);
+        return json({ success: true });
+      }
+
       if (!creds?.page_access_token) return json({ error: "Conta IG não conectada" }, 404);
       const r = await fetch(`${GRAPH}/${comment_id}?hide=${hide}&access_token=${creds.page_access_token}`, { method: "POST" });
       const data = await r.json();
@@ -407,14 +469,14 @@ Deno.serve(async (req) => {
 
         const { data: commentData } = await supa
           .from("imphq_ig_comments")
-          .select("username")
+          .select("from_username")
           .eq("comment_id", comment_id)
           .maybeSingle();
 
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
           .select("id, ig_thread_id, participant_id")
-          .eq("participant_username", commentData?.username)
+          .eq("participant_username", commentData?.from_username)
           .maybeSingle();
 
         const threadId = conv?.ig_thread_id || conv?.participant_id;
